@@ -24,3 +24,34 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* DARK MODE */
+
+.dark-mode {
+  background-color: #111827 !important;
+  color: white !important;
+}
+
+.dark-mode .card {
+  background: #1f2937 !important;
+  color: white !important;
+}
+
+.dark-mode .bg-white {
+  background: #1f2937 !important;
+  color: white !important;
+}
+
+.dark-mode .dropdown-menu {
+  background: #1f2937 !important;
+  color: white !important;
+}
+
+.dark-mode .dropdown-item {
+  color: white !important;
+}
+
+.dark-mode .border-bottom {
+  border-color: #374151 !important;
+}

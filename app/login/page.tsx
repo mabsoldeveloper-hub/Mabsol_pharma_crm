@@ -52,7 +52,7 @@ export default function LoginPage() {
               </div>
 
               <h3 className="mt-3">
-                Mabsol CRM
+              Mabsol Pharma CRM
               </h3>
 
               <p className="text-muted">

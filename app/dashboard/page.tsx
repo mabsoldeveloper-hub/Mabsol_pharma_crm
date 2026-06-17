@@ -2,12 +2,19 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
 
-import LogoutButton from "@/components/LogoutButton";
+import DashboardLayout from "@/components/DashboardLayout";
+
+import DashboardCards from "@/components/DashboardCards";
+import RevenueChart from "@/components/RevenueChart";
+import QuickActions from "@/components/QuickActions";
+import RecentActivity from "@/components/RecentActivity";
 
 export default async function DashboardPage() {
+
   const cookieStore = await cookies();
 
-  const token = cookieStore.get("token")?.value;
+  const token =
+    cookieStore.get("token")?.value;
 
   if (!token) {
     redirect("/login");
@@ -23,12 +30,30 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div>
-      <h1>Dashboard</h1>
+    <DashboardLayout>
 
-      <h3>Welcome Company Admin</h3>
+      <DashboardCards />
 
-      <LogoutButton />
-    </div>
+      <div className="row mt-4">
+
+        <div className="col-lg-8">
+          <RevenueChart />
+        </div>
+
+        <div className="col-lg-4">
+          <QuickActions />
+        </div>
+
+      </div>
+
+      <div className="row mt-4">
+
+        <div className="col-lg-12">
+          <RecentActivity />
+        </div>
+
+      </div>
+
+    </DashboardLayout>
   );
 }
