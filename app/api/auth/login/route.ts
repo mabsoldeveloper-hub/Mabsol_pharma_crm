@@ -68,12 +68,18 @@ export async function POST(req: Request) {
 
     return response;
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("LOGIN ERROR:", error);
 
-    return NextResponse.json({
-      success: false,
-      message: error.message,
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Login failed",
+      },
+      { status: 500 }
+    );
   }
 }

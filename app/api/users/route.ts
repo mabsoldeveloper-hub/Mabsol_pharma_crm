@@ -18,8 +18,7 @@ export async function GET() {
       success: true,
       users,
     });
-
-  } catch (error) {
+  } catch {
     return NextResponse.json({
       success: false,
       message:

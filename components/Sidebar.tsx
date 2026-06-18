@@ -7,13 +7,17 @@ import {
     FaUserTie,
     FaCog,
     FaAddressBook,
+    FaDatabase,
   } from "react-icons/fa";
 
 export default function Sidebar({
   collapsed,
-  setCollapsed,
   mobile,
-}: any) {
+}: {
+  collapsed: boolean;
+  setCollapsed: (value: boolean) => void;
+  mobile: boolean;
+}) {
   return (
     <div
       className="bg-dark text-white"
@@ -123,10 +127,10 @@ export default function Sidebar({
 
 <li className="nav-item mb-3">
   <Link
-    href="#"
+    href="/dashboard/vfp"
     className="nav-link text-white d-flex align-items-center"
   >
-    <FaCog />
+    <FaDatabase />
 
     {!collapsed && (
       <span className="ms-3">

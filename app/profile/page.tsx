@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function ProfilePage() {
     return (
       <div className="container-fluid">
@@ -8,10 +10,11 @@ export default function ProfilePage() {
   
             <div className="text-center">
   
-              <img
-                src="/avatar.png"
+              <Image
+                src="/mabsol_logo.ico"
                 alt="profile"
-                width="120"
+                width={120}
+                height={120}
                 className="rounded-circle border"
               />
   

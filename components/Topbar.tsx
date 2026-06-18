@@ -7,7 +7,7 @@ import {
   Sun,
   PersonCircle,
 } from "react-bootstrap-icons";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import LogoutButton from "./LogoutButton";
 
@@ -15,19 +15,28 @@ export default function Topbar({
   collapsed,
   setCollapsed,
   mobile,
-}: any) {
+}: {
+  collapsed: boolean;
+  setCollapsed: (value: boolean) => void;
+  mobile: boolean;
+}) {
 
   const [darkMode, setDarkMode] =
-    useState(false);
+    useState(
+      () =>
+        typeof window !== "undefined" &&
+        localStorage.getItem("theme") === "dark"
+    );
 
     useEffect(() => {
-        const theme = localStorage.getItem("theme");
-      
-        if (theme === "dark") {
+        if (darkMode) {
           document.body.classList.add("dark-mode");
-          setDarkMode(true);
+          localStorage.setItem("theme", "dark");
+        } else {
+          document.body.classList.remove("dark-mode");
+          localStorage.setItem("theme", "light");
         }
-      }, []);
+      }, [darkMode]);
 
   return (
     <div
@@ -76,29 +85,6 @@ export default function Topbar({
             const newMode = !darkMode;
           
             setDarkMode(newMode);
-          
-            if (newMode) {
-              document.body.classList.add(
-                "dark-mode"
-              );
-          
-              localStorage.setItem(
-                "theme",
-                "dark"
-              );
-          
-            } else {
-          
-              document.body.classList.remove(
-                "dark-mode"
-              );
-          
-              localStorage.setItem(
-                "theme",
-                "light"
-              );
-            }
-          
           }}
         >
           {darkMode ? (
