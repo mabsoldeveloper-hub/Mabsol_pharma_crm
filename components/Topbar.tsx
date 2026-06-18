@@ -38,6 +38,16 @@ export default function Topbar({
         }
       }, [darkMode]);
 
+
+      const [company, setCompany] = useState<any>(null);
+
+useEffect(() => {
+  fetch("/api/company")
+    .then((res) => res.json())
+    .then((data) => setCompany(data));
+}, []);
+
+
   return (
     <div
       className="bg-white border-bottom px-3 py-3 d-flex justify-content-between align-items-center shadow-sm"
@@ -67,7 +77,7 @@ export default function Topbar({
               color: "#0f172a",
             }}
           >
-            
+            {company?.companyName}
           </h5>
         )}
       </div>
@@ -169,20 +179,20 @@ export default function Topbar({
 
             <li>
             <a
-  className="dropdown-item"
-  href="/profile"
->
-  My Profile
-</a>
+              className="dropdown-item"
+              href="/dashboard/profile"
+            >
+              My Profile
+            </a>
             </li>
 
             <li>
               <a
                 className="dropdown-item"
-                href="/settings"
+                href="/dashboard/settings"
               >
                 Settings
-              </a>
+              </a>  
             </li>
 
             <li>

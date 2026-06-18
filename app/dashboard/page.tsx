@@ -30,30 +30,12 @@ export default async function DashboardPage() {
   }
 
   return (
-    <DashboardLayout>
+    
 
       <DashboardCards />
 
-      <div className="row mt-4">
+      
 
-        <div className="col-lg-8">
-          <RevenueChart />
-        </div>
-
-        <div className="col-lg-4">
-          <QuickActions />
-        </div>
-
-      </div>
-
-      <div className="row mt-4">
-
-        <div className="col-lg-12">
-          <RecentActivity />
-        </div>
-
-      </div>
-
-    </DashboardLayout>
+    
   );
 }

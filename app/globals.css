@@ -438,52 +438,17 @@ body {
   border-color: #374151 !important;
 }
 
-.dark-mode .vfp-page {
-  color: #f8fafc;
+
+.nav-link {
+  transition: all 0.3s ease;
 }
 
-.dark-mode .vfp-hero,
-.dark-mode .vfp-hero-side,
-.dark-mode .vfp-stat,
-.dark-mode .vfp-info-panel,
-.dark-mode .vfp-section,
-.dark-mode .vfp-data-summary {
-  background: #1f2937;
-  border-color: #374151;
-  color: #f8fafc;
+.nav-link:hover {
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
 }
 
-.dark-mode .vfp-hero-main p,
-.dark-mode .vfp-section-header p,
-.dark-mode .vfp-hero-meta,
-.dark-mode .vfp-stat-hint,
-.dark-mode .vfp-file-meta,
-.dark-mode .vfp-log-message,
-.dark-mode .vfp-log-side,
-.dark-mode .vfp-action-message,
-.dark-mode .vfp-empty {
-  color: #cbd5e1;
-}
-
-.dark-mode .vfp-path,
-.dark-mode .vfp-table thead th,
-.dark-mode .vfp-type-chip {
-  background: #111827;
-  border-color: #374151;
-  color: #e5e7eb;
-}
-
-.dark-mode .vfp-table td {
-  color: #f8fafc;
-}
-
-.dark-mode .vfp-table tbody tr,
-.dark-mode .vfp-section-header,
-.dark-mode .vfp-log-item {
-  border-color: #374151;
-}
-
-.dark-mode .vfp-stat-icon {
-  background: #134e4a;
-  color: #ccfbf1;
+.sidebar-active {
+  background: #2563eb;
+  border-radius: 8px;
 }
