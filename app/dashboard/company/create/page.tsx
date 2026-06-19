@@ -4,6 +4,7 @@ import { useState } from "react";
 
 export default function CreateCompanyPage() {
   const [loading, setLoading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState("/logo.png");
 
   const [form, setForm] = useState({
     companyCode: "",
@@ -13,18 +14,25 @@ export default function CreateCompanyPage() {
     mobile: "",
     gstNo: "",
     panNo: "",
+    drugLicenseNo: "",
+    website: "",
     address: "",
     city: "",
     state: "",
     pincode: "",
+    invoicePrefix: "INV-001",
+    purchasePrefix: "PUR-001",
+    currency: "INR",
+    logo: "",
     status: "Active",
   });
+
 
   const saveCompany = async () => {
     try {
       setLoading(true);
 
-      const res = await fetch("/api/company", {
+      const res = await fetch("/api/company-master", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -37,20 +45,26 @@ export default function CreateCompanyPage() {
       }
 
       alert("Company Created Successfully");
-
+     
       setForm({
-        companyCode: "",
-        companyName: "",
-        ownerName: "",
-        email: "",
-        mobile: "",
-        gstNo: "",
-        panNo: "",
-        address: "",
-        city: "",
-        state: "",
-        pincode: "",
-        status: "Active",
+      companyCode: "",
+      companyName: "",
+      ownerName: "",
+      email: "",
+      mobile: "",
+      gstNo: "",
+      panNo: "",
+      drugLicenseNo: "",
+      website: "",
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      invoicePrefix: "INV-001",
+      purchasePrefix: "PUR-001",
+      currency: "INR",
+      logo: "",
+      status: "Active",
       });
     } catch (error) {
       alert("Error Creating Company");
@@ -62,6 +76,22 @@ export default function CreateCompanyPage() {
   return (
     <div className="card shadow border-0">
       <div className="card-body">
+      <div className="col-md-12 text-center flex justify-center">
+
+<img
+  src={logoPreview}
+  alt="logo"
+  width="120"
+  height="120"
+  style={{
+    objectFit: "contain",
+    border: "1px solid #ddd",
+    borderRadius: "10px",
+    padding: "10px",
+  }}
+/>
+
+</div>
 
         <h3>Create Company</h3>
 
@@ -83,7 +113,7 @@ export default function CreateCompanyPage() {
             />
           </div>
 
-          <div className="col-md-8">
+          <div className="col-md-4">
             <label>Company Name</label>
             <input
               className="form-control"
@@ -97,7 +127,7 @@ export default function CreateCompanyPage() {
             />
           </div>
 
-          <div className="col-md-6">
+          <div className="col-md-4">
             <label>Owner Name</label>
             <input
               className="form-control"
@@ -112,7 +142,23 @@ export default function CreateCompanyPage() {
           </div>
 
           <div className="col-md-6">
-            <label>Email</label>
+            <label>Company Website</label>
+            <input
+              className="form-control"
+              value={form.website}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  website: e.target.value,
+                })
+              }
+            />
+          </div>
+
+          
+
+          <div className="col-md-6">
+            <label>Company Email</label>
             <input
               className="form-control"
               value={form.email}
@@ -126,7 +172,7 @@ export default function CreateCompanyPage() {
           </div>
 
           <div className="col-md-6">
-            <label>Mobile</label>
+            <label>Company Phone</label>
             <input
               className="form-control"
               value={form.mobile}
@@ -162,6 +208,19 @@ export default function CreateCompanyPage() {
                 setForm({
                   ...form,
                   panNo: e.target.value,
+                })
+              }
+            />
+          </div>
+          <div className="col-md-6">
+            <label>Drug License No</label>
+            <input
+              className="form-control"
+              value={form.drugLicenseNo}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  drugLicenseNo: e.target.value,
                 })
               }
             />
@@ -223,6 +282,88 @@ export default function CreateCompanyPage() {
               }
             />
           </div>
+          <div className="col-md-4">
+  <label>Invoice Prefix</label>
+  <input
+    className="form-control"
+    value={form.invoicePrefix}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        invoicePrefix: e.target.value,
+      })
+    }
+  />
+</div>
+
+<div className="col-md-4">
+  <label>Purchase Prefix</label>
+  <input
+    className="form-control"
+    value={form.purchasePrefix}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        purchasePrefix: e.target.value,
+      })
+    }
+  />
+</div>
+
+<div className="col-md-4">
+  <label>Currency</label>
+
+  <select
+    className="form-control"
+    value={form.currency}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        currency: e.target.value,
+      })
+    }
+  >
+    <option value="INR">INR</option>
+    <option value="USD">USD</option>
+    <option value="AED">AED</option>
+  </select>
+</div>
+
+
+
+
+<div className="col-md-4">
+
+  <label>Upload Logo</label>
+
+  <input
+    type="file"
+    className="form-control"
+    onChange={(e) => {
+
+      const file =
+        e.target.files?.[0];
+
+      if (file) {
+
+        const imageUrl =
+          URL.createObjectURL(file);
+
+        setLogoPreview(imageUrl);
+
+        setForm({
+          ...form,
+          logo: imageUrl,
+        });
+      }
+    }}
+  />
+
+  <small className="text-muted">
+    PNG, JPG, JPEG (Max 2MB)
+  </small>
+
+</div>
 
         </div>
 

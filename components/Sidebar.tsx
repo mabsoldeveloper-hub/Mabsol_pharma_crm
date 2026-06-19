@@ -33,6 +33,7 @@ export default function Sidebar({
   const [salesOpen, setSalesOpen] = useState(false);
   const pathname = usePathname();
 
+  const [customerOpen, setCustomerOpen] =useState(false);
   // Comapny Master 
   const [companyOpen, setCompanyOpen] =useState(false);
   // financial yea master
@@ -41,7 +42,7 @@ export default function Sidebar({
   
   const [company, setCompany] = useState<any>(null);
   useEffect(() => {
-    fetch("/api/company")
+    fetch("/api/company-master")
       .then((res) => res.json())
       .then((data) => setCompany(data));
   }, []);
@@ -342,7 +343,7 @@ export default function Sidebar({
 <button
   className="btn text-white w-100 d-flex align-items-center justify-content-between"
   onClick={() =>
-    setCompanyOpen(!companyOpen)
+    setCustomerOpen(!customerOpen)
   }
 >
   <span className="d-flex align-items-center">
@@ -356,20 +357,20 @@ export default function Sidebar({
   </span>
 
   {!collapsed &&
-    (companyOpen ? (
+    (customerOpen ? (
       <FaChevronDown />
     ) : (
       <FaChevronRight />
     ))}
 </button>
 
-{companyOpen && !collapsed && (
+{customerOpen && !collapsed && (
 
   <ul className="nav flex-column ms-4">
 
     <li>
       <Link
-        href="/dashboard/company/list"
+        href="/dashboard/customers/list"
         className="nav-link text-white"
       >
         List Costomers
@@ -422,14 +423,6 @@ export default function Sidebar({
         </Link>
       </li>
 
-      <li>
-        <Link
-          href="/dashboard/company"
-          className="nav-link text-white"
-        >
-         Edit Company 
-        </Link>
-      </li>
 
       <li>
         <Link
@@ -492,10 +485,10 @@ export default function Sidebar({
 
       <li>
         <Link
-          href="/dashboard/financial-year/switch"
+          href="/dashboard/financial-year/list"
           className="nav-link text-white"
         >
-          Switch FY
+          List FY
         </Link>
       </li>
 
@@ -550,19 +543,19 @@ export default function Sidebar({
 </ul>
 
 
-{!collapsed && (
-  <div
-    className="position-absolute bottom-0 start-0 w-100 p-3 border-top"
-  >
-    <small className="text-secondary">
-      Logged in as
-    </small>
+    {!collapsed && (
+      <div
+        className="position-absolute bottom-0 start-0 w-100 p-3 border-top"
+      >
+        <small className="text-secondary">
+          Logged in as
+        </small>
 
-    <div className="fw-bold">
-      Company Admin
-    </div>
-  </div>
-)}
+        <div className="fw-bold">
+          Company Admin
+        </div>
+      </div>
+    )}
 
 
       </div>

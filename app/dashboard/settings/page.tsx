@@ -33,7 +33,7 @@ export default function SettingsPage() {
   const loadCompany = async () => {
     try {
 
-      const res = await fetch("/api/company");
+      const res = await fetch("/api/company-settings");
 
       const data = await res.json();
 
@@ -74,7 +74,7 @@ export default function SettingsPage() {
       setLoading(true);
 
       const res = await fetch(
-        "/api/company",
+        "/api/company-settings",
         {
           method: "POST",
           headers: {

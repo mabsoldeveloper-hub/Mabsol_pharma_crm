@@ -1,76 +1,143 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
-export default function ListCompany() {
+export default function CompanyListPage() {
 
   const [companies, setCompanies] =
-    useState([]);
+    useState<any[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const loadCompanies = async () => {
 
-  const loadData = async () => {
+    const res = await fetch(
+      "/api/company-master"
+    );
 
-    const res =
-      await fetch(
-        "/api/company-master"
-      );
-
-    const data =
-      await res.json();
+    const data = await res.json();
 
     setCompanies(data);
   };
 
+  useEffect(() => {
+    loadCompanies();
+  }, []);
+
+  const deleteCompany = async (
+    id: string
+  ) => {
+
+    if (
+      !confirm(
+        "Delete this company?"
+      )
+    ) {
+      return;
+    }
+
+    await fetch(
+      `/api/company-master/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    loadCompanies();
+  };
+
   return (
-    <div className="card shadow">
+    <div className="card shadow border-0">
 
       <div className="card-body">
 
-        <h3>Company List</h3>
+        <div className="d-flex justify-content-between mb-3">
 
-        <table className="table">
+          <h3>
+            Company List
+          </h3>
+
+          <Link
+            href="/dashboard/company/create"
+            className="btn btn-primary"
+          >
+            Add Company
+          </Link>
+
+        </div>
+
+        <table className="table table-bordered">
 
           <thead>
+
             <tr>
               <th>Code</th>
-              <th>Name</th>
+              <th>Company</th>
               <th>Owner</th>
               <th>Email</th>
+              <th>Mobile</th>
               <th>Status</th>
+              <th width="180">
+                Action
+              </th>
             </tr>
+
           </thead>
 
           <tbody>
 
-            {companies.map(
-              (row: any) => (
+            {companies.map((row) => (
 
-                <tr key={row._id}>
-                  <td>
-                    {row.companyCode}
-                  </td>
+              <tr key={row._id}>
 
-                  <td>
-                    {row.companyName}
-                  </td>
+                <td>
+                  {row.companyCode}
+                </td>
 
-                  <td>
-                    {row.ownerName}
-                  </td>
+                <td>
+                  {row.companyName}
+                </td>
 
-                  <td>
-                    {row.email}
-                  </td>
+                <td>
+                  {row.ownerName}
+                </td>
 
-                  <td>
-                    {row.status}
-                  </td>
-                </tr>
-              )
-            )}
+                <td>
+                  {row.email}
+                </td>
+
+                <td>
+                  {row.mobile}
+                </td>
+
+                <td>
+                  {row.status}
+                </td>
+
+                <td>
+
+                  <Link
+                    href={`/dashboard/company/edit/${row._id}`}
+                    className="btn btn-warning btn-sm me-2"
+                  >
+                    Edit
+                  </Link>
+
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() =>
+                      deleteCompany(
+                        row._id
+                      )
+                    }
+                  >
+                    Delete
+                  </button>
+
+                </td>
+
+              </tr>
+
+            ))}
 
           </tbody>
 

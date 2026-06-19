@@ -2,51 +2,87 @@ import mongoose from "mongoose";
 
 const CompanySchema = new mongoose.Schema(
   {
-    // tenantId: {
-    //   type: String,
-    //   default: "TENANT001",
-    // },
-
     tenantId: {
       type: String,
       required: true,
+      default: "TENANT001",
     },
-    
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    
-    status: {
+
+    companyCode: {
       type: String,
-      default: "Active",
+      required: true,
+      trim: true,
     },
 
-    companyName: String,
-    ownerName: String,
+    companyName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    email: String,
-    mobile: String,
+    ownerName: {
+      type: String,
+      default: "",
+    },
 
-    website: String,
+    email: {
+      type: String,
+      default: "",
+    },
 
-    gstNo: String,
-    panNo: String,
-    drugLicenseNo: String,
+    mobile: {
+      type: String,
+      default: "",
+    },
 
-    address: String,
-    city: String,
-    state: String,
-    pincode: String,
+    website: {
+      type: String,
+      default: "",
+    },
+
+    gstNo: {
+      type: String,
+      default: "",
+    },
+
+    panNo: {
+      type: String,
+      default: "",
+    },
+
+    drugLicenseNo: {
+      type: String,
+      default: "",
+    },
+
+    address: {
+      type: String,
+      default: "",
+    },
+
+    city: {
+      type: String,
+      default: "",
+    },
+
+    state: {
+      type: String,
+      default: "",
+    },
+
+    pincode: {
+      type: String,
+      default: "",
+    },
 
     invoicePrefix: {
       type: String,
-      default: "INV",
+      default: "INV-001",
     },
 
     purchasePrefix: {
       type: String,
-      default: "PUR",
+      default: "PUR-001",
     },
 
     currency: {
@@ -54,7 +90,26 @@ const CompanySchema = new mongoose.Schema(
       default: "INR",
     },
 
-    logo: String,
+    logo: {
+      type: String,
+      default: "",
+    },
+
+    isDefault: {
+      type: Boolean,
+      default: false,
+    },
+
+    status: {
+      type: String,
+      default: "Active",
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -62,4 +117,4 @@ const CompanySchema = new mongoose.Schema(
 );
 
 export default mongoose.models.Company ||
-mongoose.model("Company", CompanySchema);
+  mongoose.model("Company", CompanySchema);
