@@ -11,7 +11,6 @@ import {
   FaFolderOpen,
   FaServer,
 } from "react-icons/fa";
-import DashboardLayout from "@/components/DashboardLayout";
 import VfpSyncActions from "@/components/VfpSyncActions";
 import { getVfpStatus } from "@/lib/vfp/status";
 
@@ -127,9 +126,8 @@ export default async function VfpDashboardPage() {
   const healthLabel = status.workerOnline ? "Live Sync Active" : "Worker Attention Needed";
 
   return (
-    <DashboardLayout>
-      <div className="vfp-page">
-        <section className="vfp-hero">
+    <div className="vfp-page">
+      <section className="vfp-hero">
           <div className="vfp-hero-main">
             <div className="vfp-eyebrow">
               <FaExchangeAlt />
@@ -387,6 +385,5 @@ export default async function VfpDashboardPage() {
           </div>
         </section>
       </div>
-    </DashboardLayout>
   );
 }

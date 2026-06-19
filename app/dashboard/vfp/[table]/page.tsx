@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
 import { FaArrowLeft, FaDatabase, FaLayerGroup, FaTable } from "react-icons/fa";
-import DashboardLayout from "@/components/DashboardLayout";
 import { getVfpTableRows } from "@/lib/vfp/data";
 
 type PageProps = {
@@ -55,9 +54,8 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
 
   if (!data.table) {
     return (
-      <DashboardLayout>
-        <div className="vfp-page">
-          <Link className="btn btn-outline-secondary mb-3" href="/dashboard/vfp">
+      <div className="vfp-page">
+        <Link className="btn btn-outline-secondary mb-3" href="/dashboard/vfp">
             <FaArrowLeft className="me-2" />
             Back to VFP Sync
           </Link>
@@ -66,7 +64,6 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
             rescan.
           </div>
         </div>
-      </DashboardLayout>
     );
   }
 
@@ -81,7 +78,6 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
   const nextPage = Math.min(data.page + 1, Math.max(data.totalPages, 1));
 
   return (
-    <DashboardLayout>
       <div className="vfp-page">
         <div className="vfp-data-toolbar">
           <div>
@@ -203,6 +199,5 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
           </div>
         </div>
       </div>
-    </DashboardLayout>
   );
 }

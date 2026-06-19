@@ -2,8 +2,6 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
 
-import DashboardLayout from "@/components/DashboardLayout";
-
 import DashboardCards from "@/components/DashboardCards";
 import RevenueChart from "@/components/RevenueChart";
 import QuickActions from "@/components/QuickActions";
@@ -12,7 +10,6 @@ import RecentActivity from "@/components/RecentActivity";
 export default async function DashboardPage() {
 
   const cookieStore = await cookies();
-
   const token =
     cookieStore.get("token")?.value;
 
@@ -30,12 +27,6 @@ export default async function DashboardPage() {
   }
 
   return (
-    
-
       <DashboardCards />
-
-      
-
-    
   );
 }
