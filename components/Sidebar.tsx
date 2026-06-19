@@ -9,24 +9,31 @@ import { useState, useEffect } from "react";
 import {
   FaTachometerAlt,
   FaUsers,
-  FaUserTie,
   FaCog,
-  FaAddressBook,
   FaBoxOpen,
   FaShoppingCart,
-  FaFileInvoiceDollar,
   FaChartBar,
   FaChevronDown,
   FaChevronRight,
   FaBuilding,
   FaCalendarAlt,
+  FaDatabase,
 } from "react-icons/fa";
+
+type SidebarProps = {
+  collapsed: boolean;
+  setCollapsed?: (value: boolean) => void;
+  mobile: boolean;
+};
+
+type CompanyBrand = {
+  logo?: string;
+};
 
 export default function Sidebar({
   collapsed,
-  setCollapsed,
   mobile,
-}: any) {
+}: SidebarProps) {
 
   const [crmOpen, setCrmOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
@@ -40,7 +47,7 @@ export default function Sidebar({
   const [fyOpen, setFyOpen] = useState(false);
 
   
-  const [company, setCompany] = useState<any>(null);
+  const [company, setCompany] = useState<CompanyBrand | null>(null);
   useEffect(() => {
     fetch("/api/company-master")
       .then((res) => res.json())
@@ -535,6 +542,26 @@ export default function Sidebar({
       {!collapsed && (
         <span className="ms-3">
          Company Settings
+        </span>
+      )}
+    </Link>
+  </li>
+
+  <li className="nav-item mt-2">
+    <Link
+      href="/dashboard/vfp"
+      title={collapsed ? "VFP Sync" : ""}
+      className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+        pathname.startsWith("/dashboard/vfp")
+          ? "bg-primary text-white"
+          : "text-white"
+      }`}
+    >
+      <FaDatabase />
+
+      {!collapsed && (
+        <span className="ms-3">
+          VFP Sync
         </span>
       )}
     </Link>

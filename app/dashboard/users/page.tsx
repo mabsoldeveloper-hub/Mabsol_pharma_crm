@@ -8,6 +8,13 @@ async function getUsers() {
   
     return res.json();
   }
+
+type UserSummary = {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+};
   
   export default async function UsersPage() {
     const data = await getUsers();
@@ -17,7 +24,7 @@ async function getUsers() {
         <h1>Users List</h1>
   
         {data.users?.map(
-          (user: any) => (
+          (user: UserSummary) => (
             <div
               key={user._id}
               style={{

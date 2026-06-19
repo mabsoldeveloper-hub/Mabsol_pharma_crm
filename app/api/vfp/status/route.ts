@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
-import dbConnect from "@/lib/mongodb";
+import { getVfpStatus } from "@/lib/vfp/status";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    await dbConnect();
+    const status = await getVfpStatus();
 
     return NextResponse.json({
       success: true,
-      message: "Mongoose Connected Successfully",
+      status,
     });
   } catch (error: unknown) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Database connection failed",
+        error: error instanceof Error ? error.message : "Unable to load VFP status",
       },
       { status: 500 }
     );

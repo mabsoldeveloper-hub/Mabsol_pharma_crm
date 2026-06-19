@@ -25,6 +25,388 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.vfp-page {
+  color: #17202a;
+}
+
+.vfp-hero {
+  align-items: stretch;
+  background:
+    linear-gradient(135deg, rgba(14, 116, 144, 0.08), rgba(22, 163, 74, 0.08)),
+    #ffffff;
+  border: 1px solid #d9e4df;
+  border-radius: 8px;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  margin-bottom: 18px;
+  padding: 24px;
+}
+
+.vfp-hero-main h1 {
+  font-size: 30px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.vfp-hero-main p,
+.vfp-section-header p {
+  color: #667085;
+  margin: 0;
+}
+
+.vfp-eyebrow,
+.vfp-section-title {
+  align-items: center;
+  color: #0f766e;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: 0;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.vfp-hero-side {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  padding: 16px;
+}
+
+.vfp-hero-status {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.vfp-hero-meta,
+.vfp-stat-hint,
+.vfp-file-meta,
+.vfp-log-message,
+.vfp-action-message {
+  color: #667085;
+  font-size: 13px;
+}
+
+.vfp-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vfp-alert {
+  align-items: flex-start;
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+}
+
+.vfp-alert-warning {
+  background: #fff8e6;
+  border: 1px solid #f4d38b;
+  color: #7a4d00;
+}
+
+.vfp-alert-danger {
+  background: #fff1f1;
+  border: 1px solid #f4b4b4;
+  color: #8f1d1d;
+}
+
+.vfp-stats-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.vfp-stat,
+.vfp-info-panel,
+.vfp-section {
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+}
+
+.vfp-stat {
+  display: flex;
+  gap: 14px;
+  min-height: 118px;
+  padding: 16px;
+}
+
+.vfp-stat-icon {
+  align-items: center;
+  background: #e7f7f2;
+  border-radius: 8px;
+  color: #0f766e;
+  display: flex;
+  flex: 0 0 42px;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.vfp-stat-label {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.vfp-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.vfp-system-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.2fr 0.8fr 1fr;
+  margin-bottom: 18px;
+}
+
+.vfp-info-panel {
+  padding: 16px;
+}
+
+.vfp-file-types {
+  min-width: 0;
+}
+
+.vfp-path {
+  background: #f7faf9;
+  border: 1px solid #e3e8ef;
+  border-radius: 6px;
+  color: #344054;
+  font-family: Consolas, "Courier New", monospace;
+  overflow-wrap: anywhere;
+  padding: 10px;
+}
+
+.vfp-queue-line {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.vfp-type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vfp-type-chip {
+  background: #f4f7f6;
+  border: 1px solid #dce7e2;
+  border-radius: 999px;
+  color: #344054;
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
+.vfp-section {
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.vfp-section-header {
+  align-items: flex-start;
+  border-bottom: 1px solid #e3e8ef;
+  display: flex;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.vfp-table-wrap {
+  overflow-x: auto;
+}
+
+.vfp-table {
+  min-width: 720px;
+}
+
+.vfp-table thead th {
+  background: #f7faf9;
+  border-bottom-color: #d9e4df;
+  color: #475467;
+  font-size: 12px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.vfp-table td {
+  color: #344054;
+  vertical-align: middle;
+}
+
+.vfp-empty {
+  color: #667085;
+  padding: 22px !important;
+}
+
+.vfp-row-error {
+  color: #b42318;
+  font-size: 12px;
+  margin-top: 4px;
+  max-width: 440px;
+  overflow-wrap: anywhere;
+}
+
+.vfp-file-name {
+  font-weight: 700;
+  max-width: 520px;
+  overflow-wrap: anywhere;
+}
+
+.vfp-two-column {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+}
+
+.vfp-log-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.vfp-log-item {
+  align-items: flex-start;
+  border-bottom: 1px solid #edf1f4;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.vfp-log-item:last-child {
+  border-bottom: 0;
+}
+
+.vfp-log-title {
+  font-weight: 700;
+}
+
+.vfp-log-side {
+  align-items: flex-end;
+  color: #667085;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  font-size: 12px;
+  gap: 6px;
+  text-align: right;
+}
+
+.vfp-pill {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 9px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.vfp-pill-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.vfp-pill-info {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.vfp-pill-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.vfp-pill-danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.vfp-pill-muted {
+  background: #eef2f6;
+  color: #475467;
+}
+
+.vfp-data-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.vfp-data-summary {
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 18px;
+  padding: 16px;
+}
+
+.vfp-data-summary strong {
+  display: block;
+  font-size: 20px;
+}
+
+.vfp-cell {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1199px) {
+  .vfp-stats-grid,
+  .vfp-system-grid,
+  .vfp-two-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vfp-file-types,
+  .vfp-two-column {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .vfp-hero,
+  .vfp-stats-grid,
+  .vfp-system-grid,
+  .vfp-two-column,
+  .vfp-data-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .vfp-hero {
+    padding: 18px;
+  }
+
+  .vfp-data-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 
 /* DARK MODE */
 

@@ -7,7 +7,7 @@ import {
   Sun,
   PersonCircle,
 } from "react-bootstrap-icons";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import LogoutButton from "./LogoutButton";
 
@@ -15,25 +15,28 @@ export default function Topbar({
   collapsed,
   setCollapsed,
   mobile,
-}: any) {
+}: {
+  collapsed: boolean;
+  setCollapsed: (value: boolean) => void;
+  mobile: boolean;
+}) {
 
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<any>(null);
-  const [financialYears, setFinancialYears] = useState<any[]>([]);
+  const [darkMode, setDarkMode] =
+    useState(
+      () =>
+        typeof window !== "undefined" &&
+        localStorage.getItem("theme") === "dark"
+    );
 
-  const [selectedFY, setSelectedFY] = useState<any>(null);
-
-  const [darkMode, setDarkMode] = useState(false);
-  
-
-  useEffect(() => {
-     const theme = localStorage.getItem("theme");
-      
-        if (theme === "dark") {
+    useEffect(() => {
+        if (darkMode) {
           document.body.classList.add("dark-mode");
-          setDarkMode(true);
+          localStorage.setItem("theme", "dark");
+        } else {
+          document.body.classList.remove("dark-mode");
+          localStorage.setItem("theme", "light");
         }
-      }, []);
+      }, [darkMode]);
 
 
       const loadCurrentFY = async () => {
@@ -381,29 +384,6 @@ useEffect(() => {
             const newMode = !darkMode;
           
             setDarkMode(newMode);
-          
-            if (newMode) {
-              document.body.classList.add(
-                "dark-mode"
-              );
-          
-              localStorage.setItem(
-                "theme",
-                "dark"
-              );
-          
-            } else {
-          
-              document.body.classList.remove(
-                "dark-mode"
-              );
-          
-              localStorage.setItem(
-                "theme",
-                "light"
-              );
-            }
-          
           }}
         >
           {darkMode ? (
