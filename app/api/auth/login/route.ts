@@ -32,24 +32,28 @@ export async function POST(req: Request) {
       });
     }
 
+    
     const token = jwt.sign(
       {
-        id: user._id,
-        tenantId: user.tenantId,
-        role: user.role,
+          id: user._id,
+          tenantId: user.tenantId,
+          roleId: user.roleId,
+          companyId: user.companyId,
       },
-      process.env.JWT_SECRET as string,
+      process.env.JWT_SECRET!,
       {
-        expiresIn: "7d",
+          expiresIn:"7d",
       }
-    );
+      );
 
     const userResponse = {
       _id: user._id,
       tenantId: user.tenantId,
       name: user.name,
       email: user.email,
-      role: user.role,
+      //role: user.role,
+      roleId:user.roleId,
+      companyId:user.companyId,
       status: user.status,
     };
 

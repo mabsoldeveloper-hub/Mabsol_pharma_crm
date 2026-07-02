@@ -1,60 +1,58 @@
 import mongoose from "mongoose";
 
 const CompanyMasterSchema = new mongoose.Schema(
-{
-    tenantId:{
-        type:String,
-        required:true,
+  {
+    tenantId: {
+      type: String,
+      required: true,
     },
 
-    companyCode:String,
-    companyName:String,
+    companyCode: String,
+    companyName: String,
+    ownerName: String,
 
-    ownerName:String,
+    email: String,
+    mobile: String,
+    website: String,
 
-    email:String,
-    mobile:String,
+    gstNo: String,
+    panNo: String,
+    drugLicenseNo: String,
 
-    website:String,
+    address: String,
+    city: String,
+    state: String,
+    pincode: String,
 
-    gstNo:String,
-    panNo:String,
-    drugLicenseNo:String,
-
-    address:String,
-    city:String,
-    state:String,
-    pincode:String,
-
-    invoicePrefix:{
-        type:String,
-        default:"INV"
+    invoicePrefix: {
+      type: String,
+      default: "INV",
     },
 
-    purchasePrefix:{
-        type:String,
-        default:"PUR"
+    purchasePrefix: {
+      type: String,
+      default: "PUR",
     },
 
-    currency:{
-        type:String,
-        default:"INR"
+    currency: {
+      type: String,
+      default: "INR",
     },
 
-    logo:String,
+    logo: String,
 
-    status:{
-        type:String,
-        default:"Active"
-    }
-},
-{
-    timestamps:true
-}
+    status: {
+      type: String,
+      default: "Active",
+    },
+  },
+  {
+    timestamps: true,
+  }
 );
 
-export default mongoose.models.CompanyMaster ||
+export default mongoose.models.Company ||
 mongoose.model(
-    "Company",
-    CompanyMasterSchema
+  "Company",
+  CompanyMasterSchema
 );

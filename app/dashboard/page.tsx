@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
+import ProtectedPage from "@/components/ProtectedPage";
 
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -30,12 +31,10 @@ export default async function DashboardPage() {
   }
 
   return (
-    
+    <ProtectedPage permission="dashboard.view" >
 
       <DashboardCards />
 
-      
-
-    
+    </ProtectedPage>
   );
 }

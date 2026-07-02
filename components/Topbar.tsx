@@ -1,15 +1,11 @@
 "use client";
 
 //import { useState } from "react";
-import {
-  Bell,
-  Moon,
-  Sun,
-  PersonCircle,
-} from "react-bootstrap-icons";
+import {Bell, Moon, Sun, PersonCircle,} from "react-bootstrap-icons";
 import { useState, useEffect } from "react";
 
 import LogoutButton from "./LogoutButton";
+import { useUser } from "@/context/UserContext";
 
 export default function Topbar({
   collapsed,
@@ -17,11 +13,10 @@ export default function Topbar({
   mobile,
 }: any) {
 
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<any>(null);
-  const [financialYears, setFinancialYears] = useState<any[]>([]);
+  //const [selectedCompany, setSelectedCompany] = useState<any>(null);
 
   const [selectedFY, setSelectedFY] = useState<any>(null);
+  const {user,} = useUser();
 
   const [darkMode, setDarkMode] = useState(false);
   
@@ -36,169 +31,13 @@ export default function Topbar({
       }, []);
 
 
-      const loadCurrentFY = async () => {
+     
 
-        const res = await fetch(
-          "/api/financial-year"
-        );
+      // useEffect(() => {
+
+      //   loadCurrentFY();
       
-        const data = await res.json();
-      
-        const currentFY =
-          data.find(
-            (x:any) => x.isCurrent
-          );
-      
-        if (currentFY) {
-      
-          setSelectedFY(currentFY);
-      
-          setSelectedCompany(
-            currentFY.companyId
-          );
-      
-        } else {
-      
-          setSelectedFY(null);
-          setSelectedCompany(null);
-      
-        }
-      
-      };
-
-      useEffect(() => {
-
-        loadCurrentFY();
-      
-      }, []);
-//       const [company, setCompany] = useState<any>(null);
-
-// useEffect(() => {
-//   fetch("/api/company-master")
-//     .then((res) => res.json())
-//     .then((data) => setCompany(data));
-// }, []);
-// useEffect(() => {
-
-//   loadCompanies();
-
-// }, []);
-
-// const loadCompanies = async () => {
-
-//   const res =
-//     await fetch(
-//       "/api/company-master"
-//     );
-
-//   const data =
-//     await res.json();
-
-//   setCompanies(data);
-
-//   const savedCompany =
-//     localStorage.getItem(
-//       "currentCompany"
-//     );
-
-//   if (
-//     savedCompany &&
-//     data.length > 0
-//   ) {
-
-//     const company =
-//       data.find(
-//         (x) =>
-//           x._id ===
-//           savedCompany
-//       );
-
-//     if (company) {
-
-//       setSelectedCompany(
-//         company
-//       );
-
-//       changeCompany(
-//         company._id
-//       );
-
-//       return;
-//     }
-//   }
-
-//   if (data.length > 0) {
-
-//     setSelectedCompany(
-//       data[0]
-//     );
-
-//     changeCompany(
-//       data[0]._id
-//     );
-//   }
-// };
-
-
-// const changeCompany = async (companyId) => {
-
-//   const company =
-//     companies.find(
-//       x => x._id === companyId
-//     );
-
-//   setSelectedCompany(company);
-
-//   localStorage.setItem(
-//     "currentCompany",
-//     companyId
-//   );
-
-//   const res = await fetch(
-//     `/api/financial-year?companyId=${companyId}`
-//   );
-
-//   const fyList =
-//     await res.json();
-
-//   setFinancialYears(fyList);
-
-//   if (fyList.length > 0) {
-
-//     const currentFY =
-//       fyList.find(
-//         (x) => x.isCurrent
-//       );
-
-//     if (currentFY) {
-
-//       setSelectedFY(
-//         currentFY._id
-//       );
-
-//       localStorage.setItem(
-//         "currentFY",
-//         currentFY._id
-//       );
-
-//     } else {
-
-//       setSelectedFY(
-//         fyList[0]._id
-//       );
-
-//     }
-
-//   } else {
-
-//     setSelectedFY("");
-
-//     localStorage.removeItem(
-//       "currentFY"
-//     );
-//   }
-
-// };
+      // }, []);
 
 
 useEffect(() => {
@@ -216,60 +55,14 @@ useEffect(() => {
 
         setSelectedFY(currentFY);
 
-        setSelectedCompany(
-          currentFY.companyId
-        );
+        // setSelectedCompany(
+        //   currentFY.companyId
+        // );
       }
 
     });
 
 }, []);
-// useEffect(() => {
-
-//   fetch("/api/financial-year")
-//     .then(res => res.json())
-//     .then(data => {
-
-//       const currentFY =
-//         data.find(
-//           (x:any) => x.isCurrent
-//         );
-
-//       if (currentFY) {
-
-//         setSelectedFY(currentFY);
-
-//         setSelectedCompany(
-//           currentFY.companyId
-//         );
-//       }
-//     });
-
-// }, []);
-
-
-
-// useEffect(() => {
-
-//   fetch("/api/financial-year")
-//     .then((res) => res.json())
-//     .then((data) => {
-
-//       setFinancialYears(data);
-
-//       const current =
-//         data.find(
-//           (x:any) =>
-//             x.isCurrent
-//         );
-
-//       if (current)
-//         setSelectedFY(
-//           current._id
-//         );
-//     });
-
-// }, []);
 
 
 
@@ -309,7 +102,7 @@ useEffect(() => {
               <span
                 className="badge bg-primary fs-6"
               >
-                {selectedCompany?.companyName}
+                {user?.companyId?.companyName}
               </span>
 
               <span
@@ -328,42 +121,6 @@ useEffect(() => {
         )}
 
 
-{/* <select
- value={selectedFY}
- onChange={(e)=>{
-
-  setSelectedFY(
-    e.target.value
-  );
-
-  localStorage.setItem(
-    "currentFY",
-    e.target.value
-  );
-
- }}
->
-
-{
- financialYears.length > 0
- ?
- financialYears.map(
-  (fy)=>(
-   <option
-    key={fy._id}
-    value={fy._id}
-   >
-    {fy.fyName}
-   </option>
-  )
- )
- :
- <option>
-  No FY Found
- </option>
-}
-
-</select> */}
       </div>
 
 
@@ -478,9 +235,18 @@ useEffect(() => {
             <PersonCircle size={24} />
 
             {!mobile && (
-              <span>
-                Company Admin
-              </span>
+             <div className="d-flex flex-column text-start">
+
+             <span>
+               {user?.name}
+             </span>
+           
+             <small className="text-muted">
+               {user?.roleId?.roleName}
+             </small>
+           
+           </div>
+             
             )}
           </button>
 
