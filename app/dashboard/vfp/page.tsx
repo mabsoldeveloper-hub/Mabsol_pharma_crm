@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
+import ProtectedPage from "@/components/ProtectedPage";
 
 export const dynamic = "force-dynamic";
 import {
@@ -227,361 +228,371 @@ export default async function VfpDashboardPage({
   const groupedDateKeys = Object.keys(groupedRecentFiles);
 
   return (
-    <div className="vfp-page">
-      <section className="vfp-hero">
-          <div className="vfp-hero-main">
-            <div className="vfp-eyebrow">
-              <FaExchangeAlt />
-              VFP Integration
-            </div>
-            <h1>PNC Data Sync Console</h1>
-            <p>
-              Monitor the local VFP folder, DBF imports, file snapshots, and
-              queued CRM-to-VFP updates from one place.
-            </p>
-          </div>
-          <div className="vfp-hero-side">
-            {statusBadge(status.workerOnline ? "online" : "offline")}
-            <div className="vfp-hero-status">{healthLabel}</div>
-            <div className="vfp-hero-meta">
-              Last sync: {formatDate(status.lastSyncedAt)}
-            </div>
-            <VfpSyncActions currentPath={status.dataDir} />
-          </div>
-        </section>
-
-        <section className="vfp-range-section">
-          <div>
-            <div className="vfp-range-label">Date range</div>
-            <div className="vfp-range-description">
-              {startDate || endDate
-                ? `Viewing sync data from ${startDate || "the beginning"} to ${endDate || "today"}.`
-                : `${formatRangeName(range)} · ${formatRangeDescription(range, status.rangeFrom)}`}
-            </div>
-          </div>
-
-          <div className="vfp-range-controls">
-            <div className="vfp-range-buttons">
-              {rangeOptions.map((option) => (
-                <Link
-                  key={option}
-                  className={`vfp-range-button btn btn-sm ${
-                    range === option && !startDate && !endDate ? "btn-primary" : "btn-outline-secondary"
-                  }`}
-                  href={`/dashboard/vfp?range=${option}`}
-                >
-                  {formatRangeName(option)}
-                </Link>
-              ))}
-            </div>
-
-            <form className="vfp-range-form" method="get">
-              <div className="vfp-range-fields">
-                <label className="vfp-range-field">
-                  From
-                  <input
-                    className="vfp-range-input form-control form-control-sm"
-                    type="date"
-                    name="startDate"
-                    defaultValue={startDate || ""}
-                  />
-                </label>
-                <label className="vfp-range-field">
-                  To
-                  <input
-                    className="vfp-range-input form-control form-control-sm"
-                    type="date"
-                    name="endDate"
-                    defaultValue={endDate || ""}
-                  />
-                </label>
+    <ProtectedPage permission="vfp.view">
+      <div className="vfp-page">
+        <section className="vfp-hero">
+            <div className="vfp-hero-main">
+              <div className="vfp-eyebrow">
+                <FaExchangeAlt />
+                VFP Integration
               </div>
-              <div className="vfp-range-actions">
-                <button className="btn btn-primary btn-sm" type="submit">
-                  Apply
-                </button>
-                <Link href="/dashboard/vfp" className="btn btn-outline-secondary btn-sm">
-                  Reset
-                </Link>
+              <h1>PNC Data Sync Console</h1>
+              <p>
+                Monitor the local VFP folder, DBF imports, file snapshots, and
+                queued CRM-to-VFP updates from one place.
+              </p>
+            </div>
+            <div className="vfp-hero-side">
+              {statusBadge(status.workerOnline ? "online" : "offline")}
+              <div className="vfp-hero-status">{healthLabel}</div>
+              <div className="vfp-hero-meta">
+                Last sync: {formatDate(status.lastSyncedAt)}
               </div>
-            </form>
-          </div>
-        </section>
-
-        {!status.dataDirExists && (
-          <div className="vfp-alert vfp-alert-danger">
-            <FaExclamationTriangle />
-            <span>
-              VFP folder is not configured. Set <strong>VFP_DATA_DIR</strong> in
-              <strong> .env</strong>, then restart the sync worker.
-            </span>
-          </div>
-        )}
-
-        {status.dataDirExists && !status.workerOnline && (
-          <div className="vfp-alert vfp-alert-warning">
-            <FaExclamationTriangle />
-            <span>
-              The sync worker is offline. Run <strong>npm run vfp:sync</strong>.
-              If it exits immediately, confirm <strong>VFP_DATA_DIR</strong>{" "}
-              points to the real PNC/VFP folder.
-            </span>
-          </div>
-        )}
-
-        <section className="vfp-stats-grid">
-          <StatCard
-            icon={<FaServer />}
-            label="Worker"
-            value={status.workerOnline ? "Online" : "Offline"}
-            hint={`${status.workerStatus}${
-              status.workerLastSeenAt
-                ? `, seen ${formatDate(status.workerLastSeenAt)}`
-                : ""
-            }`}
-          />
-          <StatCard
-            icon={<FaFolderOpen />}
-            label="Tracked Files"
-            value={status.fileCount}
-            hint={`${formatBytes(status.trackedBytes)} indexed`}
-          />
-          <StatCard
-            icon={<FaDatabase />}
-            label="DBF Tables"
-            value={status.tableCount}
-            hint={`${status.importedRows} row(s) imported`}
-          />
-          <StatCard
-            icon={<FaExclamationTriangle />}
-            label="Conflicts"
-            value={status.conflictCount}
-            hint={`${status.failedCount} failed or locked table(s)`}
-          />
-        </section>
-
-        <section className="vfp-system-grid">
-          <div className="vfp-info-panel">
-            <div className="vfp-section-title">
-              <FaFolderOpen />
-              Source Folder
+              <VfpSyncActions currentPath={status.dataDir} />
             </div>
-            <div className="vfp-path">{status.dataDir || "Set VFP_DATA_DIR in .env"}</div>
-          </div>
-          <div className="vfp-info-panel">
-            <div className="vfp-section-title">
-              <FaClock />
-              Queue
-            </div>
-            <div className="vfp-queue-line">
-              <span>{status.pendingCommandCount} command(s)</span>
-              <span>{status.pendingOutboundCount} outbound update(s)</span>
-            </div>
-          </div>
-          <div className="vfp-info-panel vfp-file-types">
-            <div className="vfp-section-title">
-              <FaFileAlt />
-              File Types
-            </div>
-            <div className="vfp-type-list">
-              {Object.entries(status.fileTypes).length === 0 ? (
-                <span className="text-muted">No files scanned yet</span>
-              ) : (
-                Object.entries(status.fileTypes).map(([extension, count]) => (
-                  <span className="vfp-type-chip" key={extension}>
-                    {extension || "no extension"} <strong>{count}</strong>
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="vfp-section border-0 bg-transparent">
-          <div className="vfp-section-header px-0">
+          <section className="vfp-range-section">
             <div>
-              <div className="vfp-section-title">
-                <FaDatabase />
-                DBF Tables by Folder
+              <div className="vfp-range-label">Date range</div>
+              <div className="vfp-range-description">
+                {startDate || endDate
+                  ? `Viewing sync data from ${startDate || "the beginning"} to ${endDate || "today"}.`
+                  : `${formatRangeName(range)} · ${formatRangeDescription(range, status.rangeFrom)}`}
               </div>
-              <p>Imported records are grouped by their directories. You can view or delete synced data below.</p>
             </div>
-          </div>
-          
-          {folderNames.length === 0 ? (
-            <div className="vfp-section p-4 text-center text-muted">
-              No DBF tables have been scanned yet. Configure the sync folder above.
+
+            <div className="vfp-range-controls">
+              <div className="vfp-range-buttons">
+                {rangeOptions.map((option) => (
+                  <Link
+                    key={option}
+                    className={`vfp-range-button btn btn-sm ${
+                      range === option && !startDate && !endDate ? "btn-primary" : "btn-outline-secondary"
+                    }`}
+                    href={`/dashboard/vfp?range=${option}`}
+                  >
+                    {formatRangeName(option)}
+                  </Link>
+                ))}
+              </div>
+
+              <form className="vfp-range-form" method="get">
+                <div className="vfp-range-fields">
+                  <label className="vfp-range-field">
+                    From
+                    <input
+                      className="vfp-range-input form-control form-control-sm"
+                      type="date"
+                      name="startDate"
+                      defaultValue={startDate || ""}
+                    />
+                  </label>
+                  <label className="vfp-range-field">
+                    To
+                    <input
+                      className="vfp-range-input form-control form-control-sm"
+                      type="date"
+                      name="endDate"
+                      defaultValue={endDate || ""}
+                    />
+                  </label>
+                </div>
+                <div className="vfp-range-actions">
+                  <button className="btn btn-primary btn-sm" type="submit">
+                    Apply
+                  </button>
+                  <Link href="/dashboard/vfp" className="btn btn-outline-secondary btn-sm">
+                    Reset
+                  </Link>
+                </div>
+              </form>
             </div>
-          ) : (
-            folderNames.map((folderName) => (
-              <div className="vfp-section mb-4 shadow-sm" key={folderName}>
-                <div 
-                  className="bg-light py-3 px-4 border-bottom d-flex align-items-center justify-content-between rounded-top-2"
-                  style={{ borderBottom: "1px solid #e3e8ef" }}
-                >
-                  <div className="d-flex align-items-center">
-                    <FaFolderOpen className="text-warning me-2 fs-5" style={{ color: "#eab308" }} />
-                    <span className="fw-bold text-dark fs-6">{folderName}</span>
-                    <span 
-                      className="badge ms-2 text-xs py-1 px-2 rounded-pill"
-                      style={{ backgroundColor: "#e7f7f2", color: "#0f766e" }}
-                    >
-                      {folderGroups[folderName].length} table(s)
-                    </span>
+          </section>
+
+          {!status.dataDirExists && (
+            <div className="vfp-alert vfp-alert-danger">
+              <FaExclamationTriangle />
+              <span>
+                VFP folder is not configured. Set <strong>VFP_DATA_DIR</strong> in
+                <strong> .env</strong>, then restart the sync worker.
+              </span>
+            </div>
+          )}
+
+          {status.dataDirExists && !status.workerOnline && (
+            <div className="vfp-alert vfp-alert-warning">
+              <FaExclamationTriangle />
+              <span>
+                The sync worker is offline. Run <strong>npm run vfp:sync</strong>.
+                If it exits immediately, confirm <strong>VFP_DATA_DIR</strong>{" "}
+                points to the real PNC/VFP folder.
+              </span>
+            </div>
+          )}
+
+          <section className="vfp-stats-grid">
+            <StatCard
+              icon={<FaServer />}
+              label="Worker"
+              value={status.workerOnline ? "Online" : "Offline"}
+              hint={`${status.workerStatus}${
+                status.workerLastSeenAt
+                  ? `, seen ${formatDate(status.workerLastSeenAt)}`
+                  : ""
+              }`}
+            />
+            <StatCard
+              icon={<FaFolderOpen />}
+              label="Tracked Files"
+              value={status.fileCount}
+              hint={`${formatBytes(status.trackedBytes)} indexed`}
+            />
+            <StatCard
+              icon={<FaDatabase />}
+              label="DBF Tables"
+              value={status.tableCount}
+              hint={`${status.importedRows} row(s) imported`}
+            />
+            <StatCard
+              icon={<FaExclamationTriangle />}
+              label="Conflicts"
+              value={status.conflictCount}
+              hint={`${status.failedCount} failed or locked table(s)`}
+            />
+          </section>
+
+          <section className="vfp-hero-main bg-transparent border-0 p-0 mb-4">
+            <div className="row g-3">
+              <div className="col-md-4">
+                <div className="vfp-info-panel h-100">
+                  <div className="vfp-section-title">
+                    <FaFolderOpen />
+                    Source Folder
+                  </div>
+                  <div className="vfp-path">{status.dataDir || "Set VFP_DATA_DIR in .env"}</div>
+                </div>
+              </div>
+              <div className="col-md-4">
+                <div className="vfp-info-panel h-100">
+                  <div className="vfp-section-title">
+                    <FaClock />
+                    Queue
+                  </div>
+                  <div className="vfp-queue-line">
+                    <span>{status.pendingCommandCount} command(s)</span>
+                    <span>{status.pendingOutboundCount} outbound update(s)</span>
                   </div>
                 </div>
-                <div className="vfp-table-wrap">
-                  <table className="table table-hover align-middle mb-0 vfp-table">
-                    <thead>
-                      <tr>
-                        <th>Table Name</th>
-                        <th>Status</th>
-                        <th className="text-end">Rows</th>
-                        <th className="text-end">Imported</th>
-                        <th>Last Sync</th>
-                        <th className="text-end">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {folderGroups[folderName].map((state) => (
-                        <tr key={String(state._id)}>
-                          <td>
-                            <div className="fw-semibold">
-                              {state.tableName?.includes("/")
-                                ? state.tableName.substring(state.tableName.lastIndexOf("/") + 1)
-                                : state.tableName}
-                            </div>
-                            {state.lastError && (
-                              <div className="vfp-row-error text-danger small mt-1">{state.lastError}</div>
-                            )}
-                          </td>
-                          <td>{statusBadge(state.status)}</td>
-                          <td className="text-end">{state.lastRecordCount || 0}</td>
-                          <td className="text-end">{state.lastImportedCount || 0}</td>
-                          <td>{formatDate(state.lastSyncedAt)}</td>
-                          <td className="text-end">
-                            {state.tableName && (
-                              <TableActions tableName={state.tableName} status={state.status || ""} />
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               </div>
-            ))
-          )}
-        </section>
-
-        <section className="vfp-two-column">
-          <div className="vfp-section">
-            <div className="vfp-section-header">
-              <div>
-                <div className="vfp-section-title">
-                  <FaFileAlt />
-                  Recent File Sync
+              <div className="col-md-4">
+                <div className="vfp-info-panel vfp-file-types h-100">
+                  <div className="vfp-section-title">
+                    <FaFileAlt />
+                    File Types
+                  </div>
+                  <div className="vfp-type-list">
+                    {Object.entries(status.fileTypes).length === 0 ? (
+                      <span className="text-muted">No files scanned yet</span>
+                    ) : (
+                      Object.entries(status.fileTypes).map(([extension, count]) => (
+                        <span className="vfp-type-chip" key={extension}>
+                          {extension || "no extension"} <strong>{count}</strong>
+                        </span>
+                      ))
+                    )}
+                  </div>
                 </div>
-                <p>Every file type is inventoried; eligible files are snapshotted.</p>
               </div>
             </div>
-            <div className="vfp-table-wrap">
-              <table className="table table-hover align-middle mb-0 vfp-table">
-                <thead>
-                  <tr>
-                    <th>File</th>
-                    <th>Size</th>
-                    <th>Storage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentFiles.length === 0 ? (
-                    <tr>
-                      <td className="vfp-empty" colSpan={3}>
-                        No files have been scanned yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    groupedDateKeys.map((dateKey) => (
-                      <>
-                        <tr className="vfp-file-group-row" key={`${dateKey}-heading`}>
-                          <td colSpan={3} className="vfp-file-group-heading">
-                            {dateKey}
-                          </td>
+          </section>
+
+          <section className="vfp-section border-0 bg-transparent">
+            <div className="vfp-section-header px-0">
+              <div>
+                <div className="vfp-section-title">
+                  <FaDatabase />
+                  DBF Tables by Folder
+                </div>
+                <p>Imported records are grouped by their directories. You can view or delete synced data below.</p>
+              </div>
+            </div>
+
+            {folderNames.length === 0 ? (
+              <div className="vfp-section p-4 text-center text-muted">
+                No DBF tables have been scanned yet. Configure the sync folder above.
+              </div>
+            ) : (
+              folderNames.map((folderName) => (
+                <div className="vfp-section mb-4 shadow-sm" key={folderName}>
+                  <div 
+                    className="bg-light py-3 px-4 border-bottom d-flex align-items-center justify-content-between rounded-top-2"
+                    style={{ borderBottom: "1px solid #e3e8ef" }}
+                  >
+                    <div className="d-flex align-items-center">
+                      <FaFolderOpen className="text-warning me-2 fs-5" style={{ color: "#eab308" }} />
+                      <span className="fw-bold text-dark fs-6">{folderName}</span>
+                      <span 
+                        className="badge ms-2 text-xs py-1 px-2 rounded-pill"
+                        style={{ backgroundColor: "#e7f7f2", color: "#0f766e" }}
+                      >
+                        {folderGroups[folderName].length} table(s)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="vfp-table-wrap">
+                    <table className="table table-hover align-middle mb-0 vfp-table">
+                      <thead>
+                        <tr>
+                          <th>Table Name</th>
+                          <th>Status</th>
+                          <th className="text-end">Rows</th>
+                          <th className="text-end">Imported</th>
+                          <th>Last Sync</th>
+                          <th className="text-end">Action</th>
                         </tr>
-                        {groupedRecentFiles[dateKey].map((file) => (
-                          <tr key={String(file._id)}>
+                      </thead>
+                      <tbody>
+                        {folderGroups[folderName].map((state) => (
+                          <tr key={String(state._id)}>
                             <td>
-                              <div className="vfp-file-name">{file.relativePath}</div>
-                              <div className="vfp-file-meta">
-                                {file.extension || "no extension"} |{" "}
-                                {formatDate(file.lastSyncedAt)}
+                              <div className="fw-semibold">
+                                {state.tableName?.includes("/")
+                                  ? state.tableName.substring(state.tableName.lastIndexOf("/") + 1)
+                                  : state.tableName}
                               </div>
-                              {file.lastError && (
-                                <div className="vfp-row-error">{file.lastError}</div>
+                              {state.lastError && (
+                                <div className="vfp-row-error text-danger small mt-1">{state.lastError}</div>
                               )}
                             </td>
-                            <td>{formatBytes(file.size)}</td>
-                            <td>{statusBadge(file.storageStatus)}</td>
+                            <td>{statusBadge(state.status)}</td>
+                            <td className="text-end">{state.lastRecordCount || 0}</td>
+                            <td className="text-end">{state.lastImportedCount || 0}</td>
+                            <td>{formatDate(state.lastSyncedAt)}</td>
+                            <td className="text-end">
+                              {state.tableName && (
+                                <TableActions tableName={state.tableName} status={state.status || ""} />
+                              )}
+                            </td>
                           </tr>
                         ))}
-                      </>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {status.fileCount > fileLimit && !showMore && (
-              <div className="mt-3 d-flex justify-content-center">
-                <Link
-                  href={`/dashboard/vfp?${new URLSearchParams({
-                    range,
-                    startDate: startDate || "",
-                    endDate: endDate || "",
-                    showMore: "1",
-                  }).toString()}`}
-                  className="btn btn-outline-primary btn-sm"
-                >
-                  Show more files
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <div className="vfp-section">
-            <div className="vfp-section-header">
-              <div>
-                <div className="vfp-section-title">
-                  <FaClock />
-                  Worker Logs
-                </div>
-                <p>Latest sync activity from the local worker.</p>
-              </div>
-            </div>
-            <div className="vfp-log-list">
-              {recentLogs.length === 0 ? (
-                <div className="vfp-empty">No sync logs yet.</div>
-              ) : (
-                recentLogs.map((log) => (
-                  <div className="vfp-log-item" key={String(log._id)}>
-                    <div>
-                      <div className="vfp-log-title">
-                        {log.action} {log.tableName ? `- ${log.tableName}` : ""}
-                      </div>
-                      <div className="vfp-log-message">
-                        {log.message || log.error || "No message"}
-                      </div>
-                    </div>
-                    <div className="vfp-log-side">
-                      {statusBadge(log.status)}
-                      <span>{formatDate(log.createdAt)}</span>
-                    </div>
+                      </tbody>
+                    </table>
                   </div>
-                ))
+                </div>
+              ))
+            )}
+          </section>
+
+          <section className="vfp-two-column">
+            <div className="vfp-section">
+              <div className="vfp-section-header">
+                <div>
+                  <div className="vfp-section-title">
+                    <FaFileAlt />
+                    Recent File Sync
+                  </div>
+                  <p>Every file type is inventoried; eligible files are snapshotted.</p>
+                </div>
+              </div>
+              <div className="vfp-table-wrap">
+                <table className="table table-hover align-middle mb-0 vfp-table">
+                  <thead>
+                    <tr>
+                      <th>File</th>
+                      <th>Size</th>
+                      <th>Storage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentFiles.length === 0 ? (
+                      <tr>
+                        <td className="vfp-empty" colSpan={3}>
+                          No files have been scanned yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      groupedDateKeys.map((dateKey) => (
+                        <>
+                          <tr className="vfp-file-group-row" key={`${dateKey}-heading`}>
+                            <td colSpan={3} className="vfp-file-group-heading">
+                              {dateKey}
+                            </td>
+                          </tr>
+                          {groupedRecentFiles[dateKey].map((file) => (
+                            <tr key={String(file._id)}>
+                              <td>
+                                <div className="vfp-file-name">{file.relativePath}</div>
+                                <div className="vfp-file-meta">
+                                  {file.extension || "no extension"} |{" "}
+                                  {formatDate(file.lastSyncedAt)}
+                                </div>
+                                {file.lastError && (
+                                  <div className="vfp-row-error">{file.lastError}</div>
+                                )}
+                              </td>
+                              <td>{formatBytes(file.size)}</td>
+                              <td>{statusBadge(file.storageStatus)}</td>
+                            </tr>
+                          ))}
+                        </>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {status.fileCount > fileLimit && !showMore && (
+                <div className="mt-3 d-flex justify-content-center">
+                  <Link
+                    href={`/dashboard/vfp?${new URLSearchParams({
+                      range,
+                      startDate: startDate || "",
+                      endDate: endDate || "",
+                      showMore: "1",
+                    }).toString()}`}
+                    className="btn btn-outline-primary btn-sm"
+                  >
+                    Show more files
+                  </Link>
+                </div>
               )}
             </div>
-          </div>
-        </section>
-      </div>
+
+            <div className="vfp-section">
+              <div className="vfp-section-header">
+                <div>
+                  <div className="vfp-section-title">
+                    <FaClock />
+                    Worker Logs
+                  </div>
+                  <p>Latest sync activity from the local worker.</p>
+                </div>
+              </div>
+              <div className="vfp-log-list">
+                {recentLogs.length === 0 ? (
+                  <div className="vfp-empty">No sync logs yet.</div>
+                ) : (
+                  recentLogs.map((log) => (
+                    <div className="vfp-log-item" key={String(log._id)}>
+                      <div>
+                        <div className="vfp-log-title">
+                          {log.action} {log.tableName ? `- ${log.tableName}` : ""}
+                        </div>
+                        <div className="vfp-log-message">
+                          {log.message || log.error || "No message"}
+                        </div>
+                      </div>
+                      <div className="vfp-log-side">
+                        {statusBadge(log.status)}
+                        <span>{formatDate(log.createdAt)}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+    </ProtectedPage>
   );
 }

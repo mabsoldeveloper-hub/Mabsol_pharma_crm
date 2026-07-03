@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
 import { FaArrowLeft, FaDatabase, FaLayerGroup, FaTable } from "react-icons/fa";
 import { getVfpTableRows } from "@/lib/vfp/data";
+import ProtectedPage from "@/components/ProtectedPage";
 
 type PageProps = {
   params: Promise<{ table: string }>;
@@ -54,16 +55,18 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
 
   if (!data.table) {
     return (
-      <div className="vfp-page">
-        <Link className="btn btn-outline-secondary mb-3" href="/dashboard/vfp">
-            <FaArrowLeft className="me-2" />
-            Back to VFP Sync
-          </Link>
-          <div className="vfp-alert vfp-alert-warning">
-            This VFP table is not available yet. Start the sync worker and run a
-            rescan.
+      <ProtectedPage permission="vfp.view">
+        <div className="vfp-page">
+          <Link className="btn btn-outline-secondary mb-3" href="/dashboard/vfp">
+              <FaArrowLeft className="me-2" />
+              Back to VFP Sync
+            </Link>
+            <div className="vfp-alert vfp-alert-warning">
+              This VFP table is not available yet. Start the sync worker and run a
+              rescan.
+            </div>
           </div>
-        </div>
+      </ProtectedPage>
     );
   }
 
@@ -78,6 +81,7 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
   const nextPage = Math.min(data.page + 1, Math.max(data.totalPages, 1));
 
   return (
+    <ProtectedPage permission="vfp.view">
       <div className="vfp-page">
         <div className="vfp-data-toolbar">
           <div>
@@ -199,5 +203,6 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
           </div>
         </div>
       </div>
+    </ProtectedPage>
   );
 }

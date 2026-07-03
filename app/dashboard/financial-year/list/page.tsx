@@ -1,16 +1,12 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-} from "react";
+import {useEffect, useState,} from "react";
 
 const setCurrentFY = async (
   row: any
 ) => {
 
-  await fetch(
-    "/api/financial-year/set-current",
+  const res = await fetch("/api/financial-year/set-current",
     {
       method: "POST",
       headers: {
@@ -26,16 +22,22 @@ const setCurrentFY = async (
     }
   );
 
-  localStorage.setItem(
-    "currentFY",
-    row._id
-  );
+  if (res.ok) {
 
-  alert(
-    "Current FY set successfully"
-  );
+    alert(
+      `Financial Year ${row.fyName} is now Active`
+    );
 
-  window.location.reload();
+    window.location.reload();
+
+  } else {
+
+    alert(
+      "Failed to change Financial Year"
+    );
+
+  }
+
 };
 
 export default function FYListPage() {
@@ -73,49 +75,33 @@ export default function FYListPage() {
         <hr />
 
         <table className="table table-bordered">
-
-        <thead>
-<tr>
-<th>Company</th>
-<th>FY</th>
-<th>Start Date</th>
-<th>End Date</th>
-<th>Current FY</th>
-<th>Status</th>
-<th>
-Action
-</th>
-</tr>
-</thead>
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>FY</th>
+              <th>Start Date</th>
+              <th>End Date</th>
+              <th>Current FY</th>
+              <th>Status</th>
+              <th>Action </th>
+            </tr>
+          </thead>
 
           <tbody>
-
             {years.map(
               (row) => (
 
-                <tr
-                  key={row._id}
-                >
+                <tr key={row._id}>
 
-                  <td>
-                    {row.companyId?.companyName}
-                  </td>
-
-                  <td>
-                    {
-                      row.fyName
-                    }
-                  </td>
-
-                  <td>
-                    {
+                  <td>{row.companyId?.companyName}</td>
+                  <td>{row.fyName}</td>
+                  <td>{
                       new Date(
                         row.startDate
                       )
                       .toLocaleDateString()
                     }
                   </td>
-
                   <td>
                     {
                       new Date(
@@ -124,68 +110,62 @@ Action
                       .toLocaleDateString()
                     }
                   </td>
-
                   <td>
-  {row.isCurrent
-    ? "✅"
-    : ""}
-</td>
+                      {row.isCurrent
+                        ? "✅"
+                        : ""}
+                  </td>
+                  <td>
+                    {row.status}
+                  </td>
+                  <td>
+                    <button
+                        className={
+                          row.isCurrent
+                          ? "btn btn-success btn-sm me-2"
+                          : "btn btn-outline-success btn-sm me-2"
+                        }
+                        disabled={row.isCurrent}
+                        onClick={() =>
+                          setCurrentFY(row)
+                        }
+                        >
+                        {row.isCurrent
+                          ? "✓ Current"
+                          : "Set Current"}
+                        </button>
 
-<td>
-  {row.status}
-</td>
+                        {/* <a
+                        href={`/dashboard/financial-year/edit/${row._id}`}
+                        className="btn btn-warning btn-sm me-2"
+                        >
+                        Edit
+                        </a> */}
 
-<td>
+                        <button
+                        className="btn btn-danger btn-sm"
+                        onClick={async () => {
 
-<button
- className={
-  row.isCurrent
-   ? "btn btn-success btn-sm me-2"
-   : "btn btn-outline-success btn-sm me-2"
- }
- disabled={row.isCurrent}
- onClick={() =>
-  setCurrentFY(row)
- }
->
- {row.isCurrent
-   ? "✓ Current"
-   : "Set Current"}
-</button>
+                          if (
+                          !confirm(
+                            "Delete FY ?"
+                          )
+                          )
+                          return;
 
-{/* <a
- href={`/dashboard/financial-year/edit/${row._id}`}
- className="btn btn-warning btn-sm me-2"
->
-Edit
-</a> */}
+                          await fetch(
+                          `/api/financial-year/${row._id}`,
+                          {
+                            method:"DELETE",
+                          }
+                          );
 
-<button
- className="btn btn-danger btn-sm"
- onClick={async () => {
-
-  if (
-   !confirm(
-    "Delete FY ?"
-   )
-  )
-   return;
-
-  await fetch(
-   `/api/financial-year/${row._id}`,
-   {
-    method:"DELETE",
-   }
-  );
-
-  loadData();
- }}
->
-Delete
-</button>
-
-</td>
-
+                          loadData();
+                        }}
+                        >
+                        Delete
+                    </button>
+                  </td>
                 </tr>
 
               )
