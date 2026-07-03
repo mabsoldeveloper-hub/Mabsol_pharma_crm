@@ -33,6 +33,7 @@ const VfpFileAssetSchema = new mongoose.Schema(
     },
     gridFsId: mongoose.Schema.Types.ObjectId,
     lastSyncedAt: Date,
+    lastSyncedDate: String,
     lastError: String,
   },
   {
@@ -40,5 +41,7 @@ const VfpFileAssetSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.models.VfpFileAsset ||
-  mongoose.model("VfpFileAsset", VfpFileAssetSchema);
+if (mongoose.models.VfpFileAsset) {
+  delete mongoose.models.VfpFileAsset;
+}
+export default mongoose.model("VfpFileAsset", VfpFileAssetSchema, "vfpfileassets");

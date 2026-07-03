@@ -92,16 +92,17 @@ export async function getVfpTableRows(
 
   const typedTable = table as VfpTableMapDocument;
   const targetCollection = typedTable.targetCollection || "";
+  const exactTableName = toTableName(typedTable.fileName || "");
   const cursor = db
     .collection(targetCollection)
-    .find({})
+    .find({ _vfpTable: exactTableName })
     .sort({ _vfpRowNumber: 1 })
     .skip((page - 1) * limit)
     .limit(limit);
 
   const [rows, total] = await Promise.all([
     cursor.toArray(),
-    db.collection(targetCollection).countDocuments({}),
+    db.collection(targetCollection).countDocuments({ _vfpTable: exactTableName }),
   ]);
 
   return {

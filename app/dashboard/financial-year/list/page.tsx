@@ -31,7 +31,11 @@ const setCurrentFY = async (
     row._id
   );
 
-  loadData();
+  alert(
+    "Current FY set successfully"
+  );
+
+  window.location.reload();
 };
 
 export default function FYListPage() {
@@ -78,7 +82,7 @@ export default function FYListPage() {
 <th>End Date</th>
 <th>Current FY</th>
 <th>Status</th>
-<th width="220">
+<th>
 Action
 </th>
 </tr>

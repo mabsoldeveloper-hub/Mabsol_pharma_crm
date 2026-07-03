@@ -23,7 +23,7 @@ const VfpTableMapSchema = new mongoose.Schema(
       type: [
         {
           name: String,
-          type: String,
+          type: { type: String },
           length: Number,
           decimalCount: Number,
         },
@@ -46,5 +46,7 @@ const VfpTableMapSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.models.VfpTableMap ||
-  mongoose.model("VfpTableMap", VfpTableMapSchema);
+if (mongoose.models.VfpTableMap) {
+  delete mongoose.models.VfpTableMap;
+}
+export default mongoose.model("VfpTableMap", VfpTableMapSchema, "vfptablemaps");

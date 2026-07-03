@@ -37,4 +37,4 @@ const VfpSyncLogSchema = new mongoose.Schema(
 );
 
 export default mongoose.models.VfpSyncLog ||
-  mongoose.model("VfpSyncLog", VfpSyncLogSchema);
+  mongoose.model("VfpSyncLog", VfpSyncLogSchema, "vfpsynclogs");

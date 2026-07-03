@@ -22,6 +22,7 @@ const VfpSyncStateSchema = new mongoose.Schema(
     },
     lastStartedAt: Date,
     lastSyncedAt: Date,
+    lastSyncedDate: String,
     lastFileMtimeMs: Number,
     lastRecordCount: {
       type: Number,
@@ -44,4 +45,4 @@ const VfpSyncStateSchema = new mongoose.Schema(
 );
 
 export default mongoose.models.VfpSyncState ||
-  mongoose.model("VfpSyncState", VfpSyncStateSchema);
+  mongoose.model("VfpSyncState", VfpSyncStateSchema, "vfpsyncstates");

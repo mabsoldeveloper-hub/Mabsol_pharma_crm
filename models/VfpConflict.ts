@@ -29,4 +29,4 @@ const VfpConflictSchema = new mongoose.Schema(
 );
 
 export default mongoose.models.VfpConflict ||
-  mongoose.model("VfpConflict", VfpConflictSchema);
+  mongoose.model("VfpConflict", VfpConflictSchema, "vfpconflicts");

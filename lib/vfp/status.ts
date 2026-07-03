@@ -7,6 +7,8 @@ import VfpSyncLog from "@/models/VfpSyncLog";
 import VfpSyncState from "@/models/VfpSyncState";
 import VfpTableMap from "@/models/VfpTableMap";
 import VfpWorkerHeartbeat from "@/models/VfpWorkerHeartbeat";
+import VfpConfig from "@/models/VfpConfig";
+import fs from "fs";
 
 type SyncStateSummary = {
   lastSyncedAt?: Date;
@@ -19,8 +21,97 @@ type FileTypeSummary = {
   count: number;
 };
 
-export async function getVfpStatus() {
+type VfpDateRange = "all" | "day" | "week" | "month";
+
+type VfpStatusFilter = {
+  range?: VfpDateRange;
+  startDate?: string;
+  endDate?: string;
+  fileLimit?: number;
+};
+
+function getDateRangeStart(range: VfpDateRange) {
+  const now = new Date();
+  const start = new Date(now);
+
+  if (range === "day") {
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+
+  if (range === "week") {
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    start.setDate(now.getDate() - diff);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+
+  if (range === "month") {
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+
+  return undefined;
+}
+
+function parseFilterDate(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]) - 1;
+    const day = Number(dateOnlyMatch[3]);
+    const parsed = new Date(year, month, day);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function parseEndOfDay(value?: string) {
+  const parsed = parseFilterDate(value);
+  if (!parsed) {
+    return undefined;
+  }
+
+  parsed.setHours(23, 59, 59, 999);
+  return parsed;
+}
+
+export async function getVfpStatus(filter: VfpStatusFilter = {}) {
   await dbConnect();
+
+  const { range = "all", startDate, endDate, fileLimit = 10 } = filter;
+  const rangeFrom = getDateRangeStart(range);
+  const parsedStart = parseFilterDate(startDate);
+  const parsedEnd = parseEndOfDay(endDate);
+  const fromDate = parsedStart ?? rangeFrom;
+  const toDate = parsedEnd;
+
+  const stateFilter: Record<string, unknown> = {};
+  const fileFilter: Record<string, unknown> = {};
+  const logFilter: Record<string, unknown> = {};
+
+  if (fromDate || toDate) {
+    const dateQuery: Record<string, Date> = {};
+
+    if (fromDate) {
+      dateQuery.$gte = fromDate;
+    }
+    if (toDate) {
+      dateQuery.$lte = toDate;
+    }
+
+    stateFilter.lastSyncedAt = dateQuery;
+    fileFilter.lastSyncedAt = dateQuery;
+    logFilter.createdAt = dateQuery;
+  }
 
   const [
     tableCount,
@@ -37,17 +128,21 @@ export async function getVfpStatus() {
     recentFiles,
     workerHeartbeat,
   ] = await Promise.all([
-    VfpTableMap.countDocuments({ enabled: true }),
-    VfpSyncState.find({}).sort({ updatedAt: -1 }).lean(),
-    VfpSyncLog.find({}).sort({ createdAt: -1 }).limit(10).lean(),
+    VfpSyncState.countDocuments(stateFilter),
+    VfpSyncState.find(stateFilter).sort({ updatedAt: -1 }).lean(),
+    VfpSyncLog.find(logFilter).sort({ createdAt: -1 }).limit(10).lean(),
     VfpConflict.countDocuments({ status: "open" }),
     VfpOutboundQueue.countDocuments({ status: "pending" }),
     VfpSyncCommand.countDocuments({ status: "queued" }),
-    VfpFileAsset.countDocuments({}),
-    VfpFileAsset.countDocuments({ storageStatus: "stored" }),
-    VfpFileAsset.countDocuments({ storageStatus: "failed" }),
-    VfpFileAsset.aggregate([{ $group: { _id: null, bytes: { $sum: "$size" } } }]),
+    VfpFileAsset.countDocuments(fileFilter),
+    VfpFileAsset.countDocuments({ ...fileFilter, storageStatus: "stored" }),
+    VfpFileAsset.countDocuments({ ...fileFilter, storageStatus: "failed" }),
     VfpFileAsset.aggregate([
+      { $match: fileFilter },
+      { $group: { _id: null, bytes: { $sum: "$size" } } },
+    ]),
+    VfpFileAsset.aggregate([
+      { $match: fileFilter },
       {
         $group: {
           _id: { $ifNull: ["$extension", "no extension"] },
@@ -57,7 +152,10 @@ export async function getVfpStatus() {
       { $sort: { count: -1 } },
       { $limit: 8 },
     ]),
-    VfpFileAsset.find({}).sort({ lastSyncedAt: -1 }).limit(12).lean(),
+    VfpFileAsset.find(fileFilter)
+      .sort({ lastSyncedAt: -1 })
+      .limit(fileLimit)
+      .lean(),
     VfpWorkerHeartbeat.findOne({}).sort({ lastSeenAt: -1 }).lean(),
   ]);
 
@@ -78,6 +176,13 @@ export async function getVfpStatus() {
     0
   );
 
+  const filteredImportedRows = rangeFrom
+    ? states.reduce((total: number, state: SyncStateSummary) => {
+        const date = state.lastSyncedAt ? new Date(state.lastSyncedAt) : null;
+        return total + (date && date >= rangeFrom ? state.lastImportedCount || 0 : 0);
+      }, 0)
+    : importedRows;
+
   const trackedBytes = fileSizeSummary[0]?.bytes || 0;
   const fileTypes = (fileTypeSummary as FileTypeSummary[]).reduce<
     Record<string, number>
@@ -85,8 +190,12 @@ export async function getVfpStatus() {
     acc[fileType._id || "no extension"] = fileType.count;
     return acc;
   }, {});
-  const dataDir = process.env.VFP_DATA_DIR || "";
-  const dataDirExists = Boolean(dataDir);
+  let dataDir = process.env.VFP_DATA_DIR || "";
+  const config = (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean()) as any;
+  if (config && config.dataDir) {
+    dataDir = config.dataDir;
+  }
+  const dataDirExists = Boolean(dataDir) && fs.existsSync(dataDir);
   const heartbeat = workerHeartbeat as
     | {
         status?: string;
@@ -112,7 +221,7 @@ export async function getVfpStatus() {
     dataDirExists,
     conflictPolicy: process.env.VFP_CONFLICT_POLICY || "vfp_wins",
     tableCount,
-    importedRows,
+    importedRows: filteredImportedRows,
     failedCount: failedTables.length,
     conflictCount,
     pendingOutboundCount,
@@ -126,5 +235,10 @@ export async function getVfpStatus() {
     lastSyncedAt: lastSyncedDates,
     states,
     recentLogs,
+    range,
+    rangeFrom,
+    startDate,
+    endDate,
+    fileLimit,
   };
 }

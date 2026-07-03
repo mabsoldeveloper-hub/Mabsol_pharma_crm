@@ -27,6 +27,8 @@ body {
 
 .vfp-page {
   color: #17202a;
+  display: grid;
+  gap: 18px;
 }
 
 .vfp-hero {
@@ -35,12 +37,59 @@ body {
     linear-gradient(135deg, rgba(14, 116, 144, 0.08), rgba(22, 163, 74, 0.08)),
     #ffffff;
   border: 1px solid #d9e4df;
-  border-radius: 8px;
+  border-radius: 12px;
   display: grid;
   gap: 24px;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 360px);
   margin-bottom: 18px;
-  padding: 24px;
+  padding: 28px;
+}
+
+.vfp-hero-main {
+  display: grid;
+  gap: 16px;
+}
+
+.vfp-hero-side {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #dce7e2;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  padding: 20px;
+  min-height: 220px;
+}
+
+.vfp-hero-status {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.vfp-hero-meta,
+.vfp-stat-hint,
+.vfp-file-meta,
+.vfp-log-message,
+.vfp-action-message {
+  color: #667085;
+  font-size: 13px;
+}
+
+.vfp-alert {
+  align-items: center;
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+}
+
+.vfp-alert svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
 }
 
 .vfp-hero-main h1 {
@@ -263,6 +312,17 @@ body {
   overflow-wrap: anywhere;
 }
 
+.vfp-file-group-row td {
+  background: #f7faf9;
+  border-bottom: 1px solid #d9e4df;
+  font-weight: 700;
+  padding: 12px 16px;
+}
+
+.vfp-file-group-heading {
+  color: #344054;
+}
+
 .vfp-file-name {
   font-weight: 700;
   max-width: 520px;
@@ -405,6 +465,115 @@ body {
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .vfp-hero-side {
+    min-height: auto;
+  }
+}
+
+.vfp-range-section {
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.vfp-range-label {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.vfp-range-description {
+  color: #475467;
+  font-size: 14px;
+  margin-top: 0;
+}
+
+.vfp-range-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vfp-range-button {
+  min-width: 110px;
+}
+
+.vfp-range-button.btn-outline-secondary {
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.vfp-range-button.btn-outline-secondary:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.vfp-range-controls {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.vfp-range-form {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+  max-width: 620px;
+}
+
+.vfp-range-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+
+.vfp-range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+  width: 100%;
+}
+
+.vfp-range-input {
+  border-radius: 8px;
+}
+
+.vfp-range-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 991px) {
+  .vfp-range-section {
+    justify-content: stretch;
+  }
+
+  .vfp-range-controls {
+    justify-content: stretch;
+  }
+
+  .vfp-range-form {
+    max-width: 100%;
+  }
 }
 
 
@@ -451,4 +620,13 @@ body {
 .sidebar-active {
   background: #2563eb;
   border-radius: 8px;
+}
+
+.btn-outline-teal:hover {
+  background-color: #e7f7f2 !important;
+  color: #0f766e !important;
+}
+
+.list-group-item-action:hover {
+  background-color: #f0fdf9 !important;
 }

@@ -26,4 +26,4 @@ const VfpWorkerHeartbeatSchema = new mongoose.Schema(
 );
 
 export default mongoose.models.VfpWorkerHeartbeat ||
-  mongoose.model("VfpWorkerHeartbeat", VfpWorkerHeartbeatSchema);
+  mongoose.model("VfpWorkerHeartbeat", VfpWorkerHeartbeatSchema, "vfpworkerheartbeats");

@@ -8,7 +8,7 @@ const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 
 loadEnv(path.join(PROJECT_ROOT, ".env"));
 
-const VFP_DATA_DIR = process.env.VFP_DATA_DIR;
+let VFP_DATA_DIR = null;
 const MONGODB_URI = process.env.MONGODB_URI;
 const SYNC_INTERVAL_MS = Number(process.env.VFP_SYNC_INTERVAL_MS || 10000);
 const DEBOUNCE_MS = Number(process.env.VFP_DEBOUNCE_MS || 2000);
@@ -20,14 +20,6 @@ const FILE_SNAPSHOT_MAX_BYTES = Number(
 
 if (!MONGODB_URI) {
   throw new Error("MONGODB_URI is required in .env");
-}
-
-if (!VFP_DATA_DIR) {
-  throw new Error("VFP_DATA_DIR is required in .env");
-}
-
-if (!fs.existsSync(VFP_DATA_DIR)) {
-  throw new Error(`VFP_DATA_DIR does not exist: ${VFP_DATA_DIR}`);
 }
 
 const TableMap = mongoose.model(
@@ -70,6 +62,11 @@ const WorkerHeartbeat = mongoose.model(
   new mongoose.Schema({}, { strict: false, timestamps: true }),
   "vfpworkerheartbeats"
 );
+const VfpConfig = mongoose.model(
+  "VfpConfig",
+  new mongoose.Schema({}, { strict: false, timestamps: true }),
+  "vfpconfigs"
+);
 
 let scheduledTimer = null;
 let isRunning = false;
@@ -83,27 +80,68 @@ main().catch((error) => {
 async function main() {
   await mongoose.connect(MONGODB_URI);
   console.log(`[vfp-sync] Connected to MongoDB`);
-  console.log(`[vfp-sync] Watching ${VFP_DATA_DIR}`);
+
+  await resolveDataDir();
 
   await updateHeartbeat("online");
   scheduleSync("startup");
-  startWatcher();
   setInterval(() => scheduleSync("interval"), SYNC_INTERVAL_MS);
   setInterval(processCommands, Math.max(3000, Math.floor(SYNC_INTERVAL_MS / 2)));
   setInterval(() => updateHeartbeat(isRunning ? "syncing" : "online"), 10000);
 }
 
-function startWatcher() {
+let currentWatcher = null;
+
+async function resolveDataDir() {
   try {
-    fs.watch(VFP_DATA_DIR, { recursive: true }, (_eventType, fileName) => {
+    const config = await VfpConfig.findOne({ key: "vfp_sync_config" });
+    let activeDir = process.env.VFP_DATA_DIR;
+    if (config && config.dataDir) {
+      activeDir = config.dataDir;
+    }
+
+    if (!activeDir) {
+      console.warn("[vfp-sync] Warning: VFP data directory is not configured yet.");
+      return;
+    }
+
+    if (VFP_DATA_DIR !== activeDir) {
+      console.log(`[vfp-sync] Directory changed from ${VFP_DATA_DIR} to ${activeDir}`);
+      VFP_DATA_DIR = activeDir;
+      startWatcher();
+    }
+  } catch (error) {
+    console.error("[vfp-sync] Error resolving VFP data directory:", error.message);
+  }
+}
+
+function startWatcher() {
+  if (currentWatcher) {
+    currentWatcher.close();
+    currentWatcher = null;
+  }
+
+  if (!VFP_DATA_DIR || !fs.existsSync(VFP_DATA_DIR)) {
+    console.warn(`[vfp-sync] Watcher not started: VFP directory does not exist (${VFP_DATA_DIR})`);
+    return;
+  }
+
+  try {
+    currentWatcher = fs.watch(VFP_DATA_DIR, { recursive: true }, (_eventType, fileName) => {
       if (!fileName) {
+        return;
+      }
+
+      const baseName = path.basename(fileName);
+      if (!isValidTableFile(baseName)) {
         return;
       }
 
       scheduleSync(`file:${fileName}`);
     });
+    console.log(`[vfp-sync] Watcher active on ${VFP_DATA_DIR}`);
   } catch (error) {
-    console.warn("[vfp-sync] Recursive watch unavailable, using interval only.");
+    console.warn("[vfp-sync] Watcher unavailable, using interval only.");
     console.warn(error.message);
   }
 }
@@ -126,6 +164,11 @@ async function runSync(reason) {
   const runId = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
   try {
+    await resolveDataDir();
+    if (!VFP_DATA_DIR || !fs.existsSync(VFP_DATA_DIR)) {
+      throw new Error(`VFP data directory is invalid or does not exist: ${VFP_DATA_DIR}`);
+    }
+
     await updateHeartbeat("syncing", { lastRunReason: reason, lastError: "" });
     await SyncLog.create({
       runId,
@@ -137,7 +180,9 @@ async function runSync(reason) {
 
     await processOutboundQueue(runId);
 
-    const files = listFiles(VFP_DATA_DIR);
+    const files = listFiles(VFP_DATA_DIR).filter((filePath) =>
+      isValidTableFile(path.basename(filePath))
+    );
     const dbfFiles = files.filter((filePath) =>
       filePath.toLowerCase().endsWith(".dbf")
     );
@@ -149,6 +194,21 @@ async function runSync(reason) {
     for (const filePath of dbfFiles) {
       await importDbfFile(filePath, runId);
     }
+
+    // Clean up stale table maps, sync states, and file assets
+    const scannedFileNames = dbfFiles.map((filePath) =>
+      path.relative(VFP_DATA_DIR, filePath).replace(/\\/g, "/")
+    );
+    const scannedTableNames = scannedFileNames.map((fName) =>
+      fName.replace(/\.[^.]+$/, "")
+    );
+    const scannedAssetRelativePaths = files.map((filePath) =>
+      path.relative(VFP_DATA_DIR, filePath).replace(/\\/g, "/")
+    );
+
+    await TableMap.deleteMany({ fileName: { $nin: scannedFileNames } });
+    await SyncState.deleteMany({ tableName: { $nin: scannedTableNames } });
+    await FileAsset.deleteMany({ relativePath: { $nin: scannedAssetRelativePaths } });
 
     await SyncLog.create({
       runId,
@@ -262,11 +322,10 @@ async function processOutboundQueue(runId) {
 
 async function applyOutboundItem(item) {
   const exactName = `${item.tableName}.dbf`;
+  const queryTableName = item.tableName.toLowerCase();
   const tableMap =
-    (await TableMap.findOne({ fileName: exactName })) ||
-    (await TableMap.findOne({
-      fileName: new RegExp(`^${escapeRegExp(item.tableName)}\\.dbf$`, "i"),
-    }));
+    (await TableMap.findOne({ fileName: new RegExp(`(^|/)${escapeRegExp(queryTableName)}\\.dbf$`, "i") })) ||
+    (await TableMap.findOne({ fileName: exactName }));
 
   if (!tableMap) {
     return markOutboundConflict(
@@ -329,9 +388,21 @@ async function markOutboundConflict(item, reason) {
 }
 
 async function importDbfFile(filePath, runId) {
-  const fileName = path.basename(filePath);
-  const tableName = path.basename(filePath, path.extname(filePath));
-  const targetCollection = `vfp_${sanitizeCollectionName(tableName)}`;
+  const rootFolderName = path.basename(VFP_DATA_DIR) || "default";
+  const relativePath = path.relative(VFP_DATA_DIR, filePath).replace(/\\/g, "/");
+  const fileName = relativePath;
+  const tableName = relativePath.replace(/\.[^.]+$/, "");
+  
+  const relativeDir = path.dirname(relativePath);
+  const baseName = path.basename(relativePath, path.extname(relativePath));
+  
+  let parts = [rootFolderName];
+  if (relativeDir !== ".") {
+    parts = parts.concat(relativeDir.split("/"));
+  }
+  parts.push(baseName);
+  
+  const targetCollection = `vfp_${parts.map(sanitizeCollectionName).filter(Boolean).join("_")}`;
   const startedAt = new Date();
 
   await SyncState.updateOne(
@@ -352,7 +423,7 @@ async function importDbfFile(filePath, runId) {
   try {
     const stats = fs.statSync(filePath);
     const dbf = readDbf(filePath);
-    const primaryKeyFields = guessPrimaryKeyFields(dbf.fields);
+    const primaryKeyFields = guessPrimaryKeyFields(dbf.fields, dbf.rows);
 
     await TableMap.updateOne(
       { fileName },
@@ -380,39 +451,53 @@ async function importDbfFile(filePath, runId) {
 
     let importedCount = 0;
     let tableHash = "";
+    const bulkOps = [];
 
     for (const row of dbf.rows) {
       const sourceKey = buildSourceKey(row, primaryKeyFields);
       const rowHash = hashJson(row.data);
       tableHash = hashJson(`${tableHash}:${rowHash}`);
 
-      await collection.updateOne(
-        { _vfpTable: tableName, _vfpSourceKey: sourceKey },
-        {
-          $set: {
-            ...row.data,
-            _vfpTable: tableName,
-            _vfpSourceKey: sourceKey,
-            _vfpRowNumber: row.rowNumber,
-            _vfpRowHash: rowHash,
-            _vfpFileName: fileName,
-            _vfpFileMtimeMs: stats.mtimeMs,
-            _vfpDeleted: row.deleted,
-            _vfpSyncedAt: new Date(),
+      bulkOps.push({
+        updateOne: {
+          filter: { _vfpTable: tableName, _vfpSourceKey: sourceKey },
+          update: {
+            $set: {
+              ...row.data,
+              _vfpTable: tableName,
+              _vfpSourceKey: sourceKey,
+              _vfpRowNumber: row.rowNumber,
+              _vfpRowHash: rowHash,
+              _vfpFileName: fileName,
+              _vfpFileMtimeMs: stats.mtimeMs,
+              _vfpDeleted: row.deleted,
+              _vfpSyncedAt: new Date(),
+            },
           },
+          upsert: true,
         },
-        { upsert: true }
-      );
+      });
 
-      importedCount += 1;
+      if (bulkOps.length >= 1000) {
+        await collection.bulkWrite(bulkOps, { ordered: false });
+        importedCount += bulkOps.length;
+        bulkOps.length = 0;
+      }
     }
 
+    if (bulkOps.length > 0) {
+      await collection.bulkWrite(bulkOps, { ordered: false });
+      importedCount += bulkOps.length;
+    }
+
+    const syncDateLabel = getSyncDateLabel(new Date());
     await SyncState.updateOne(
       { tableName },
       {
         $set: {
           status: "success",
           lastSyncedAt: new Date(),
+          lastSyncedDate: syncDateLabel,
           lastFileMtimeMs: stats.mtimeMs,
           lastRecordCount: dbf.recordCount,
           lastImportedCount: importedCount,
@@ -462,6 +547,14 @@ async function importDbfFile(filePath, runId) {
   }
 }
 
+function getSyncDateLabel(date) {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 async function syncFileAsset(filePath, runId) {
   const startedAt = new Date();
   const relativePath = path.relative(VFP_DATA_DIR, filePath).replace(/\\/g, "/");
@@ -479,11 +572,14 @@ async function syncFileAsset(filePath, runId) {
       existing.mtimeMs === stats.mtimeMs;
 
     if (isUnchanged) {
-      existing.lastSyncedAt = new Date();
+      const now = new Date();
+      existing.lastSyncedAt = now;
+      existing.lastSyncedDate = getSyncDateLabel(now);
       await existing.save();
       return;
     }
 
+    const syncDateLabel = getSyncDateLabel(new Date());
     const update = {
       relativePath,
       fileName,
@@ -493,6 +589,7 @@ async function syncFileAsset(filePath, runId) {
       mtimeMs: stats.mtimeMs,
       contentHash,
       lastSyncedAt: new Date(),
+      lastSyncedDate: syncDateLabel,
       lastError: "",
     };
 
@@ -517,6 +614,7 @@ async function syncFileAsset(filePath, runId) {
 
     await FileAsset.updateOne({ relativePath }, { $set: update }, { upsert: true });
   } catch (error) {
+    const now = new Date();
     await FileAsset.updateOne(
       { relativePath },
       {
@@ -527,7 +625,8 @@ async function syncFileAsset(filePath, runId) {
           filePath,
           storageStatus: "failed",
           lastError: error.message,
-          lastSyncedAt: new Date(),
+          lastSyncedAt: now,
+          lastSyncedDate: getSyncDateLabel(now),
         },
       },
       { upsert: true }
@@ -545,20 +644,38 @@ async function syncFileAsset(filePath, runId) {
   }
 }
 
+function isValidDirectory(dirName) {
+  const name = dirName.toLowerCase();
+  if (dirName.startsWith("_") || dirName.startsWith("~")) {
+    return false;
+  }
+  if (name.includes("temp") || name.includes("tmp") || name.includes("backup")) {
+    return false;
+  }
+  return true;
+}
+
 function listFiles(rootDir) {
   const files = [];
-  const entries = fs.readdirSync(rootDir, { withFileTypes: true });
 
-  for (const entry of entries) {
-    const entryPath = path.join(rootDir, entry.name);
+  function traverse(dir) {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-    if (entry.isDirectory()) {
-      files.push(...listFiles(entryPath));
-    } else if (entry.isFile()) {
-      files.push(entryPath);
+    for (const entry of entries) {
+      const entryPath = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        if (isValidDirectory(entry.name)) {
+          traverse(entryPath);
+        }
+      } else if (entry.isFile()) {
+        files.push(entryPath);
+      }
     }
   }
 
+  traverse(rootDir);
   return files;
 }
 
@@ -622,7 +739,7 @@ function readDbf(filePath) {
       break;
     }
 
-    const name = decodeText(buffer.subarray(offset, offset + 11)).replace(/\0/g, "");
+    const name = decodeText(buffer.subarray(offset, offset + 11)).replace(/\0/g, "").trim();
     const type = String.fromCharCode(buffer[offset + 11]);
     const length = buffer[offset + 16];
     const decimalCount = buffer[offset + 17];
@@ -632,6 +749,12 @@ function readDbf(filePath) {
       fields.push({ name, type, length, decimalCount, dataOffset });
     }
   }
+
+  // Detect matching FPT file
+  const ext = path.extname(filePath);
+  const baseName = filePath.slice(0, -ext.length);
+  const fptPath = baseName + (ext === ext.toUpperCase() ? ".FPT" : ".fpt");
+  const hasFpt = fs.existsSync(fptPath);
 
   const rows = [];
   for (let index = 0; index < recordCount; index += 1) {
@@ -645,7 +768,18 @@ function readDbf(filePath) {
 
     for (const field of fields) {
       const raw = buffer.subarray(cursor, cursor + field.length);
-      data[field.name] = parseFieldValue(raw, field);
+      let val = parseFieldValue(raw, field);
+
+      if (hasFpt && (field.type === "M" || field.type === "G" || field.type === "P")) {
+        const blockNumber = parseMemoPointer(raw);
+        if (blockNumber > 0) {
+          val = readFptMemo(fptPath, blockNumber, field.type, VFP_ENCODING);
+        } else {
+          val = "";
+        }
+      }
+
+      data[field.name] = val;
       cursor += field.length;
     }
 
@@ -764,11 +898,86 @@ function parseFieldValue(raw, field) {
   }
 }
 
-function guessPrimaryKeyFields(fields) {
-  const candidates = ["ID", "CODE", "CUSTID", "ITEMID", "BILLNO", "VOUCHNO", "INVNO"];
+function parseMemoPointer(raw) {
+  if (raw.length === 4) {
+    return raw.readUInt32LE(0);
+  }
+  const text = raw.toString("latin1").trim();
+  const num = Number(text);
+  return isNaN(num) ? 0 : num;
+}
+
+function readFptMemo(fptPath, blockNum, fieldType, encoding) {
+  try {
+    const fd = fs.openSync(fptPath, "r");
+    try {
+      const headerBuffer = Buffer.alloc(8);
+      fs.readSync(fd, headerBuffer, 0, 8, 0);
+      const blockSize = headerBuffer.readUInt16BE(6) || 64;
+
+      const blockOffset = blockNum * blockSize;
+      const blockHeader = Buffer.alloc(8);
+      fs.readSync(fd, blockHeader, 0, 8, blockOffset);
+
+      const signature = blockHeader.readUInt32BE(0);
+      const length = blockHeader.readUInt32BE(4);
+
+      if (length <= 0 || length > 50 * 1024 * 1024) { // safety limit 50MB
+        return "";
+      }
+
+      const memoBuffer = Buffer.alloc(length);
+      fs.readSync(fd, memoBuffer, 0, length, blockOffset + 8);
+
+      if (signature === 1 && fieldType === "M") {
+        // Text memo
+        return memoBuffer.toString(encoding).trim();
+      } else {
+        // Binary/Picture/General memo
+        return memoBuffer.toString("base64");
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch (error) {
+    console.warn(`[vfp-sync] Error reading memo block ${blockNum} from ${fptPath}:`, error.message);
+    return "";
+  }
+}
+
+function isValidTableFile(fileName) {
+  const name = fileName.toLowerCase();
+  if (fileName.startsWith("_") || fileName.startsWith("~")) {
+    return false;
+  }
+  if (name.includes("temp") || name.includes("tmp") || name.includes("backup")) {
+    return false;
+  }
+  return true;
+}
+
+function guessPrimaryKeyFields(fields, rows) {
+  const candidates = ["ID", "CUSTID", "ITEMID"];
   const names = fields.map((field) => field.name);
-  const match = names.find((name) => candidates.includes(name.toUpperCase()));
-  return match ? [match] : [];
+  for (const cand of candidates) {
+    const match = names.find((name) => name.toUpperCase() === cand);
+    if (match) {
+      const values = new Set();
+      let unique = true;
+      for (const row of rows) {
+        const val = row.data[match];
+        if (val === undefined || val === null || values.has(val)) {
+          unique = false;
+          break;
+        }
+        values.add(val);
+      }
+      if (unique && rows.length > 0) {
+        return [match];
+      }
+    }
+  }
+  return [];
 }
 
 function buildSourceKey(row, primaryKeyFields) {

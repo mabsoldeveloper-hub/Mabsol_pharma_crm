@@ -23,4 +23,4 @@ const VfpSyncCommandSchema = new mongoose.Schema(
 );
 
 export default mongoose.models.VfpSyncCommand ||
-  mongoose.model("VfpSyncCommand", VfpSyncCommandSchema);
+  mongoose.model("VfpSyncCommand", VfpSyncCommandSchema, "vfpsynccommands");

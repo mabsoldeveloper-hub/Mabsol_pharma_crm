@@ -54,16 +54,16 @@ export default function Topbar({
       
         if (currentFY) {
       
-          setSelectedFY(currentFY);
+          // setSelectedFY(currentFY);
       
-          setSelectedCompany(
-            currentFY.companyId
-          );
+          // setSelectedCompany(
+          //   currentFY.companyId
+          // );
       
         } else {
       
-          setSelectedFY(null);
-          setSelectedCompany(null);
+          // setSelectedFY(null);
+          // setSelectedCompany(null);
       
         }
       
@@ -217,11 +217,11 @@ useEffect(() => {
 
       if (currentFY) {
 
-        setSelectedFY(currentFY);
+        // setSelectedFY(currentFY);
 
-        setSelectedCompany(
-          currentFY.companyId
-        );
+        // setSelectedCompany(
+        //   currentFY.companyId
+        // );
       }
 
     });
@@ -312,13 +312,13 @@ useEffect(() => {
               <span
                 className="badge bg-primary fs-6"
               >
-                {selectedCompany?.companyName}
+                {/* {selectedCompany?.companyName} */}
               </span>
 
               <span
                 className="badge bg-success fs-6"
               >
-                {selectedFY?.fyName}
+                {/* {selectedFY?.fyName} */}
               </span>
 
             </div>
