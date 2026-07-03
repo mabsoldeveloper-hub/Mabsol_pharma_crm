@@ -24,10 +24,20 @@ const UserSchema =
         required: true,
       },
 
-      role: {
-        type: String,
-        default: "Employee",
+      companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Company",
       },
+      
+      roleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Role",
+      },
+
+      // role: {
+      //   type: String,
+      //   default: "Employee",
+      // },
 
       status: {
         type: String,

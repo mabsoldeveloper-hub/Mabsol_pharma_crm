@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ProtectedPage from "@/components/ProtectedPage";
 
 export default function CompanyListPage() {
 
@@ -46,6 +47,8 @@ export default function CompanyListPage() {
   };
 
   return (
+    <ProtectedPage permission="company.view" >
+      
     <div className="card shadow border-0">
 
       <div className="card-body">
@@ -146,5 +149,7 @@ export default function CompanyListPage() {
       </div>
 
     </div>
+
+    </ProtectedPage>
   );
 }
