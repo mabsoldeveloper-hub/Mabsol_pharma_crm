@@ -251,33 +251,13 @@ useEffect(() => {
           </button>
 
           <ul className="dropdown-menu dropdown-menu-end shadow">
+            <li><a className="dropdown-item" href="/dashboard/profile"> My Profile </a></li>
 
-            <li>
-            <a
-              className="dropdown-item"
-              href="/dashboard/profile"
-            >
-              My Profile
-            </a>
-            </li>
+            <li> <a className="dropdown-item" href="/dashboard/settings"> Settings </a>  </li>
 
-            <li>
-              <a
-                className="dropdown-item"
-                href="/dashboard/settings"
-              >
-                Settings
-              </a>  
-            </li>
+            <li><hr className="dropdown-divider" /></li>
 
-            <li>
-              <hr className="dropdown-divider" />
-            </li>
-
-            <li className="px-3">
-              <LogoutButton />
-            </li>
-
+            <li className="px-3"><LogoutButton /> </li>
           </ul>
 
         </div>
