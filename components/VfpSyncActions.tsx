@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FaFolderOpen, FaRedoAlt, FaSearch } from "react-icons/fa";
+import FolderSelectorModal from "./FolderSelectorModal";
 
 interface VfpSyncActionsProps {
   currentPath?: string;
@@ -12,6 +13,7 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
   const router = useRouter();
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   async function queueAction(action: "rescan" | "sync-now") {
     setBusyAction(action);
@@ -32,40 +34,9 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
     }
   }
 
-  async function handleChooseFolder() {
-    setBusyAction("choose-folder");
+  function handleChooseFolder() {
     setMessage("");
-    try {
-      const response = await fetch("/api/vfp/select-folder-dialog", {
-        method: "POST",
-      });
-      const data = await response.json();
-
-      if (data.success && data.path) {
-        // Save the configuration to the database
-        const configRes = await fetch("/api/vfp/config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dataDir: data.path }),
-        });
-        const configData = await configRes.json();
-
-        if (configData.success) {
-          setMessage(`Sync folder updated to: ${data.path}`);
-          router.refresh();
-        } else {
-          setMessage(`Error saving directory: ${configData.error}`);
-        }
-      } else if (data.cancelled) {
-        setMessage("Folder selection cancelled.");
-      } else {
-        setMessage(`Error: ${data.error || "Unable to open folder dialog."}`);
-      }
-    } catch {
-      setMessage("Failed to open local folder selection window.");
-    } finally {
-      setBusyAction(null);
-    }
+    setIsModalOpen(true);
   }
 
   return (
@@ -95,9 +66,19 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
         type="button"
       >
         <FaFolderOpen className="me-2" />
-        {busyAction === "choose-folder" ? "Opening Window..." : "Choose Folder"}
+        Choose Folder
       </button>
       {message && <span className="text-muted small w-100 mt-2">{message}</span>}
+
+      <FolderSelectorModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        currentPath={currentPath}
+        onFolderSelected={(newPath) => {
+          setMessage(`Sync folder updated to: ${newPath}`);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }
