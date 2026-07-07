@@ -67,44 +67,26 @@ export default function CustomerViewPage() {
   
 
   if (!customer) {
-
     return (
-
       <div className="text-center mt-5">
-
         Loading...
-
       </div>
-
     );
-
   }
 
   return (
-
     <div className="container-fluid">
-    
-    <div className="row">
-    
-    <div className="col-lg-9">
-    
-    <CustomerHeader customer={customer}/>
-    
+      <div className="row">
+        <div className="col-lg-9">
+          <CustomerHeader customer={customer}/>
+        </div>
+        <div className="col-lg-3">
+          <CustomerQuickActions customer={customer}/>
+        </div>
+      </div>
+      
+      <CustomerSummaryCards customer={customer}/>
+      <CustomerOverview customer={customer} />
     </div>
-    
-    <div className="col-lg-3">
-    
-    <CustomerQuickActions customer={customer}/>
-    
-    </div>
-    
-    </div>
-    
-    <CustomerSummaryCards customer={customer}/>
-
-    <CustomerOverview customer={customer} />
-
-</div>
-
-)
+  )
 }
