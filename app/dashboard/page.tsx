@@ -1,6 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
+import DashboardCards from "@/components/DashboardCards";
 import {
   Users,
   UserCircle2,
@@ -472,7 +473,7 @@ export default function DashboardPage() {
             <Plus size={15} /> Quick add
           </button>
         </div>
-
+        <DashboardCards />
         {/* KPI row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
           <KpiCard icon={Users} label="Total users" value="125" delta="12%" positive />
