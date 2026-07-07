@@ -69,7 +69,7 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
   }
 
   return (
-    <div className="vfp-actions">
+     <div className="d-flex align-items-center flex-wrap gap-2">
       <button
         className="btn btn-outline-primary btn-sm"
         disabled={Boolean(busyAction)}
@@ -97,7 +97,7 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
         <FaFolderOpen className="me-2" />
         {busyAction === "choose-folder" ? "Opening Window..." : "Choose Folder"}
       </button>
-      {message && <span className="vfp-action-message w-100 mt-2">{message}</span>}
+      {message && <span className="text-muted small w-100 mt-2">{message}</span>}
     </div>
   );
 }
