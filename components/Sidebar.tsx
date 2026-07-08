@@ -289,30 +289,46 @@ export default function Sidebar({
                 </button>
 
                 {salesOpen && !collapsed && (
-                  <ul className="nav flex-column ms-4">
-                    <li>
-                      <Link href="#" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
-                          pathname.startsWith("#")
-                            ? "bg-primary text-white"
-                            : "text-white"
-                        }`}
-                      >
-                        Invoices
-                      </Link>
-                    </li>
+                 <ul className="nav flex-column ms-4">
+                  <li>
+                    <Link
+                      href="/dashboard/sales/"
+                      className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+                        pathname.startsWith("#")
+                          ? "bg-primary text-white"
+                          : "text-white"
+                      }`}
+                    >
+                      Sales Dashboard
+                    </Link>
+                  </li>
 
-                    <li>
-                      <Link href="#" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
-                          pathname.startsWith("#")
-                            ? "bg-primary text-white"
-                            : "text-white"
-                        }`}
-                      >
-                        Orders
-                      </Link>
-                    </li>
+                  <li>
+                    <Link
+                      href="/dashboard/sales/invoices"
+                      className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+                        pathname.startsWith("/dashboard/sales/invoices")
+                          ? "bg-primary text-white"
+                          : "text-white"
+                      }`}
+                    >
+                      Invoices
+                    </Link>
+                  </li>
 
-                  </ul>
+                  <li>
+                    <Link
+                      href="#"
+                      className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+                        pathname.startsWith("#")
+                          ? "bg-primary text-white"
+                          : "text-white"
+                      }`}
+                    >
+                      Orders
+                    </Link>
+                  </li>
+                </ul>
                 )}
               </li>
 
@@ -448,7 +464,7 @@ export default function Sidebar({
               <PermissionGate permission="reports.view">
 
                 <li className="nav-item mt-2">
-                  <Link href="#" title={collapsed ? "Reports" : ""}
+                  <Link href="/dashboard/report" title={collapsed ? "Reports" : ""}
                       className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
                       pathname.startsWith("#") ? "bg-primary text-white"
                             : "text-white"
