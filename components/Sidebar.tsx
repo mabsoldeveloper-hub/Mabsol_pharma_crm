@@ -233,9 +233,21 @@ export default function Sidebar({
 
                 {inventoryOpen && !collapsed && (
                   <ul className="nav flex-column ms-4">
+
                     <li>
-                      <Link href="#" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
-                          pathname.startsWith("#")
+                    <Link href="/dashboard/inventory/dashboard" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+                           pathname === "/dashboard/inventory/dashboard"
+                          ? "bg-primary text-white"
+                          : "text-white"
+                      }`}
+                    >
+                      Inventory Dashboard
+                    </Link>
+                    </li>
+
+                    <li>
+                      <Link href="/dashboard/inventory/products" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+                          pathname.startsWith("/dashboard/inventory/products")
                             ? "bg-primary text-white"
                             : "text-white"
                         }`}
