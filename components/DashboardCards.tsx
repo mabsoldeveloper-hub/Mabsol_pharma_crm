@@ -77,7 +77,7 @@ export default function DashboardCards() {
         title: "Debit",
         value:
           "₹" +
-          Number(summary?.debit || 0).toLocaleString(),
+        Number(summary?.debit || 0).toLocaleString(),
         icon: <FaRupeeSign size={28} />,
         color: "dark",
       },

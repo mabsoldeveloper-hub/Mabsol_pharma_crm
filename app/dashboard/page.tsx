@@ -31,10 +31,9 @@ export default async function DashboardPage() {
   }
 
   return (
-    <ProtectedPage permission="dashboard.view" >
-
-      <DashboardCards />
-
-    </ProtectedPage>
+        <ProtectedPage permission="dashboard.view" >
+          <DashboardCards />
+        </ProtectedPage>
+    
   );
 }
