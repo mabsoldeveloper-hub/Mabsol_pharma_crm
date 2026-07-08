@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FaFolderOpen, FaRedoAlt, FaSearch } from "react-icons/fa";
+import { FaFolderOpen, FaRedoAlt, FaSearch, FaSyncAlt, FaTerminal } from "react-icons/fa";
 import FolderSelectorModal from "./FolderSelectorModal";
+import VfpConfigWizard from "./VfpConfigWizard";
 
 interface VfpSyncActionsProps {
   currentPath?: string;
@@ -14,6 +15,7 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   async function queueAction(action: "rescan" | "sync-now") {
     setBusyAction(action);
@@ -34,6 +36,28 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
     }
   }
 
+  async function handleLaunchVfp() {
+    setBusyAction("launch-vfp");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/vfp/launch-vfp", {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage(data.message || "VFP Console launched successfully.");
+      } else {
+        setMessage(data.error || "Failed to launch VFP Console.");
+      }
+    } catch {
+      setMessage("Error occurred while launching VFP Console.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   function handleChooseFolder() {
     setMessage("");
     setIsModalOpen(true);
@@ -41,6 +65,27 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
 
   return (
      <div className="d-flex align-items-center flex-wrap gap-2">
+      <button
+        className="btn btn-outline-info btn-sm fw-semibold"
+        disabled={Boolean(busyAction)}
+        onClick={handleLaunchVfp}
+        type="button"
+      >
+        <FaTerminal className="me-1.5" />
+        {busyAction === "launch-vfp" ? "Launching..." : "Open VFP Console"}
+      </button>
+      <button
+        className="btn btn-outline-success btn-sm fw-semibold"
+        disabled={Boolean(busyAction)}
+        onClick={() => {
+          setMessage("");
+          setIsWizardOpen(true);
+        }}
+        type="button"
+      >
+        <FaSyncAlt className="me-1.5" />
+        Sync Wizard
+      </button>
       <button
         className="btn btn-outline-primary btn-sm"
         disabled={Boolean(busyAction)}
@@ -78,6 +123,16 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
           setMessage(`Sync folder updated to: ${newPath}`);
           router.refresh();
         }}
+      />
+
+      <VfpConfigWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onSuccess={() => {
+          setMessage("Wizard configuration completed successfully!");
+          router.refresh();
+        }}
+        currentDataDir={currentPath}
       />
     </div>
   );

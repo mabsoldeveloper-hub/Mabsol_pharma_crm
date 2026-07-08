@@ -191,9 +191,18 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
     return acc;
   }, {});
   let dataDir = process.env.VFP_DATA_DIR || "";
+  let sourceDir = "";
+  let enabledFiles: string[] = [];
+  let useVfpEngine = false;
+  let vfpExePath = "C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe";
+
   const config = (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean()) as any;
-  if (config && config.dataDir) {
-    dataDir = config.dataDir;
+  if (config) {
+    if (config.dataDir) dataDir = config.dataDir;
+    if (config.sourceDir) sourceDir = config.sourceDir;
+    if (config.enabledFiles) enabledFiles = config.enabledFiles;
+    if (config.useVfpEngine !== undefined) useVfpEngine = config.useVfpEngine;
+    if (config.vfpExePath) vfpExePath = config.vfpExePath;
   }
   const dataDirExists = Boolean(dataDir) && fs.existsSync(dataDir);
   const heartbeat = workerHeartbeat as
@@ -219,6 +228,10 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
     workerLastRunReason: heartbeat?.lastRunReason || "",
     dataDir,
     dataDirExists,
+    sourceDir,
+    enabledFiles,
+    useVfpEngine,
+    vfpExePath,
     conflictPolicy: process.env.VFP_CONFLICT_POLICY || "vfp_wins",
     tableCount,
     importedRows: filteredImportedRows,

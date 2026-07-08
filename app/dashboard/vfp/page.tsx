@@ -393,13 +393,46 @@ export default async function VfpDashboardPage({
           <div className="col-md-4">
             <div className="card border-0 shadow-sm h-100 bg-white p-3">
               <div className="text-primary fw-bold small mb-2 d-flex align-items-center gap-2">
-                <FaFolderOpen /> Source Folder
+                <FaFolderOpen /> Sync Paths & Selection
               </div>
-              <div 
-                className="p-2 border rounded font-monospace small bg-light text-secondary text-break"
-                style={{ wordBreak: "break-all", minHeight: "48px" }}
-              >
-                {status.dataDir || "Set VFP_DATA_DIR in .env"}
+              <div className="d-flex flex-column gap-2 small text-dark mt-1">
+                <div>
+                  <span className="text-secondary small fw-semibold">Source Folder:</span>
+                  <div 
+                    className="p-1.5 border rounded font-monospace small bg-light text-secondary text-break mt-0.5"
+                    style={{ wordBreak: "break-all", minHeight: "28px" }}
+                  >
+                    {status.sourceDir || "Not set (using Sync Folder directly)"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-secondary small fw-semibold">Sync Folder (Local):</span>
+                  <div 
+                    className="p-1.5 border rounded font-monospace small bg-light text-secondary text-break mt-0.5"
+                    style={{ wordBreak: "break-all", minHeight: "28px" }}
+                  >
+                    {status.dataDir || "Set VFP_DATA_DIR in .env"}
+                  </div>
+                </div>
+                <div className="d-flex justify-content-between align-items-center mt-1 border-top pt-2">
+                  <span className="text-secondary small fw-semibold">VFP Engine:</span>
+                  <span className={`badge border ${status.useVfpEngine ? "bg-success-subtle text-success" : "bg-light text-secondary"}`}>
+                    {status.useVfpEngine ? "Enabled (vfp9.exe)" : "Disabled (Direct Copy)"}
+                  </span>
+                </div>
+                {status.useVfpEngine && (
+                  <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                    Executable: <span className="font-monospace text-break">{status.vfpExePath}</span>
+                  </div>
+                )}
+                <div className="d-flex justify-content-between align-items-center mt-0.5">
+                  <span className="text-secondary small fw-semibold">Sync Scope:</span>
+                  <span className="badge bg-secondary-subtle text-secondary border">
+                    {status.enabledFiles && status.enabledFiles.length > 0
+                      ? `${status.enabledFiles.length} table(s) selected`
+                      : "Syncing all files"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

@@ -8,7 +8,7 @@ const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 
 loadEnv(path.join(PROJECT_ROOT, ".env"));
 
-let VFP_DATA_DIR = null;
+let VFP_DATA_DIR = process.env.VFP_DATA_DIR;
 const MONGODB_URI = process.env.MONGODB_URI;
 const SYNC_INTERVAL_MS = Number(process.env.VFP_SYNC_INTERVAL_MS || 10000);
 const DEBOUNCE_MS = Number(process.env.VFP_DEBOUNCE_MS || 2000);
@@ -180,9 +180,37 @@ async function runSync(reason) {
 
     await processOutboundQueue(runId);
 
-    const files = listFiles(VFP_DATA_DIR).filter((filePath) =>
+    const config = await VfpConfig.findOne({ key: "vfp_sync_config" });
+    const enabledFiles = config ? (config.enabledFiles || []) : [];
+
+    let files = listFiles(VFP_DATA_DIR).filter((filePath) =>
       isValidTableFile(path.basename(filePath))
     );
+
+    if (enabledFiles && enabledFiles.length > 0) {
+      const enabledSet = new Set(enabledFiles.map((f) => f.toLowerCase()));
+      files = files.filter((filePath) => {
+        const relativePath = path
+          .relative(VFP_DATA_DIR, filePath)
+          .replace(/\\/g, "/")
+          .toLowerCase();
+        const baseNameWithoutExt = relativePath.replace(/\.[^.]+$/, "");
+
+        // If it's a direct match (e.g. customer.dbf)
+        if (enabledSet.has(relativePath)) {
+          return true;
+        }
+
+        // Or if it's a supporting file (e.g. customer.fpt or customer.cdx) for an enabled DBF
+        const matchingDbfRelative = `${baseNameWithoutExt}.dbf`;
+        if (enabledSet.has(matchingDbfRelative)) {
+          return true;
+        }
+
+        return false;
+      });
+    }
+
     const dbfFiles = files.filter((filePath) =>
       filePath.toLowerCase().endsWith(".dbf")
     );

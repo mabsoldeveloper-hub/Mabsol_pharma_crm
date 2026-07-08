@@ -12,6 +12,25 @@ const VfpConfigSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    sourceDir: {
+      type: String,
+      required: false,
+    },
+    enabledFiles: {
+      type: [String],
+      required: false,
+      default: [],
+    },
+    useVfpEngine: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
+    vfpExePath: {
+      type: String,
+      required: false,
+      default: "",
+    },
   },
   {
     timestamps: true,

@@ -8,6 +8,8 @@ interface FolderSelectorModalProps {
   onClose: () => void;
   currentPath: string;
   onFolderSelected: (newPath: string) => void;
+  title?: string;
+  selectOnly?: boolean;
 }
 
 export default function FolderSelectorModal({
@@ -15,6 +17,8 @@ export default function FolderSelectorModal({
   onClose,
   currentPath,
   onFolderSelected,
+  title = "Configure VFP Sync Directory",
+  selectOnly = false,
 }: FolderSelectorModalProps) {
   const [pathInput, setPathInput] = useState("");
   const [folderInput, setFolderInput] = useState("");
@@ -129,6 +133,12 @@ export default function FolderSelectorModal({
       ? `${pathInput.trim()}${separator}${folderInput.trim()}`
       : pathInput.trim();
 
+    if (selectOnly) {
+      onFolderSelected(fullPath);
+      onClose();
+      return;
+    }
+
     setLoading(true);
     try {
       const configRes = await fetch("/api/vfp/config", {
@@ -175,7 +185,7 @@ export default function FolderSelectorModal({
           <div className="modal-header border-bottom px-4 py-3 bg-light d-flex align-items-center justify-content-between">
             <h5 className="modal-title fw-bold text-dark d-flex align-items-center gap-2">
               <FaFolderOpen className="text-primary fs-5" />
-              Configure VFP Sync Directory
+              {title}
             </h5>
             <button
               type="button"
