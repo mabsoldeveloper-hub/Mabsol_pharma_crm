@@ -143,32 +143,6 @@ interface KpiCardProps {
   accent?: boolean;
 }
 
-function KpiCard({ icon: Icon, label, value, delta, positive, accent = false }: KpiCardProps) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: accent ? AMBER_TINT : INK_TINT }}
-        >
-          <Icon size={19} style={{ color: accent ? AMBER : INK }} />
-        </div>
-        <span
-          className={`flex items-center gap-0.5 text-xs font-semibold px-2 py-1 rounded-full ${
-            positive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
-          }`}
-        >
-          {positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-          {delta}
-        </span>
-      </div>
-      <div>
-        <p className="text-[13px] text-slate-500">{label}</p>
-        <p className="text-[22px] font-semibold text-slate-900 font-mono tracking-tight mt-0.5">{value}</p>
-      </div>
-    </div>
-  );
-}
 
 function RevenueChart() {
   return (
@@ -473,16 +447,7 @@ export default function DashboardPage() {
             <Plus size={15} /> Quick add
           </button>
         </div>
-        <DashboardCards />
-        {/* KPI row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
-          <KpiCard icon={Users} label="Total users" value="125" delta="12%" positive />
-          <KpiCard icon={UserCircle2} label="Customers" value="540" delta="6%" positive />
-          <KpiCard icon={IndianRupee} label="Revenue (MTD)" value={formatCompactINR(1850000)} delta="8%" positive accent />
-          <KpiCard icon={Target} label="Active leads" value="214" delta="4%" positive />
-          <KpiCard icon={Boxes} label="Inventory items" value="386" delta="2%" positive={false} />
-          <KpiCard icon={Award} label="Deals won" value="28" delta="9%" positive accent />
-        </div>
+        <DashboardCards /> 
 
         {/* Revenue + module split */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
