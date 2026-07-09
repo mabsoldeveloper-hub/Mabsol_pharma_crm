@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import VfpConfig from "@/models/VfpConfig";
+import VfpSettingLog from "@/models/VfpSettingLog";
 import fs from "fs";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,9 @@ export async function GET() {
     let enabledFiles: string[] = [];
     let useVfpEngine = false;
     let vfpExePath = process.env.VFP_EXE_PATH || "";
+    let userName = "";
+    let companyName = "";
+    let license = "";
     let isFromDb = false;
 
     const config = await VfpConfig.findOne({ key: "vfp_sync_config" }).lean();
@@ -34,6 +38,15 @@ export async function GET() {
       if ((config as any).vfpExePath) {
         vfpExePath = (config as any).vfpExePath;
       }
+      if ((config as any).userName) {
+        userName = (config as any).userName;
+      }
+      if ((config as any).companyName) {
+        companyName = (config as any).companyName;
+      }
+      if ((config as any).license) {
+        license = (config as any).license;
+      }
     }
 
     const exists = dataDir ? fs.existsSync(dataDir) : false;
@@ -47,6 +60,9 @@ export async function GET() {
       enabledFiles,
       useVfpEngine,
       vfpExePath,
+      userName,
+      companyName,
+      license,
       isFromDb,
       exists,
       sourceExists,
@@ -64,7 +80,7 @@ export async function POST(request: NextRequest) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { dataDir, sourceDir, enabledFiles, useVfpEngine, vfpExePath } = body;
+    const { dataDir, sourceDir, enabledFiles, useVfpEngine, vfpExePath, userName, companyName, license } = body;
 
     const updateFields: any = {};
 
@@ -141,12 +157,40 @@ export async function POST(request: NextRequest) {
       updateFields.vfpExePath = vfpExePath;
     }
 
+    if (userName !== undefined) {
+      updateFields.userName = userName;
+    }
+    if (companyName !== undefined) {
+      updateFields.companyName = companyName;
+    }
+    if (license !== undefined) {
+      updateFields.license = license;
+    }
+
     // Save to database
     await VfpConfig.updateOne(
       { key: "vfp_sync_config" },
       { $set: updateFields },
       { upsert: true }
     );
+
+    // Get final values for logging (merging with existing)
+    const activeConfig = await VfpConfig.findOne({ key: "vfp_sync_config" });
+    const logUserName = activeConfig?.userName || "Unknown";
+    const logCompanyName = activeConfig?.companyName || "Unknown";
+    const logLicense = activeConfig?.license || "Unknown";
+    const logVfpExePath = activeConfig?.vfpExePath || "Unknown";
+
+    // Create entry in VfpSettingLog to log this configuration change
+    await VfpSettingLog.create({
+      userName: logUserName,
+      companyName: logCompanyName,
+      license: logLicense,
+      vfpExePath: logVfpExePath,
+      action: "save_settings",
+      status: "success",
+      message: "VFP configuration settings updated.",
+    });
 
     return NextResponse.json({
       success: true,

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FaFolderOpen, FaRedoAlt, FaSearch, FaSyncAlt, FaTerminal } from "react-icons/fa";
+import { FolderOpen, RefreshCw, Search, Terminal } from "lucide-react";
 import FolderSelectorModal from "./FolderSelectorModal";
 import VfpConfigWizard from "./VfpConfigWizard";
 
@@ -64,18 +64,19 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
   }
 
   return (
-     <div className="d-flex align-items-center flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <button
-        className="btn btn-outline-info btn-sm fw-semibold"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-sky-200 text-sky-700 bg-white hover:bg-sky-50 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={Boolean(busyAction)}
         onClick={handleLaunchVfp}
         type="button"
       >
-        <FaTerminal className="me-1.5" />
+        <Terminal size={13} />
         {busyAction === "launch-vfp" ? "Launching..." : "Open VFP Console"}
       </button>
+      
       <button
-        className="btn btn-outline-success btn-sm fw-semibold"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-green-200 text-green-700 bg-white hover:bg-green-50 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={Boolean(busyAction)}
         onClick={() => {
           setMessage("");
@@ -83,37 +84,41 @@ export default function VfpSyncActions({ currentPath = "" }: VfpSyncActionsProps
         }}
         type="button"
       >
-        <FaSyncAlt className="me-1.5" />
+        <RefreshCw size={13} />
         Sync Wizard
       </button>
+
       <button
-        className="btn btn-outline-primary btn-sm"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={Boolean(busyAction)}
         onClick={() => queueAction("rescan")}
         type="button"
       >
-        <FaSearch className="me-2" />
+        <Search size={13} />
         {busyAction === "rescan" ? "Queueing..." : "Rescan"}
       </button>
+
       <button
-        className="btn btn-primary btn-sm"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={Boolean(busyAction)}
         onClick={() => queueAction("sync-now")}
         type="button"
       >
-        <FaRedoAlt className="me-2" />
+        <RefreshCw size={13} className={busyAction === "sync-now" ? "animate-spin" : ""} />
         {busyAction === "sync-now" ? "Queueing..." : "Sync Now"}
       </button>
+
       <button
-        className="btn btn-outline-secondary btn-sm"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={Boolean(busyAction)}
         onClick={handleChooseFolder}
         type="button"
       >
-        <FaFolderOpen className="me-2" />
+        <FolderOpen size={13} />
         Choose Folder
       </button>
-      {message && <span className="text-muted small w-100 mt-2">{message}</span>}
+
+      {message && <span className="text-slate-500 text-xs w-full mt-2 font-medium">{message}</span>}
 
       <FolderSelectorModal
         isOpen={isModalOpen}

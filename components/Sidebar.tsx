@@ -1,5 +1,6 @@
 "use client";
 import PermissionGate from "@/components/PermissionGate";
+import { usePermission } from "@/context/PermissionContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -36,6 +37,7 @@ export default function Sidebar({
   mobile,
 }: SidebarProps) {
 
+  const { can } = usePermission();
   const [crmOpen, setCrmOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
@@ -46,6 +48,8 @@ export default function Sidebar({
   const [companyOpen, setCompanyOpen] =useState(false);
   // financial yea master
   const [fyOpen, setFyOpen] = useState(false);
+  // VFP dropdown toggle
+  const [vfpOpen, setVfpOpen] = useState(false);
 
   
   const [company, setCompany] = useState<CompanyBrand | null>(null);
@@ -481,22 +485,58 @@ export default function Sidebar({
             {/* Reports Section END here  */}
             {/* ########################################### */}
             {/* VFP Section Start here */}
-            <PermissionGate permission="vfp.view">
+            {(can("vfp.view") || can("vfp.settings")) && (
               <li className="nav-item mt-2">
-                <Link href="/dashboard/vfp" title={collapsed ? "VFP Integration" : ""}
-                      className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
-                        pathname.startsWith("/dashboard/vfp")
-                          ? "bg-primary text-white"
-                          : "text-white"
-                      }`}
+                <button
+                  title={collapsed ? "VFP Integration" : ""}
+                  className="btn text-white w-100 d-flex align-items-center justify-content-between"
+                  onClick={() => setVfpOpen(!vfpOpen)}
                 >
-                  <FaExchangeAlt />
-                  {!collapsed && (
-                    <span className="ms-3"> VFP Integration </span>
-                  )}
-                </Link>
+                  <span className="d-flex align-items-center">
+                    <FaExchangeAlt size={16} />
+                    {!collapsed && (
+                      <span className="ms-3"> VFP Integration </span>
+                    )}
+                  </span>
+
+                  {!collapsed &&
+                    (vfpOpen ? (
+                      <FaChevronDown />
+                    ) : (
+                      <FaChevronRight />
+                    ))}
+                </button>
+
+                {vfpOpen && !collapsed && (
+                  <ul className="nav flex-column ms-4">
+                    {can("vfp.view") && (
+                      <li>
+                        <Link href="/dashboard/vfp" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+                            pathname === "/dashboard/vfp"
+                              ? "bg-primary text-white"
+                              : "text-white"
+                          }`}
+                        >
+                          Sync Console
+                        </Link>
+                      </li>
+                    )}
+                    {can("vfp.settings") && (
+                      <li>
+                        <Link href="/dashboard/vfp/settings" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+                            pathname.startsWith("/dashboard/vfp/settings")
+                              ? "bg-primary text-white"
+                              : "text-white"
+                          }`}
+                        >
+                          VFP Settings
+                        </Link>
+                      </li>
+                    )}
+                  </ul>
+                )}
               </li>
-            </PermissionGate>
+            )}
             {/* VFP Section END here */}
             {/* ########################################### */}
             {/* Settings Section STart here */}

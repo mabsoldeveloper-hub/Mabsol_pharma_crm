@@ -31,6 +31,21 @@ const VfpConfigSchema = new mongoose.Schema(
       required: false,
       default: "",
     },
+    userName: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    companyName: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    license: {
+      type: String,
+      required: false,
+      default: "",
+    },
   },
   {
     timestamps: true,

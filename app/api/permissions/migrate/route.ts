@@ -18,6 +18,17 @@ export async function GET() {
     });
   }
 
+  // Seed vfp.settings permission if it doesn't exist
+  const vfpSettingsPermission = await Permission.findOne({ permissionKey: "vfp.settings" });
+  if (!vfpSettingsPermission) {
+    await Permission.create({
+      moduleName: "VFP",
+      permissionName: "VFP Settings",
+      permissionKey: "vfp.settings",
+      status: "active",
+    });
+  }
+
   const permissions =
     await Permission.find();
 
