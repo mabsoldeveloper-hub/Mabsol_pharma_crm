@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import VfpConfig from "@/models/VfpConfig";
+import { getCurrentUser } from "@/lib/auth";
 import VfpSyncCommand from "@/models/VfpSyncCommand";
 import VfpSyncLog from "@/models/VfpSyncLog";
 import fs from "fs";
@@ -48,9 +49,13 @@ export async function POST() {
 
   try {
     await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
 
     // Load active configuration
-    const config = await VfpConfig.findOne({ key: "vfp_sync_config" });
+    const config = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
     if (!config) {
       return NextResponse.json(
         { success: false, error: "VFP Sync is not configured. Please use the Sync Wizard first." },
@@ -138,10 +143,12 @@ export async function POST() {
       command: "rescan",
       status: "queued",
       requestedBy: "crm",
+      email: user.email,
     });
 
     await VfpSyncLog.create({
       runId: String(command._id),
+      email: user.email,
       action: "rescan",
       status: "queued",
       message: "Direct VFP import and rescan triggered from dashboard.",

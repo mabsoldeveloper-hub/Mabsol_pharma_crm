@@ -70,24 +70,18 @@ export default function VfpConfigWizard({
   if (!isOpen) return null;
 
   // Folder picking handlers
-  function handleBrowseFolder(field: "source" | "dest") {
-    setBrowsingField(field);
+  function handleBrowseFolder() {
     setIsFolderPickerOpen(true);
   }
 
   function handleFolderSelected(path: string) {
-    if (browsingField === "source") {
-      setSourceDir(path);
-    } else if (browsingField === "dest") {
-      setDataDir(path);
-    }
-    setBrowsingField(null);
+    setDataDir(path);
   }
 
-  // Action: copy files from sourceDir to dataDir
+  // Action: Scan directory and list DBF files
   async function handleTransferData() {
-    if (!sourceDir.trim() || !dataDir.trim()) {
-      setError("Both source directory and destination directory are required.");
+    if (!dataDir.trim()) {
+      setError("Sync folder directory path is required.");
       return;
     }
 
@@ -97,19 +91,19 @@ export default function VfpConfigWizard({
       const response = await fetch("/api/vfp/transfer-data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceDir, dataDir }),
+        body: JSON.stringify({ dataDir }),
       });
       const data = await response.json();
 
       if (data.success) {
-        setCopiedCount(data.copiedCount);
+        setCopiedCount(data.dbfFiles?.length || 0);
         setAvailableFiles(data.dbfFiles || []);
         setStep(2); // Proceed to selecting files
       } else {
-        setError(data.error || "Failed to transfer VFP files.");
+        setError(data.error || "Failed to load VFP database files.");
       }
     } catch {
-      setError("An error occurred during VFP file transfer.");
+      setError("An error occurred during VFP database file scan.");
     } finally {
       setLoading(false);
     }
@@ -226,28 +220,28 @@ export default function VfpConfigWizard({
             {step === 1 && (
               <div>
                 <p className="text-secondary small mb-4">
-                  Select the source directory containing the raw VFP database files, and the local destination directory where the VFP tables should be pasted and synced to the CRM database.
+                  Select the local directory on this system containing the Visual FoxPro database (.dbf) files that you wish to sync.
                 </p>
 
-                {/* Source Path */}
+                {/* Destination Path */}
                 <div className="mb-4">
                   <label className="form-label fw-semibold text-secondary small d-flex align-items-center gap-2">
-                    <FaFolderOpen className="text-warning" />
-                    Source Directory (Get VFP data from)
+                    <FaFolder className="text-primary" />
+                    VFP Database Sync Directory
                   </label>
                   <div className="input-group input-group-sm">
                     <input
                       type="text"
                       className="form-control font-monospace text-secondary bg-light"
-                      placeholder="e.g. D:\VFP_Source_Data"
-                      value={sourceDir}
-                      onChange={(e) => setSourceDir(e.target.value)}
+                      placeholder="e.g. C:\VFP_Data_Files"
+                      value={dataDir}
+                      onChange={(e) => setDataDir(e.target.value)}
                       disabled={loading}
                     />
                     <button
                       type="button"
                       className="btn btn-outline-secondary"
-                      onClick={() => handleBrowseFolder("source")}
+                      onClick={handleBrowseFolder}
                       disabled={loading}
                     >
                       Browse...
@@ -256,73 +250,6 @@ export default function VfpConfigWizard({
                   <div className="form-text text-muted" style={{ fontSize: "0.75rem" }}>
                     Select the directory where Visual FoxPro currently writes/saves its database.
                   </div>
-                </div>
-
-                {/* Destination Path */}
-                <div className="mb-4">
-                  <label className="form-label fw-semibold text-secondary small d-flex align-items-center gap-2">
-                    <FaFolder className="text-primary" />
-                    Destination Directory (Paste VFP data to & monitor)
-                  </label>
-                  <div className="input-group input-group-sm">
-                    <input
-                      type="text"
-                      className="form-control font-monospace text-secondary bg-light"
-                      placeholder="e.g. C:\VFP_Local_Mirror"
-                      value={dataDir}
-                      onChange={(e) => setDataDir(e.target.value)}
-                      disabled={loading}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary"
-                      onClick={() => handleBrowseFolder("dest")}
-                      disabled={loading}
-                    >
-                      Browse...
-                    </button>
-                  </div>
-                  <div className="form-text text-muted" style={{ fontSize: "0.75rem" }}>
-                    Select or create a folder where VFP files will be replicated and monitored for sync.
-                  </div>
-                </div>
-
-                {/* VFP Engine Option Toggle */}
-                <div className="mb-4 border border-light-subtle rounded-3 p-3 bg-light bg-opacity-50">
-                  <div className="form-check form-switch mb-2.5">
-                    <input
-                      className="form-check-input cursor-pointer"
-                      type="checkbox"
-                      role="switch"
-                      id="useVfpEngineSwitch"
-                      checked={useVfpEngine}
-                      onChange={(e) => setUseVfpEngine(e.target.checked)}
-                      disabled={loading}
-                    />
-                    <label className="form-check-label fw-bold text-dark small cursor-pointer" htmlFor="useVfpEngineSwitch">
-                      Use Visual FoxPro Engine to Copy (Recommended for Marg ERP)
-                    </label>
-                  </div>
-                  <p className="text-secondary small mb-2" style={{ fontSize: "0.72rem", lineHeight: "1.3" }}>
-                    Highly recommended for Marg ERP! This runs <code>vfp9.exe</code> in silent background mode to safely open, decrypt, and copy Marg's active databases, avoiding character formatting errors and lockups.
-                  </p>
-
-                  {useVfpEngine && (
-                    <div className="mt-2.5">
-                      <label htmlFor="vfpExePathInput" className="form-label fw-semibold text-secondary small mb-1" style={{ fontSize: "0.72rem" }}>
-                        VFP Executable Path (vfp9.exe)
-                      </label>
-                      <input
-                        type="text"
-                        id="vfpExePathInput"
-                        className="form-control form-control-sm font-monospace text-secondary"
-                        placeholder="e.g. C:\Program Files (x86)\Microsoft Visual FoxPro 9\vfp9.exe"
-                        value={vfpExePath}
-                        onChange={(e) => setVfpExePath(e.target.value)}
-                        disabled={loading}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -456,7 +383,7 @@ export default function VfpConfigWizard({
                   type="button"
                   className="btn btn-primary btn-sm px-4 fw-semibold d-flex align-items-center gap-1.5"
                   onClick={handleTransferData}
-                  disabled={loading || !sourceDir.trim() || !dataDir.trim()}
+                  disabled={loading || !dataDir.trim()}
                 >
                   {loading ? "Copying VFP files..." : "Transfer Data & Next"}
                   {!loading && <FaArrowRight />}

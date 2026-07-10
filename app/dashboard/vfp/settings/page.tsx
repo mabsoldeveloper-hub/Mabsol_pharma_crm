@@ -30,13 +30,14 @@ interface VfpSettingLogEntry {
   action: string;
   status: string;
   message?: string;
+  ipAddress?: string;
+  changes?: any;
   createdAt: string;
 }
 
 export default function VfpSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [launching, setLaunching] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "danger" | ""; text: string }>({ type: "", text: "" });
@@ -103,8 +104,8 @@ export default function VfpSettingsPage() {
     e.preventDefault();
     setMessage({ type: "", text: "" });
 
-    if (!form.userName.trim() || !form.companyName.trim() || !form.license.trim() || !form.vfpExePath.trim()) {
-      setMessage({ type: "danger", text: "All fields are required to update the VFP Settings." });
+    if (!form.userName.trim() || !form.companyName.trim() || !form.license.trim()) {
+      setMessage({ type: "danger", text: "Operator, Company name, and License Key fields are required to update settings." });
       return;
     }
 
@@ -113,7 +114,11 @@ export default function VfpSettingsPage() {
       const res = await fetch("/api/vfp/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          userName: form.userName,
+          companyName: form.companyName,
+          license: form.license,
+        }),
       });
 
       const data = await res.json();
@@ -168,32 +173,6 @@ export default function VfpSettingsPage() {
     }
   };
 
-  const handleLaunchVfp = async () => {
-    setMessage({ type: "", text: "" });
-
-    if (!savedForm.vfpExePath) {
-      setMessage({ type: "danger", text: "Please configure and save the VFP executable path first." });
-      return;
-    }
-
-    try {
-      setLaunching(true);
-      const res = await fetch("/api/vfp/launch-vfp", {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (data.success) {
-        setMessage({ type: "success", text: data.message || "VFP Console application opened successfully!" });
-      } else {
-        setMessage({ type: "danger", text: data.error || "Failed to open VFP application." });
-      }
-    } catch {
-      setMessage({ type: "danger", text: "Error occurred while launching VFP application." });
-    } finally {
-      setLaunching(false);
-    }
-  };
-
   function actionBadge(action: string) {
     if (action === "save_settings") {
       return (
@@ -231,7 +210,7 @@ export default function VfpSettingsPage() {
     return `${year}-${month}-${day} ${hour}:${min}`;
   }
 
-  const isFormConfigured = savedForm.userName && savedForm.companyName && savedForm.license && savedForm.vfpExePath;
+  const isFormConfigured = savedForm.userName && savedForm.companyName && savedForm.license;
 
   return (
     <ProtectedPage permission="vfp.settings">
@@ -251,24 +230,16 @@ export default function VfpSettingsPage() {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                Manage your Visual FoxPro connection, executable target path, sync controls, and audit trail from a single streamlined admin workspace.
+                Manage your Visual FoxPro connection, sync controls, and audit trail from a single streamlined admin workspace.
               </p>
             </div>
           </div>
 
           <div className="flex flex-col gap-2.5 pt-1">
             <button
-              onClick={handleLaunchVfp}
-              disabled={launching || isEditing || !savedForm.vfpExePath}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Terminal size={15} />
-              {launching ? "Opening..." : "Open VFP Console"}
-            </button>
-            <button
               onClick={handleSyncNow}
               disabled={syncing || isEditing || !isFormConfigured}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-2xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
               {syncing ? "Syncing..." : "Sync Now & Log"}
@@ -381,25 +352,6 @@ export default function VfpSettingsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  VFP Executable Target Path
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                    <FolderOpen size={14} />
-                  </span>
-                  <input
-                    type="text"
-                    className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm font-mono text-slate-700 focus:outline-none focus:border-blue-500"
-                    placeholder="C:\Program Files\Visual FoxPro 9\vfp9.exe"
-                    value={form.vfpExePath}
-                    onChange={(e) => setForm({ ...form, vfpExePath: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
               <div className="flex gap-2.5 pt-2 border-t border-slate-100">
                 <button
                   type="submit"
@@ -442,13 +394,6 @@ export default function VfpSettingsPage() {
                 <p className="text-sm font-semibold text-slate-850 mt-0.5 font-mono break-all">{savedForm.license || "Not set"}</p>
               </div>
 
-              <div className="border border-slate-100 rounded-2xl p-2.5 bg-slate-50/20">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <FolderOpen size={13} className="text-slate-400" />
-                  VFP Executable Target Path
-                </span>
-                <p className="text-sm font-semibold text-slate-850 mt-0.5 font-mono break-all">{savedForm.vfpExePath || "Not set"}</p>
-              </div>
             </div>
           )}
         </div>
@@ -526,19 +471,21 @@ export default function VfpSettingsPage() {
                   <th className="py-2 px-2.5">Operator</th>
                   <th className="py-2 px-2.5">Target Path</th>
                   <th className="py-2 px-2.5">License Key</th>
+                  <th className="py-2 px-2.5">IP Address</th>
+                  <th className="py-2 px-2.5">Change Details</th>
                   <th className="py-2 px-2.5">Status</th>
                 </tr>
               </thead>
               <tbody className="text-xs divide-y divide-slate-100">
                 {logsLoading && logs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-5 text-slate-400 font-medium">
+                    <td colSpan={8} className="text-center py-5 text-slate-400 font-medium">
                       Loading audit entries...
                     </td>
                   </tr>
                 ) : logs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-5 text-slate-400 font-medium">
+                    <td colSpan={8} className="text-center py-5 text-slate-400 font-medium">
                       No logs tracked. Set details to populate records.
                     </td>
                   </tr>
@@ -552,6 +499,10 @@ export default function VfpSettingsPage() {
                         {log.vfpExePath}
                       </td>
                       <td className="py-2.5 px-2.5 font-mono text-slate-400 text-xs">{log.license}</td>
+                      <td className="py-2.5 px-2.5 font-mono text-slate-500 text-xs">{log.ipAddress || "127.0.0.1"}</td>
+                      <td className="py-2.5 px-2.5 text-slate-650 max-w-[250px] truncate" title={log.message}>
+                        {log.message || "N/A"}
+                      </td>
                       <td className="py-2.5 px-2.5">{statusBadge(log.action)}</td>
                     </tr>
                   ))

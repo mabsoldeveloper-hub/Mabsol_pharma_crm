@@ -8,9 +8,13 @@ const VfpConfigSchema = new mongoose.Schema(
       unique: true,
       default: "vfp_sync_config",
     },
+    email: {
+      type: String,
+      required: false,
+    },
     dataDir: {
       type: String,
-      required: true,
+      required: false,
     },
     sourceDir: {
       type: String,
@@ -42,6 +46,11 @@ const VfpConfigSchema = new mongoose.Schema(
       default: "",
     },
     license: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    startupCommand: {
       type: String,
       required: false,
       default: "",

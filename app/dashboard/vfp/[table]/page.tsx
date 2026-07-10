@@ -43,15 +43,16 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
     redirect("/login");
   }
 
+  let decoded: any = null;
   try {
-    jwt.verify(token, process.env.JWT_SECRET as string);
+    decoded = jwt.verify(token, process.env.JWT_SECRET as string);
   } catch {
     redirect("/login");
   }
 
   const { table } = await params;
   const query = toSearchParams(await searchParams);
-  const data = await getVfpTableRows(table, query);
+  const data = await getVfpTableRows(table, query, decoded?.email);
 
   if (!data.table) {
     return (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import VfpConfig from "@/models/VfpConfig";
+import { getCurrentUser } from "@/lib/auth";
 import fs from "fs";
 import path from "path";
 import { execFile } from "child_process";
@@ -85,41 +86,62 @@ function listDbfFiles(rootDir: string, currentDir: string = rootDir): string[] {
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { sourceDir, dataDir } = body;
 
-    if (!sourceDir || !dataDir) {
+    if (!dataDir) {
       return NextResponse.json(
-        { success: false, error: "Both sourceDir and dataDir are required" },
+        { success: false, error: "dataDir (Sync Directory) is required" },
         { status: 400 }
       );
     }
 
-    // Validate sourceDir exists
-    if (!fs.existsSync(sourceDir)) {
+    // Validate dataDir exists
+    if (!fs.existsSync(dataDir)) {
       return NextResponse.json(
-        { success: false, error: `Source folder does not exist: ${sourceDir}` },
+        { success: false, error: `Sync folder does not exist on local disk: ${dataDir}` },
         { status: 400 }
       );
     }
 
-    const sourceStat = fs.statSync(sourceDir);
-    if (!sourceStat.isDirectory()) {
+    const dataStat = fs.statSync(dataDir);
+    if (!dataStat.isDirectory()) {
       return NextResponse.json(
-        { success: false, error: `Source path is not a directory: ${sourceDir}` },
+        { success: false, error: `Sync folder path is not a directory: ${dataDir}` },
         { status: 400 }
       );
     }
 
     // Load VFP config to see if we should use VFP Engine
-    const config = await VfpConfig.findOne({ key: "vfp_sync_config" });
+    const config = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
     const useVfpEngine = config ? (config as any).useVfpEngine : false;
     const vfpExePath = config && (config as any).vfpExePath ? (config as any).vfpExePath : (process.env.VFP_EXE_PATH || "");
 
     let copiedCount = 0;
-    let methodUsed = "standard_copy";
+    let methodUsed = "direct_sync";
 
-    if (useVfpEngine) {
+    const shouldCopy = sourceDir && sourceDir.trim() !== "" && sourceDir.trim() !== dataDir.trim();
+
+    if (shouldCopy) {
+      // Validate sourceDir exists
+      if (!fs.existsSync(sourceDir)) {
+        return NextResponse.json(
+          { success: false, error: `Source folder does not exist: ${sourceDir}` },
+          { status: 400 }
+        );
+      }
+      const sourceStat = fs.statSync(sourceDir);
+      if (!sourceStat.isDirectory()) {
+        return NextResponse.json(
+          { success: false, error: `Source path is not a directory: ${sourceDir}` },
+          { status: 400 }
+        );
+      }
       if (!vfpExePath || !fs.existsSync(vfpExePath)) {
         return NextResponse.json(
           { success: false, error: `VFP Engine is enabled, but VFP executable was not found at: ${vfpExePath || "not configured"}` },
@@ -200,11 +222,12 @@ export async function POST(request: NextRequest) {
 
     // Save configuration
     await VfpConfig.updateOne(
-      { key: "vfp_sync_config" },
+      { key: "vfp_sync_config_" + user.email },
       {
         $set: {
           sourceDir,
           dataDir,
+          email: user.email,
         },
       },
       { upsert: true }

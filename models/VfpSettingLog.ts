@@ -2,9 +2,21 @@ import mongoose from "mongoose";
 
 const VfpSettingLogSchema = new mongoose.Schema(
   {
+    email: {
+      type: String,
+      required: false,
+    },
+    ipAddress: {
+      type: String,
+      required: false,
+    },
     userName: {
       type: String,
       required: true,
+    },
+    changes: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
     },
     companyName: {
       type: String,

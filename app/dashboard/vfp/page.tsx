@@ -178,8 +178,9 @@ export default async function VfpDashboardPage({
     redirect("/login");
   }
 
+  let decoded: any = null;
   try {
-    jwt.verify(token, process.env.JWT_SECRET as string);
+    decoded = jwt.verify(token, process.env.JWT_SECRET as string);
   } catch {
     redirect("/login");
   }
@@ -203,7 +204,8 @@ export default async function VfpDashboardPage({
     : "all";
 
   const fileLimit = showMore ? 100 : 10;
-  const status = await getVfpStatus({ range, startDate, endDate, fileLimit });
+  const email = decoded?.email;
+  const status = await getVfpStatus({ range, startDate, endDate, fileLimit }, email);
   const tableRows = status.states as VfpStateRow[];
   
   // Group tables folder-wise

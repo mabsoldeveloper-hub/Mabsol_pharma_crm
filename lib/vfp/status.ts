@@ -84,7 +84,7 @@ function parseEndOfDay(value?: string) {
   return parsed;
 }
 
-export async function getVfpStatus(filter: VfpStatusFilter = {}) {
+export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string) {
   await dbConnect();
 
   const { range = "all", startDate, endDate, fileLimit = 10 } = filter;
@@ -97,6 +97,12 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
   const stateFilter: Record<string, unknown> = {};
   const fileFilter: Record<string, unknown> = {};
   const logFilter: Record<string, unknown> = {};
+
+  if (email) {
+    stateFilter.email = email;
+    fileFilter.email = email;
+    logFilter.email = email;
+  }
 
   if (fromDate || toDate) {
     const dateQuery: Record<string, Date> = {};
@@ -131,9 +137,9 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
     VfpSyncState.countDocuments(stateFilter),
     VfpSyncState.find(stateFilter).sort({ updatedAt: -1 }).lean(),
     VfpSyncLog.find(logFilter).sort({ createdAt: -1 }).limit(10).lean(),
-    VfpConflict.countDocuments({ status: "open" }),
-    VfpOutboundQueue.countDocuments({ status: "pending" }),
-    VfpSyncCommand.countDocuments({ status: "queued" }),
+    VfpConflict.countDocuments({ status: "open", ...(email ? { email } : {}) }),
+    VfpOutboundQueue.countDocuments({ status: "pending", ...(email ? { email } : {}) }),
+    VfpSyncCommand.countDocuments({ status: "queued", ...(email ? { email } : {}) }),
     VfpFileAsset.countDocuments(fileFilter),
     VfpFileAsset.countDocuments({ ...fileFilter, storageStatus: "stored" }),
     VfpFileAsset.countDocuments({ ...fileFilter, storageStatus: "failed" }),
@@ -196,7 +202,7 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
   let useVfpEngine = false;
   let vfpExePath = "C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe";
 
-  const config = (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean()) as any;
+  const config = (await VfpConfig.findOne(email ? { email } : { key: "vfp_sync_config" }).lean()) as any;
   if (config) {
     if (config.dataDir) dataDir = config.dataDir;
     if (config.sourceDir) sourceDir = config.sourceDir;

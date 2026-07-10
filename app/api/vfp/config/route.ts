@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import VfpConfig from "@/models/VfpConfig";
 import VfpSettingLog from "@/models/VfpSettingLog";
+import { getCurrentUser } from "@/lib/auth";
 import fs from "fs";
 
 export const dynamic = "force-dynamic";
@@ -9,18 +10,23 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
 
     let dataDir = process.env.VFP_DATA_DIR || "";
     let sourceDir = "";
     let enabledFiles: string[] = [];
     let useVfpEngine = false;
     let vfpExePath = process.env.VFP_EXE_PATH || "";
-    let userName = "";
-    let companyName = "";
+    let userName = user.name || "";
+    let companyName = (user.companyId as any)?.companyName || "";
     let license = "";
+    let startupCommand = "";
     let isFromDb = false;
 
-    const config = await VfpConfig.findOne({ key: "vfp_sync_config" }).lean();
+    const config = await VfpConfig.findOne({ email: user.email }).lean() || await VfpConfig.findOne({ key: "vfp_sync_config" }).lean();
     if (config) {
       if ((config as any).dataDir) {
         dataDir = (config as any).dataDir;
@@ -47,6 +53,9 @@ export async function GET() {
       if ((config as any).license) {
         license = (config as any).license;
       }
+      if ((config as any).startupCommand) {
+        startupCommand = (config as any).startupCommand;
+      }
     }
 
     const exists = dataDir ? fs.existsSync(dataDir) : false;
@@ -63,6 +72,7 @@ export async function GET() {
       userName,
       companyName,
       license,
+      startupCommand,
       isFromDb,
       exists,
       sourceExists,
@@ -79,10 +89,17 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip") || "127.0.0.1";
     const body = await request.json();
-    const { dataDir, sourceDir, enabledFiles, useVfpEngine, vfpExePath, userName, companyName, license } = body;
+    const { dataDir, sourceDir, enabledFiles, useVfpEngine, vfpExePath, userName, companyName, license, startupCommand } = body;
 
     const updateFields: any = {};
+    const existingConfig = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
 
     if (dataDir) {
       // Validate that path exists and is a directory on the server
@@ -102,7 +119,6 @@ export async function POST(request: NextRequest) {
       }
       updateFields.dataDir = dataDir;
     } else {
-      const existingConfig = await VfpConfig.findOne({ key: "vfp_sync_config" });
       if (!existingConfig?.dataDir && !process.env.VFP_DATA_DIR) {
         return NextResponse.json(
           { success: false, error: "dataDir is required" },
@@ -166,30 +182,54 @@ export async function POST(request: NextRequest) {
     if (license !== undefined) {
       updateFields.license = license;
     }
+    if (startupCommand !== undefined) {
+      updateFields.startupCommand = startupCommand;
+    }
 
     // Save to database
     await VfpConfig.updateOne(
-      { key: "vfp_sync_config" },
-      { $set: updateFields },
+      { key: "vfp_sync_config_" + user.email },
+      { $set: { ...updateFields, email: user.email } },
       { upsert: true }
     );
 
     // Get final values for logging (merging with existing)
-    const activeConfig = await VfpConfig.findOne({ key: "vfp_sync_config" });
-    const logUserName = activeConfig?.userName || "Unknown";
-    const logCompanyName = activeConfig?.companyName || "Unknown";
+    const activeConfig = await VfpConfig.findOne({ email: user.email });
+    const logUserName = activeConfig?.userName || user.name || "Unknown";
+    const logCompanyName = activeConfig?.companyName || (user.companyId as any)?.companyName || "Unknown";
     const logLicense = activeConfig?.license || "Unknown";
     const logVfpExePath = activeConfig?.vfpExePath || "Unknown";
 
+    // Calculate detailed changes
+    const changesList: string[] = [];
+    const changes: any = {};
+    const fieldsToCompare = ["userName", "companyName", "license", "vfpExePath", "dataDir", "sourceDir", "useVfpEngine", "enabledFiles", "startupCommand"];
+    for (const field of fieldsToCompare) {
+      if (body[field] !== undefined) {
+        const oldVal = existingConfig ? (existingConfig as any)[field] : undefined;
+        const newVal = body[field];
+        const oldStr = Array.isArray(oldVal) ? JSON.stringify(oldVal) : String(oldVal ?? "");
+        const newStr = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal ?? "");
+        if (oldStr !== newStr) {
+          changes[field] = { old: oldVal, new: newVal };
+          changesList.push(`${field} changed from "${oldVal ?? ''}" to "${newVal ?? ''}"`);
+        }
+      }
+    }
+    const changesMsg = changesList.length > 0 ? changesList.join(", ") : "No configuration properties changed.";
+
     // Create entry in VfpSettingLog to log this configuration change
     await VfpSettingLog.create({
+      email: user.email,
+      ipAddress,
       userName: logUserName,
       companyName: logCompanyName,
       license: logLicense,
       vfpExePath: logVfpExePath,
       action: "save_settings",
       status: "success",
-      message: "VFP configuration settings updated.",
+      message: changesMsg,
+      changes,
     });
 
     return NextResponse.json({

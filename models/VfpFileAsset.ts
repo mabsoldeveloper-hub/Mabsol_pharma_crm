@@ -5,7 +5,10 @@ const VfpFileAssetSchema = new mongoose.Schema(
     relativePath: {
       type: String,
       required: true,
-      unique: true,
+    },
+    email: {
+      type: String,
+      required: false,
     },
     fileName: {
       type: String,
@@ -40,6 +43,8 @@ const VfpFileAssetSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+VfpFileAssetSchema.index({ relativePath: 1, email: 1 }, { unique: true });
 
 if (mongoose.models.VfpFileAsset) {
   delete mongoose.models.VfpFileAsset;

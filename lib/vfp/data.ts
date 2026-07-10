@@ -41,10 +41,10 @@ function clampPage(value: string | null) {
   return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
 }
 
-export async function listVfpTables() {
+export async function listVfpTables(email?: string) {
   await dbConnect();
 
-  const maps = await VfpTableMap.find({ enabled: true })
+  const maps = await VfpTableMap.find({ enabled: true, ...(email ? { email } : {}) })
     .sort({ fileName: 1 })
     .lean();
 
@@ -59,18 +59,23 @@ export async function listVfpTables() {
 
 export async function getVfpTableRows(
   tableName: string,
-  searchParams?: URLSearchParams
+  searchParams?: URLSearchParams,
+  email?: string
 ): Promise<VfpRowPage> {
   await dbConnect();
 
   const decodedTableName = decodeURIComponent(tableName);
-  const table = await VfpTableMap.findOne({
+  const query: any = {
     $or: [
       { fileName: `${decodedTableName}.dbf` },
       { fileName: new RegExp(`^${escapeRegExp(decodedTableName)}\\.dbf$`, "i") },
     ],
     enabled: true,
-  }).lean();
+  };
+  if (email) {
+    query.email = email;
+  }
+  const table = await VfpTableMap.findOne(query).lean();
 
   if (!table) {
     return {

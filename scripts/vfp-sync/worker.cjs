@@ -71,6 +71,7 @@ const VfpConfig = mongoose.model(
 let scheduledTimer = null;
 let isRunning = false;
 const WORKER_ID = `${require("node:os").hostname()}-${process.pid}`;
+const activeWatchers = new Map(); // path -> watcher
 
 main().catch((error) => {
   console.error("[vfp-sync] Fatal error:", error);
@@ -81,68 +82,52 @@ async function main() {
   await mongoose.connect(MONGODB_URI);
   console.log(`[vfp-sync] Connected to MongoDB`);
 
-  await resolveDataDir();
+  await resolveDataDirs();
 
   await updateHeartbeat("online");
   scheduleSync("startup");
   setInterval(() => scheduleSync("interval"), SYNC_INTERVAL_MS);
   setInterval(processCommands, Math.max(3000, Math.floor(SYNC_INTERVAL_MS / 2)));
+  setInterval(resolveDataDirs, 30000);
   setInterval(() => updateHeartbeat(isRunning ? "syncing" : "online"), 10000);
 }
 
-let currentWatcher = null;
-
-async function resolveDataDir() {
-  try {
-    const config = await VfpConfig.findOne({ key: "vfp_sync_config" });
-    let activeDir = process.env.VFP_DATA_DIR;
-    if (config && config.dataDir) {
-      activeDir = config.dataDir;
+function updateWatchers(configs) {
+  const activePaths = new Set(configs.map(c => c.dataDir).filter(Boolean));
+  
+  for (const [watchedPath, watcher] of activeWatchers.entries()) {
+    if (!activePaths.has(watchedPath)) {
+      watcher.close();
+      activeWatchers.delete(watchedPath);
+      console.log(`[vfp-sync] Closed watcher for ${watchedPath}`);
     }
+  }
 
-    if (!activeDir) {
-      console.warn("[vfp-sync] Warning: VFP data directory is not configured yet.");
-      return;
+  for (const config of configs) {
+    const dataDir = config.dataDir;
+    if (dataDir && fs.existsSync(dataDir) && !activeWatchers.has(dataDir)) {
+      try {
+        const watcher = fs.watch(dataDir, { recursive: true }, (_eventType, fileName) => {
+          if (!fileName) return;
+          const baseName = path.basename(fileName);
+          if (!isValidTableFile(baseName)) return;
+          scheduleSync(`file:${fileName} in ${dataDir}`);
+        });
+        activeWatchers.set(dataDir, watcher);
+        console.log(`[vfp-sync] Watcher active on ${dataDir}`);
+      } catch (error) {
+        console.warn(`[vfp-sync] Watcher unavailable for ${dataDir}:`, error.message);
+      }
     }
-
-    if (VFP_DATA_DIR !== activeDir) {
-      console.log(`[vfp-sync] Directory changed from ${VFP_DATA_DIR} to ${activeDir}`);
-      VFP_DATA_DIR = activeDir;
-      startWatcher();
-    }
-  } catch (error) {
-    console.error("[vfp-sync] Error resolving VFP data directory:", error.message);
   }
 }
 
-function startWatcher() {
-  if (currentWatcher) {
-    currentWatcher.close();
-    currentWatcher = null;
-  }
-
-  if (!VFP_DATA_DIR || !fs.existsSync(VFP_DATA_DIR)) {
-    console.warn(`[vfp-sync] Watcher not started: VFP directory does not exist (${VFP_DATA_DIR})`);
-    return;
-  }
-
+async function resolveDataDirs() {
   try {
-    currentWatcher = fs.watch(VFP_DATA_DIR, { recursive: true }, (_eventType, fileName) => {
-      if (!fileName) {
-        return;
-      }
-
-      const baseName = path.basename(fileName);
-      if (!isValidTableFile(baseName)) {
-        return;
-      }
-
-      scheduleSync(`file:${fileName}`);
-    });
-    console.log(`[vfp-sync] Watcher active on ${VFP_DATA_DIR}`);
+    const configs = await VfpConfig.find({ dataDir: { $exists: true, $ne: "" } });
+    updateWatchers(configs);
   } catch (error) {
-    console.warn("[vfp-sync] Watcher unavailable, using interval only.");
-    console.warn(error.message);
+    console.error("[vfp-sync] Error resolving VFP data directories:", error.message);
   }
 }
 
@@ -155,110 +140,113 @@ function scheduleSync(reason) {
   }, DEBOUNCE_MS);
 }
 
-async function runSync(reason) {
+async function runSync(reason, targetEmail) {
   if (isRunning) {
     return;
   }
 
   isRunning = true;
-  const runId = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
-
   try {
-    await resolveDataDir();
-    if (!VFP_DATA_DIR || !fs.existsSync(VFP_DATA_DIR)) {
-      throw new Error(`VFP data directory is invalid or does not exist: ${VFP_DATA_DIR}`);
+    let configs = [];
+    if (targetEmail) {
+      configs = await VfpConfig.find({ email: targetEmail, dataDir: { $exists: true, $ne: "" } });
+    } else {
+      configs = await VfpConfig.find({ dataDir: { $exists: true, $ne: "" } });
     }
 
-    await updateHeartbeat("syncing", { lastRunReason: reason, lastError: "" });
-    await SyncLog.create({
-      runId,
-      action: "sync",
-      status: "running",
-      message: `Sync started by ${reason}`,
-      startedAt: new Date(),
-    });
+    if (configs.length === 0) {
+      return;
+    }
 
-    await processOutboundQueue(runId);
+    for (const config of configs) {
+      const currentEmail = config.email || "global";
+      const currentDataDir = config.dataDir;
+      const currentEnabledFiles = config.enabledFiles || [];
+      const runId = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
-    const config = await VfpConfig.findOne({ key: "vfp_sync_config" });
-    const enabledFiles = config ? (config.enabledFiles || []) : [];
+      if (!fs.existsSync(currentDataDir)) {
+        console.warn(`[vfp-sync] Directory does not exist for user ${currentEmail}: ${currentDataDir}`);
+        continue;
+      }
 
-    let files = listFiles(VFP_DATA_DIR).filter((filePath) =>
-      isValidTableFile(path.basename(filePath))
-    );
+      await updateHeartbeat("syncing", { lastRunReason: reason, lastError: "" });
+      await SyncLog.create({
+        runId,
+        email: currentEmail,
+        action: "sync",
+        status: "running",
+        message: `Sync started by ${reason} for user ${currentEmail}`,
+        startedAt: new Date(),
+      });
 
-    if (enabledFiles && enabledFiles.length > 0) {
-      const enabledSet = new Set(enabledFiles.map((f) => f.toLowerCase()));
-      files = files.filter((filePath) => {
-        const relativePath = path
-          .relative(VFP_DATA_DIR, filePath)
-          .replace(/\\/g, "/")
-          .toLowerCase();
-        const baseNameWithoutExt = relativePath.replace(/\.[^.]+$/, "");
+      await processOutboundQueue(runId, currentEmail, currentDataDir);
 
-        // If it's a direct match (e.g. customer.dbf)
-        if (enabledSet.has(relativePath)) {
-          return true;
-        }
+      let files = listFiles(currentDataDir).filter((filePath) =>
+        isValidTableFile(path.basename(filePath))
+      );
 
-        // Or if it's a supporting file (e.g. customer.fpt or customer.cdx) for an enabled DBF
-        const matchingDbfRelative = `${baseNameWithoutExt}.dbf`;
-        if (enabledSet.has(matchingDbfRelative)) {
-          return true;
-        }
+      if (currentEnabledFiles && currentEnabledFiles.length > 0) {
+        const enabledSet = new Set(currentEnabledFiles.map((f) => f.toLowerCase()));
+        files = files.filter((filePath) => {
+          const relativePath = path
+            .relative(currentDataDir, filePath)
+            .replace(/\\/g, "/")
+            .toLowerCase();
+          const baseNameWithoutExt = relativePath.replace(/\.[^.]+$/, "");
 
-        return false;
+          if (enabledSet.has(relativePath)) {
+            return true;
+          }
+
+          const matchingDbfRelative = `${baseNameWithoutExt}.dbf`;
+          if (enabledSet.has(matchingDbfRelative)) {
+            return true;
+          }
+
+          return false;
+        });
+      }
+
+      const dbfFiles = files.filter((filePath) =>
+        filePath.toLowerCase().endsWith(".dbf")
+      );
+
+      for (const filePath of files) {
+        await syncFileAsset(filePath, runId, currentEmail, currentDataDir);
+      }
+
+      for (const filePath of dbfFiles) {
+        await importDbfFile(filePath, runId, currentEmail, currentDataDir);
+      }
+
+      const scannedFileNames = dbfFiles.map((filePath) =>
+        path.relative(currentDataDir, filePath).replace(/\\/g, "/")
+      );
+      const scannedTableNames = scannedFileNames.map((fName) =>
+        fName.replace(/\.[^.]+$/, "")
+      );
+      const scannedAssetRelativePaths = files.map((filePath) =>
+        path.relative(currentDataDir, filePath).replace(/\\/g, "/")
+      );
+
+      await TableMap.deleteMany({ email: currentEmail, fileName: { $nin: scannedFileNames } });
+      await SyncState.deleteMany({ email: currentEmail, tableName: { $nin: scannedTableNames } });
+      await FileAsset.deleteMany({ email: currentEmail, relativePath: { $nin: scannedAssetRelativePaths } });
+
+      await SyncLog.create({
+        runId,
+        email: currentEmail,
+        action: "sync",
+        status: "success",
+        message: `Sync finished. ${files.length} file(s), ${dbfFiles.length} DBF table(s) checked.`,
+        finishedAt: new Date(),
       });
     }
-
-    const dbfFiles = files.filter((filePath) =>
-      filePath.toLowerCase().endsWith(".dbf")
-    );
-
-    for (const filePath of files) {
-      await syncFileAsset(filePath, runId);
-    }
-
-    for (const filePath of dbfFiles) {
-      await importDbfFile(filePath, runId);
-    }
-
-    // Clean up stale table maps, sync states, and file assets
-    const scannedFileNames = dbfFiles.map((filePath) =>
-      path.relative(VFP_DATA_DIR, filePath).replace(/\\/g, "/")
-    );
-    const scannedTableNames = scannedFileNames.map((fName) =>
-      fName.replace(/\.[^.]+$/, "")
-    );
-    const scannedAssetRelativePaths = files.map((filePath) =>
-      path.relative(VFP_DATA_DIR, filePath).replace(/\\/g, "/")
-    );
-
-    await TableMap.deleteMany({ fileName: { $nin: scannedFileNames } });
-    await SyncState.deleteMany({ tableName: { $nin: scannedTableNames } });
-    await FileAsset.deleteMany({ relativePath: { $nin: scannedAssetRelativePaths } });
-
-    await SyncLog.create({
-      runId,
-      action: "sync",
-      status: "success",
-      message: `Sync finished. ${files.length} file(s), ${dbfFiles.length} DBF table(s) checked.`,
-      finishedAt: new Date(),
-    });
   } catch (error) {
     await updateHeartbeat("error", {
       lastRunReason: reason,
       lastError: error.message,
     });
-
-    await SyncLog.create({
-      runId,
-      action: "sync",
-      status: "failed",
-      error: error.message,
-      finishedAt: new Date(),
-    });
-
     throw error;
   } finally {
     isRunning = false;
@@ -273,7 +261,6 @@ async function updateHeartbeat(status, extra = {}) {
       $set: {
         workerId: WORKER_ID,
         status,
-        dataDir: VFP_DATA_DIR,
         lastSeenAt: new Date(),
         ...extra,
       },
@@ -292,7 +279,7 @@ async function processCommands() {
     await command.save();
 
     try {
-      await runSync(command.command);
+      await runSync(command.command, command.email);
       command.status = "done";
       command.processedAt = new Date();
       command.message = "Processed by local VFP sync worker.";
@@ -305,8 +292,8 @@ async function processCommands() {
   }
 }
 
-async function processOutboundQueue(runId) {
-  const pending = await OutboundQueue.find({ status: "pending" })
+async function processOutboundQueue(runId, email, dataDir) {
+  const pending = await OutboundQueue.find({ status: "pending", email })
     .sort({ createdAt: 1 })
     .limit(100);
 
@@ -316,7 +303,7 @@ async function processOutboundQueue(runId) {
     await item.save();
 
     try {
-      const result = await applyOutboundItem(item);
+      const result = await applyOutboundItem(item, email, dataDir);
 
       item.status = result.status;
       item.lastError = result.message;
@@ -324,6 +311,7 @@ async function processOutboundQueue(runId) {
 
       await SyncLog.create({
         runId,
+        email,
         tableName: item.tableName,
         action: "crm_to_dbf",
         status: result.status === "applied" ? "success" : "skipped",
@@ -339,6 +327,7 @@ async function processOutboundQueue(runId) {
 
       await SyncLog.create({
         runId,
+        email,
         tableName: item.tableName,
         action: "crm_to_dbf",
         status: locked ? "locked" : "failed",
@@ -348,17 +337,18 @@ async function processOutboundQueue(runId) {
   }
 }
 
-async function applyOutboundItem(item) {
+async function applyOutboundItem(item, email, dataDir) {
   const exactName = `${item.tableName}.dbf`;
   const queryTableName = item.tableName.toLowerCase();
   const tableMap =
-    (await TableMap.findOne({ fileName: new RegExp(`(^|/)${escapeRegExp(queryTableName)}\\.dbf$`, "i") })) ||
-    (await TableMap.findOne({ fileName: exactName }));
+    (await TableMap.findOne({ email, fileName: new RegExp(`(^|/)${escapeRegExp(queryTableName)}\\.dbf$`, "i") })) ||
+    (await TableMap.findOne({ email, fileName: exactName }));
 
   if (!tableMap) {
     return markOutboundConflict(
       item,
-      "No DBF table mapping found. Run a rescan before applying CRM changes."
+      "No DBF table mapping found. Run a rescan before applying CRM changes.",
+      email
     );
   }
 
@@ -371,7 +361,8 @@ async function applyOutboundItem(item) {
   if (!row) {
     return markOutboundConflict(
       item,
-      "Generic DBF insert is disabled. Create the row in VFP first, then update it from CRM."
+      "Generic DBF insert is disabled. Create the row in VFP first, then update it from CRM.",
+      email
     );
   }
 
@@ -379,7 +370,8 @@ async function applyOutboundItem(item) {
   if (item.baseHash && item.baseHash !== currentHash && CONFLICT_POLICY === "vfp_wins") {
     return markOutboundConflict(
       item,
-      "VFP changed this record after the CRM queued its update, so VFP wins."
+      "VFP changed this record after the CRM queued its update, so VFP wins.",
+      email
     );
   }
 
@@ -399,9 +391,10 @@ async function applyOutboundItem(item) {
   };
 }
 
-async function markOutboundConflict(item, reason) {
+async function markOutboundConflict(item, reason, email) {
   await Conflict.create({
     tableName: item.tableName,
+    email,
     sourceKey: item.sourceKey,
     policy: CONFLICT_POLICY,
     crmPayload: item.payload,
@@ -415,29 +408,25 @@ async function markOutboundConflict(item, reason) {
   };
 }
 
-async function importDbfFile(filePath, runId) {
-  const rootFolderName = path.basename(VFP_DATA_DIR) || "default";
-  const relativePath = path.relative(VFP_DATA_DIR, filePath).replace(/\\/g, "/");
+async function importDbfFile(filePath, runId, email, dataDir) {
+  const rootFolderName = path.basename(dataDir) || "default";
+  const relativePath = path.relative(dataDir, filePath).replace(/\\/g, "/");
   const fileName = relativePath;
   const tableName = relativePath.replace(/\.[^.]+$/, "");
   
   const relativeDir = path.dirname(relativePath);
   const baseName = path.basename(relativePath, path.extname(relativePath));
   
-  let parts = [rootFolderName];
-  if (relativeDir !== ".") {
-    parts = parts.concat(relativeDir.split("/"));
-  }
-  parts.push(baseName);
-  
-  const targetCollection = `vfp_${parts.map(sanitizeCollectionName).filter(Boolean).join("_")}`;
+  const sanitizedTableName = sanitizeCollectionName(baseName);
+  const targetCollection = `vfp_new_folder_${sanitizedTableName}`;
   const startedAt = new Date();
 
   await SyncState.updateOne(
-    { tableName },
+    { tableName, email },
     {
       $set: {
         tableName,
+        email,
         fileName,
         filePath,
         targetCollection,
@@ -454,10 +443,11 @@ async function importDbfFile(filePath, runId) {
     const primaryKeyFields = guessPrimaryKeyFields(dbf.fields, dbf.rows);
 
     await TableMap.updateOne(
-      { fileName },
+      { fileName, email },
       {
         $set: {
           fileName,
+          email,
           filePath,
           targetCollection,
           primaryKeyFields,
@@ -499,6 +489,7 @@ async function importDbfFile(filePath, runId) {
               _vfpFileName: fileName,
               _vfpFileMtimeMs: stats.mtimeMs,
               _vfpDeleted: row.deleted,
+              _vfpSyncRunId: runId,
               _vfpSyncedAt: new Date(),
             },
           },
@@ -518,9 +509,12 @@ async function importDbfFile(filePath, runId) {
       importedCount += bulkOps.length;
     }
 
+    // Clean up any records in this collection that were not updated in this sync run (e.g., packed/deleted rows)
+    await collection.deleteMany({ _vfpTable: tableName, _vfpSyncRunId: { $ne: runId } });
+
     const syncDateLabel = getSyncDateLabel(new Date());
     await SyncState.updateOne(
-      { tableName },
+      { tableName, email },
       {
         $set: {
           status: "success",
@@ -539,6 +533,7 @@ async function importDbfFile(filePath, runId) {
 
     await SyncLog.create({
       runId,
+      email,
       tableName,
       fileName,
       action: "dbf_to_crm",
@@ -552,7 +547,7 @@ async function importDbfFile(filePath, runId) {
     const locked = isLockError(error);
 
     await SyncState.updateOne(
-      { tableName },
+      { tableName, email },
       {
         $set: {
           status: locked ? "locked" : "failed",
@@ -564,6 +559,7 @@ async function importDbfFile(filePath, runId) {
 
     await SyncLog.create({
       runId,
+      email,
       tableName,
       fileName,
       action: "dbf_to_crm",
@@ -575,24 +571,16 @@ async function importDbfFile(filePath, runId) {
   }
 }
 
-function getSyncDateLabel(date) {
-  const d = new Date(date);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
-}
-
-async function syncFileAsset(filePath, runId) {
+async function syncFileAsset(filePath, runId, email, dataDir) {
   const startedAt = new Date();
-  const relativePath = path.relative(VFP_DATA_DIR, filePath).replace(/\\/g, "/");
+  const relativePath = path.relative(dataDir, filePath).replace(/\\/g, "/");
   const fileName = path.basename(filePath);
   const extension = path.extname(fileName).replace(".", "").toLowerCase();
 
   try {
     const stats = fs.statSync(filePath);
     const contentHash = await hashFile(filePath);
-    const existing = await FileAsset.findOne({ relativePath });
+    const existing = await FileAsset.findOne({ relativePath, email });
     const isUnchanged =
       existing &&
       existing.contentHash === contentHash &&
@@ -610,6 +598,7 @@ async function syncFileAsset(filePath, runId) {
     const syncDateLabel = getSyncDateLabel(new Date());
     const update = {
       relativePath,
+      email,
       fileName,
       extension,
       filePath,
@@ -624,6 +613,7 @@ async function syncFileAsset(filePath, runId) {
     if (stats.size <= FILE_SNAPSHOT_MAX_BYTES) {
       const gridFsId = await storeGridFsSnapshot(filePath, {
         relativePath,
+        email,
         fileName,
         extension,
         contentHash,
@@ -640,14 +630,15 @@ async function syncFileAsset(filePath, runId) {
       update.gridFsId = undefined;
     }
 
-    await FileAsset.updateOne({ relativePath }, { $set: update }, { upsert: true });
+    await FileAsset.updateOne({ relativePath, email }, { $set: update }, { upsert: true });
   } catch (error) {
     const now = new Date();
     await FileAsset.updateOne(
-      { relativePath },
+      { relativePath, email },
       {
         $set: {
           relativePath,
+          email,
           fileName,
           extension,
           filePath,
@@ -662,6 +653,7 @@ async function syncFileAsset(filePath, runId) {
 
     await SyncLog.create({
       runId,
+      email,
       fileName,
       action: "file_snapshot",
       status: isLockError(error) ? "locked" : "failed",
@@ -1041,6 +1033,15 @@ function decodeText(buffer) {
 
 function isLockError(error) {
   return ["EBUSY", "EPERM", "EACCES"].includes(error.code);
+}
+
+function getSyncDateLabel(dateInput = new Date()) {
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return "Unknown date";
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 function loadEnv(filePath) {
