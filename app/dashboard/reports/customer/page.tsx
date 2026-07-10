@@ -8,9 +8,9 @@ interface CustomerRow {
     CODEP?: string;
     PARNAM: string;
     CITY?: string;
-    AREA?: string;
-    ROUT?: string;
-    DSM?: string;
+    AREA?: string | null;
+    ROUT?: string | null;
+    DSM?: string | null;
     STATUS?: string;
     BALANCE?: number;
     DUEDAYS?: number;
@@ -57,8 +57,6 @@ const DEFAULT_FILTERS = {
     route: "",
     dsm: "",
     status: "",
-    fromDate: "",
-    toDate: "",
 };
 
 const LIMIT = 20;
@@ -171,7 +169,7 @@ export default function CustomerReportPage() {
         <div className="container-fluid py-3">
             <div className="card shadow-sm">
                 <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h4 className="mb-0">Customer Report (Order + Pend + GlLedger + MaOrder)</h4>
+                    <h4 className="mb-0">Customer Report</h4>
                     <span className="badge bg-light text-dark">
                         {total} customer{total === 1 ? "" : "s"}
                     </span>
@@ -242,28 +240,6 @@ export default function CustomerReportPage() {
                             </select>
                         </div>
 
-                        <div className="col-md-3">
-                            <label className="form-label">From Date</label>
-                            <input
-                                type="date"
-                                className="form-control"
-                                name="fromDate"
-                                value={filters.fromDate}
-                                onChange={handleChange}
-                            />
-                        </div>
-
-                        <div className="col-md-3">
-                            <label className="form-label">To Date</label>
-                            <input
-                                type="date"
-                                className="form-control"
-                                name="toDate"
-                                value={filters.toDate}
-                                onChange={handleChange}
-                            />
-                        </div>
-
                         <div className="col-md-3 d-flex align-items-end gap-2">
                             <button
                                 className="btn btn-primary"
@@ -299,7 +275,9 @@ export default function CustomerReportPage() {
                                     <th style={{ width: 40 }}>#</th>
                                     <th>Customer Code</th>
                                     <th>Customer Name</th>
-                                    <th>City / Area / Route</th>
+                                    <th>City</th>
+                                    <th>Area</th>
+                                    <th>Route</th>
                                     <th>DSM</th>
                                     <th>Status</th>
                                     <th className="text-end">Master Balance</th>
@@ -311,13 +289,13 @@ export default function CustomerReportPage() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={10} className="text-center py-4">
+                                        <td colSpan={12} className="text-center py-4">
                                             Loading...
                                         </td>
                                     </tr>
                                 ) : rows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="text-center py-4">
+                                        <td colSpan={12} className="text-center py-4">
                                             No Data Found
                                         </td>
                                     </tr>
@@ -340,18 +318,15 @@ export default function CustomerReportPage() {
                                                     <td>{(page - 1) * LIMIT + idx + 1}</td>
                                                     <td>{row.ORDNO}</td>
                                                     <td>{row.PARNAM?.trim()}</td>
-                                                    <td>
-                                                        <div>{row.CITY || "-"}</div>
-                                                        <small className="text-muted">
-                                                            {row.AREA || "-"} / {row.ROUT || "-"}
-                                                        </small>
-                                                    </td>
+                                                    <td>{row.CITY || "-"}</td>
+                                                    <td>{row.AREA || "-"}</td>
+                                                    <td>{row.ROUT || "-"}</td>
                                                     <td>{row.DSM || "-"}</td>
                                                     <td>
                                                         <span
                                                             className={`badge ${row.STATUS === "Y"
-                                                                    ? "bg-success"
-                                                                    : "bg-secondary"
+                                                                ? "bg-success"
+                                                                : "bg-secondary"
                                                                 }`}
                                                         >
                                                             {row.STATUS === "Y" ? "Active" : "Inactive"}
@@ -379,7 +354,7 @@ export default function CustomerReportPage() {
                                                 {isOpen && (
                                                     <tr key={`${row.ORDNO}-details`}>
                                                         <td></td>
-                                                        <td colSpan={9} className="bg-light">
+                                                        <td colSpan={11} className="bg-light">
                                                             <div className="row g-3 py-2">
                                                                 <div className="col-md-3">
                                                                     <h6 className="text-primary">

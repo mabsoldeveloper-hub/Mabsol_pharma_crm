@@ -17,8 +17,6 @@ export async function GET(req: NextRequest) {
             dsm: searchParams.get("dsm") || "",
             city: searchParams.get("city") || "",
             status: searchParams.get("status") || "",
-            fromDate: searchParams.get("fromDate") || "",
-            toDate: searchParams.get("toDate") || "",
             page: Number(searchParams.get("page") || 1),
             limit: Number(searchParams.get("limit") || 20),
         };

@@ -3,6 +3,7 @@ import {
     FaUsers,
     FaShoppingCart,
     FaBoxOpen,
+    FaFileInvoiceDollar,
 } from "react-icons/fa";
 
 export default function ReportsPage() {
@@ -13,14 +14,19 @@ export default function ReportsPage() {
             link: "/dashboard/reports/customer",
         },
         {
-            title: "Sales Report",
+            title: "Batch Report",
             icon: <FaShoppingCart size={40} />,
-            link: "/dashboard/reports/sales",
+            link: "/dashboard/reports/batch",
         },
         {
             title: "Product Report",
             icon: <FaBoxOpen size={40} />,
             link: "/dashboard/reports/product",
+        },
+        {
+            title: "Outstanding Report",
+            icon: <FaFileInvoiceDollar size={40} />,
+            link: "/dashboard/reports/outstanding",
         },
     ];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 interface BatchInfo {
     batchNo?: string;
@@ -173,6 +173,10 @@ export default function ProductReportPage() {
 
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
+    // Tracks the in-flight request so we can abort it if a newer one starts,
+    // and so a slow/late response can never overwrite fresher data on screen.
+    const abortControllerRef = useRef<AbortController | null>(null);
+
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
@@ -184,6 +188,13 @@ export default function ProductReportPage() {
 
     const fetchReport = useCallback(
         async (targetPage: number, activeFilters: typeof DEFAULT_FILTERS) => {
+            // Cancel any request that's still in flight from a previous
+            // page/filter change so its (possibly slow) response can't
+            // arrive later and overwrite newer data.
+            abortControllerRef.current?.abort();
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
             setLoading(true);
             setError("");
 
@@ -198,7 +209,9 @@ export default function ProductReportPage() {
                     if (value) params.set(key, value);
                 });
 
-                const res = await fetch(`/api/reports/product?${params.toString()}`);
+                const res = await fetch(`/api/reports/product?${params.toString()}`, {
+                    signal: controller.signal,
+                });
                 const json: ApiResponse = await res.json();
 
                 if (!res.ok || !json.success || !json.data) {
@@ -210,12 +223,18 @@ export default function ProductReportPage() {
                 setTotalPages(json.data.totalPages || 1);
                 setExpanded(new Set());
             } catch (err: any) {
+                // AbortError just means a newer request superseded this one -
+                // not a real failure, so don't show it as an error.
+                if (err?.name === "AbortError") return;
+
                 setError(err?.message || "Something went wrong");
                 setRows([]);
                 setTotal(0);
                 setTotalPages(1);
             } finally {
-                setLoading(false);
+                if (abortControllerRef.current === controller) {
+                    setLoading(false);
+                }
             }
         },
         []
@@ -225,6 +244,13 @@ export default function ProductReportPage() {
         fetchReport(page, appliedFilters);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, appliedFilters]);
+
+    // Abort any pending request on unmount.
+    useEffect(() => {
+        return () => {
+            abortControllerRef.current?.abort();
+        };
+    }, []);
 
     const searchReport = () => {
         setPage(1);
@@ -253,7 +279,7 @@ export default function ProductReportPage() {
         <div className="container-fluid py-3">
             <div className="card shadow-sm">
                 <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h4 className="mb-0">Product Report (PRO + PROBAT + RATE + DIS/MDIS + SALETYPE + SUBDIS + GLEDGER)</h4>
+                    <h4 className="mb-0">Product Report</h4>
                     <span className="badge bg-light text-dark">
                         {total} product{total === 1 ? "" : "s"}
                     </span>

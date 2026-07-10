@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 
 import ProductReport from "@/models/ProductReport";
 
+const MAX_LIMIT = 200;
+
 export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
 
         const report = searchParams.get("report") || "master";
+
+        // Clamp page/limit so a bad or malicious query string can't force a
+        // huge, slow aggregation (e.g. ?limit=999999).
+        const pageParam = Number(searchParams.get("page") || 1);
+        const limitParam = Number(searchParams.get("limit") || 20);
+
+        const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+        const limit =
+            Number.isFinite(limitParam) && limitParam > 0
+                ? Math.min(MAX_LIMIT, Math.floor(limitParam))
+                : 20;
 
         const filter = {
             search: searchParams.get("search") || "",
@@ -17,8 +30,8 @@ export async function GET(req: NextRequest) {
             nearExpiryDays: searchParams.get("nearExpiryDays")
                 ? Number(searchParams.get("nearExpiryDays"))
                 : undefined,
-            page: Number(searchParams.get("page") || 1),
-            limit: Number(searchParams.get("limit") || 20),
+            page,
+            limit,
         };
 
         let data;

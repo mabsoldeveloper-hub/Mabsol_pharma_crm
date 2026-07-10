@@ -29,6 +29,8 @@ const DEFAULT_NEAR_EXPIRY_DAYS = 90;
 const FAST_MOVING_QTY_THRESHOLD = 50; // tune to your business - just a starting default
 const SLOW_MOVING_QTY_THRESHOLD = 5;  // tune to your business - just a starting default
 
+const MAX_LIMIT = 200; // hard ceiling to stop accidental/abusive huge page sizes
+
 export default class ProductReport {
     /**
      * Product Master Report
@@ -85,8 +87,28 @@ export default class ProductReport {
      *    type mismatch is real (not just this one sample row), the join below may need a
      *    $toString/$toInt cast like the RATE lookup has.
      *
-     * NOTE: For performance at scale, make sure PROBAT.CODE, RATE.PCODE, DIS.BATCH, and
-     * MDIS.VOUCHER have indexes.
+     * PERFORMANCE NOTE (fixed):
+     * Previously ALL the heavy $lookups (batches, rate history, sales+voucher join, ledger,
+     * dispatch, saletype) ran against every product matching the base filter, and only THEN
+     * were the results paginated with $skip/$limit at the very end. That means a 20-row page
+     * paid the cost of joining thousands of products every single request - the real reason
+     * loading was slow.
+     *
+     * This is now split into two phases:
+     *   Phase 1 - cheap match/sort, resolves batchNo/company filters with lightweight lookups,
+     *             then paginates to get just this page's product CODEs (+ the total count).
+     *   Phase 2 - runs the expensive lookups ONLY for that page's CODEs (typically 20-100 docs
+     *             instead of the whole catalog).
+     *
+     * For best results also make sure these indexes exist:
+     *   PRO:      { CODE: 1 }, { GCODE: 1 }, { STATUS: 1 }, { PRODUCT: 1 } (or text index for search)
+     *   PROBAT:   { CODE: 1 }, { BATCHNO: 1 }
+     *   RATE:     { PCODE: 1, DATE: -1 }
+     *   DIS:      { BATCH: 1, DATE: -1 }, { VOUCHER: 1 }
+     *   MDIS:     { VOUCHER: 1 }
+     *   GLEDGER:  { GCODE: 1 }
+     *   SUBDIS:   { VOUCHER: 1 }
+     *   SALETYPE: { PCODE: 1 }
      */
     static async productMaster(filter: ProductReportFilter = {}) {
         await dbConnect();
@@ -97,11 +119,14 @@ export default class ProductReport {
             company = "",
             status = "",
             batchNo = "",
-            page = 1,
-            limit = 20,
+            page: rawPage = 1,
+            limit: rawLimit = 20,
             sortField = "PRODUCT",
             sortOrder = 1,
         } = filter;
+
+        const page = Math.max(1, Math.floor(rawPage) || 1);
+        const limit = Math.min(MAX_LIMIT, Math.max(1, Math.floor(rawLimit) || 20));
 
         const match: any = {};
 
@@ -121,8 +146,103 @@ export default class ProductReport {
 
         const skip = (page - 1) * limit;
 
-        const pipeline: any[] = [
-            { $match: match },
+        // ---------------------------------------------------------------
+        // PHASE 1: cheap filter + sort + paginate -> just the CODEs we need
+        // ---------------------------------------------------------------
+        const phase1: any[] = [{ $match: match }];
+
+        if (batchNo) {
+            // Lightweight existence check instead of pulling full batch docs
+            phase1.push({
+                $lookup: {
+                    from: ProductBatch.collection.collectionName,
+                    let: { code: "$CODE" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ["$CODE", "$$code"] },
+                                        { $eq: ["$BATCHNO", batchNo] },
+                                    ],
+                                },
+                            },
+                        },
+                        { $limit: 1 },
+                        { $project: { _id: 1 } },
+                    ],
+                    as: "_batchMatch",
+                },
+            });
+            phase1.push({ $match: { "_batchMatch.0": { $exists: true } } });
+        }
+
+        if (company) {
+            // Company is derived from the most recent sale's DIS.COMPANY. We only pay this
+            // cost when the caller actually filters by company.
+            phase1.push(
+                {
+                    $lookup: {
+                        from: ProductBatch.collection.collectionName,
+                        localField: "CODE",
+                        foreignField: "CODE",
+                        as: "_batchNos",
+                    },
+                },
+                {
+                    $lookup: {
+                        from: SalesDis.collection.collectionName,
+                        let: { batchNos: "$_batchNos.BATCHNO" },
+                        pipeline: [
+                            { $match: { $expr: { $in: ["$BATCH", "$$batchNos"] } } },
+                            { $sort: { DATE: -1 } },
+                            { $limit: 1 },
+                            { $project: { COMPANY: 1 } },
+                        ],
+                        as: "_latestSale",
+                    },
+                },
+                {
+                    $addFields: {
+                        _company: { $arrayElemAt: ["$_latestSale.COMPANY", 0] },
+                    },
+                },
+                { $match: { _company: { $regex: company, $options: "i" } } }
+            );
+        }
+
+        // stable ordering: primary sort field + CODE as tiebreaker
+        phase1.push({ $sort: { [sortField]: sortOrder, CODE: 1 } });
+
+        phase1.push({
+            $facet: {
+                rows: [{ $skip: skip }, { $limit: limit }, { $project: { CODE: 1 } }],
+                totalCount: [{ $count: "count" }],
+            },
+        });
+
+        const phase1Result = await Product.aggregate(phase1);
+
+        const pageCodes: number[] = (phase1Result[0]?.rows || []).map(
+            (r: any) => r.CODE
+        );
+        const total = phase1Result[0]?.totalCount?.[0]?.count || 0;
+
+        if (pageCodes.length === 0) {
+            return {
+                total,
+                page,
+                limit,
+                totalPages: Math.max(1, Math.ceil(total / limit)),
+                rows: [],
+            };
+        }
+
+        // ---------------------------------------------------------------
+        // PHASE 2: heavy joins, but ONLY for this page's CODEs
+        // ---------------------------------------------------------------
+        const phase2: any[] = [
+            { $match: { CODE: { $in: pageCodes } } },
 
             // Batches for this product
             {
@@ -133,10 +253,6 @@ export default class ProductReport {
                     as: "batchRecords",
                 },
             },
-
-            ...(batchNo
-                ? [{ $match: { "batchRecords.BATCHNO": batchNo } }]
-                : []),
 
             // Rate / discount / scheme records for this product
             {
@@ -333,10 +449,6 @@ export default class ProductReport {
                 },
             },
 
-            ...(company
-                ? [{ $match: { company: { $regex: company, $options: "i" } } }]
-                : []),
-
             {
                 $addFields: {
                     // Stock
@@ -484,26 +596,19 @@ export default class ProductReport {
                 },
             },
 
-            { $sort: { [sortField]: sortOrder } },
-
-            {
-                $facet: {
-                    rows: [{ $skip: skip }, { $limit: limit }],
-                    totalCount: [{ $count: "count" }],
-                },
-            },
+            // Re-apply the same ordering used in Phase 1 so the page renders in a
+            // consistent, predictable order (matching { $in: [...] } does not
+            // preserve array order in MongoDB).
+            { $sort: { [sortField]: sortOrder, CODE: 1 } },
         ];
 
-        const result = await Product.aggregate(pipeline);
-
-        const rows = result[0]?.rows || [];
-        const total = result[0]?.totalCount?.[0]?.count || 0;
+        const rows = await Product.aggregate(phase2).allowDiskUse(true);
 
         return {
             total,
             page,
             limit,
-            totalPages: Math.ceil(total / limit),
+            totalPages: Math.max(1, Math.ceil(total / limit)),
             rows,
         };
     }
@@ -540,4 +645,4 @@ export default class ProductReport {
     static async inactiveProducts(filter: ProductReportFilter = {}) {
         return this.productMaster({ ...filter, status: "N" });
     }
-}
+} 
