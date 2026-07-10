@@ -241,7 +241,7 @@ export default async function VfpDashboardPage({
 
   return (
     <ProtectedPage permission="vfp.view">
-      <div className="max-w-7xl mx-auto space-y-6 px-1.5 sm:px-4">
+      <div className="space-y-6 px-1.5 sm:px-4">
         
         {/* Page Header / Hero Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

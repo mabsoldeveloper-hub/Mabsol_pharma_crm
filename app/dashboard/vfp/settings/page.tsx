@@ -235,7 +235,7 @@ export default function VfpSettingsPage() {
 
   return (
     <ProtectedPage permission="vfp.settings">
-      <div className="max-w-4xl mx-auto space-y-4 px-1.5 sm:px-4">
+      <div className="space-y-4 px-1.5 sm:px-4">
         
         {/* Header Card */}
         <div className="bg-white rounded-2xl border border-slate-200/70 p-3 sm:p-6 space-y-3">
