@@ -12,9 +12,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "bcryptjs": "^3.0.3",
     "bootstrap": "^5.3.8",
     "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.23.0",
     "mongodb": "^7.3.0",
     "mongoose": "^9.7.0",
     "multer": "^2.2.0",

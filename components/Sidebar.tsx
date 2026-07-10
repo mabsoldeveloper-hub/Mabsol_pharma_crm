@@ -304,7 +304,7 @@ export default function Sidebar({
                  <ul className="nav flex-column ms-4">
                   <li>
                     <Link
-                      href="/dashboard/sales/"
+                      href="/dashboard/sales"
                       className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
                         pathname.startsWith("#")
                           ? "bg-primary text-white"
@@ -317,7 +317,7 @@ export default function Sidebar({
 
                   <li>
                     <Link
-                      href="/dashboard/sales/invoices"
+                      href="/dashboard/sales/item-wise"
                       className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
                         pathname.startsWith("/dashboard/sales/invoices")
                           ? "bg-primary text-white"

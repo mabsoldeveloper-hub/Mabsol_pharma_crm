@@ -1,43 +1,18 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
 import DashboardCards from "@/components/DashboardCards";
-import {
-  Users,
-  UserCircle2,
-  Boxes,
-  IndianRupee,
-  Target,
-  Award,
-  ArrowUpRight,
-  ArrowDownRight,
-  Phone,
-  Mail,
-  FileText,
-  ChevronDown,
-  Plus,
-  UserPlus,
-  FileSpreadsheet,
-  PackagePlus,
-  Building2,
-} from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  RadialBarChart,
-  RadialBar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
 import ProtectedPage from "@/components/ProtectedPage";
+import type { LucideIcon } from "lucide-react";
+import {
+  Award,
+  Building2,
+  FileSpreadsheet,
+  FileText,
+  Mail,
+  PackagePlus,
+  Phone,
+  UserPlus
+} from "lucide-react";
 
 // ============================================================
 // THEME
@@ -144,12 +119,10 @@ interface KpiCardProps {
   accent?: boolean;
 }
 
-
-function RevenueChart() {
+export default function DashboardPage() {
   return (
-        <ProtectedPage permission="dashboard.view" >
-          <DashboardCards />
-        </ProtectedPage>
-    
+    <ProtectedPage permission="dashboard.view">
+      <DashboardCards />
+    </ProtectedPage>
   );
 }
