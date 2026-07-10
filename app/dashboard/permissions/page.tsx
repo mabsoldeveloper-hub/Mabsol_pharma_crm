@@ -91,7 +91,7 @@ export default function PermissionListPage() {
             <th>Permission Key</th>
             <th>Status</th>
              
-            <th width="180">
+            <th >
                 Action
               </th>
 

@@ -83,7 +83,7 @@ export default function FYListPage() {
               <th>End Date</th>
               <th>Current FY</th>
               <th>Status</th>
-              <th width="220">Action </th>
+              <th>Action </th>
             </tr>
           </thead>
 
