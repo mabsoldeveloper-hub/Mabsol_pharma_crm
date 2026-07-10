@@ -1,5 +1,7 @@
 "use client";
 
+//import DataTable from "@/components/common/DataTable";
+
 export default function LowStockTable({ products }: any) {
 
   return (
@@ -18,7 +20,8 @@ export default function LowStockTable({ products }: any) {
 
         <div className="table-responsive">
 
-          <table className="table table-hover mb-0">
+        {/* <DataTable id="LowStockTable"> */}
+        <table className="table table-hover align-middle mb-0">
 
             <thead className="table-light">
 
@@ -87,7 +90,7 @@ export default function LowStockTable({ products }: any) {
 
             </tbody>
 
-          </table>
+            </table >
 
         </div>
 

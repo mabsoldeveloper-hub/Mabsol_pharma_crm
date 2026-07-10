@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+//import DataTable from "@/components/common/DataTable";
 
 export default function TopProductsTable({ products }: any) {
 
@@ -22,6 +23,9 @@ export default function TopProductsTable({ products }: any) {
 
         <div className="table-responsive">
 
+            
+            {/* <table className="table table-hover align-middle mb-0"> */}
+            {/* <DataTable id="TopProductsTable"> */}
           <table className="table table-hover table-striped align-middle mb-0">
 
             <thead className="table-light">

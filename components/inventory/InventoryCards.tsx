@@ -1,90 +1,116 @@
 "use client";
 
 import {
-FaBoxes,
-FaWarehouse,
-FaExclamationTriangle,
-FaTimesCircle,
-FaRupeeSign
+  FaBoxes,
+  FaWarehouse,
+  FaExclamationTriangle,
+  FaTimesCircle,
+  FaBuilding,
+  FaRupeeSign,
+  FaLayerGroup,
+  FaCheckCircle,
 } from "react-icons/fa";
 
 export default function InventoryCards({ summary }: any) {
+  const cards = [
+    {
+      title: "Products",
+      value: summary.totalProducts,
+      color: "primary",
+      icon: <FaBoxes size={28} />,
+    },
+    {
+      title: "Active",
+      value: summary.activeProducts,
+      color: "success",
+      icon: <FaCheckCircle size={28} />,
+    },
+    {
+      title: "Inactive",
+      value: summary.inactiveProducts,
+      color: "danger",
+      icon: <FaTimesCircle size={28} />,
+    },
+    {
+      title: "Companies",
+      value: summary.totalCompanies,
+      color: "secondary",
+      icon: <FaBuilding size={28} />,
+    },
+    {
+      title: "Available",
+      value: summary.availableProducts,
+      color: "info",
+      icon: <FaWarehouse size={28} />,
+    },
+    {
+      title: "Low Stock",
+      value: summary.lowStock,
+      color: "warning",
+      icon: <FaExclamationTriangle size={28} />,
+    },
+    {
+      title: "Out Of Stock",
+      value: summary.outOfStock,
+      color: "dark",
+      icon: <FaLayerGroup size={28} />,
+    },
+    {
+      title: "Stock Value",
+      value:
+        "₹ " +
+        Number(summary.stockValue || 0).toLocaleString("en-IN"),
+      color: "success",
+      icon: <FaRupeeSign size={28} />,
+    },
+  ];
 
-const cards=[
+  return (
+    <div className="row g-3">
 
-{
-title:"Products",
-value:summary.totalProducts,
-color:"primary",
-icon:<FaBoxes size={28}/>
-},
+      {cards.map((card, index) => (
 
-{
-title:"Available",
-value:summary.availableProducts,
-color:"success",
-icon:<FaWarehouse size={28}/>
-},
+        <div
+          className="col-xl-3 col-lg-3 col-md-6"
+          key={index}
+        >
 
-{
-title:"Low Stock",
-value:summary.lowStock,
-color:"warning",
-icon:<FaExclamationTriangle size={28}/>
-},
+          <div
+            className={`card bg-${card.color} text-white border-0 shadow h-100`}
+          >
 
-{
-title:"Negative",
-value:summary.negativeStock,
-color:"danger",
-icon:<FaTimesCircle size={28}/>
-},
+            <div className="card-body">
 
-{
-title:"Stock Value",
-value:"₹"+Number(summary.stockValue).toLocaleString(),
-color:"info",
-icon:<FaRupeeSign size={28}/>
-}
+              <div className="d-flex justify-content-between">
 
-];
+                <div>
 
-return(
+                  <h6>{card.title}</h6>
 
-<div className="row g-3">
+                  <h3 className="fw-bold">
 
-{cards.map((card,index)=>(
+                    {card.value}
 
-<div className="col-lg col-md-6" key={index}>
+                  </h3>
 
-<div className={`card shadow bg-${card.color} text-white border-0`}>
+                </div>
 
-<div className="card-body">
+                <div>
 
-<div className="d-flex justify-content-between">
+                  {card.icon}
 
-<div>
+                </div>
 
-<h6>{card.title}</h6>
+              </div>
 
-<h3>{card.value}</h3>
+            </div>
 
-</div>
+          </div>
 
-{card.icon}
+        </div>
 
-</div>
+      ))}
 
-</div>
-
-</div>
-
-</div>
-
-))}
-
-</div>
-
-);
-
+    </div>
+  );
 }

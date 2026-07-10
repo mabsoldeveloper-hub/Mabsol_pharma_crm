@@ -82,31 +82,25 @@ export default function ProductsPage() {
   return (
 
     <div className="card shadow">
-
-
-
-
       <div className="card-body">
+        <div className="row g-3 mb-4">
+          <div className="col-lg-3 col-md-6">
+              <div className="card bg-primary text-white shadow border-0">
+                  <div className="card-body text-center">
+                      <h6>Total Products</h6>
+                      <h2>{totalProducts}</h2>
+                  </div>
+              </div>
+          </div>
 
-       <div className="row g-3 mb-4">
-
-    <div className="col-lg-3 col-md-6">
-        <div className="card bg-primary text-white shadow border-0">
-            <div className="card-body text-center">
-                <h6>Total Products</h6>
-                <h2>{totalProducts}</h2>
-            </div>
-        </div>
-    </div>
-
-    <div className="col-lg-3 col-md-6">
-        <div className="card bg-success text-white shadow border-0">
-            <div className="card-body text-center">
-                <h6>Active Products</h6>
-                <h2>{activeProducts}</h2>
-            </div>
-        </div>
-    </div>
+          <div className="col-lg-3 col-md-6">
+              <div className="card bg-success text-white shadow border-0">
+                  <div className="card-body text-center">
+                      <h6>Active Products</h6>
+                      <h2>{activeProducts}</h2>
+                  </div>
+              </div>
+          </div>
 
     <div className="col-lg-3 col-md-6">
         <div className="card bg-danger text-white shadow border-0">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+//import DataTable from "@/components/common/DataTable";
 
 export default function NegativeStockTable({ products }: any) {
   return (
@@ -18,6 +19,7 @@ export default function NegativeStockTable({ products }: any) {
 
         <div className="table-responsive">
 
+        {/* <DataTable id="negativeStockTable"> */}
           <table className="table table-hover align-middle mb-0">
 
             <thead className="table-light">

@@ -6,3 +6,5 @@ const SaleTypeSchema = new Schema({}, {
 });
 
 export default models.SaleType || model("SaleType", SaleTypeSchema);
+
+

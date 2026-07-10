@@ -56,7 +56,7 @@ export default function ProductViewPage() {
 
         <div className="col-lg-3">
 
-          <ProductQuickActions product={product} />
+          <ProductQuickActions />
 
         </div>
 

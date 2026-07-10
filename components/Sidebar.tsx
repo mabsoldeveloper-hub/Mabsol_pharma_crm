@@ -295,6 +295,17 @@ export default function Sidebar({
                 {salesOpen && !collapsed && (
                   <ul className="nav flex-column ms-4">
                     <li>
+                      <Link href="/dashboard/sales/dashboard/" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
+                          pathname.startsWith("/dashboard/sales/dashboard/")
+                            ? "bg-primary text-white"
+                            : "text-white"
+                        }`}
+                      >
+                       Sales Dashboard
+                      </Link>
+                    </li>
+
+                    <li>
                       <Link href="#" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
                           pathname.startsWith("#")
                             ? "bg-primary text-white"
