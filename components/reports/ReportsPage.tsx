@@ -4,6 +4,7 @@ import {
     FaShoppingCart,
     FaBoxOpen,
     FaFileInvoiceDollar,
+    FaReceipt, // GST icon
 } from "react-icons/fa";
 
 export default function ReportsPage() {
@@ -27,6 +28,11 @@ export default function ReportsPage() {
             title: "Outstanding Report",
             icon: <FaFileInvoiceDollar size={40} />,
             link: "/dashboard/reports/outstanding",
+        },
+        {
+            title: "GST Report",
+            icon: <FaReceipt size={40} />,
+            link: "/dashboard/reports/gst",
         },
     ];
 
