@@ -86,11 +86,15 @@ export default function PermissionListPage() {
           <thead>
 
             <tr>
-              <th>Module</th>
-              <th>Permission</th>
-              <th>Permission Key</th>
-              <th>Status</th>
-              <th>Action</th>
+            <th>Module</th>
+            <th>Permission</th>
+            <th>Permission Key</th>
+            <th>Status</th>
+             
+            <th >
+                Action
+              </th>
+
             </tr>
 
           </thead>
