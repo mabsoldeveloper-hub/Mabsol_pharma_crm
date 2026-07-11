@@ -86,7 +86,7 @@ export default function RolesPage() {
 
               <th>Status</th>
 
-              <th width="260">
+              <th>
                 Action
               </th>
 

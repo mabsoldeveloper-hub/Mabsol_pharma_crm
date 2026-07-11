@@ -79,9 +79,7 @@ export default function CompanyListPage() {
               <th>Email</th>
               <th>Mobile</th>
               <th>Status</th>
-              <th width="180">
-                Action
-              </th>
+              <th>Action</th>
             </tr>
 
           </thead>

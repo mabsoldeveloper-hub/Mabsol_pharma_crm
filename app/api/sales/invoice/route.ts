@@ -11,12 +11,13 @@ export async function GET() {
 
         await connectDB();
 
-        // Bill Header
-        const bills = await SalesMdis.find(
+        // Invoice Header
+        const invoices = await SalesMdis.find(
             {},
             {
                 VCN: 1,
                 DATE: 1,
+                TYPE: 1,
                 CODEP: 1,
                 FINAL: 1,
                 AMOUNTT: 1,
@@ -26,40 +27,54 @@ export async function GET() {
                 ROUND: 1,
             }
         )
-        .sort({ DATE: -1 })
-        .lean();
+            .sort({ DATE: -1 })
+            .lean();
 
         // Customer Master
         const customers = await Order.find(
             {},
             {
-                CODEP: 1,
+                ORDNO: 1,
                 PARNAM: 1,
                 CITY: 1,
+                GSTNO: 1,
+                GSTHED: 1,
+                STATE: 1,
             }
         ).lean();
 
+        // Customer Map (ORDNO -> Customer)
         const customerMap = new Map();
 
         customers.forEach((c: any) => {
 
-            customerMap.set(
+            const key = String(c.ORDNO || "")
+                .trim()
+                .toUpperCase();
 
-                String(c.CODEP || "").trim(),
-
-                c
-
-            );
+            customerMap.set(key, c);
 
         });
 
-        const result = bills.map((bill: any) => {
+        const result = invoices.map((bill: any) => {
 
-            const customer = customerMap.get(
+            const code = String(bill.CODEP || "")
+                .trim()
+                .toUpperCase();
 
-                String(bill.CODEP || "").trim()
+            const customer = customerMap.get(code);
 
-            );
+            const cgst = Number(bill.CGSTAMO || 0);
+            const sgst = Number(bill.STAXAMO || 0);
+
+            const isLocal =
+                (customer?.GSTHED || "")
+                    .toUpperCase()
+                    .includes("LOCAL");
+
+            const igst = isLocal
+                ? 0
+                : Number(bill.TAXAMO || 0);
 
             return {
 
@@ -69,37 +84,33 @@ export async function GET() {
 
                 date: bill.DATE,
 
-                customer:
+                type: bill.TYPE,
 
-                    customer?.PARNAM || "",
+                code: code,
 
-                city:
+                customer: customer?.PARNAM || "",
 
-                    customer?.CITY || "",
+                city: customer?.CITY || "",
 
-                taxable:
+                gst: customer?.GSTNO || "",
 
-                    Number(bill.AMOUNTT || 0),
+                state: customer?.STATE || "",
 
-                tax:
+                gstHeading: customer?.GSTHED || "",
 
-                    Number(bill.TAXAMO || 0),
+                taxable: Number(bill.AMOUNTT || 0),
 
-                cgst:
+                tax: Number(bill.TAXAMO || 0),
 
-                    Number(bill.CGSTAMO || 0),
+                cgst: isLocal ? cgst : 0,
 
-                sgst:
+                sgst: isLocal ? sgst : 0,
 
-                    Number(bill.STAXAMO || 0),
+                igst: igst,
 
-                round:
+                round: Number(bill.ROUND || 0),
 
-                    Number(bill.ROUND || 0),
-
-                total:
-
-                    Number(bill.FINAL || 0),
+                total: Number(bill.FINAL || 0),
 
             };
 
@@ -109,13 +120,13 @@ export async function GET() {
 
     } catch (err: any) {
 
-        return NextResponse.json({
-
-            success: false,
-
-            message: err.message,
-
-        });
+        return NextResponse.json(
+            {
+                success: false,
+                message: err.message,
+            },
+            { status: 500 }
+        );
 
     }
 

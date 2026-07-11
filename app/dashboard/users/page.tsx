@@ -47,7 +47,7 @@ export default async function UsersPage() {
                     <th>Designation</th>
                     <th>Mobile</th>
                     <th>Status</th>
-                    <th width="260">Action</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
 

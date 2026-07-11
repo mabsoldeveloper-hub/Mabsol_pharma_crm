@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-//import DataTable from "@/components/common/DataTable";
 
 export default function CustomerWiseSales() {
 
