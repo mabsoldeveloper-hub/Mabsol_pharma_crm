@@ -309,18 +309,6 @@ export default function Sidebar({
                        Sales Dashboard
                       </Link>
                     </li>
-
-                    <li>
-                      <Link href="#" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
-                          pathname.startsWith("#")
-                            ? "bg-primary text-white"
-                            : "text-white"
-                        }`}
-                      >
-                        Invoices
-                      </Link>
-                    </li>
-
                   <li>
                     <Link
                       href="/dashboard/sales/invoices"
@@ -479,7 +467,7 @@ export default function Sidebar({
             {/* Financial year END year */}
             {/* ############################################### */}
             {/* Reports Section Start here  */}
-              <PermissionGate permission="reports.view">
+              {/* <PermissionGate permission="reports.view">
 
                 <li className="nav-item mt-2">
                   <Link href="/dashboard/report" title={collapsed ? "Reports" : ""}
@@ -492,7 +480,7 @@ export default function Sidebar({
                     </Link>
                   </li>
 
-              </PermissionGate>
+              </PermissionGate> */}
             {/* Reports Section END here  */}
             {/* ########################################### */}
             {/* VFP Section Start here */}
