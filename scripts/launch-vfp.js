@@ -25,19 +25,35 @@ async function main() {
   const MONGODB_URI = process.env.MONGODB_URI;
   let vfpExePath = process.env.VFP_EXE_PATH || "C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe";
   let startupCommand = "";
+  let configPrgPath = "";
+  let companyCode = "";
+  let sourceDir = "";
+  let dataDir = "";
 
   if (MONGODB_URI) {
     try {
       await mongoose.connect(MONGODB_URI);
       const vfpConfigSchema = new mongoose.Schema({}, { strict: false });
       const VfpConfig = mongoose.models.VfpConfig || mongoose.model("VfpConfig", vfpConfigSchema, "vfpconfigs");
-      const config = await VfpConfig.findOne({ dataDir: { $exists: true, $ne: "" } });
+      const config = await VfpConfig.findOne({ dataDir: { $exists: true, $ne: "" } }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
       if (config) {
         if (config.get("vfpExePath")) {
           vfpExePath = config.get("vfpExePath");
         }
         if (config.get("startupCommand")) {
           startupCommand = config.get("startupCommand");
+        }
+        if (config.get("prgPath")) {
+          configPrgPath = config.get("prgPath");
+        }
+        if (config.get("companyName")) {
+          companyCode = config.get("companyName");
+        }
+        if (config.get("sourceDir")) {
+          sourceDir = config.get("sourceDir");
+        }
+        if (config.get("dataDir")) {
+          dataDir = config.get("dataDir");
         }
       }
     } catch (e) {
@@ -57,13 +73,87 @@ async function main() {
 
   const prgPath = path.join(PROJECT_ROOT, "vfp_startup.prg");
   const fpwPath = path.join(PROJECT_ROOT, "vfp_config.fpw");
+  let tempAutomatedPrgPath = "";
 
   // Write VFP startup file and configuration mapping
-  const keyboardInstruction = startupCommand 
-    ? `KEYBOARD [DO "${startupCommand}"] + CHR(13)`
-    : `KEYBOARD '* Drag & drop your PRG file here or type script path (e.g. DO "D:\\New Folder\\1.PRG")' + CHR(13)`;
+  let prgContent = "";
+  if (configPrgPath.trim()) {
+    // Read target script and replace built-in interactive commands with our custom UDF prefixes
+    if (fs.existsSync(configPrgPath)) {
+      let originalContent = fs.readFileSync(configPrgPath, "utf8");
+      let automatedContent = originalContent
+        .replace(/\bINPUTBOX\b/gi, "MY_INPUTBOX")
+        .replace(/\bGETDIR\b/gi, "MY_GETDIR")
+        .replace(/\bMESSAGEBOX\b/gi, "MY_MESSAGEBOX");
+        
+      const dirName = path.dirname(configPrgPath);
+      const baseName = path.basename(configPrgPath, path.extname(configPrgPath));
+      tempAutomatedPrgPath = path.join(dirName, `${baseName}_automated_run.prg`);
+      fs.writeFileSync(tempAutomatedPrgPath, automatedContent, "utf8");
+    } else {
+      console.error(`Error: PRG file not found at: ${configPrgPath}`);
+      process.exit(1);
+    }
 
-  fs.writeFileSync(prgPath, `SET SAFETY OFF\r\nSET TALK OFF\r\n${keyboardInstruction}\r\n`);
+    const safePrgPath = tempAutomatedPrgPath.replace(/\\/g, "\\\\");
+
+    prgContent = `SET SAFETY OFF\r\n` +
+      `SET TALK OFF\r\n` +
+      `SET EXCLUSIVE OFF\r\n` +
+      `SET PROCEDURE TO (SYS(16)) ADDITIVE\r\n\r\n` +
+      `PUBLIC _pcCompanyCode, _pcSourceDir, _pcDestDir\r\n` +
+      `_pcCompanyCode = "${companyCode}"\r\n` +
+      `_pcSourceDir = "${sourceDir}"\r\n` +
+      `_pcDestDir = "${dataDir}"\r\n\r\n` +
+      `DO "${safePrgPath}"\r\n\r\n` +
+      `ACTIVATE SCREEN\r\n` +
+      `? "SUCCESS: VFP Data sync copy completed successfully!"\r\n\r\n` +
+      `FUNCTION MY_INPUTBOX(cInputPrompt, cDialogTitle, cDefaultValue, nTimeout, cTimeoutValue, nFlags)\r\n` +
+      `    RETURN _pcCompanyCode\r\n` +
+      `ENDFUNC\r\n\r\n` +
+      `FUNCTION MY_GETDIR(cDirectory, cText, cCaption, nFlags, lCreateFolder)\r\n` +
+      `    LOCAL lcText\r\n` +
+      `    lcText = UPPER(NVL(cText, ""))\r\n` +
+      `    \r\n` +
+      `    IF "ENCRYPTED" $ lcText OR "MARG" $ lcText OR "GET" $ lcText OR "SOURCE" $ lcText\r\n` +
+      `        RETURN ADDBS(_pcSourceDir)\r\n` +
+      `    ENDIF\r\n` +
+      `    \r\n` +
+      `    IF "COPY" $ lcText OR "DEST" $ lcText OR "TO" $ lcText\r\n` +
+      `        RETURN ADDBS(_pcDestDir)\r\n` +
+      `    ENDIF\r\n` +
+      `    \r\n` +
+      `    IF NOT PEMSTATUS(_Screen, "nGetDirCount", 5)\r\n` +
+      `        _Screen.AddProperty("nGetDirCount", 1)\r\n` +
+      `    ELSE\r\n` +
+      `        _Screen.nGetDirCount = _Screen.nGetDirCount + 1\r\n` +
+      `    ENDIF\r\n` +
+      `    \r\n` +
+      `    IF _Screen.nGetDirCount = 1\r\n` +
+      `        RETURN ADDBS(_pcSourceDir)\r\n` +
+      `    ELSE\r\n` +
+      `        RETURN ADDBS(_pcDestDir)\r\n` +
+      `    ENDIF\r\n` +
+      `ENDFUNC\r\n\r\n` +
+      `FUNCTION MY_MESSAGEBOX(cMessageText, nDialogType, cTitleBarText, nTimeout)\r\n` +
+      `    ACTIVATE SCREEN\r\n` +
+      `    CLEAR\r\n` +
+      `    ? "========================================================"\r\n` +
+      `    ? "   VFP Synchronization"\r\n` +
+      `    ? "========================================================"\r\n` +
+      `    ? cMessageText\r\n` +
+      `    ? "========================================================"\r\n` +
+      `    RETURN 1\r\n` +
+      `ENDFUNC\r\n`;
+  } else {
+    const keyboardInstruction = startupCommand 
+      ? `KEYBOARD [DO "${startupCommand}"] + CHR(13)`
+      : `KEYBOARD '* Drag & drop your PRG file here or type script path (e.g. DO "D:\\\\New Folder\\\\1.PRG")' + CHR(13)`;
+    
+    prgContent = `SET SAFETY OFF\r\nSET TALK OFF\r\n${keyboardInstruction}\r\n`;
+  }
+
+  fs.writeFileSync(prgPath, prgContent);
   fs.writeFileSync(fpwPath, `COMMAND = DO "${prgPath}"\r\n`);
 
   console.log(`Launching VFP interactive console...`);
@@ -84,6 +174,13 @@ async function main() {
       const bakPath = prgPath.replace(/\.prg$/i, ".bak");
       if (fs.existsSync(fxpPath)) fs.unlinkSync(fxpPath);
       if (fs.existsSync(bakPath)) fs.unlinkSync(bakPath);
+      
+      // Clean up temporary automated PRG and FXP
+      if (tempAutomatedPrgPath) {
+        if (fs.existsSync(tempAutomatedPrgPath)) fs.unlinkSync(tempAutomatedPrgPath);
+        const tempFxpPath = tempAutomatedPrgPath.replace(/\.prg$/i, ".fxp");
+        if (fs.existsSync(tempFxpPath)) fs.unlinkSync(tempFxpPath);
+      }
     } catch (e) {}
     process.exit(0);
   }, 5000);

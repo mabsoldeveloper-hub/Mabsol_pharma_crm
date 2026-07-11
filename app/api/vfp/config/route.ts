@@ -20,6 +20,7 @@ export async function GET() {
     let enabledFiles: string[] = [];
     let useVfpEngine = false;
     let vfpExePath = process.env.VFP_EXE_PATH || "";
+    let prgPath = "";
     let userName = user.name || "";
     let companyName = (user.companyId as any)?.companyName || "";
     let license = "";
@@ -43,6 +44,9 @@ export async function GET() {
       }
       if ((config as any).vfpExePath) {
         vfpExePath = (config as any).vfpExePath;
+      }
+      if ((config as any).prgPath) {
+        prgPath = (config as any).prgPath;
       }
       if ((config as any).userName) {
         userName = (config as any).userName;
@@ -69,6 +73,7 @@ export async function GET() {
       enabledFiles,
       useVfpEngine,
       vfpExePath,
+      prgPath,
       userName,
       companyName,
       license,
@@ -96,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip") || "127.0.0.1";
     const body = await request.json();
-    const { dataDir, sourceDir, enabledFiles, useVfpEngine, vfpExePath, userName, companyName, license, startupCommand } = body;
+    const { dataDir, sourceDir, enabledFiles, useVfpEngine, vfpExePath, prgPath, userName, companyName, license, startupCommand } = body;
 
     const updateFields: any = {};
     const existingConfig = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
@@ -173,6 +178,18 @@ export async function POST(request: NextRequest) {
       updateFields.vfpExePath = vfpExePath;
     }
 
+    if (prgPath !== undefined) {
+      if (prgPath) {
+        if (!fs.existsSync(prgPath)) {
+          return NextResponse.json(
+            { success: false, error: `PRG script file not found at: ${prgPath}` },
+            { status: 400 }
+          );
+        }
+      }
+      updateFields.prgPath = prgPath;
+    }
+
     if (userName !== undefined) {
       updateFields.userName = userName;
     }
@@ -203,7 +220,7 @@ export async function POST(request: NextRequest) {
     // Calculate detailed changes
     const changesList: string[] = [];
     const changes: any = {};
-    const fieldsToCompare = ["userName", "companyName", "license", "vfpExePath", "dataDir", "sourceDir", "useVfpEngine", "enabledFiles", "startupCommand"];
+    const fieldsToCompare = ["userName", "companyName", "license", "vfpExePath", "prgPath", "dataDir", "sourceDir", "useVfpEngine", "enabledFiles", "startupCommand"];
     for (const field of fieldsToCompare) {
       if (body[field] !== undefined) {
         const oldVal = existingConfig ? (existingConfig as any)[field] : undefined;

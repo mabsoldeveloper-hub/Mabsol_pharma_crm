@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ProtectedPage from "@/components/ProtectedPage";
+import FileSelectorModal from "@/components/FileSelectorModal";
 import {
   Database,
   Lock,
@@ -38,10 +39,42 @@ interface VfpSettingLogEntry {
 export default function VfpSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [launchingConsole, setLaunchingConsole] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "danger" | ""; text: string }>({ type: "", text: "" });
   const [logs, setLogs] = useState<VfpSettingLogEntry[]>([]);
+
+  // File/Folder browser state
+  const [browserConfig, setBrowserConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    filterType: "exe" | "prg" | "dir";
+    fieldKey: "vfpExePath" | "prgPath" | "sourceDir" | "dataDir" | null;
+  }>({
+    isOpen: false,
+    title: "",
+    filterType: "dir",
+    fieldKey: null
+  });
+
+  const openFileBrowser = (fieldKey: "vfpExePath" | "prgPath" | "sourceDir" | "dataDir", filterType: "exe" | "prg" | "dir", title: string) => {
+    setBrowserConfig({
+      isOpen: true,
+      title,
+      filterType,
+      fieldKey
+    });
+  };
+
+  const handleBrowserSelect = (selectedPath: string) => {
+    if (browserConfig.fieldKey) {
+      setForm((prev) => ({
+        ...prev,
+        [browserConfig.fieldKey!]: selectedPath
+      }));
+    }
+  };
 
   // Original saved data to restore on Cancel
   const [savedForm, setSavedForm] = useState({
@@ -49,6 +82,9 @@ export default function VfpSettingsPage() {
     companyName: "",
     license: "",
     vfpExePath: "",
+    prgPath: "",
+    sourceDir: "",
+    dataDir: "",
   });
 
   const [form, setForm] = useState({
@@ -56,6 +92,9 @@ export default function VfpSettingsPage() {
     companyName: "",
     license: "",
     vfpExePath: "",
+    prgPath: "",
+    sourceDir: "",
+    dataDir: "",
   });
 
   useEffect(() => {
@@ -74,6 +113,9 @@ export default function VfpSettingsPage() {
           companyName: data.companyName || "",
           license: data.license || "",
           vfpExePath: data.vfpExePath || "",
+          prgPath: data.prgPath || "",
+          sourceDir: data.sourceDir || "",
+          dataDir: data.dataDir || "",
         };
         setForm(configData);
         setSavedForm(configData);
@@ -104,8 +146,16 @@ export default function VfpSettingsPage() {
     e.preventDefault();
     setMessage({ type: "", text: "" });
 
-    if (!form.userName.trim() || !form.companyName.trim() || !form.license.trim()) {
-      setMessage({ type: "danger", text: "Operator, Company name, and License Key fields are required to update settings." });
+    if (
+      !form.userName.trim() ||
+      !form.companyName.trim() ||
+      !form.license.trim() ||
+      !form.vfpExePath.trim() ||
+      !form.prgPath.trim() ||
+      !form.sourceDir.trim() ||
+      !form.dataDir.trim()
+    ) {
+      setMessage({ type: "danger", text: "Operator, Company name, License Key, VFP Exe, PRG Path, Source Folder, and Copy Folder are required." });
       return;
     }
 
@@ -118,6 +168,10 @@ export default function VfpSettingsPage() {
           userName: form.userName,
           companyName: form.companyName,
           license: form.license,
+          vfpExePath: form.vfpExePath,
+          prgPath: form.prgPath,
+          sourceDir: form.sourceDir,
+          dataDir: form.dataDir,
         }),
       });
 
@@ -146,7 +200,15 @@ export default function VfpSettingsPage() {
   const handleSyncNow = async () => {
     setMessage({ type: "", text: "" });
 
-    if (!savedForm.userName || !savedForm.companyName || !savedForm.license || !savedForm.vfpExePath) {
+    if (
+      !savedForm.userName ||
+      !savedForm.companyName ||
+      !savedForm.license ||
+      !savedForm.vfpExePath ||
+      !savedForm.prgPath ||
+      !savedForm.sourceDir ||
+      !savedForm.dataDir
+    ) {
       setMessage({ type: "danger", text: "Please enter and save all VFP details before triggering a sync." });
       return;
     }
@@ -170,6 +232,39 @@ export default function VfpSettingsPage() {
       setMessage({ type: "danger", text: "An error occurred while triggering sync." });
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleLaunchConsole = async () => {
+    setMessage({ type: "", text: "" });
+
+    if (
+      !savedForm.userName ||
+      !savedForm.companyName ||
+      !savedForm.license ||
+      !savedForm.vfpExePath ||
+      !savedForm.prgPath
+    ) {
+      setMessage({ type: "danger", text: "Please enter and save all VFP details before launching the console." });
+      return;
+    }
+
+    try {
+      setLaunchingConsole(true);
+      const res = await fetch("/api/vfp/launch-vfp", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: "success", text: data.message || "Visual FoxPro Console launched successfully." });
+      } else {
+        setMessage({ type: "danger", text: data.error || "Failed to launch VFP Console." });
+      }
+    } catch {
+      setMessage({ type: "danger", text: "An error occurred while launching VFP Console." });
+    } finally {
+      setLaunchingConsole(false);
     }
   };
 
@@ -210,7 +305,14 @@ export default function VfpSettingsPage() {
     return `${year}-${month}-${day} ${hour}:${min}`;
   }
 
-  const isFormConfigured = savedForm.userName && savedForm.companyName && savedForm.license;
+  const isFormConfigured =
+    savedForm.userName &&
+    savedForm.companyName &&
+    savedForm.license &&
+    savedForm.vfpExePath &&
+    savedForm.prgPath &&
+    savedForm.sourceDir &&
+    savedForm.dataDir;
 
   return (
     <ProtectedPage permission="vfp.settings">
@@ -235,14 +337,22 @@ export default function VfpSettingsPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2.5 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <button
               onClick={handleSyncNow}
               disabled={syncing || isEditing || !isFormConfigured}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
             >
               <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
               {syncing ? "Syncing..." : "Sync Now & Log"}
+            </button>
+            <button
+              onClick={handleLaunchConsole}
+              disabled={launchingConsole || isEditing || !isFormConfigured}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-2xl bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20"
+            >
+              <Terminal size={15} className={launchingConsole ? "animate-pulse" : ""} />
+              {launchingConsole ? "Launching..." : "Open VFP Console"}
             </button>
           </div>
         </div>
@@ -292,108 +402,332 @@ export default function VfpSettingsPage() {
           </div>
 
           {isEditing ? (
-            <form onSubmit={handleSave} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Configured Operator
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <User size={14} />
-                    </span>
-                    <input
-                      type="text"
-                      className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:border-blue-500 text-slate-800"
-                      placeholder="Operator's full name"
-                      value={form.userName}
-                      onChange={(e) => setForm({ ...form, userName: e.target.value })}
-                      required
-                    />
+            <form onSubmit={handleSave} className="space-y-6">
+              {/* Section 1: Operator & Security */}
+              <div className="bg-slate-50/40 border border-slate-100 rounded-3xl p-5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <User size={14} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">1. Operator & Security Credentials</h4>
+                    <p className="text-[10px] text-slate-400">Identify who is performing operations and authenticate sync</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Configured Operator
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <User size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 transition-all"
+                        placeholder="Operator's full name"
+                        value={form.userName}
+                        onChange={(e) => setForm({ ...form, userName: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Company Code (e.g. A01, B01)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <Building size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 transition-all"
+                        placeholder="Company Code (e.g. A01)"
+                        value={form.companyName}
+                        onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Company Name
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Database Sync License Key
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Building size={14} />
+                      <Key size={14} />
                     </span>
                     <input
                       type="text"
-                      className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:border-blue-500 text-slate-800"
-                      placeholder="Company name"
-                      value={form.companyName}
-                      onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+                      className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
+                      placeholder="VFP database sync license"
+                      value={form.license}
+                      onChange={(e) => setForm({ ...form, license: e.target.value })}
                       required
                     />
                   </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Database Sync License Key
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                    <Key size={14} />
-                  </span>
-                  <input
-                    type="text"
-                    className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:border-blue-500 text-slate-800 font-mono"
-                    placeholder="VFP database sync license"
-                    value={form.license}
-                    onChange={(e) => setForm({ ...form, license: e.target.value })}
-                    required
-                  />
+              {/* Section 2: VFP Engine */}
+              <div className="bg-slate-50/40 border border-slate-100 rounded-3xl p-5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <Terminal size={14} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">2. VFP Engine Integration</h4>
+                    <p className="text-[10px] text-slate-400">Paths for executable and startup script automation</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Visual FoxPro Executable Path
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <Terminal size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
+                        placeholder="e.g. C:\Program Files (x86)\Microsoft Visual FoxPro 9\vfp9.exe"
+                        value={form.vfpExePath}
+                        onChange={(e) => setForm({ ...form, vfpExePath: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openFileBrowser("vfpExePath", "exe", "Select Visual FoxPro Executable")}
+                      className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50 hover:border-slate-350 transition-all shrink-0 text-slate-700 bg-white"
+                    >
+                      Browse...
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    PRG Script File Path
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <FolderOpen size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
+                        placeholder="e.g. D:\VFP_Scripts\copy_data.prg"
+                        value={form.prgPath}
+                        onChange={(e) => setForm({ ...form, prgPath: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openFileBrowser("prgPath", "prg", "Select FoxPro PRG File")}
+                      className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50 hover:border-slate-350 transition-all shrink-0 text-slate-700 bg-white"
+                    >
+                      Browse...
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+              {/* Section 3: Directory Paths */}
+              <div className="bg-slate-50/40 border border-slate-100 rounded-3xl p-5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+                    <FolderOpen size={14} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">3. Replicated Directory Paths</h4>
+                    <p className="text-[10px] text-slate-400">Configure directory paths to get and copy tables</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      VFP Source Directory (Get Data From)
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <FolderOpen size={14} />
+                        </span>
+                        <input
+                          type="text"
+                          className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
+                          placeholder="e.g. C:\vfpnew\vfpnew"
+                          value={form.sourceDir}
+                          onChange={(e) => setForm({ ...form, sourceDir: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openFileBrowser("sourceDir", "dir", "Select Source Data Directory")}
+                        className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50 hover:border-slate-350 transition-all shrink-0 text-slate-700 bg-white"
+                      >
+                        Browse...
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      VFP Destination Copy Directory
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <FolderOpen size={14} />
+                        </span>
+                        <input
+                          type="text"
+                          className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
+                          placeholder="e.g. D:\copy data"
+                          value={form.dataDir}
+                          onChange={(e) => setForm({ ...form, dataDir: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openFileBrowser("dataDir", "dir", "Select Destination Copy Directory")}
+                        className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50 hover:border-slate-350 transition-all shrink-0 text-slate-700 bg-white"
+                      >
+                        Browse...
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-850">
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transition-all shadow-md shadow-blue-500/10"
                 >
                   <Save size={15} /> Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-2xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                 >
                   Cancel
                 </button>
               </div>
             </form>
           ) : (
-            <div className="space-y-2.5">
-              <div className="border border-slate-100 rounded-2xl p-2.5 bg-slate-50/20">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <User size={13} className="text-slate-400" />
-                  Configured Operator
-                </span>
-                <p className="text-sm font-semibold text-slate-800 mt-0.5">{savedForm.userName || "Not set"}</p>
+            <div className="space-y-6">
+              {/* Section 1: Operator & Security */}
+              <div className="bg-slate-50/30 border border-slate-100/80 rounded-3xl p-5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <User size={14} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">1. Operator & Security Credentials</h4>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="border border-slate-100 rounded-2xl p-3 bg-white">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <User size={13} className="text-slate-400" />
+                      Configured Operator
+                    </span>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">{savedForm.userName || "Not set"}</p>
+                  </div>
+
+                  <div className="border border-slate-100 rounded-2xl p-3 bg-white">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Building size={13} className="text-slate-400" />
+                      Company Code / Name
+                    </span>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">{savedForm.companyName || "Not set"}</p>
+                  </div>
+                </div>
+
+                <div className="border border-slate-100 rounded-2xl p-3 bg-white">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Key size={13} className="text-slate-400" />
+                    Database Sync License Key
+                  </span>
+                  <p className="text-sm font-semibold text-slate-850 mt-0.5 font-mono break-all">{savedForm.license || "Not set"}</p>
+                </div>
               </div>
 
-              <div className="border border-slate-100 rounded-2xl p-2.5 bg-slate-50/20">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Building size={13} className="text-slate-400" />
-                  Company Name
-                </span>
-                <p className="text-sm font-semibold text-slate-800 mt-0.5">{savedForm.companyName || "Not set"}</p>
+              {/* Section 2: VFP Engine */}
+              <div className="bg-slate-50/30 border border-slate-100/80 rounded-3xl p-5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <Terminal size={14} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">2. VFP Engine Integration</h4>
+                  </div>
+                </div>
+
+                <div className="border border-slate-100 rounded-2xl p-3 bg-white">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Terminal size={13} className="text-slate-400" />
+                    Visual FoxPro Executable Path
+                  </span>
+                  <p className="text-xs font-semibold text-slate-700 mt-0.5 font-mono break-all">{savedForm.vfpExePath || "Not set"}</p>
+                </div>
+
+                <div className="border border-slate-100 rounded-2xl p-3 bg-white">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <FolderOpen size={13} className="text-slate-400" />
+                    PRG Script File Path
+                  </span>
+                  <p className="text-xs font-semibold text-slate-700 mt-0.5 font-mono break-all">{savedForm.prgPath || "Not set"}</p>
+                </div>
               </div>
 
-              <div className="border border-slate-100 rounded-2xl p-2.5 bg-slate-50/20">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Key size={13} className="text-slate-400" />
-                  Database Sync License Key
-                </span>
-                <p className="text-sm font-semibold text-slate-850 mt-0.5 font-mono break-all">{savedForm.license || "Not set"}</p>
-              </div>
+              {/* Section 3: Directory Paths */}
+              <div className="bg-slate-50/30 border border-slate-100/80 rounded-3xl p-5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+                    <FolderOpen size={14} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">3. Replicated Directory Paths</h4>
+                  </div>
+                </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="border border-slate-100 rounded-2xl p-3 bg-white">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <FolderOpen size={13} className="text-slate-400" />
+                      VFP Source Directory
+                    </span>
+                    <p className="text-xs font-semibold text-slate-700 mt-0.5 font-mono break-all">{savedForm.sourceDir || "Not set"}</p>
+                  </div>
+
+                  <div className="border border-slate-100 rounded-2xl p-3 bg-white">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <FolderOpen size={13} className="text-slate-400" />
+                      VFP Destination Copy Directory
+                    </span>
+                    <p className="text-xs font-semibold text-slate-700 mt-0.5 font-mono break-all">{savedForm.dataDir || "Not set"}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -517,6 +851,15 @@ export default function VfpSettingsPage() {
             </span>
           </div>
         </div>
+
+        <FileSelectorModal
+          isOpen={browserConfig.isOpen}
+          onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))}
+          onSelect={handleBrowserSelect}
+          title={browserConfig.title}
+          filterType={browserConfig.filterType}
+          initialPath={browserConfig.fieldKey ? form[browserConfig.fieldKey] : ""}
+        />
 
       </div>
     </ProtectedPage>

@@ -26,8 +26,6 @@ export default function VfpConfigWizard({
   onSuccess,
   currentDataDir = "",
 }: VfpConfigWizardProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [sourceDir, setSourceDir] = useState("");
   const [dataDir, setDataDir] = useState("");
   const [enabledFiles, setEnabledFiles] = useState<string[]>([]);
   const [availableFiles, setAvailableFiles] = useState<string[]>([]);
@@ -35,13 +33,13 @@ export default function VfpConfigWizard({
   const [vfpExePath, setVfpExePath] = useState("C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe");
   
   // Folder browsing state
-  const [browsingField, setBrowsingField] = useState<"source" | "dest" | null>(null);
+  const [browsingField, setBrowsingField] = useState<"dest" | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
 
   // Search filter for tables
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Loading & error states
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copiedCount, setCopiedCount] = useState(0);
@@ -55,7 +53,6 @@ export default function VfpConfigWizard({
         .then((res) => res.json())
         .then((data) => {
           if (data.success) {
-            setSourceDir(data.sourceDir || "");
             setDataDir(data.dataDir || currentDataDir || "");
             setEnabledFiles(data.enabledFiles || []);
             setUseVfpEngine(data.useVfpEngine || false);
@@ -133,11 +130,11 @@ export default function VfpConfigWizard({
     setLoading(true);
     setError("");
     try {
-      // 1. Save config (enabledFiles, dataDir, sourceDir, useVfpEngine, vfpExePath)
+      // 1. Save config (enabledFiles, dataDir, useVfpEngine, vfpExePath)
       const configRes = await fetch("/api/vfp/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceDir, dataDir, enabledFiles, useVfpEngine, vfpExePath }),
+        body: JSON.stringify({ dataDir, enabledFiles, useVfpEngine, vfpExePath }),
       });
       const configData = await configRes.json();
 
@@ -343,20 +340,12 @@ export default function VfpConfigWizard({
                 <FaCheckCircle className="text-success display-4 mb-3" />
                 <h4 className="fw-bold text-dark">Configuration Saved!</h4>
                 <p className="text-secondary small mb-4">
-                  The VFP source path has been configured, files have been replicated, and sync table selection is saved. A rescan command has been queued for the local sync worker.
+                  The VFP database directory path is configured and sync table selection is saved. A rescan command has been queued for the local sync worker.
                 </p>
                 <div className="p-3 border rounded-3 bg-light text-start font-monospace small mb-4 mx-auto" style={{ maxWidth: "500px" }}>
                   <div className="d-flex justify-content-between mb-1 text-break">
-                    <strong className="text-secondary">Source:</strong>
-                    <span className="text-dark text-end ms-2">{sourceDir}</span>
-                  </div>
-                  <div className="d-flex justify-content-between mb-1 text-break">
                     <strong className="text-secondary">Destination:</strong>
                     <span className="text-dark text-end ms-2">{dataDir}</span>
-                  </div>
-                  <div className="d-flex justify-content-between mb-1 text-break">
-                    <strong className="text-secondary">VFP Engine:</strong>
-                    <span className="text-dark text-end ms-2">{useVfpEngine ? "Enabled" : "Disabled"}</span>
                   </div>
                   <div className="d-flex justify-content-between text-break">
                     <strong className="text-secondary">Synced Tables:</strong>
@@ -385,7 +374,7 @@ export default function VfpConfigWizard({
                   onClick={handleTransferData}
                   disabled={loading || !dataDir.trim()}
                 >
-                  {loading ? "Copying VFP files..." : "Transfer Data & Next"}
+                  {loading ? "Scanning VFP directory..." : "Scan & Next"}
                   {!loading && <FaArrowRight />}
                 </button>
               </>
@@ -432,10 +421,10 @@ export default function VfpConfigWizard({
       <FolderSelectorModal
         isOpen={isFolderPickerOpen}
         onClose={() => setIsFolderPickerOpen(false)}
-        currentPath={browsingField === "source" ? sourceDir : dataDir}
+        currentPath={dataDir}
         onFolderSelected={handleFolderSelected}
         selectOnly={true}
-        title={browsingField === "source" ? "Select VFP Source Folder" : "Select VFP Destination Folder"}
+        title="Select VFP Database Folder"
       />
     </div>
   );

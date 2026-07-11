@@ -35,6 +35,11 @@ const VfpConfigSchema = new mongoose.Schema(
       required: false,
       default: "",
     },
+    prgPath: {
+      type: String,
+      required: false,
+      default: "",
+    },
     userName: {
       type: String,
       required: false,

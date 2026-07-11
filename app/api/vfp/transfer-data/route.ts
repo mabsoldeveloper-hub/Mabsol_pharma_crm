@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 export const dynamic = "force-dynamic";
 
 // Recursive copy of VFP database files
-function copyVfpFilesRecursively(src: string, dest: string): number {
+function copyVfpFilesRecursively(src: string, dest: string, companyName?: string): number {
   if (!fs.existsSync(src)) return 0;
 
   // Ensure destination folder exists
@@ -22,6 +22,8 @@ function copyVfpFilesRecursively(src: string, dest: string): number {
 
   const entries = fs.readdirSync(src, { withFileTypes: true });
   let copiedCount = 0;
+
+  const targetCompanyExt = companyName ? `.${companyName.toLowerCase()}` : "";
 
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
@@ -39,12 +41,12 @@ function copyVfpFilesRecursively(src: string, dest: string): number {
       ) {
         continue;
       }
-      copiedCount += copyVfpFilesRecursively(srcPath, destPath);
+      copiedCount += copyVfpFilesRecursively(srcPath, destPath, companyName);
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
       // Common VFP and FoxPro extensions
       const validExtensions = [".dbf", ".fpt", ".cdx", ".idx", ".dbc", ".dct", ".dcx"];
-      if (validExtensions.includes(ext)) {
+      if (validExtensions.includes(ext) || (targetCompanyExt && ext === targetCompanyExt)) {
         fs.copyFileSync(srcPath, destPath);
         copiedCount++;
       }
@@ -92,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { sourceDir, dataDir } = body;
+    const { companyName, sourceDir, dataDir } = body;
 
     if (!dataDir) {
       return NextResponse.json(
@@ -211,7 +213,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Standard filesystem copy
       try {
-        copiedCount = copyVfpFilesRecursively(sourceDir, dataDir);
+        copiedCount = copyVfpFilesRecursively(sourceDir, dataDir, companyName);
       } catch (copyError: any) {
         return NextResponse.json(
           { success: false, error: `Error copying VFP files: ${copyError.message}` },
@@ -225,6 +227,7 @@ export async function POST(request: NextRequest) {
       { key: "vfp_sync_config_" + user.email },
       {
         $set: {
+          companyName,
           sourceDir,
           dataDir,
           email: user.email,
