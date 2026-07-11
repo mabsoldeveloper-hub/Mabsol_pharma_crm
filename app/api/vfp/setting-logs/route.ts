@@ -1,29 +1,30 @@
-import { NextResponse } from "next/server";
-import { getVfpStatus } from "@/lib/vfp/status";
+import { NextRequest, NextResponse } from "next/server";
+import dbConnect from "@/lib/mongodb";
+import VfpSettingLog from "@/models/VfpSettingLog";
 import { getCurrentUser } from "@/lib/auth";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    await dbConnect();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const status = await getVfpStatus({}, user.email);
+    const logs = await VfpSettingLog.find({ email: user.email })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
 
     return NextResponse.json({
       success: true,
-      status,
+      logs,
     });
-  } catch (error: unknown) {
+  } catch (error: any) {
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unable to load VFP status",
-      },
+      { success: false, error: error.message },
       { status: 500 }
     );
   }

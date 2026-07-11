@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import VfpTableMap from "@/models/VfpTableMap";
 import VfpSyncState from "@/models/VfpSyncState";
+import { getCurrentUser } from "@/lib/auth";
 import mongoose from "mongoose";
 
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const { tableName } = await request.json();
 
     if (!tableName) {
@@ -19,6 +25,7 @@ export async function POST(request: NextRequest) {
     // Find the TableMap to get the correct targetCollection name
     const tableMap = (await VfpTableMap.findOne({
       $or: [{ fileName: `${tableName}.dbf` }, { fileName: tableName }],
+      email: user.email,
     }).lean()) as any;
 
     let droppedCollection = "";
@@ -37,9 +44,10 @@ export async function POST(request: NextRequest) {
     // Delete matching records from metadata collections
     await VfpTableMap.deleteOne({
       $or: [{ fileName: `${tableName}.dbf` }, { fileName: tableName }],
+      email: user.email,
     });
 
-    await VfpSyncState.deleteOne({ tableName });
+    await VfpSyncState.deleteOne({ tableName, email: user.email });
 
     return NextResponse.json({
       success: true,

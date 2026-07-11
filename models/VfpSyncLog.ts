@@ -7,6 +7,10 @@ const VfpSyncLogSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    email: {
+      type: String,
+      required: false,
+    },
     tableName: String,
     fileName: String,
     action: {

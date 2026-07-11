@@ -84,7 +84,7 @@ function parseEndOfDay(value?: string) {
   return parsed;
 }
 
-export async function getVfpStatus(filter: VfpStatusFilter = {}) {
+export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string) {
   await dbConnect();
 
   const { range = "all", startDate, endDate, fileLimit = 10 } = filter;
@@ -97,6 +97,12 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
   const stateFilter: Record<string, unknown> = {};
   const fileFilter: Record<string, unknown> = {};
   const logFilter: Record<string, unknown> = {};
+
+  if (email) {
+    stateFilter.email = email;
+    fileFilter.email = email;
+    logFilter.email = email;
+  }
 
   if (fromDate || toDate) {
     const dateQuery: Record<string, Date> = {};
@@ -131,9 +137,9 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
     VfpSyncState.countDocuments(stateFilter),
     VfpSyncState.find(stateFilter).sort({ updatedAt: -1 }).lean(),
     VfpSyncLog.find(logFilter).sort({ createdAt: -1 }).limit(10).lean(),
-    VfpConflict.countDocuments({ status: "open" }),
-    VfpOutboundQueue.countDocuments({ status: "pending" }),
-    VfpSyncCommand.countDocuments({ status: "queued" }),
+    VfpConflict.countDocuments({ status: "open", ...(email ? { email } : {}) }),
+    VfpOutboundQueue.countDocuments({ status: "pending", ...(email ? { email } : {}) }),
+    VfpSyncCommand.countDocuments({ status: "queued", ...(email ? { email } : {}) }),
     VfpFileAsset.countDocuments(fileFilter),
     VfpFileAsset.countDocuments({ ...fileFilter, storageStatus: "stored" }),
     VfpFileAsset.countDocuments({ ...fileFilter, storageStatus: "failed" }),
@@ -191,9 +197,20 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
     return acc;
   }, {});
   let dataDir = process.env.VFP_DATA_DIR || "";
-  const config = (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean()) as any;
-  if (config && config.dataDir) {
-    dataDir = config.dataDir;
+  let sourceDir = "";
+  let enabledFiles: string[] = [];
+  let useVfpEngine = false;
+  let vfpExePath = "C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe";
+  let prgPath = "";
+
+  const config = (await VfpConfig.findOne(email ? { email } : { key: "vfp_sync_config" }).lean()) as any;
+  if (config) {
+    if (config.dataDir) dataDir = config.dataDir;
+    if (config.sourceDir) sourceDir = config.sourceDir;
+    if (config.enabledFiles) enabledFiles = config.enabledFiles;
+    if (config.useVfpEngine !== undefined) useVfpEngine = config.useVfpEngine;
+    if (config.vfpExePath) vfpExePath = config.vfpExePath;
+    if (config.prgPath) prgPath = config.prgPath;
   }
   const dataDirExists = Boolean(dataDir) && fs.existsSync(dataDir);
   const heartbeat = workerHeartbeat as
@@ -207,8 +224,28 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
   const lastSeenAt = heartbeat?.lastSeenAt
     ? new Date(heartbeat.lastSeenAt)
     : undefined;
-  const workerOnline =
+  let workerOnline =
     Boolean(lastSeenAt) && Date.now() - Number(lastSeenAt) < 30_000;
+
+  // Auto-spawn the sync worker background daemon if it is offline and VFP database directory is configured
+  if (!workerOnline && dataDirExists) {
+    try {
+      const req = eval("require");
+      const { spawn } = req("child_process");
+      const workerScript = req("path").resolve(process.cwd(), "scripts", "vfp-sync", "worker.cjs");
+      
+      const child = spawn(process.execPath, [workerScript], {
+        detached: true,
+        stdio: "ignore",
+        env: { ...process.env }
+      });
+      child.unref();
+      console.log("[vfp-status] Spawned background sync worker child process automatically.");
+      workerOnline = true; // Set to true since process is now started
+    } catch (err) {
+      console.error("[vfp-status] Failed to spawn background sync worker automatically:", err);
+    }
+  }
 
   return {
     workerConfigured: Boolean(dataDir),
@@ -219,6 +256,11 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}) {
     workerLastRunReason: heartbeat?.lastRunReason || "",
     dataDir,
     dataDirExists,
+    sourceDir,
+    enabledFiles,
+    useVfpEngine,
+    vfpExePath,
+    prgPath,
     conflictPolicy: process.env.VFP_CONFLICT_POLICY || "vfp_wins",
     tableCount,
     importedRows: filteredImportedRows,

@@ -1,30 +1,23 @@
 "use client";
 
-import {FaUsers, FaUserTie, FaRupeeSign, FaChartLine} from "react-icons/fa";
+import {
+  FaUsers,
+  FaUserTie,
+  FaRupeeSign,
+  FaChartLine,
+} from "react-icons/fa";
+import { ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
-export default function DashboardCards() {
+const INK = "#343872";
+const INK_TINT = "#EEEEF6";
+const AMBER = "#FB8C00";
+const AMBER_TINT = "#FFF3E0";
 
+export default function DashboardCards() {
   const [summary, setSummary] = useState<any>(null);
 
-  useEffect(() => {
 
-    loadDashboard();
-    
-    }, []);
-    
-    const loadDashboard =
-    async () => {
-    
-    const res =
-    await fetch("/api/dashboard");
-    
-    const data =
-    await res.json();
-    
-    setSummary(data);
-    
-    };
 
     const cards = [
       {
@@ -91,26 +84,38 @@ export default function DashboardCards() {
     ];
 
   return (
-    <div className="row g-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
       {cards.map((card, index) => (
-        <div className="col-xl-3 col-lg-6 col-md-6 col-12" key={index}>
-          <div
-            className={`card border-0 shadow-lg bg-${card.color} text-white`}
-            style={{
-              borderRadius: "18px",
-            }}
-          >
-            <div className="card-body">
-              <div className="d-flex justify-content-between">
-                <div>
-                  <h6>{card.title}</h6>
-                  <h2>{card.value}</h2>
-                </div>
-
+        <div
+          key={index}
+          className="bg-white rounded-xl border border-slate-200 p-3 hover:shadow-md transition-all duration-300"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center"
+            
+            >
+              <div
+                className="text-sm"
+                
+              >
                 {card.icon}
               </div>
             </div>
+
+            <span className="hidden sm:flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-50 text-green-700">
+              <ArrowUpRight size={10} />
+              12%
+            </span>
           </div>
+
+          <p className="text-xs text-slate-500 truncate">
+            {card.title}
+          </p>
+
+          <h3 className="text-sm lg:text-base font-semibold text-slate-900 mt-1 whitespace-nowrap">
+            {card.value}
+          </h3>
         </div>
       ))}
     </div>

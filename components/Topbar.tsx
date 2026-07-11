@@ -1,11 +1,11 @@
 "use client";
 
 //import { useState } from "react";
-import {Bell, Moon, Sun, PersonCircle,} from "react-bootstrap-icons";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Bell, Moon, PersonCircle, Sun, } from "react-bootstrap-icons";
 
-import LogoutButton from "./LogoutButton";
 import { useUser } from "@/context/UserContext";
+import LogoutButton from "./LogoutButton";
 
 export default function Topbar({
   collapsed,

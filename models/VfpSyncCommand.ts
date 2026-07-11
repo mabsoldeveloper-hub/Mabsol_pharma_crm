@@ -7,6 +7,10 @@ const VfpSyncCommandSchema = new mongoose.Schema(
       enum: ["rescan", "sync_now"],
       required: true,
     },
+    email: {
+      type: String,
+      required: false,
+    },
     status: {
       type: String,
       enum: ["queued", "processing", "done", "failed"],

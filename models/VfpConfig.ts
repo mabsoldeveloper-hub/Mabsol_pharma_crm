@@ -8,9 +8,57 @@ const VfpConfigSchema = new mongoose.Schema(
       unique: true,
       default: "vfp_sync_config",
     },
+    email: {
+      type: String,
+      required: false,
+    },
     dataDir: {
       type: String,
-      required: true,
+      required: false,
+    },
+    sourceDir: {
+      type: String,
+      required: false,
+    },
+    enabledFiles: {
+      type: [String],
+      required: false,
+      default: [],
+    },
+    useVfpEngine: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
+    vfpExePath: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    prgPath: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    userName: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    companyName: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    license: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    startupCommand: {
+      type: String,
+      required: false,
+      default: "",
     },
   },
   {

@@ -5,7 +5,10 @@ const VfpSyncStateSchema = new mongoose.Schema(
     tableName: {
       type: String,
       required: true,
-      unique: true,
+    },
+    email: {
+      type: String,
+      required: false,
     },
     fileName: String,
     filePath: String,
@@ -43,6 +46,8 @@ const VfpSyncStateSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+VfpSyncStateSchema.index({ tableName: 1, email: 1 }, { unique: true });
 
 export default mongoose.models.VfpSyncState ||
   mongoose.model("VfpSyncState", VfpSyncStateSchema, "vfpsyncstates");

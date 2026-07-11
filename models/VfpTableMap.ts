@@ -5,7 +5,10 @@ const VfpTableMapSchema = new mongoose.Schema(
     fileName: {
       type: String,
       required: true,
-      unique: true,
+    },
+    email: {
+      type: String,
+      required: false,
     },
     filePath: {
       type: String,
@@ -45,6 +48,8 @@ const VfpTableMapSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+VfpTableMapSchema.index({ fileName: 1, email: 1 }, { unique: true });
 
 if (mongoose.models.VfpTableMap) {
   delete mongoose.models.VfpTableMap;

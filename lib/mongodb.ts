@@ -34,6 +34,52 @@ async function dbConnect() {
   }
 
   cached.conn = await cached.promise;
+
+  // Drop legacy indexes once to avoid duplicate key errors during multi-user transition
+  try {
+    const db = cached.conn.connection.db;
+    if (db) {
+      const collections = await db.listCollections().toArray();
+      const colNames = collections.map(c => c.name);
+      
+      if (colNames.includes("vfpsyncstates")) {
+        await db.collection("vfpsyncstates").dropIndex("tableName_1").catch(() => {});
+      }
+      if (colNames.includes("vfptablemaps")) {
+        await db.collection("vfptablemaps").dropIndex("fileName_1").catch(() => {});
+      }
+      if (colNames.includes("vfpfileassets")) {
+        await db.collection("vfpfileassets").dropIndex("relativePath_1").catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.error("Failed to drop legacy unique indexes:", e);
+  }
+
+  // Start VFP Sync Background Worker automatically in the background
+  const globalForWorker = globalThis as typeof globalThis & {
+    vfpWorkerStarted?: boolean;
+  };
+  if (!globalForWorker.vfpWorkerStarted) {
+    globalForWorker.vfpWorkerStarted = true;
+    try {
+      const req = eval("require");
+      const { spawn } = req("child_process");
+      const path = req("path");
+      const workerScript = path.join(process.cwd(), "scripts", "vfp-sync", "worker.cjs");
+      
+      console.log(`[server] Launching VFP background worker automatically: ${workerScript}`);
+      const child = spawn("node", [workerScript], {
+        detached: true,
+        stdio: "ignore",
+        cwd: process.cwd(),
+      });
+      child.unref();
+    } catch (workerErr) {
+      console.error("[server] Failed to auto-launch VFP background worker:", workerErr);
+    }
+  }
+
   return cached.conn;
 }
 

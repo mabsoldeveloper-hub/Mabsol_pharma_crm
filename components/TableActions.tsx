@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
-import { FaEye, FaTrashAlt } from "react-icons/fa";
+import { Eye, Trash2 } from "lucide-react";
 
 interface TableActionsProps {
   tableName: string;
@@ -42,24 +42,24 @@ export default function TableActions({ tableName, status }: TableActionsProps) {
   }
 
   return (
-    <div className="d-flex align-items-center justify-content-end gap-2">
+    <div className="flex items-center justify-end gap-2">
       {status === "success" ? (
         <Link
-          className="btn btn-sm btn-outline-primary d-flex align-items-center"
+          className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 border border-indigo-200 text-indigo-700 bg-white hover:bg-slate-50 rounded-2xl transition-colors"
           href={`/dashboard/vfp/${encodeURIComponent(tableName)}`}
         >
-          <FaEye className="me-1" /> View Data
+          <Eye size={13} /> View Data
         </Link>
       ) : (
-        <span className="text-muted small me-2">Pending</span>
+        <span className="text-slate-400 text-xs mr-2 font-medium">Pending</span>
       )}
       <button
         type="button"
-        className="btn btn-sm btn-outline-danger d-flex align-items-center"
+        className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 border border-red-200 text-red-700 bg-white hover:bg-red-50 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={handleDelete}
         disabled={loading}
       >
-        <FaTrashAlt className="me-1" /> {loading ? "Deleting..." : "Delete"}
+        <Trash2 size={13} /> {loading ? "Deleting..." : "Delete"}
       </button>
     </div>
   );

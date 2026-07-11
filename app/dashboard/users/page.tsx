@@ -1,7 +1,7 @@
-import Link from "next/link";
 import DeleteUserButton from "@/components/DeleteUserButton";
+import PermissionButton from "@/components/PermissionButton";
 import ProtectedPage from "@/components/ProtectedPage";
-import PermissionButton  from "@/components/PermissionButton";
+import Link from "next/link";
 
 async function getUsers() {
 
@@ -47,8 +47,8 @@ export default async function UsersPage() {
                     <th>Designation</th>
                     <th>Mobile</th>
                     <th>Status</th>
-                    <th >Action</th>
-                  </tr>
+                    <th>Action</th>
+                 </tr>
                 </thead>
 
                 <tbody>
