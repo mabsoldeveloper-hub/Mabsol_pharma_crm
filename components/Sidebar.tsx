@@ -450,7 +450,7 @@ export default function Sidebar({
           {/* Financial year END year */}
           {/* ############################################### */}
           {/* Reports Section Start here  */}
-          <PermissionGate permission="reports.view">
+          {/* <PermissionGate permission="reports.view">
 
             <li className="nav-item mt-2">
               <Link
@@ -511,11 +511,11 @@ export default function Sidebar({
               )}
             </li>
 
-          </PermissionGate>
+          </PermissionGate> */}
           {/* Sales Section END here */}
           {/* ################################################ */}
           {/* Customer Section START here */}
-          <PermissionGate permission="customer.view">
+          {/* <PermissionGate permission="customer.view">
             <li className="nav-item mt-2">
               <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
                 onClick={() =>
@@ -556,7 +556,7 @@ export default function Sidebar({
           {/* // Customer master END Here  */}
           {/* ############################################### */}
           {/* // comapny master Start Here  */}
-          <PermissionGate permission="company.view">
+          {/* <PermissionGate permission="company.view">
 
             <li className="nav-item mt-2">
               <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
@@ -595,11 +595,11 @@ export default function Sidebar({
 
             </li>
 
-          </PermissionGate>
+          </PermissionGate> */}
           {/* // Company master END Here  */}
           {/* ############################################### */}
           {/* Financial year Start year */}
-          <PermissionGate permission="financialyear.view">
+          {/* <PermissionGate permission="financialyear.view">
 
             <li className="nav-item mt-2">
               <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
@@ -635,7 +635,7 @@ export default function Sidebar({
               )}
 
             </li>
-          </PermissionGate>
+          </PermissionGate> */} 
 
           {/* Financial year END year */}
           {/* ############################################### */}
