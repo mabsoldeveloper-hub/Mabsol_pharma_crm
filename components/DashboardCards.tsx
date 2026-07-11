@@ -1,123 +1,124 @@
 "use client";
 
-import {
-  FaUsers,
-  FaUserTie,
-  FaRupeeSign,
-  FaChartLine,
-} from "react-icons/fa";
-import { ArrowUpRight } from "lucide-react";
+import { FaUsers, FaUserTie, FaRupeeSign, FaChartLine } from "react-icons/fa";
 import { useEffect, useState } from "react";
-
-const INK = "#343872";
-const INK_TINT = "#EEEEF6";
-const AMBER = "#FB8C00";
-const AMBER_TINT = "#FFF3E0";
 
 export default function DashboardCards() {
   const [summary, setSummary] = useState<any>(null);
 
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
+  const loadDashboard = async () => {
+    const res = await fetch("/api/dashboard");
+    const data = await res.json();
+    setSummary(data);
+  };
 
-    const cards = [
-      {
-        title: "Employees",
-        value: summary?.employees ?? 0,
-        icon: <FaUsers size={28} />,
-        color: "primary",
-      },
-    
-      {
-        title: "Customers",
-        value: summary?.customers ?? 0,
-        icon: <FaUserTie size={28} />,
-        color: "success",
-      },
-    
-      {
-        title: "Products",
-        value: summary?.products ?? 0,
-        icon: <FaChartLine size={28} />,
-        color: "info",
-      },
-    
-      {
-        title: "Companies",
-        value: summary?.companies ?? 0,
-        icon: <FaUsers size={28} />,
-        color: "secondary",
-      },
-    
-      {
-        title: "Outstanding",
-        value:
-          "₹" +
-          Number(summary?.outstanding || 0).toLocaleString(),
-        icon: <FaRupeeSign size={28} />,
-        color: "danger",
-      },
-    
-      {
-        title: "Credit",
-        value:
-          "₹" +
-          Number(summary?.credit || 0).toLocaleString(),
-        icon: <FaRupeeSign size={28} />,
-        color: "warning",
-      },
-    
-      {
-        title: "Debit",
-        value:
-          "₹" +
-        Number(summary?.debit || 0).toLocaleString(),
-        icon: <FaRupeeSign size={28} />,
-        color: "dark",
-      },
-    
-      {
-        title: "Active Customers",
-        value: summary?.activeCustomers ?? 0,
-        icon: <FaUserTie size={28} />,
-        color: "success",
-      },
-    ];
+  const cards = [
+    {
+      title: "Employees",
+      value: summary?.employees ?? 0,
+      icon: <FaUsers size={26} />,
+    },
+    {
+      title: "Customers",
+      value: summary?.customers ?? 0,
+      icon: <FaUserTie size={26} />,
+    },
+    {
+      title: "Products",
+      value: summary?.products ?? 0,
+      icon: <FaChartLine size={26} />,
+    },
+    {
+      title: "Companies",
+      value: summary?.companies ?? 0,
+      icon: <FaUsers size={26} />,
+    },
+    {
+      title: "Outstanding",
+      value: "₹" + Number(summary?.outstanding || 0).toLocaleString(),
+      icon: <FaRupeeSign size={26} />,
+    },
+    {
+      title: "Credit",
+      value: "₹" + Number(summary?.credit || 0).toLocaleString(),
+      icon: <FaRupeeSign size={26} />,
+    },
+    {
+      title: "Debit",
+      value: "₹" + Number(summary?.debit || 0).toLocaleString(),
+      icon: <FaRupeeSign size={26} />,
+    },
+    {
+      title: "Active Customers",
+      value: summary?.activeCustomers ?? 0,
+      icon: <FaUserTie size={26} />,
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-      {cards.map((card, index) => (
-        <div
-          key={index}
-          className="bg-white rounded-xl border border-slate-200 p-3 hover:shadow-md transition-all duration-300"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
-            
-            >
-              <div
-                className="text-sm"
-                
-              >
-                {card.icon}
+    <>
+      <style jsx>{`
+        .dashboard-card {
+          background: #343872;
+          border-radius: 18px;
+          color: #fff;
+          min-height: 120px;
+          transition: all 0.3s ease;
+          cursor: pointer;
+        }
+
+        .dashboard-card:hover {
+          background: #fb8c00;
+          transform: translateY(-6px);
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .icon-box {
+          width: 60px;
+          height: 60px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.15);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          backdrop-filter: blur(8px);
+        }
+
+        .card-title {
+          font-size: 14px;
+          opacity: 0.9;
+          margin-bottom: 8px;
+        }
+
+        .card-value {
+          font-size: 28px;
+          font-weight: 700;
+          margin: 0;
+        }
+      `}</style>
+
+      <div className="row g-4">
+        {cards.map((card, index) => (
+          <div className="col-xl-3 col-lg-4 col-md-6 col-12" key={index}>
+            <div className="card border-0 shadow dashboard-card">
+              <div className="card-body p-4">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div className="card-title">{card.title}</div>
+                    <h3 className="card-value">{card.value}</h3>
+                  </div>
+
+                  <div className="icon-box">{card.icon}</div>
+                </div>
               </div>
             </div>
-
-            <span className="hidden sm:flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-50 text-green-700">
-              <ArrowUpRight size={10} />
-              12%
-            </span>
           </div>
-
-          <p className="text-xs text-slate-500 truncate">
-            {card.title}
-          </p>
-
-          <h3 className="text-sm lg:text-base font-semibold text-slate-900 mt-1 whitespace-nowrap">
-            {card.value}
-          </h3>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
