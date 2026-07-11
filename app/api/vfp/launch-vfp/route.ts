@@ -51,10 +51,32 @@ export async function POST() {
       // Read target script and replace built-in interactive commands with our custom UDF prefixes
       if (fs.existsSync(configPrgPath)) {
         let originalContent = fs.readFileSync(configPrgPath, "utf8");
+        
+        // 1. Replace dialog calls to custom UDF versions
         let automatedContent = originalContent
           .replace(/\bINPUTBOX\b/gi, "MY_INPUTBOX")
           .replace(/\bGETDIR\b/gi, "MY_GETDIR")
           .replace(/\bMESSAGEBOX\b/gi, "MY_MESSAGEBOX");
+          
+        // 2. Rename output database files to format name.company.dbf (e.g. lower(tbl) + "." + lower(compcode) + ".dbf")
+        automatedContent = automatedContent.replace(
+          /outdbf\s*=\s*tbl\s*\+\s*["']_["']\s*\+\s*compcode\s*\+\s*["']\.DBF["']/gi,
+          'outdbf = LOWER(tbl) + "." + LOWER(compcode) + ".dbf"'
+        );
+
+        // 3. Dynamically insert lock release and cleanup block after USE IN curdata
+        const cleanupCode = 
+          `USE IN curdata\r\n` +
+          `    LOCAL lcAlias\r\n` +
+          `    lcAlias = JUSTSTEM(srcfile)\r\n` +
+          `    IF USED(lcAlias)\r\n` +
+          `       USE IN (lcAlias)\r\n` +
+          `    ENDIF\r\n` +
+          `    IF FILE(srcfile)\r\n` +
+          `       DELETE FILE (srcfile)\r\n` +
+          `    ENDIF`;
+          
+        automatedContent = automatedContent.replace(/\bUSE\s+IN\s+curdata\b/gi, cleanupCode);
           
         const dirName = path.dirname(configPrgPath);
         const baseName = path.basename(configPrgPath, path.extname(configPrgPath));
