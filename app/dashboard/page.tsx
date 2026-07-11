@@ -1,12 +1,9 @@
+import ProtectedPage from "@/components/ProtectedPage";
+import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
-import ProtectedPage from "@/components/ProtectedPage";
 
 import DashboardCards from "@/components/DashboardCards";
-import RevenueChart from "@/components/RevenueChart";
-import QuickActions from "@/components/QuickActions";
-import RecentActivity from "@/components/RecentActivity";
 
 export default async function DashboardPage() {
 
@@ -28,10 +25,9 @@ export default async function DashboardPage() {
   }
 
   return (
-    <ProtectedPage permission="dashboard.view" >
-
-      <DashboardCards />
-
-    </ProtectedPage>
+        <ProtectedPage permission="dashboard.view" >
+          <DashboardCards />
+        </ProtectedPage>
+    
   );
 }
