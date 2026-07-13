@@ -172,7 +172,7 @@ export default function Home() {
         {/* NAVBAR */}
         <header className="nav">
           <div className="nav-inner">
-            <span className="brand-text">Mabsol Infotech</span>
+            <span className="brand-text">Mabsol CRM</span>
 
             <nav className="nav-links">
               <a href="#product">Product</a>
@@ -392,7 +392,7 @@ export default function Home() {
 
         {/* FOOTER */}
         <footer className="footer">
-          <p>&copy; {new Date().getFullYear()} Mabsol Infotech. Created by Mabsol Team.</p>
+          <p>&copy; {new Date().getFullYear()} Mabsol CRM. Created by Mabsol Team.</p>
         </footer>
       </main>
 
