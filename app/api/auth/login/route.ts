@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
+import Otp from "@/models/Otp";
+import { sendOtpEmail } from "@/lib/sendEmail";
+
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function POST(req: Request) {
   try {
@@ -20,10 +23,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return NextResponse.json({
@@ -32,52 +32,37 @@ export async function POST(req: Request) {
       });
     }
 
-    
-    const token = jwt.sign(
-      {
-          id: user._id,
-          tenantId: user.tenantId,
-          roleId: user.roleId,
-          companyId: user.companyId,
-      },
-      process.env.JWT_SECRET!,
-      {
-          expiresIn:"7d",
-      }
-      );
+    // Credentials are correct — generate an OTP and email it.
+    // We do NOT issue the JWT / set the auth cookie here; that only
+    // happens after the OTP is verified in /api/auth/verify-otp.
+    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
+    const hashedOtp = await bcrypt.hash(otp, 10);
 
-    const userResponse = {
-      _id: user._id,
-      tenantId: user.tenantId,
-      name: user.name,
+    // Remove any previous OTPs for this email, then store the new one
+    await Otp.deleteMany({ email: user.email });
+    await Otp.create({
       email: user.email,
-      //role: user.role,
-      roleId:user.roleId,
-      companyId:user.companyId,
-      status: user.status,
-    };
-
-    const response = NextResponse.json({
-      success: true,
-      user: userResponse,
+      otp: hashedOtp,
+      expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    response.cookies.set("token", token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    return response;
-
-  } catch (error: any) {
-    console.error("LOGIN ERROR:", error);
+    await sendOtpEmail(user.email, otp);
 
     return NextResponse.json({
-      success: false,
-      message: error.message,
+      success: true,
+      otpRequired: true,
+      email: user.email,
+      message: "Verification code sent to your email",
     });
+  } catch (error: unknown) {
+    console.error("LOGIN ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: error instanceof Error ? error.message : "Login failed",
+      },
+      { status: 500 }
+    );
   }
-}
+} 

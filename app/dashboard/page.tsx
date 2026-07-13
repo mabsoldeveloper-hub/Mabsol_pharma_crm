@@ -9,9 +9,9 @@ export default async function DashboardPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
 
-  if (!token) {
-    redirect("/login");
-  }
+  if (!token) {
+    redirect("/login");
+  }
 
   try {
     jwt.verify(token, process.env.JWT_SECRET as string);

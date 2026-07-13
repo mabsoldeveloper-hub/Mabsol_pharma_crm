@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "vfp:sync": "node scripts/vfp-sync/worker.cjs",
+    "vfp:service:install": "powershell -ExecutionPolicy Bypass -File scripts/vfp-sync/install-windows-service.ps1",
+    "vfp:service:remove": "powershell -ExecutionPolicy Bypass -File scripts/vfp-sync/remove-windows-service.ps1",
     "lint": "eslint"
   },
   "dependencies": {
@@ -14,6 +17,7 @@
     "bootstrap": "^5.3.8",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
+    "lucide-react": "^1.24.0",
     "mongodb": "^7.3.0",
     "mongoose": "^9.7.0",
     "multer": "^2.2.0",
@@ -37,9 +41,11 @@
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.5.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
-    "tailwindcss": "^4",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^4.3.2",
     "typescript": "^5"
   }
 }

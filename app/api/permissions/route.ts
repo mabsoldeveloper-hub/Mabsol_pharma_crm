@@ -9,6 +9,28 @@ export async function GET() {
 
     await connectDB();
 
+    // Auto-seed vfp.view permission if it doesn't exist
+    const vfpPermission = await Permission.findOne({ permissionKey: "vfp.view" });
+    if (!vfpPermission) {
+      await Permission.create({
+        moduleName: "VFP",
+        permissionName: "View VFP Sync",
+        permissionKey: "vfp.view",
+        status: "active",
+      });
+    }
+
+    // Auto-seed vfp.settings permission if it doesn't exist
+    const vfpSettingsPermission = await Permission.findOne({ permissionKey: "vfp.settings" });
+    if (!vfpSettingsPermission) {
+      await Permission.create({
+        moduleName: "VFP",
+        permissionName: "VFP Settings",
+        permissionKey: "vfp.settings",
+        status: "active",
+      });
+    }
+
     const permissions =
       await Permission.find()
 

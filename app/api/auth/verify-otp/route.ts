@@ -1,0 +1,110 @@
+import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+import connectDB from "@/lib/mongodb";
+import User from "@/models/User";
+import Otp from "@/models/Otp";
+
+const MAX_ATTEMPTS = 5;
+
+export async function POST(req: Request) {
+    try {
+        await connectDB();
+
+        const { email, otp } = await req.json();
+
+        if (!email || !otp) {
+            return NextResponse.json({
+                success: false,
+                message: "Email and code are required",
+            });
+        }
+
+        const otpDoc = await Otp.findOne({ email }).sort({ createdAt: -1 });
+
+        if (!otpDoc) {
+            return NextResponse.json({
+                success: false,
+                message: "Code expired or not found. Please request a new one.",
+            });
+        }
+
+        if (otpDoc.attempts >= MAX_ATTEMPTS) {
+            await Otp.deleteMany({ email });
+            return NextResponse.json({
+                success: false,
+                message: "Too many incorrect attempts. Please request a new code.",
+            });
+        }
+
+        const isMatch = await bcrypt.compare(otp, otpDoc.otp);
+
+        if (!isMatch) {
+            otpDoc.attempts += 1;
+            await otpDoc.save();
+            return NextResponse.json({
+                success: false,
+                message: "Incorrect code. Please try again.",
+            });
+        }
+
+        // OTP correct — consume it so it can't be reused
+        await Otp.deleteMany({ email });
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return NextResponse.json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        const token = jwt.sign(
+            {
+                id: user._id,
+                tenantId: user.tenantId,
+                roleId: user.roleId,
+                companyId: user.companyId,
+            },
+            process.env.JWT_SECRET!,
+            { expiresIn: "7d" }
+        );
+
+        const userResponse = {
+            _id: user._id,
+            tenantId: user.tenantId,
+            name: user.name,
+            email: user.email,
+            roleId: user.roleId,
+            companyId: user.companyId,
+            status: user.status,
+        };
+
+        const response = NextResponse.json({
+            success: true,
+            user: userResponse,
+        });
+
+        response.cookies.set("token", token, {
+            httpOnly: true,
+            secure: false,
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24 * 7,
+        });
+
+        return response;
+    } catch (error: unknown) {
+        console.error("VERIFY OTP ERROR:", error);
+
+        return NextResponse.json(
+            {
+                success: false,
+                message: error instanceof Error ? error.message : "Verification failed",
+            },
+            { status: 500 }
+        );
+    }
+} 

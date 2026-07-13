@@ -1,7 +1,8 @@
-import Link from "next/link";
 import DeleteUserButton from "@/components/DeleteUserButton";
-import ProtectedPage from "@/components/ProtectedPage";
 import PermissionButton from "@/components/PermissionButton";
+import ProtectedPage from "@/components/ProtectedPage";
+import Link from "next/link";
+
 
 async function getUsers() {
   const res = await fetch("http://localhost:3000/api/users", {

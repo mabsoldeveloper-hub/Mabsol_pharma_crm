@@ -9,10 +9,16 @@ export async function GET() {
       success: true,
       message: "Mongoose Connected Successfully",
     });
-  } catch (error: any) {
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-    });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Database connection failed",
+      },
+      { status: 500 }
+    );
   }
 }

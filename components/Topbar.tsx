@@ -1,17 +1,21 @@
 "use client";
 
 //import { useState } from "react";
-import {Bell, Moon, Sun, PersonCircle,} from "react-bootstrap-icons";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Bell, Moon, PersonCircle, Sun, } from "react-bootstrap-icons";
 
-import LogoutButton from "./LogoutButton";
 import { useUser } from "@/context/UserContext";
+import LogoutButton from "./LogoutButton";
 
 export default function Topbar({
   collapsed,
   setCollapsed,
   mobile,
-}: any) {
+}: {
+  collapsed: boolean;
+  setCollapsed: (value: boolean) => void;
+  mobile: boolean;
+}) {
 
   //const [selectedCompany, setSelectedCompany] = useState<any>(null);
 
@@ -26,9 +30,12 @@ export default function Topbar({
       
         if (theme === "dark") {
           document.body.classList.add("dark-mode");
-          setDarkMode(true);
+          localStorage.setItem("theme", "dark");
+        } else {
+          document.body.classList.remove("dark-mode");
+          localStorage.setItem("theme", "light");
         }
-      }, []);
+      }, [darkMode]);
 
 
      
@@ -53,7 +60,7 @@ useEffect(() => {
 
       if (currentFY) {
 
-        setSelectedFY(currentFY);
+        // setSelectedFY(currentFY);
 
         // setSelectedCompany(
         //   currentFY.companyId
@@ -108,7 +115,7 @@ useEffect(() => {
               <span
                 className="badge bg-success fs-6"
               >
-                {selectedFY?.fyName}
+                {/* {selectedFY?.fyName} */}
               </span>
 
             </div>
@@ -138,29 +145,6 @@ useEffect(() => {
             const newMode = !darkMode;
           
             setDarkMode(newMode);
-          
-            if (newMode) {
-              document.body.classList.add(
-                "dark-mode"
-              );
-          
-              localStorage.setItem(
-                "theme",
-                "dark"
-              );
-          
-            } else {
-          
-              document.body.classList.remove(
-                "dark-mode"
-              );
-          
-              localStorage.setItem(
-                "theme",
-                "light"
-              );
-            }
-          
           }}
         >
           {darkMode ? (

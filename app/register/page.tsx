@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -29,9 +30,6 @@ export default function RegisterPage() {
   
   const [emailVerifying, setEmailVerifying] = useState(false);
   const [mobileVerifying, setMobileVerifying] = useState(false);
-
-
-
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -336,7 +334,7 @@ export default function RegisterPage() {
             <div className="text-center mb-4">
 
             <div className="flex justify-center">
-                  <img src="/mabsol_logo.ico" alt="Logo" width="100" />
+                  <Image src="/mabsol_logo.ico" alt="Logo" width={100} height={100} />
               </div>
 
               <h3 className="mt-3">
@@ -638,10 +636,11 @@ loading
         {/* Right Side */}
         <div className="col-lg-6 d-none d-lg-block position-relative">
 
-          <img
+          <Image
             src="/2.jpg"
             alt="Background"
-            className="w-100 h-100"
+            fill
+            sizes="50vw"
             style={{
               objectFit: "cover",
             }}
