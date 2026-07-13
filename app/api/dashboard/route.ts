@@ -51,7 +51,7 @@ const GLEDGER_BASE_FILTER = { BOOK: "R", CD: "C" };
 // accounts all live here). SALDR:"Y" = "this account can be sold to"
 // (= customer). Confirmed: 144 rows match this filter, which equals
 // the Total Customers KPI already shown on the dashboard.
-const CUSTOMER_FILTER = { SALDR: "Y" };
+const CUSTOMER_FILTER = {};
 
 // Field in MDIS that links a sale voucher to its customer/party code.
 // CONFIRMED against your sample exports: MDIS.CODEP values overlap
@@ -157,7 +157,7 @@ export async function GET() {
     sumField(Pend, {}, "FINAL"),
     sumField(Pend, { DDATE: { $lt: today } }, "FINAL"),
     sumField(GLedger, { ...GLEDGER_COLLECTION_FILTER }, "CREDIT"),
-    Order.countDocuments({ ...CUSTOMER_FILTER }),
+    Order.countDocuments({}),
     Product.countDocuments({}),
     sumField(Product, {}, "BALANCE"),
     ProductBatch.countDocuments({ EXP: { $ne: null, $gte: today, $lte: near90 } }),
