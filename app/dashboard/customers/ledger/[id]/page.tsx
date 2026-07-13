@@ -244,13 +244,112 @@ fetch(`/api/customers/ledger/${id}`)
 
       </div>
 
+
+
+      <div className="row mb-4">
+
+<div className="col-lg-3 col-md-6 mb-3">
+<div className="card shadow-sm border-0">
+<div className="card-body text-center">
+
+<h6 className="text-muted">
+Opening Balance
+</h6>
+
+<h3 className="text-primary">
+
+₹
+{Number(
+data.summary?.opening || 0
+).toLocaleString()}
+
+</h3>
+
+</div>
+</div>
+</div>
+
+<div className="col-lg-3 col-md-6 mb-3">
+<div className="card shadow-sm border-0">
+<div className="card-body text-center">
+
+<h6 className="text-muted">
+Total Debit
+</h6>
+
+<h3 className="text-danger">
+
+₹
+{Number(
+data.summary?.debit || 0
+).toLocaleString()}
+
+</h3>
+
+</div>
+</div>
+</div>
+
+<div className="col-lg-3 col-md-6 mb-3">
+<div className="card shadow-sm border-0">
+<div className="card-body text-center">
+
+<h6 className="text-muted">
+Total Credit
+</h6>
+
+<h3 className="text-success">
+
+₹
+{Number(
+data.summary?.credit || 0
+).toLocaleString()}
+
+</h3>
+
+</div>
+</div>
+</div>
+
+<div className="col-lg-3 col-md-6 mb-3">
+<div className="card shadow-sm border-0">
+<div className="card-body text-center">
+
+<h6 className="text-muted">
+Closing Balance
+</h6>
+
+<h3 className="text-primary">
+
+₹
+{Number(
+data.summary?.closing || 0
+).toLocaleString()}
+
+</h3>
+
+</div>
+</div>
+</div>
+
+</div>
+
       {/* Ledger */}
 
       <div className="card shadow">
 
-        <div className="card-header bg-dark text-white">
+      <div className="card-header bg-dark text-white d-flex justify-content-between">
 
-          Ledger Entries
+        <span>
+        Ledger Register
+        </span>
+
+        <span>
+        Total Entries :
+        <b className="ms-2">
+        {data.ledger.length}
+        </b>
+        </span>
 
         </div>
 
@@ -271,7 +370,6 @@ fetch(`/api/customers/ledger/${id}`)
             </thead>
 
             <tbody>
-
               {data.ledger?.length > 0 ? (
 
                 data.ledger.map((row: any, index: number) => (
