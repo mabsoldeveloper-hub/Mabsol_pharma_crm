@@ -45,30 +45,76 @@ export async function GET(
     const ledger = ledgerRows.map((row: any) => {
       const debit = Number(row.DEBIT || 0);
       const credit = Number(row.CREDIT || 0);
-
+    
       runningBalance += debit;
       runningBalance -= credit;
-
+    
+      let particulars = row.BOOK || "";
+    
+      switch (row.BOOK) {
+        case "S":
+          particulars = "Sales Invoice";
+          break;
+    
+        case "R":
+          particulars = "Receipt";
+          break;
+    
+        case "P":
+          particulars = "Purchase";
+          break;
+    
+        case "J":
+          particulars = "Journal";
+          break;
+    
+        case "OB":
+          particulars = "Opening Balance";
+          break;
+      }
+    
       return {
         date: row.DATE,
         voucher: row.VOUCHER,
-        type: row.TYPE,
-        billNo: row.REMARK1 || "",
-        particulars:
-          row.BOOK === "S"
-            ? "Sales Invoice"
-            : row.BOOK === "R"
-            ? "Receipt"
-            : row.BOOK === "P"
-            ? "Purchase"
-            : row.BOOK || "",
-
+        billNo: row.REMARK1 || row.BILLNO || "",
+        particulars,
         debit,
         credit,
         balance: runningBalance,
+        type: row.TYPE,
+        book: row.BOOK,
       };
     });
 
+
+    // const ledger = ledgerRows.map((row: any) => {
+    //   const debit = Number(row.DEBIT || 0);
+    //   const credit = Number(row.CREDIT || 0);
+
+    //   runningBalance += debit;
+    //   runningBalance -= credit;
+
+    //   return {
+    //     date: row.DATE,
+    //     voucher: row.VOUCHER,
+    //     type: row.TYPE,
+    //     billNo: row.REMARK1 || "",
+    //     particulars:
+    //       row.BOOK === "S"
+    //         ? "Sales Invoice"
+    //         : row.BOOK === "R"
+    //         ? "Receipt"
+    //         : row.BOOK === "P"
+    //         ? "Purchase"
+    //         : row.BOOK || "",
+
+    //     debit,
+    //     credit,
+    //     balance: runningBalance,
+    //   };
+    // });
+
+    
     // =========================
     // Sales Summary
     // =========================

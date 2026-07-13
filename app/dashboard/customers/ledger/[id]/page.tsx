@@ -82,14 +82,10 @@ fetch(`/api/customers/ledger/${id}`)
 
       {/* Customer Card */}
 
-      <div className="card shadow mb-4">
-
+      {/* <div className="card shadow mb-4">
         <div className="card-header bg-primary text-white">
-
           Customer Information
-
         </div>
-
         <div className="card-body">
 
           <div className="row">
@@ -98,20 +94,17 @@ fetch(`/api/customers/ledger/${id}`)
               <strong>Name</strong>
               <br />
               {data.customer?.name}
-              {/* {data.customer?.PARNAM} */}
             </div>
 
             <div className="col-md-2">
               <strong>Code</strong>
               <br />
-              {/* {data.customer?.ORDNO} */}
               {data.customer?.code}
             </div>
 
             <div className="col-md-2">
               <strong>City</strong>
               <br />
-              {/* {data.customer?.CITY || "-"} */}
               {data.customer?.city || "-"}
             </div>
 
@@ -119,7 +112,6 @@ fetch(`/api/customers/ledger/${id}`)
               <strong>GST</strong>
               <br />
               {data.customer?.gst || "-"}
-              {/* {data.customer?.GSTNO || "-"} */}
             </div>
 
             <div className="col-md-2">
@@ -127,20 +119,58 @@ fetch(`/api/customers/ledger/${id}`)
               <br />
 
               <span className="fw-bold text-danger">
-                ₹
-                {/* {Number(
-                  data.customer?.BALANCE || 0
-                ).toLocaleString()} */}
-                {Number(data.customer?.currentBalance || 0)}
+                ₹{Number(data.customer?.currentBalance || 0)}
               </span>
-
             </div>
-
           </div>
-
         </div>
+      </div> */}
+
+<div className="card shadow-sm border-0 mb-4">
+  <div className="card-header bg-primary text-white fw-bold">
+    Customer Information
+  </div>
+
+  <div className="card-body">
+    <div className="row g-4">
+
+      <div className="col-md-4">
+        <small className="text-muted">Customer Name</small>
+        <h5 className="fw-bold mb-0">
+          {data.customer?.name}
+        </h5>
+      </div>
+
+      <div className="col-md-2">
+        <small className="text-muted">Code</small>
+        <h6>{data.customer?.code}</h6>
+      </div>
+
+      <div className="col-md-2">
+        <small className="text-muted">City</small>
+        <h6>{data.customer?.city || "-"}</h6>
+      </div>
+
+      <div className="col-md-2">
+        <small className="text-muted">GST No</small>
+        <h6>{data.customer?.gst || "-"}</h6>
+      </div>
+
+      <div className="col-md-2">
+        <small className="text-muted">Current Balance</small>
+
+        <h5 className="text-danger fw-bold">
+          ₹
+          {Number(
+            data.customer?.currentBalance || 0
+          ).toLocaleString()}
+        </h5>
 
       </div>
+
+    </div>
+  </div>
+</div>
 
       {/* Summary */}
 
@@ -228,19 +258,16 @@ fetch(`/api/customers/ledger/${id}`)
 
           <table className="table table-bordered table-hover mb-0">
 
-            <thead className="table-light">
-
+            <thead className="table-dark">
               <tr>
-
                 <th>Date</th>
                 <th>Voucher</th>
-                <th>Type</th>
-                <th>Debit</th>
-                <th>Credit</th>
-                <th>Balance</th>
-
+                <th>Bill No</th>
+                <th>Particulars</th>
+                <th className="text-end">Debit</th>
+                <th className="text-end">Credit</th>
+                <th className="text-end">Balance</th>
               </tr>
-
             </thead>
 
             <tbody>
@@ -250,34 +277,34 @@ fetch(`/api/customers/ledger/${id}`)
                 data.ledger.map((row: any, index: number) => (
 
                   <tr key={index}>
-
-                    <td>{row.date}</td>
-
-                    <td>{row.voucher}</td>
-
-                    <td>{row.particulars}</td>
-
-                    <td className="text-end">
-
-                      {Number(row.debit).toLocaleString()}
-
-                    </td>
-
-                    <td className="text-end">
-
-                      {Number(row.credit).toLocaleString()}
-
-                    </td>
-
-                    <td className="text-end fw-bold">
-
-                      {Number(
-                        row.balance
-                      ).toLocaleString()}
-
-                    </td>
-
-                  </tr>
+                  <td>{row.date}</td>
+                
+                  <td>
+                    <span className="fw-bold text-primary">
+                      {row.voucher}
+                    </span>
+                  </td>
+                
+                  <td>{row.billNo || "-"}</td>
+                
+                  <td>{row.particulars}</td>
+                
+                  <td className="text-end text-danger">
+                    {row.debit > 0
+                      ? Number(row.debit).toLocaleString()
+                      : "-"}
+                  </td>
+                
+                  <td className="text-end text-success">
+                    {row.credit > 0
+                      ? Number(row.credit).toLocaleString()
+                      : "-"}
+                  </td>
+                
+                  <td className="text-end fw-bold">
+                    {Number(row.balance).toLocaleString()}
+                  </td>
+                </tr>
 
                 ))
 

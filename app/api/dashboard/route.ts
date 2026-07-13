@@ -215,15 +215,6 @@ export async function GET() {
     // Expiry Status — raw EXP/BALANCE, bucketed in JS
     ProductBatch.find({}, { EXP: 1, BALANCE: 1 }).lean(),
 
-    // Sales Type Distribution — using MDIS.TYPE (voucher-type flag: V/S/P/B/L/u).
-    // NOTE: the SALETYPE collection turned out to be a party/tax-code master
-    // (PARNAM/SNAME/TNAME fields, one sample row's SNAME was literally a city
-    // name), not a sale-category table — its CODE/SCODE/TCODE fields don't
-    // overlap with anything on MDIS or DIS, so it was dropped as a source.
-    // MDIS.TYPE's exact business meaning per code (V/S/P/B/L/u) isn't
-    // confirmed yet, so this labels groups generically as "Type V", "Type S"
-    // etc. until confirmed. TRANSFER:"P" (pure purchase rows) is excluded via
-    // MDIS_SALE_FILTER, same as everywhere else sales figures are computed.
     SalesMdis.aggregate([
       { $match: { ...MDIS_SALE_FILTER, TYPE: { $ne: null } } },
       { $group: { _id: "$TYPE", amount: { $sum: "$FINAL" } } },
