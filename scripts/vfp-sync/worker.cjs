@@ -274,7 +274,12 @@ async function processCommands() {
     .sort({ createdAt: 1 })
     .limit(5);
 
+  if (commands.length > 0) {
+    console.log(`[vfp-sync] Found ${commands.length} queued command(s) to process:`, commands.map(c => c.command));
+  }
+
   for (const command of commands) {
+    console.log(`[vfp-sync] Processing command: ${command.command} (ID: ${command._id})`);
     command.status = "processing";
     await command.save();
 
@@ -283,12 +288,15 @@ async function processCommands() {
         const result = await handleBrowseCommand(command.payload);
         command.result = result;
         command.status = "done";
+        console.log(`[vfp-sync] Command ${command.command} completed successfully.`);
       } else {
         await runSync(command.command, command.email);
         command.status = "done";
         command.message = "Processed by local VFP sync worker.";
+        console.log(`[vfp-sync] Command ${command.command} sync completed successfully.`);
       }
     } catch (error) {
+      console.error(`[vfp-sync] Command ${command.command} failed:`, error.message);
       command.status = "failed";
       command.message = error.message;
     }
