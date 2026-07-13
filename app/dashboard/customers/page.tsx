@@ -250,7 +250,19 @@ export default function CustomerPage() {
                           {/* <button className="btn btn-sm btn-primary">View</button> */}
                           <Link href={`/dashboard/customers/view/${c._id}`} className="btn btn-primary btn-sm" > View </Link>
 
-                          <button className="btn btn-sm btn-success">Ledger</button>
+                          {/* <button className="btn btn-sm btn-success">Ledger</button> */}
+                          {/* <Link
+                            href={`/dashboard/customers/ledger/${c.ORDNO}`}
+                            className="btn btn-sm btn-success"
+                          >
+                            Ledger
+                          </Link> */}
+                          <Link
+                            href={`/dashboard/customers/ledger/${c._id}`}
+                            className="btn btn-sm btn-success"
+                          >
+                            Ledger
+                          </Link>
                           <button className="btn btn-sm btn-warning">Edit</button>
                         </div>
                       </td>

@@ -3,32 +3,31 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 
 import Customer from "@/models/Customer";
-
 import SalesMdis from "@/models/SalesMdis";
 import GLedger from "@/models/GLedger";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ code: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
 
-    const { code } = await params;
+    const { id } = await params;
 
     // =========================
-    // Customer
+    // Customer (Fetch by Mongo _id)
     // =========================
-
-    const customer: any = await Customer.findOne({
-      ORDNO: code,
-    }).lean();
+    const customer: any = await Customer.findById(id).lean();
 
     if (!customer) {
-      return NextResponse.json({
-        success: false,
-        message: "Customer not found",
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Customer not found",
+        },
+        { status: 404 }
+      );
     }
 
     // =========================
@@ -36,7 +35,7 @@ export async function GET(
     // =========================
 
     const ledgerRows: any[] = await GLedger.find({
-      CODE: code,
+      CODE: customer.ORDNO,
     })
       .sort({ DATE: 1, VOUCHER: 1 })
       .lean();
@@ -76,7 +75,7 @@ export async function GET(
 
     const invoices = await SalesMdis.find(
       {
-        CODEP: code,
+        CODEP: customer.ORDNO,
       },
       {
         FINAL: 1,
@@ -102,6 +101,7 @@ export async function GET(
       success: true,
 
       customer: {
+        id: customer._id,
         code: customer.ORDNO,
         name: customer.PARNAM,
         city: customer.CITY,
