@@ -37,6 +37,22 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // If the path is a Windows path (e.g. C:\... or D:\...) but the server is running on Linux,
+    // bypass validation checks since we are in a cloud/hybrid deployment.
+    const isWindowsPath = /^[a-zA-Z]:/i.test(targetDir);
+    const isLinuxServer = process.platform !== "win32";
+
+    if (isWindowsPath && isLinuxServer) {
+      return NextResponse.json({
+        success: true,
+        currentDir: targetDir.endsWith("\\") || targetDir.endsWith("/") ? targetDir : targetDir + "\\",
+        parentDir: null,
+        drives: [],
+        directories: [],
+        files: [],
+      });
+    }
+
     // Resolve directory details
     if (!fs.existsSync(targetDir)) {
       return NextResponse.json({ success: false, error: "Directory does not exist." }, { status: 400 });
