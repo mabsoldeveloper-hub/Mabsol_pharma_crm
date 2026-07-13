@@ -4,7 +4,6 @@ const VfpSyncCommandSchema = new mongoose.Schema(
   {
     command: {
       type: String,
-      enum: ["rescan", "sync_now"],
       required: true,
     },
     email: {
@@ -16,6 +15,14 @@ const VfpSyncCommandSchema = new mongoose.Schema(
       enum: ["queued", "processing", "done", "failed"],
       default: "queued",
       index: true,
+    },
+    payload: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
+    },
+    result: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
     },
     requestedBy: String,
     message: String,

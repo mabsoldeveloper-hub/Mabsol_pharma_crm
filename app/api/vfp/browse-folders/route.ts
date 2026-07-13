@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import dbConnect from "@/lib/mongodb";
+import VfpSyncCommand from "@/models/VfpSyncCommand";
+import { getCurrentUser } from "@/lib/auth";
 import fs from "fs";
 import path from "path";
 
@@ -6,9 +9,62 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
+    await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     let { targetPath } = body;
 
+    // If running on a cloud Linux server, relay the browse request through the database
+    // to let the local Windows sync worker handle it.
+    const isLinuxServer = process.platform !== "win32";
+    if (isLinuxServer) {
+      const checkPath = targetPath || "";
+      const command = await VfpSyncCommand.create({
+        command: "browse_folders",
+        email: user.email || "global",
+        payload: { dir: checkPath, type: "dir" },
+        status: "queued",
+        requestedBy: user.email || "web",
+      });
+
+      // Poll database for up to 12 seconds
+      let completedCommand = null;
+      for (let i = 0; i < 24; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const check = await VfpSyncCommand.findById(command._id);
+        if (check && (check.status === "done" || check.status === "failed")) {
+          completedCommand = check;
+          break;
+        }
+      }
+
+      // Cleanup command doc
+      try {
+        await VfpSyncCommand.deleteOne({ _id: command._id });
+      } catch (e) {}
+
+      if (completedCommand && completedCommand.status === "done") {
+        const res = completedCommand.result;
+        // Transform VFP browse result into format expected by FolderSelectorModal
+        return NextResponse.json({
+          success: true,
+          currentPath: res.currentDir || "",
+          parentPath: res.parentDir,
+          folders: res.directories && res.directories.length > 0 ? res.directories : (res.drives || []),
+        });
+      } else {
+        return NextResponse.json({
+          success: false,
+          error: completedCommand?.message || "Local VFP sync worker timed out. Make sure the VFP sync worker daemon (worker.cjs) is running on your local Windows PC.",
+        });
+      }
+    }
+
+    // --- FROM HERE DOWN: LOCAL WINDOWS SERVER RESOLUTION (DEV MODE) ---
     // Fallback to VFP_DATA_DIR or current working directory if no path is provided
     if (!targetPath) {
       targetPath = process.env.VFP_DATA_DIR || process.cwd();

@@ -62,9 +62,16 @@ export async function GET() {
       }
     }
 
-    const exists = dataDir ? fs.existsSync(dataDir) : false;
-    const sourceExists = sourceDir ? fs.existsSync(sourceDir) : false;
-    const vfpExeExists = vfpExePath ? fs.existsSync(vfpExePath) : false;
+    const isLinuxServer = process.platform !== "win32";
+    const checkExists = (p: string) => {
+      if (!p) return false;
+      if (isLinuxServer && /^[a-zA-Z]:/i.test(p)) return true;
+      return fs.existsSync(p);
+    };
+
+    const exists = checkExists(dataDir);
+    const sourceExists = checkExists(sourceDir);
+    const vfpExeExists = checkExists(vfpExePath);
 
     return NextResponse.json({
       success: true,
@@ -106,17 +113,32 @@ export async function POST(request: NextRequest) {
     const updateFields: any = {};
     const existingConfig = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
 
+    const isLinuxServer = process.platform !== "win32";
+    const checkPathExists = (p: string) => {
+      if (!p) return false;
+      if (isLinuxServer && /^[a-zA-Z]:/i.test(p)) return true;
+      return fs.existsSync(p);
+    };
+    const checkIsDir = (p: string) => {
+      if (!p) return false;
+      if (isLinuxServer && /^[a-zA-Z]:/i.test(p)) return true;
+      try {
+        return fs.existsSync(p) && fs.statSync(p).isDirectory();
+      } catch (e) {
+        return false;
+      }
+    };
+
     if (dataDir) {
       // Validate that path exists and is a directory on the server
-      if (!fs.existsSync(dataDir)) {
+      if (!checkPathExists(dataDir)) {
         return NextResponse.json(
           { success: false, error: `Folder path does not exist on local disk: ${dataDir}` },
           { status: 400 }
         );
       }
 
-      const stat = fs.statSync(dataDir);
-      if (!stat.isDirectory()) {
+      if (!checkIsDir(dataDir)) {
         return NextResponse.json(
           { success: false, error: `Path is not a directory: ${dataDir}` },
           { status: 400 }
@@ -134,15 +156,14 @@ export async function POST(request: NextRequest) {
 
     if (sourceDir !== undefined) {
       if (sourceDir) {
-        if (!fs.existsSync(sourceDir)) {
+        if (!checkPathExists(sourceDir)) {
           return NextResponse.json(
             { success: false, error: `Source folder path does not exist on local disk: ${sourceDir}` },
             { status: 400 }
           );
         }
 
-        const stat = fs.statSync(sourceDir);
-        if (!stat.isDirectory()) {
+        if (!checkIsDir(sourceDir)) {
           return NextResponse.json(
             { success: false, error: `Source path is not a directory: ${sourceDir}` },
             { status: 400 }
@@ -168,7 +189,7 @@ export async function POST(request: NextRequest) {
 
     if (vfpExePath !== undefined) {
       if (vfpExePath) {
-        if (!fs.existsSync(vfpExePath)) {
+        if (!checkPathExists(vfpExePath)) {
           return NextResponse.json(
             { success: false, error: `Visual FoxPro executable not found at: ${vfpExePath}` },
             { status: 400 }
@@ -180,7 +201,7 @@ export async function POST(request: NextRequest) {
 
     if (prgPath !== undefined) {
       if (prgPath) {
-        if (!fs.existsSync(prgPath)) {
+        if (!checkPathExists(prgPath)) {
           return NextResponse.json(
             { success: false, error: `PRG script file not found at: ${prgPath}` },
             { status: 400 }
