@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import Otp from "@/models/Otp";
 import { sendOtpEmail } from "@/lib/sendEmail";
+import { sendWhatsAppOTP } from "@/lib/whatsapp";
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -47,13 +48,24 @@ export async function POST(req: Request) {
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    await sendOtpEmail(user.email, otp);
+    // Send OTP via email and WhatsApp simultaneously
+    const sendPromises: Promise<any>[] = [sendOtpEmail(user.email, otp)];
+
+    if (user.mobile) {
+      sendPromises.push(
+        sendWhatsAppOTP(user.mobile, otp).catch((err) => {
+          console.error("WhatsApp OTP failed (non-blocking):", err);
+        })
+      );
+    }
+
+    await Promise.all(sendPromises);
 
     return NextResponse.json({
       success: true,
       otpRequired: true,
       email: user.email,
-      message: "Verification code sent to your email",
+      message: "Verification code sent to your email" + (user.mobile ? " and WhatsApp" : ""),
     });
   } catch (error: unknown) {
     console.error("LOGIN ERROR:", error);
