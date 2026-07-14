@@ -41,16 +41,43 @@ export async function POST(req: Request) {
         type: "email",
       },
       {
+        email,
+        type: "email",
         otp,
         verified: false,
-        expiresAt: new Date(
-          Date.now() + 5 * 60 * 1000
-        ),
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       },
       {
         upsert: true,
+        new: true,
       }
     );
+
+
+
+    const saved = await Otp.findOne({
+      email,
+      type: "email",
+    });
+    
+    console.log(saved);
+    // Otp.findOne(
+    //   {
+    //     email,
+    //     type: "email",
+    //   },
+    //   {
+    //     otp,
+    //     verified: false,
+    //     expiresAt: new Date(
+    //       Date.now() + 5 * 60 * 1000
+    //     ),
+    //   },
+    //   {
+    //     upsert: false,
+    //   }
+    // );
 
     await sendEmailOTP(email, otp);
 
@@ -58,12 +85,16 @@ export async function POST(req: Request) {
       success: true,
       message: "OTP Sent Successfully",
     });
-  } catch (err) {
-    console.log(err);
+  } catch (err: any) {
 
+    console.error("EMAIL OTP ERROR");
+  
+    console.error(err);
+  
     return NextResponse.json({
       success: false,
-      message: "Failed to Send OTP",
+      message: err.message,
     });
+  
   }
 }

@@ -4,7 +4,6 @@ import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import Otp from "@/models/Otp";
 
-
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
 
 export async function POST(req: Request) {
@@ -52,6 +51,14 @@ export async function POST(req: Request) {
       }
     );
 
+
+    const saved = await Otp.findOne({
+      mobile,
+      type: "mobile",
+    });
+    
+    console.log("Saved OTP Record:", saved);
+
     await sendWhatsAppOTP(
       mobile,
       otp
@@ -62,16 +69,14 @@ export async function POST(req: Request) {
       message: "OTP Sent Successfully",
     });
 
+  } catch (err) {
 
-    
-} catch (err: any) {
+    console.log(err);
 
-    console.error(err);
-  
     return NextResponse.json({
       success: false,
-      message: err.message || "Failed to Send OTP",
+      message: "Failed to Send OTP",
     });
-  
+
   }
 }

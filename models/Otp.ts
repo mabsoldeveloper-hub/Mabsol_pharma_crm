@@ -1,24 +1,115 @@
 import mongoose, { Schema, models, model } from "mongoose";
 
 export interface IOtp {
-    email: string;
-    otp: string; // hashed OTP
-    attempts: number;
-    expiresAt: Date;
-    createdAt: Date;
+
+  email?: string;
+
+  mobile?: string;
+
+  type: "email" | "mobile";
+
+  otp: string;
+
+  verified: boolean;
+
+  attempts: number;
+
+  expiresAt: Date;
+
+  createdAt: Date;
+
 }
 
-const OtpSchema = new Schema<IOtp>({
-    email: { type: String, required: true, index: true, lowercase: true, trim: true },
-    otp: { type: String, required: true },
-    attempts: { type: Number, default: 0 },
-    expiresAt: { type: Date, required: true },
-    createdAt: { type: Date, default: Date.now },
-});
+const otpSchema = new Schema<IOtp>(
+  {
 
-// TTL index — MongoDB will auto-delete the document once expiresAt has passed
-OtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
 
-const Otp = models.Otp || model<IOtp>("Otp", OtpSchema);
+    mobile: {
+      type: String,
+      trim: true,
+    },
 
-export default Otp;
+    type: {
+      type: String,
+      enum: ["email", "mobile"],
+      required: true,
+    },
+
+    otp: {
+      type: String,
+      required: true,
+    },
+
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    attempts: {
+      type: Number,
+      default: 0,
+    },
+
+    expiresAt: {
+      type: Date,
+      required: true,
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Automatically delete expired OTPs
+otpSchema.index(
+  {
+    expiresAt: 1,
+  },
+  {
+    expireAfterSeconds: 0,
+  }
+);
+
+// Prevent duplicate OTP records
+otpSchema.index(
+  {
+    email: 1,
+    type: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      email: {
+        $exists: true,
+      },
+    },
+  }
+);
+
+otpSchema.index(
+  {
+    mobile: 1,
+    type: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      mobile: {
+        $exists: true,
+      },
+    },
+  }
+);
+
+export default models.Otp || model<IOtp>("Otp", otpSchema);

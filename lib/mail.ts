@@ -3,7 +3,7 @@ import nodemailer from "nodemailer";
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT),
-  secure: false,
+  secure: Number(process.env.SMTP_PORT) === 465,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -11,49 +11,44 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendEmailOTP(email: string, otp: string) {
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  try {
+    await transporter.verify();
+    console.log("SMTP Connected");
 
-    to: email,
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: "Mabsol Pharma CRM - Email Verification OTP",
+      html: `
+      <div style="font-family:Arial;padding:20px">
+        <h2>Mabsol Pharma CRM</h2>
 
-    subject: "Mabsol Pharma CRM - Email Verification OTP",
+        <p>Your verification code is</p>
 
-    html: `
-<div style="font-family:Arial;padding:25px">
+        <h1 style="letter-spacing:5px;color:#0d6efd">
+          ${otp}
+        </h1>
 
-<h2>Mabsol Pharma CRM</h2>
+        <p>This OTP will expire in <b>5 Minutes</b></p>
 
-<p>Hello,</p>
+        <hr>
 
-<p>Your Email Verification OTP is</p>
+        <small>© Mabsol Pharma CRM</small>
 
-<h1 style="letter-spacing:6px;color:#0d6efd">
-${otp}
-</h1>
+      </div>
+      `,
+    });
 
-<p>
+    console.log("Mail Sent:", info.messageId);
 
-This OTP will expire in
+    return true;
 
-<b>5 Minutes</b>
+  } catch (err: any) {
 
-</p>
+    console.error("MAIL ERROR");
 
-<p>
+    console.error(err);
 
-Please do not share this OTP with anyone.
-
-</p>
-
-<hr>
-
-<small>
-
-© Mabsol Pharma CRM
-
-</small>
-
-</div>
-`,
-  });
+    throw err;
+  }
 }
