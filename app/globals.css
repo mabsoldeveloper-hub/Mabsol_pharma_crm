@@ -1,5 +1,3 @@
-
-
 @import "tailwindcss";
 
 :root {
@@ -431,6 +429,7 @@ body {
 }
 
 @media (max-width: 1199px) {
+
   .vfp-stats-grid,
   .vfp-system-grid,
   .vfp-two-column {
@@ -444,6 +443,7 @@ body {
 }
 
 @media (max-width: 767px) {
+
   .vfp-hero,
   .vfp-stats-grid,
   .vfp-system-grid,
@@ -608,7 +608,7 @@ body {
 }
 
 .nav-link:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
 }
 
@@ -624,4 +624,27 @@ body {
 
 .list-group-item-action:hover {
   background-color: #f0fdf9 !important;
+}
+
+/* Sidebar Scroll */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #666 transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #666;
+  border-radius: 20px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: #999;
 }
