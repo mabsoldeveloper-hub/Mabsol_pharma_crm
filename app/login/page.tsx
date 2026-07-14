@@ -208,7 +208,7 @@ export default function LoginPage() {
           {step === "credentials" ? (
             <>
               <h1>Welcome back</h1>
-              <p className="lede">Sign in to pick up right where Marg left off.</p>
+              <p className="lede">Sign in to pick up right where ERP left off.</p>
 
               <form onSubmit={handleLogin} noValidate>
                 {error && (
@@ -371,7 +371,7 @@ export default function LoginPage() {
         {/* BEAM — glowing 3D sync capsule connecting the two panels */}
         <div className="beam-wrap" aria-hidden="true">
           <div className="beam-labels">
-            <span>Marg</span>
+            <span>ERP</span>
             <span>CRM</span>
           </div>
 
@@ -407,7 +407,7 @@ export default function LoginPage() {
             </span>
           </div>
 
-          <span className="eyebrow">Live from Marg</span>
+          <span className="eyebrow">Live from ERP</span>
           <h2>Synced instantly</h2>
 
           <div className="sync-tiles">
@@ -423,7 +423,7 @@ export default function LoginPage() {
             <div className="sync-tile">
               <p className="tile-label">Refresh</p>
               <p className="sync-value">60s</p>
-              <p className="sync-caption">from Marg</p>
+              <p className="sync-caption">from ERP</p>
             </div>
           </div>
 

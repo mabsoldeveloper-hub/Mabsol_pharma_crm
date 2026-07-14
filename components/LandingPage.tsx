@@ -109,7 +109,7 @@ export default function LandingPage() {
   const linePoints = "0,52 18,42 36,46 54,26 72,32 90,12 108,18 126,24";
 
   const notifs = [
-    { title: "New Invoice Synced", sub: "From Marg · just now", tone: "orange" },
+    { title: "New Invoice Synced", sub: "From ERP · just now", tone: "orange" },
     { title: "Stock Report Ready", sub: "Updated 2 min ago", tone: "green" },
     { title: "Account Reconciled", sub: "5 min ago", tone: "navy" },
   ];
@@ -117,8 +117,8 @@ export default function LandingPage() {
   const steps = [
     {
       n: "01",
-      title: "Marg generates data",
-      body: "Invoices, stock and accounts get created in Marg exactly like today. Nothing changes there.",
+      title: "ERP generates data",
+      body: "Invoices, stock and accounts get created in ERP exactly like today. Nothing changes there.",
     },
     {
       n: "02",
@@ -182,14 +182,14 @@ export default function LandingPage() {
       {/* HERO */}
       <section className="hero" id="product">
         <Reveal className="hero-copy">
-          <span className="eyebrow">Marg Integration</span>
+          <span className="eyebrow">ERP Integration</span>
           <h1>
-            Everything from Marg,
+            Everything from ERP,
             <br />
             in <span className="accent">one screen</span>
           </h1>
           <p className="sub">
-            Mabsol CRM pulls straight from Marg to give your team live
+            Mabsol CRM pulls straight from ERP to give your team live
             reports and instant alerts, so nothing gets missed and no one
             has to dig for numbers.
           </p>
@@ -268,7 +268,7 @@ export default function LandingPage() {
                 <div className="bento-tile bento-sync">
                   <p className="tile-label muted-on-dark">Sync Status</p>
                   <p className="sync-value">60s</p>
-                  <p className="sync-caption">refresh from Marg</p>
+                  <p className="sync-caption">refresh from ERP</p>
                 </div>
 
                 <div className="bento-tile bento-notifs">
@@ -303,7 +303,7 @@ export default function LandingPage() {
       <section className="how" id="how">
         <Reveal as="div" className="section-head">
           <span className="eyebrow eyebrow-dark">The flow</span>
-          <h2>From Marg to your team, automatically</h2>
+          <h2>From ERP to your team, automatically</h2>
         </Reveal>
 
         <div className="timeline">
@@ -322,7 +322,7 @@ export default function LandingPage() {
       <section className="feature-bento" id="features">
         <Reveal as="div" className="section-head">
           <span className="eyebrow eyebrow-dark">Inside the CRM</span>
-          <h2>Built around one job: never lose track of Marg</h2>
+          <h2>Built around one job: never lose track of ERP</h2>
         </Reveal>
 
         <div className="fb-grid">
@@ -334,7 +334,7 @@ export default function LandingPage() {
             </div>
             <h3>Report section</h3>
             <p>
-              Sales, stock and account reports from Marg, laid out in one
+              Sales, stock and account reports from ERP, laid out in one
               clean CRM view that&apos;s always current — no exports, no
               waiting on someone to send a file.
             </p>
@@ -355,7 +355,7 @@ export default function LandingPage() {
               </svg>
             </div>
             <h3>Notifications</h3>
-            <p>Know the second something changes in Marg, without opening two apps.</p>
+            <p>Know the second something changes in ERP, without opening two apps.</p>
           </Reveal>
 
           <Reveal as="div" className="fb-card" delay={220}>
@@ -365,15 +365,15 @@ export default function LandingPage() {
                 <path d="M4.6 15A8 8 0 0 0 19 15.5M19.4 9A8 8 0 0 0 5 8.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
               </svg>
             </div>
-            <h3>Marg sync</h3>
-            <p>Works with the Marg setup you already have. No migration, no new habits.</p>
+            <h3>ERP sync</h3>
+            <p>Works with the ERP setup you already have. No migration, no new habits.</p>
           </Reveal>
         </div>
       </section>
 
       {/* CTA BAND */}
       <Reveal as="section" className="cta-band">
-        <h2>Stop switching between Marg and spreadsheets</h2>
+        <h2>Stop switching between ERP and spreadsheets</h2>
         <p>Set up takes minutes. Your team keeps working the same way, just with everything in view.</p>
         <a href="https://phcrm.mabsolinfotech.cloud/login" className="btn btn-primary">
           Get Started

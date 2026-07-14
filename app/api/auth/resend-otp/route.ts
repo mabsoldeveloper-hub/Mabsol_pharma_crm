@@ -31,6 +31,7 @@ export async function POST(req: Request) {
         await Otp.deleteMany({ email: user.email });
         await Otp.create({
             email: user.email,
+            type: "email",
             otp: hashedOtp,
             expiresAt: new Date(Date.now() + OTP_TTL_MS),
         });
