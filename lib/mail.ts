@@ -16,7 +16,7 @@ export async function sendEmailOTP(email: string, otp: string) {
     console.log("SMTP Connected");
 
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM,
+      from: process.env.EMAIL_FROM,
       to: email,
       subject: "Mabsol Pharma CRM - Email Verification OTP",
       html: `

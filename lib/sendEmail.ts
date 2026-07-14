@@ -1,17 +1,13 @@
 import nodemailer from "nodemailer";
 
-
-
-
-
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: Number(process.env.SMTP_PORT) === 465, // true for port 465, false for others
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: Number(process.env.SMTP_PORT) === 465, // true for port 465, false for others
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
 });
 
 // Brand colors — kept in sync with login.css (:root variables)
@@ -34,13 +30,13 @@ const BORDER = "#ECEEF9";
 //       html: `
 
 export async function sendOtpEmail(email: string, otp: string) {
-    const digits = otp.split("");
+  const digits = otp.split("");
 
-  const info =  await transporter.sendMail({
-        from: process.env.EMAIL_FROM,
-        to: email,
-        subject: "Your Mabsol CRM verification code",
-        html: `
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: "Your Mabsol CRM verification code",
+    html: `
 <!DOCTYPE html>
 <html>
   <body style="margin:0; padding:0; background:${SURFACE}; font-family:Arial, Helvetica, sans-serif;">
@@ -78,15 +74,15 @@ export async function sendOtpEmail(email: string, otp: string) {
                 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
                   <tr>
                     ${digits
-                .map(
-                    (d) => `
+        .map(
+          (d) => `
                     <td style="width:40px; height:48px; text-align:center; vertical-align:middle; background:${SURFACE}; border:1.5px solid ${BORDER}; border-radius:8px; font-family:'Courier New', monospace; font-size:22px; font-weight:700; color:${NAVY}; padding:0 4px;">
                       ${d}
                     </td>
                     <td style="width:6px;"></td>
                     `
-                )
-                .join("")}
+        )
+        .join("")}
                   </tr>
                 </table>
 
@@ -100,7 +96,7 @@ export async function sendOtpEmail(email: string, otp: string) {
             <tr>
               <td style="padding:16px 32px 28px; border-top:1px solid ${BORDER};">
                 <p style="margin:0; color:#A6A8D2; font-size:11.5px;">
-                  © ${new Date().getFullYear()} Mabsol Pharma CRM. Synced live with Marg.
+                  © ${new Date().getFullYear()} Mabsol Pharma CRM. Synced live with ERP.
                 </p>
               </td>
             </tr>
@@ -112,11 +108,6 @@ export async function sendOtpEmail(email: string, otp: string) {
   </body>
 </html>
     `,
-        text: `Your Mabsol CRM verification code is ${otp}. This code expires in 5 minutes. If you didn't request this, you can ignore this email.`,
-    });
-
-
-    console.log("=========== EMAIL RESPONSE ===========");
-    console.log(info);
-    console.log("======================================");
+    text: `Your Mabsol CRM verification code is ${otp}. This code expires in 5 minutes. If you didn't request this, you can ignore this email.`,
+  });
 }
