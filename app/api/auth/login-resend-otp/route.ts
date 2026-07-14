@@ -1,15 +1,13 @@
-
-
-
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 
 import connectDB from "@/lib/mongodb";
 
 import User from "@/models/User";
 import LoginOtp from "@/models/LoginOtp";
 
+
 import { sendLoginOTPEmail } from "@/lib/loginEmail";
+
 
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
 
@@ -21,13 +19,16 @@ export async function POST(req: Request) {
 
     await connectDB();
 
-    const { email, password } = await req.json();
+    const { email } = await req.json();
 
-    if (!email || !password) {
+    if (!email) {
 
       return NextResponse.json({
+
         success: false,
-        message: "Email and Password are required",
+
+        message: "Email is required",
+
       });
 
     }
@@ -41,44 +42,18 @@ export async function POST(req: Request) {
     if (!user) {
 
       return NextResponse.json({
+
         success: false,
+
         message: "User not found",
+
       });
 
     }
-
-    const match = await bcrypt.compare(
-      password,
-      user.password
-    );
-
-    if (!match) {
-
-      return NextResponse.json({
-        success: false,
-        message: "Invalid Password",
-      });
-
-    }
-
-    if (!user.mobile || user.mobile.trim() === "") {
-
-      return NextResponse.json({
-        success: false,
-        message: "Mobile number not available.",
-      });
-
-    }
-
-    // Generate Login OTP
 
     const otp = Math.floor(
       100000 + Math.random() * 900000
     ).toString();
-
-    console.log("LOGIN OTP =", otp);
-
-    // Save Login OTP
 
     await LoginOtp.findOneAndUpdate(
 
@@ -87,50 +62,46 @@ export async function POST(req: Request) {
       },
 
       {
+
         email: user.email,
+
         mobile: user.mobile,
+
         otp,
+
         verified: false,
+
         attempts: 0,
+
         expiresAt: new Date(
           Date.now() + OTP_EXPIRY
         ),
+
       },
 
       {
+
         upsert: true,
+
         returnDocument: "after",
+
       }
 
     );
-
-    console.log("Login OTP Saved");
-
-    // Email
 
     await sendLoginOTPEmail(
       user.email,
       otp
     );
 
-    console.log("Login Email Sent");
-
-    // WhatsApp
-
     await sendWhatsAppOTP(
       user.mobile,
       otp
     );
 
-    console.log("Login WhatsApp Sent");
-
     return NextResponse.json({
 
       success: true,
-
-      otpRequired: true,
-
-      email: user.email,
 
       message: "OTP Sent Successfully",
 
@@ -146,7 +117,7 @@ export async function POST(req: Request) {
 
       success: false,
 
-      message: err.message || "Login Failed",
+      message: err.message || "Resend Failed",
 
     });
 

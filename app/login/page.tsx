@@ -162,8 +162,10 @@ export default function LoginPage() {
     setVerifyingOtp(true);
     setOtpError(null);
 
-    try {
-      const res = await fetch("/api/auth/verify-otp", {
+    try {              
+      // const res = await fetch("/api/auth/login-verify-otp", {
+       // fetch("/api/auth/login-verify-otp", {
+      const res = await fetch("/api/auth/login-verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), otp: code }),

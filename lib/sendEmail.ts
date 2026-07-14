@@ -1,11 +1,8 @@
 import nodemailer from "nodemailer";
 
-// Requires these env vars in .env.local:
-// SMTP_HOST=smtp.your-provider.com
-// SMTP_PORT=587
-// SMTP_USER=your-smtp-username
-// SMTP_PASS=your-smtp-password
-// EMAIL_FROM="Mabsol Pharma CRM <no-reply@yourdomain.com>"
+
+
+
 
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -26,10 +23,20 @@ const SURFACE = "#F7F7FD";
 const MUTED = "#6668A0";
 const BORDER = "#ECEEF9";
 
+
+// export async function sendOtpEmail(email: string, otp: string) {
+//   const digits = otp.split("");
+
+//   const info = await transporter.sendMail({
+//       from: process.env.EMAIL_FROM,
+//       to: email,
+//       subject: "Your Mabsol CRM verification code",
+//       html: `
+
 export async function sendOtpEmail(email: string, otp: string) {
     const digits = otp.split("");
 
-    await transporter.sendMail({
+  const info =  await transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: email,
         subject: "Your Mabsol CRM verification code",
@@ -107,4 +114,9 @@ export async function sendOtpEmail(email: string, otp: string) {
     `,
         text: `Your Mabsol CRM verification code is ${otp}. This code expires in 5 minutes. If you didn't request this, you can ignore this email.`,
     });
+
+
+    console.log("=========== EMAIL RESPONSE ===========");
+    console.log(info);
+    console.log("======================================");
 }
