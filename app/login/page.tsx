@@ -24,6 +24,7 @@ import "./login.css";
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TILT_MAX_DEG = 7;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,6 +46,9 @@ export default function LoginPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const otpInputsRef = useRef<Array<HTMLInputElement | null>>([]);
 
+  // 3D tilt for the form card
+  const formCardRef = useRef<HTMLDivElement | null>(null);
+
   const bars = [30, 48, 40, 72, 54, 64];
 
   const emailIsValid = EMAIL_RE.test(email.trim());
@@ -55,6 +59,31 @@ export default function LoginPage() {
     const t = setTimeout(() => setResendTimer((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [resendTimer]);
+
+  function handleCardTiltMove(e: React.MouseEvent<HTMLDivElement>) {
+    const card = formCardRef.current;
+    if (!card) return;
+
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const percentX = (x / rect.width - 0.5) * 2; // -1 -> 1
+    const percentY = (y / rect.height - 0.5) * 2; // -1 -> 1
+
+    const rotateY = percentX * TILT_MAX_DEG;
+    const rotateX = -percentY * TILT_MAX_DEG;
+
+    card.style.setProperty("--rx", `${rotateX.toFixed(2)}deg`);
+    card.style.setProperty("--ry", `${rotateY.toFixed(2)}deg`);
+  }
+
+  function handleCardTiltLeave() {
+    const card = formCardRef.current;
+    if (!card) return;
+    card.style.setProperty("--rx", "0deg");
+    card.style.setProperty("--ry", "0deg");
+  }
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -191,8 +220,13 @@ export default function LoginPage() {
       </div>
 
       <div className="stage">
-        {/* FORM CARD */}
-        <div className="glass-card form-card">
+        {/* FORM CARD — 3D tilt follows the cursor */}
+        <div
+          className="glass-card form-card"
+          ref={formCardRef}
+          onMouseMove={handleCardTiltMove}
+          onMouseLeave={handleCardTiltLeave}
+        >
           <div className="brand-row">
             <span className="brand-mark">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
