@@ -8,6 +8,19 @@ import GLedger from "@/models/GLedger";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import ProductBatch from "@/models/ProductBatch";
+// ---- NEW: models for the 5 new cards ----
+import User from "@/models/User";
+import Company from "@/models/Company";
+
+/* ------------------------------------------------------------------ */
+/*  IMPORTANT: force this route to run fresh on every request.         */
+/*  Without this, Next.js can cache the GET response (App Router GET   */
+/*  handlers are cached by default), so newly added KPI fields (the    */
+/*  5 new cards) show up as `undefined` -> `?? 0` on the client even   */
+/*  though the DB queries themselves return correct values.            */
+/* ------------------------------------------------------------------ */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /* ------------------------------------------------------------------ */
 /*  CONFIG — confirm these against real Sales/Receipt rows before      */
@@ -49,9 +62,25 @@ const GLEDGER_BASE_FILTER = { BOOK: "R", CD: "C" };
 
 // ORDER is a mixed party/ledger master (customers, suppliers, tax
 // accounts all live here). SALDR:"Y" = "this account can be sold to"
-// (= customer). Confirmed: 144 rows match this filter, which equals
-// the Total Customers KPI already shown on the dashboard.
-const CUSTOMER_FILTER = {};
+// (= customer). Confirmed: 144 rows match this filter.
+//
+// FIXED: this was previously `{}` (empty), which silently pulled ALL
+// 297 ORDER rows into "customer codes" instead of just the 144 real
+// customers. That inflated GLEDGER_COLLECTION_FILTER (Total Collections)
+// and would have inflated the new customer Credit/Debit cards too, since
+// non-customer codes (suppliers, tax accounts, internal transfer codes
+// like "STAC21") were being treated as customers.
+const CUSTOMER_FILTER = { SALDR: "Y" };
+
+// ---- NEW: filter for the "Active Customers" card ----
+// Same SALDR:"Y" definition as CUSTOMER_FILTER above (confirmed customer
+// flag). NOTE: the ORDER sample row shared for this card had
+// STATUS: null, so STATUS is NOT a reliable "active" flag in this data.
+// Using SALDR:"Y" here reuses the already-confirmed customer definition.
+// If you specifically need a STATUS-based "active" flag, share a real
+// ORDER row where STATUS is populated (e.g. "Y"/"N") and this can be
+// swapped to { STATUS: "Y" } instead.
+const ACTIVE_CUSTOMER_FILTER = { SALDR: "Y" };
 
 // Field in MDIS that links a sale voucher to its customer/party code.
 // CONFIRMED against your sample exports: MDIS.CODEP values overlap
@@ -67,6 +96,18 @@ const GLEDGER_CUSTOMER_FIELD = "CODE";
 // The actual Mongo collection name behind the Order model (used in
 // $lookup, which needs the raw collection name, not the model name).
 const ORDER_COLLECTION_NAME = "vfp_new_folder_order";
+
+// ---- NEW: filter for the "Total Credit" / "Total Debit" cards ----
+// User wants these two cards to reflect customer transactions only,
+// not the whole ledger (whole-ledger CREDIT and DEBIT always sum to
+// the exact same number in a double-entry ledger, which is correct
+// but meaningless as a KPI).
+//
+// "Customer transaction" = BOOK:"S" (Sales) or BOOK:"R" (Receipts),
+// AND CODE is a real customer code (CODE in customerCodes, built from
+// CUSTOMER_FILTER above). Built at request time below, once
+// customerCodes is available — see GLEDGER_CUSTOMER_TXN_FILTER.
+const CUSTOMER_TXN_BOOKS = ["S", "R"];
 
 /* ------------------------------------------------------------------ */
 
@@ -117,6 +158,12 @@ export async function GET() {
     [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
   };
 
+  // ---- NEW: customer-scoped filter for Total Credit / Total Debit cards ----
+  const GLEDGER_CUSTOMER_TXN_FILTER = {
+    BOOK: { $in: CUSTOMER_TXN_BOOKS },
+    [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
+  };
+
   const [
     // ---- KPI cards ----
     totalSales,
@@ -131,6 +178,13 @@ export async function GET() {
     currentStock,
     nearExpiryBatches,
     expiredBatches,
+
+    // ---- NEW: 5 new KPI cards ----
+    totalUsers,
+    totalCompanies,
+    totalCredit,
+    totalDebit,
+    activeCustomers,
 
     // ---- charts ----
     salesTrend,
@@ -162,6 +216,22 @@ export async function GET() {
     sumField(Product, {}, "BALANCE"),
     ProductBatch.countDocuments({ EXP: { $ne: null, $gte: today, $lte: near90 } }),
     ProductBatch.countDocuments({ EXP: { $ne: null, $lt: today } }),
+
+    // ---- NEW: 5 new KPI queries ----
+    // 1. Total Users
+    User.countDocuments({}),
+    // 2. Total Companies
+    Company.countDocuments({}),
+    // 3. Credit — SUM(CREDIT) for customer transactions only
+    // (BOOK: Sales or Receipts, real customer codes only — see
+    // GLEDGER_CUSTOMER_TXN_FILTER above). NOT a whole-ledger sum,
+    // since whole-ledger CREDIT === whole-ledger DEBIT always (double
+    // entry), which makes that number meaningless as a KPI.
+    sumField(GLedger, { ...GLEDGER_CUSTOMER_TXN_FILTER }, "CREDIT"),
+    // 4. Debit — SUM(DEBIT) for the same customer-transaction filter
+    sumField(GLedger, { ...GLEDGER_CUSTOMER_TXN_FILTER }, "DEBIT"),
+    // 5. Active Customers — ORDER.SALDR === "Y" (see ACTIVE_CUSTOMER_FILTER note above)
+    Order.countDocuments({ ...ACTIVE_CUSTOMER_FILTER }),
 
     // Sales Trend — last 12 months
     SalesMdis.aggregate([
@@ -363,6 +433,13 @@ export async function GET() {
       currentStock,
       nearExpiryBatches,
       expiredBatches,
+
+      // ---- NEW: 5 new KPI fields ----
+      totalUsers,
+      totalCompanies,
+      totalCredit,
+      totalDebit,
+      activeCustomers,
     },
     charts: {
       salesTrend: salesTrend.map((r: any) => ({ month: r._id, total: r.total })),

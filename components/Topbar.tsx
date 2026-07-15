@@ -1,8 +1,8 @@
+
 "use client";
 
-//import { useState } from "react";
-import { useEffect, useState } from "react";
-import { Bell, Moon, PersonCircle, Sun, } from "react-bootstrap-icons";
+import { useEffect, useRef, useState } from "react";
+import { Bell, List, PersonCircle } from "react-bootstrap-icons";
 
 import { useUser } from "@/context/UserContext";
 import LogoutButton from "./LogoutButton";
@@ -16,237 +16,193 @@ export default function Topbar({
   setCollapsed: (value: boolean) => void;
   mobile: boolean;
 }) {
+  const { user } = useUser();
 
-  //const [selectedCompany, setSelectedCompany] = useState<any>(null);
-
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [fyList, setFyList] = useState<any[]>([]);
   const [selectedFY, setSelectedFY] = useState<any>(null);
-  const {user,} = useUser();
+  const [companyName, setCompanyName] = useState<string>("");
 
-  const [darkMode, setDarkMode] = useState(false);
-  
+  const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-     const theme = localStorage.getItem("theme");
-      
-        if (theme === "dark") {
-          document.body.classList.add("dark-mode");
-          localStorage.setItem("theme", "dark");
-        } else {
-          document.body.classList.remove("dark-mode");
-          localStorage.setItem("theme", "light");
-        }
-      }, [darkMode]);
+    const raw = user?.companyId as any;
 
+    if (raw && typeof raw === "object" && raw.companyName) {
+      setCompanyName(raw.companyName);
+      return;
+    }
 
-     
+    const rawId = typeof raw === "string" ? raw : raw?._id;
+    if (!rawId) return;
 
-      // useEffect(() => {
+    fetch("/api/company-master")
+      .then((res) => res.json())
+      .then((companies: any[]) => {
+        const match = companies?.find((c) => c._id === rawId);
+        if (match?.companyName) setCompanyName(match.companyName);
+      })
+      .catch(() => { });
+  }, [user]);
 
-      //   loadCurrentFY();
-      
-      // }, []);
+  useEffect(() => {
+    fetch("/api/financial-year")
+      .then((res) => res.json())
+      .then((data) => {
+        setFyList(data);
+        const currentFY = data.find((x: any) => x.isCurrent);
+        if (currentFY) setSelectedFY(currentFY);
+      })
+      .catch(() => { });
+  }, []);
 
-
-useEffect(() => {
-
-  fetch("/api/financial-year")
-    .then(res => res.json())
-    .then(data => {
-
-      const currentFY =
-        data.find(
-          (x:any) => x.isCurrent
-        );
-
-      if (currentFY) {
-
-        // setSelectedFY(currentFY);
-
-        // setSelectedCompany(
-        //   currentFY.companyId
-        // );
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
       }
 
-    });
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
 
-}, []);
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
-
-
+  const notifications = [
+    { label: "New Lead Assigned", time: "2m ago" },
+    { label: "New Customer Added", time: "1h ago" },
+    { label: "Payment Received", time: "3h ago" },
+  ];
 
   return (
     <div
-      className="bg-white border-bottom px-3 py-3 d-flex justify-content-between align-items-center shadow-sm"
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 999,
-      }}
+      className="flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-gray-200 shadow-sm sticky top-0"
+      style={{ zIndex: 999 }}
     >
       {/* LEFT */}
-
-      <div className="d-flex align-items-center gap-3">
-
+      <div className="flex items-center gap-3 min-w-0">
         <button
-          className="btn btn-dark"
-          onClick={() =>
-            setCollapsed(!collapsed)
-          }
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label="Toggle sidebar"
+          className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shrink-0"
         >
-          ☰
+          <List size={18} />
         </button>
 
         {!mobile && (
-          <h5
-            className="mb-0 fw-bold"
-            style={{
-              color: "#0f172a",
-            }}
-          >
-           {/* // {selectedCompany?.companyName || "Select Company"} */}
-           <div className="d-flex align-items-center gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-flex items-center rounded-lg bg-blue-100 text-blue-700 px-3 py-1.5 text-[13px] font-semibold truncate max-w-[220px]">
+              {companyName || "Select Company"}
+            </span>
 
-              <span
-                className="badge bg-primary fs-6"
-              >
-                {user?.companyId?.companyName}
+            {selectedFY?.fyName && (
+              <span className="inline-flex items-center rounded-lg bg-emerald-100 text-emerald-700 px-3 py-1.5 text-[13px] font-semibold">
+                {selectedFY.fyName}
               </span>
-
-              <span
-                className="badge bg-success fs-6"
-              >
-                {/* {selectedFY?.fyName} */}
-              </span>
-
-            </div>
-
-
-          </h5>
-
-
-
+            )}
+          </div>
         )}
-
-
       </div>
 
-
-
       {/* RIGHT */}
-
-      <div className="d-flex align-items-center gap-3">
-
-        {/* DARK MODE */}
-
-        <button
-          className="btn btn-light border"
-          onClick={() => {
-
-            const newMode = !darkMode;
-          
-            setDarkMode(newMode);
-          }}
-        >
-          {darkMode ? (
-            <Sun size={18} />
-          ) : (
-            <Moon size={18} />
-          )}
-        </button>
-
-        {/* NOTIFICATION */}
-
-        <div className="dropdown">
-
+      <div className="flex items-center gap-2 shrink-0">
+        {/* NOTIFICATIONS */}
+        <div className="relative" ref={notifRef}>
           <button
-            className="btn btn-light border position-relative"
-            data-bs-toggle="dropdown"
+            onClick={() => {
+              setNotifOpen((v) => !v);
+              setProfileOpen(false);
+            }}
+            aria-label="Notifications"
+            className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white text-orange-500 hover:bg-orange-50 hover:text-orange-600 transition-colors duration-200"
           >
-            <Bell size={20} />
+            <Bell size={18} />
 
-            <span
-              className="badge bg-danger position-absolute"
-              style={{
-                top: "-5px",
-                right: "-5px",
-              }}
-            >
-              5
-            </span>
-          </button>
-
-          <ul className="dropdown-menu dropdown-menu-end shadow">
-
-            <li>
-              <a
-                className="dropdown-item"
-                href="#"
-              >
-                New Lead Assigned
-              </a>
-            </li>
-
-            <li>
-              <a
-                className="dropdown-item"
-                href="#"
-              >
-                New Customer Added
-              </a>
-            </li>
-
-            <li>
-              <a
-                className="dropdown-item"
-                href="#"
-              >
-                Payment Received
-              </a>
-            </li>
-
-          </ul>
-
-        </div>
-
-        {/* PROFILE */}
-
-        <div className="dropdown">
-
-          <button
-            className="btn btn-light border d-flex align-items-center gap-2"
-            data-bs-toggle="dropdown"
-          >
-            <PersonCircle size={24} />
-
-            {!mobile && (
-             <div className="d-flex flex-column text-start">
-
-             <span>
-               {user?.name}
-             </span>
-           
-             <small className="text-muted">
-               {user?.roleId?.roleName}
-             </small>
-           
-           </div>
-             
+            {notifications.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                {notifications.length}
+              </span>
             )}
           </button>
 
-          <ul className="dropdown-menu dropdown-menu-end shadow">
-            <li><a className="dropdown-item" href="/dashboard/profile"> My Profile </a></li>
+          {notifOpen && (
+            <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-2 z-[1100]">
+              <div className="px-3 pb-2 mb-1 text-[12px] font-semibold text-gray-400 border-b border-gray-100">
+                Notifications
+              </div>
 
-            <li> <a className="dropdown-item" href="/dashboard/settings"> Settings </a>  </li>
-
-            <li><hr className="dropdown-divider" /></li>
-
-            <li className="px-3"><LogoutButton /> </li>
-          </ul>
-
+              {notifications.map((n, i) => (
+                <a
+                  key={i}
+                  href="#"
+                  className="flex items-center justify-between px-3 py-2 text-[13px] text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors duration-150"
+                >
+                  <span className="truncate">{n.label}</span>
+                  <span className="text-[11px] text-gray-400 shrink-0 ml-2">
+                    {n.time}
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
+        {/* PROFILE */}
+        <div className="relative" ref={profileRef}>
+          <button
+            onClick={() => {
+              setProfileOpen((v) => !v);
+              setNotifOpen(false);
+            }}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white pl-2 pr-3 h-10 text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+          >
+            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-600 text-white shrink-0">
+              <PersonCircle size={16} />
+            </span>
+
+            {!mobile && (
+              <span className="flex flex-col items-start leading-tight text-left">
+                <span className="text-[13px] font-semibold">
+                  {user?.name || "User"}
+                </span>
+                <span className="text-[11px] text-gray-500">
+                  {user?.roleId?.roleName || "—"}
+                </span>
+              </span>
+            )}
+          </button>
+
+          {profileOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white border border-gray-200 shadow-lg py-2 z-[1100]">
+              <a
+                href="/dashboard/profile"
+                className="block px-3 py-2 text-[13px] text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors duration-150"
+              >
+                My Profile
+              </a>
+
+              <a
+                href="/dashboard/settings"
+                className="block px-3 py-2 text-[13px] text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors duration-150"
+              >
+                Settings
+              </a>
+
+              <div className="my-1 border-t border-gray-100" />
+
+              <div className="px-3 py-1">
+                <LogoutButton />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
