@@ -223,8 +223,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         )}
         <span
           className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-[14px] transition-all duration-300 ease-out ${active
-              ? `${c.iconActiveBg} text-white shadow-sm scale-105`
-              : `${c.iconBg} ${c.iconText} group-hover:text-white ${c.hoverIconBg} group-hover:scale-110 group-hover:rotate-3`
+            ? `${c.iconActiveBg} text-white shadow-sm scale-105`
+            : `${c.iconBg} ${c.iconText} group-hover:text-white ${c.hoverIconBg} group-hover:scale-110 group-hover:rotate-3`
             }`}
         >
           {icon}
@@ -253,8 +253,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       <Link
         href={href}
         className={`group/sub flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all duration-200 ease-out ${active
-            ? `bg-gray-50 dark:bg-white/5 font-medium ${c.activeText}`
-            : `text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 ${c.hoverText}`
+          ? `bg-gray-50 dark:bg-white/5 font-medium ${c.activeText}`
+          : `text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 ${c.hoverText}`
           }`}
       >
         <span
@@ -305,8 +305,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           <span className="flex items-center gap-3">
             <span
               className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-[14px] transition-all duration-300 ease-out ${active
-                  ? `${c.iconActiveBg} text-white shadow-sm scale-105`
-                  : `${c.iconBg} ${c.iconText} group-hover:text-white ${c.hoverIconBg} group-hover:scale-110 group-hover:rotate-3`
+                ? `${c.iconActiveBg} text-white shadow-sm scale-105`
+                : `${c.iconBg} ${c.iconText} group-hover:text-white ${c.hoverIconBg} group-hover:scale-110 group-hover:rotate-3`
                 }`}
             >
               {icon}
@@ -616,7 +616,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               {(can("vfp.view") || can("vfp.settings")) && (
                 <Group
                   icon={<FaExchangeAlt />}
-                  label="VFP Integration"
+                  label="Data Migration"
                   open={vfpOpen}
                   onClick={() => setVfpOpen(!vfpOpen)}
                   active={pathname.startsWith("/dashboard/vfp")}
