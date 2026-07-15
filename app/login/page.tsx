@@ -182,6 +182,8 @@ export default function LoginPage() {
 
   async function handleVerifyOtp(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (verifyingOtp) return;
+
     const code = otp.join("");
     if (code.length !== OTP_LENGTH) {
       setOtpError(`Enter all ${OTP_LENGTH} digits.`);

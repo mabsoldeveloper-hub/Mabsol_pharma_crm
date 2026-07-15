@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
 } from "react";
 
 const UserContext =
@@ -20,8 +21,12 @@ useState(null);
 const [loading,setLoading]=
 useState(true);
 
+const loadStarted = useRef(false);
+
 useEffect(()=>{
 
+if (loadStarted.current) return;
+loadStarted.current = true;
 loadUser();
 
 },[]);

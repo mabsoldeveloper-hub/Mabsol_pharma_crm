@@ -110,7 +110,7 @@ export async function sendEmailOTP(email: string, otp: string) {
             <tr>
               <td style="padding:16px 32px 28px; border-top:1px solid ${BORDER};">
                 <p style="margin:0; color:#A6A8D2; font-size:11.5px;">
-                  © ${new Date().getFullYear()} Mabsol Pharma CRM. All Rights Reserved.
+                  © ${new Date().getFullYear()} Mabsol Pharma CRM. Synced live with ERP.
                 </p>
               </td>
             </tr>
