@@ -228,7 +228,9 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     Boolean(lastSeenAt) && Date.now() - Number(lastSeenAt) < 30_000;
 
   // Auto-spawn the sync worker background daemon if it is offline and VFP database directory is configured
-  if (!workerOnline && dataDirExists) {
+  // Note: Only auto-spawn on Windows (local computer), not on Linux cloud servers
+  const isWindows = process.platform === "win32";
+  if (!workerOnline && dataDirExists && isWindows) {
     try {
       const req = eval("require");
       const { spawn } = req("child_process");

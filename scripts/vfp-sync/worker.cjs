@@ -269,40 +269,49 @@ async function updateHeartbeat(status, extra = {}) {
   );
 }
 
+let isSyncing = false;
 async function processCommands() {
-  const commands = await SyncCommand.find({ status: "queued" })
-    .sort({ createdAt: 1 })
-    .limit(5);
+  try {
+    const commands = await SyncCommand.find({ status: "queued" })
+      .sort({ createdAt: 1 })
+      .limit(5);
 
-  if (commands.length > 0) {
-    console.log(`[vfp-sync] Found ${commands.length} queued command(s) to process:`, commands.map(c => c.command));
-  }
-
-  for (const command of commands) {
-    console.log(`[vfp-sync] Processing command: ${command.command} (ID: ${command._id})`);
-    command.status = "processing";
-    await command.save();
-
-    try {
-      if (command.command === "browse_dir" || command.command === "browse_folders") {
-        const result = await handleBrowseCommand(command.payload);
-        command.result = result;
-        command.status = "done";
-        console.log(`[vfp-sync] Command ${command.command} completed successfully.`);
-      } else {
-        await runSync(command.command, command.email);
-        command.status = "done";
-        command.message = "Processed by local VFP sync worker.";
-        console.log(`[vfp-sync] Command ${command.command} sync completed successfully.`);
+    for (const command of commands) {
+      const isHeavy = command.command === "rescan" || command.command === "sync_now";
+      if (isHeavy && isSyncing) {
+        // Skip heavy commands if a sync is already running
+        continue;
       }
-    } catch (error) {
-      console.error(`[vfp-sync] Command ${command.command} failed:`, error.message);
-      command.status = "failed";
-      command.message = error.message;
-    }
 
-    command.processedAt = new Date();
-    await command.save();
+      command.status = "processing";
+      await command.save();
+
+      try {
+        if (command.command === "browse_dir" || command.command === "browse_folders") {
+          const result = await handleBrowseCommand(command.payload);
+          command.result = result;
+          command.status = "done";
+        } else {
+          isSyncing = true;
+          try {
+            await runSync(command.command, command.email);
+          } finally {
+            isSyncing = false;
+          }
+          command.status = "done";
+          command.message = "Processed by local VFP sync worker.";
+        }
+      } catch (error) {
+        console.error(`[vfp-sync] Command ${command.command} failed:`, error.message);
+        command.status = "failed";
+        command.message = error.message;
+      }
+
+      command.processedAt = new Date();
+      await command.save();
+    }
+  } catch (error) {
+    console.error("[vfp-sync] Error in processCommands loop:", error.message);
   }
 }
 
