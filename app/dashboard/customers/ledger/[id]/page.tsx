@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function CustomerLedgerPage() {
   const params = useParams();
@@ -11,6 +12,9 @@ export default function CustomerLedgerPage() {
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const router = useRouter();
+  const [view, setView] = useState<"ledger" | "sales" | "outstanding">("ledger");
 
   useEffect(() => {
     if (!id) return;
@@ -82,49 +86,7 @@ fetch(`/api/customers/ledger/${id}`)
 
       {/* Customer Card */}
 
-      {/* <div className="card shadow mb-4">
-        <div className="card-header bg-primary text-white">
-          Customer Information
-        </div>
-        <div className="card-body">
 
-          <div className="row">
-
-            <div className="col-md-4">
-              <strong>Name</strong>
-              <br />
-              {data.customer?.name}
-            </div>
-
-            <div className="col-md-2">
-              <strong>Code</strong>
-              <br />
-              {data.customer?.code}
-            </div>
-
-            <div className="col-md-2">
-              <strong>City</strong>
-              <br />
-              {data.customer?.city || "-"}
-            </div>
-
-            <div className="col-md-2">
-              <strong>GST</strong>
-              <br />
-              {data.customer?.gst || "-"}
-            </div>
-
-            <div className="col-md-2">
-              <strong>Balance</strong>
-              <br />
-
-              <span className="fw-bold text-danger">
-                ₹{Number(data.customer?.currentBalance || 0)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div> */}
 
 <div className="card shadow-sm border-0 mb-4">
   <div className="card-header bg-primary text-white fw-bold">
@@ -168,194 +130,213 @@ fetch(`/api/customers/ledger/${id}`)
 
       </div>
 
+      <div className="col-md-2">
+        <small className="text-muted">Last Bill</small>
+        <h6>{data.summary?.lastBillNo || "-"}</h6>
+      </div>
+
+      <div className="col-md-2">
+        <small className="text-muted">Last Bill Date</small>
+        <h6>{data.summary?.lastBillDate || "-"}</h6>
+      </div>
+
     </div>
   </div>
 </div>
 
       {/* Summary */}
+      <div className="row g-3 mb-4">
 
-      <div className="row mb-4">
-
-        <div className="col-md-4">
-
-          <div className="card shadow">
-
-            <div className="card-body text-center">
-
-              <h6>Total Sales</h6>
-
-              <h3 className="text-success">
-
-                ₹
-                {Number(
-                  data.summary?.sale || 0
-                ).toLocaleString()}
-                
-
-              </h3>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="col-md-4">
-
-          <div className="card shadow">
-
-            <div className="card-body text-center">
-
-              <h6>Total Bills</h6>
-
-              <h3>
-                    
-                {data.ledger?.length || 0}
-
-              </h3>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="col-md-4">
-
-          <div className="card shadow">
-
-            <div className="card-body text-center">
-
-              <h6>Current Balance</h6>
-
-              <h3 className="text-danger">
-
-                ₹
-                
-                {Number(data.summary?.closing || 0).toLocaleString()}
-
-              </h3>
-
-            </div>
-
-          </div>
-
-        </div>
-
+  {/* Total Bills */}
+  <div className="col-lg-3 col-md-6">
+    <div
+      className="card shadow-sm h-100 border-0"
+      style={{ cursor: "pointer" }}
+      onClick={() => setView("sales")}
+    >
+      <div className="card-body text-center">
+        <small className="text-muted">Total Bills</small>
+        <h3> {data.ledger?.length || 0}</h3>
       </div>
+    </div>
+  </div>
 
+  {/* Total Sales */}
+  <div className="col-lg-3 col-md-6">
+    <div className="card shadow-sm h-100 border-0">
+      <div className="card-body text-center">
+        <small className="text-muted">Total Sales</small>
+        <h3 className="text-success">
+          ₹{Number(data.summary?.totalSales || 0).toLocaleString()}
+        </h3>
+      </div>
+    </div>
+  </div>
 
+  {/* Outstanding Bills */}
+  <div className="col-lg-3 col-md-6">
+    <div
+      className="card shadow-sm h-100 border-0"
+      style={{ cursor: "pointer" }}
+      onClick={() => setView("outstanding")}
+    >
+      <div className="card-body text-center">
+        <small className="text-muted">Outstanding Bills</small>
+        <h3 className="text-danger">
+          {data.summary?.outstandingBills || 0}
+        </h3>
+      </div>
+    </div>
+  </div>
 
-      <div className="row mb-4">
+  {/* Outstanding Amount */}
+  <div className="col-lg-3 col-md-6">
+    <div className="card shadow-sm h-100 border-0">
+      <div className="card-body text-center">
+        <small className="text-muted">Outstanding Amount</small>
+        <h3 className="text-danger">
+          ₹{Number(data.summary?.outstandingAmount || 0).toLocaleString()}
+        </h3>
+      </div>
+    </div>
+  </div>
 
-<div className="col-lg-3 col-md-6 mb-3">
-<div className="card shadow-sm border-0">
-<div className="card-body text-center">
+  {/* Opening */}
+  <div className="col-lg-3 col-md-6">
+    <div className="card shadow-sm border-0">
+      <div className="card-body text-center">
+        <small className="text-muted">Opening</small>
+        <h4>
+          ₹{Number(data.summary?.opening || 0).toLocaleString()}
+        </h4>
+      </div>
+    </div>
+  </div>
 
-<h6 className="text-muted">
-Opening Balance
-</h6>
+  {/* Debit */}
+  <div className="col-lg-3 col-md-6">
+    <div className="card shadow-sm border-0">
+      <div className="card-body text-center">
+        <small className="text-muted">Debit</small>
+        <h4 className="text-danger">
+          ₹{Number(data.summary?.debit || 0).toLocaleString()}
+        </h4>
+      </div>
+    </div>
+  </div>
 
-<h3 className="text-primary">
+  {/* Credit */}
+  <div className="col-lg-3 col-md-6">
+    <div className="card shadow-sm border-0">
+      <div className="card-body text-center">
+        <small className="text-muted">Credit</small>
+        <h4 className="text-success">
+          ₹{Number(data.summary?.credit || 0).toLocaleString()}
+        </h4>
+      </div>
+    </div>
+  </div>
 
-₹
-{Number(
-data.summary?.opening || 0
-).toLocaleString()}
-
-</h3>
+  {/* Ledger Balance */}
+  <div className="col-lg-3 col-md-6">
+    <div
+      className="card shadow-sm border-0"
+      style={{ cursor: "pointer" }}
+      onClick={() => setView("ledger")}
+    >
+      <div className="card-body text-center">
+        <small className="text-muted">Ledger Balance</small>
+        <h4 className="text-primary">
+          ₹{Number(data.summary?.ledgerBalance || 0).toLocaleString()}
+        </h4>
+      </div>
+    </div>
+  </div>
 
 </div>
-</div>
-</div>
 
-<div className="col-lg-3 col-md-6 mb-3">
-<div className="card shadow-sm border-0">
-<div className="card-body text-center">
 
-<h6 className="text-muted">
-Total Debit
-</h6>
 
-<h3 className="text-danger">
 
-₹
-{Number(
-data.summary?.debit || 0
-).toLocaleString()}
 
-</h3>
 
-</div>
-</div>
-</div>
 
-<div className="col-lg-3 col-md-6 mb-3">
-<div className="card shadow-sm border-0">
-<div className="card-body text-center">
 
-<h6 className="text-muted">
-Total Credit
-</h6>
 
-<h3 className="text-success">
 
-₹
-{Number(
-data.summary?.credit || 0
-).toLocaleString()}
 
-</h3>
 
-</div>
-</div>
-</div>
 
-<div className="col-lg-3 col-md-6 mb-3">
-<div className="card shadow-sm border-0">
-<div className="card-body text-center">
 
-<h6 className="text-muted">
-Closing Balance
-</h6>
 
-<h3 className="text-primary">
 
-₹
-{Number(
-data.summary?.closing || 0
-).toLocaleString()}
 
-</h3>
 
-</div>
-</div>
-</div>
 
-</div>
+
+
+
 
       {/* Ledger */}
 
+
       <div className="card shadow">
 
-      <div className="card-header bg-dark text-white d-flex justify-content-between">
+      <div className="card-header bg-dark text-white d-flex justify-content-between align-items-center">
 
-        <span>
-        Ledger Register
-        </span>
+<span>
+  {view === "ledger"
+    ? "Ledger Register"
+    : view === "sales"
+    ? "Sales Register"
+    : "Outstanding Register"}
+</span>
 
-        <span>
-        Total Entries :
-        <b className="ms-2">
-        {data.ledger.length}
-        </b>
-        </span>
+<div>
 
-        </div>
+  <button
+    className={`btn btn-sm me-2 ${
+      view === "ledger"
+        ? "btn-warning"
+        : "btn-light"
+    }`}
+    onClick={() => setView("ledger")}
+  >
+    Ledger
+  </button>
+
+  <button
+    className={`btn btn-sm me-2 ${
+      view === "sales"
+        ? "btn-warning"
+        : "btn-light"
+    }`}
+    onClick={() => setView("sales")}
+  >
+    Sales
+  </button>
+
+  <button
+    className={`btn btn-sm ${
+      view === "outstanding"
+        ? "btn-warning"
+        : "btn-light"
+    }`}
+    onClick={() => setView("outstanding")}
+  >
+    Outstanding
+  </button>
+
+</div>
+
+</div>
+
+      
 
         <div className="table-responsive">
 
-          <table className="table table-bordered table-hover mb-0">
+          {/* <table className="table table-bordered table-hover mb-0"> */}
+          <table className="table table-hover align-middle mb-0">
 
             <thead className="table-dark">
               <tr>
@@ -374,13 +355,17 @@ data.summary?.closing || 0
 
                 data.ledger.map((row: any, index: number) => (
 
-                  <tr key={index}>
+                  // <tr key={index}>
+                  <tr
+                    key={index}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => router.push(`/dashboard/invoice/${row.voucher}`)}
+                  >
+
                   <td>{row.date}</td>
                 
-                  <td>
-                    <span className="fw-bold text-primary">
-                      {row.voucher}
-                    </span>
+                  <td className="fw-bold text-primary">
+                    {row.voucher}
                   </td>
                 
                   <td>{row.billNo || "-"}</td>

@@ -300,8 +300,8 @@ export default function Sidebar({
                     </li>
                     <li>
                       <Link
-                        href="/dashboard/sales/invoices"
-                        className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/sales/invoices")
+                        href="/dashboard/sales/invoice"
+                        className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/sales/invoice")
                           ? "bg-primary text-white"
                           : "text-white"
                           }`}

@@ -86,52 +86,72 @@ export async function GET(
       };
     });
 
-
-    // const ledger = ledgerRows.map((row: any) => {
-    //   const debit = Number(row.DEBIT || 0);
-    //   const credit = Number(row.CREDIT || 0);
-
-    //   runningBalance += debit;
-    //   runningBalance -= credit;
-
-    //   return {
-    //     date: row.DATE,
-    //     voucher: row.VOUCHER,
-    //     type: row.TYPE,
-    //     billNo: row.REMARK1 || "",
-    //     particulars:
-    //       row.BOOK === "S"
-    //         ? "Sales Invoice"
-    //         : row.BOOK === "R"
-    //         ? "Receipt"
-    //         : row.BOOK === "P"
-    //         ? "Purchase"
-    //         : row.BOOK || "",
-
-    //     debit,
-    //     credit,
-    //     balance: runningBalance,
-    //   };
-    // });
-
-    
     // =========================
     // Sales Summary
     // =========================
 
+    // const invoices = await SalesMdis.find(
+    //   {
+    //     CODEP: customer.ORDNO,
+    //   },
+    //   {
+    //     FINAL: 1,
+    //   }
+    // ).lean();
+
+    // const totalSale = invoices.reduce(
+    //   (sum: number, x: any) => sum + Number(x.FINAL || 0),
+    //   0
+    // );
     const invoices = await SalesMdis.find(
       {
         CODEP: customer.ORDNO,
       },
       {
+        VCN: 1,
+        DATE: 1,
+        TYPE: 1,
         FINAL: 1,
+        AMOUNTT: 1,
+        TAXAMO: 1,
+        ROUND: 1,
       }
-    ).lean();
-
-    const totalSale = invoices.reduce(
-      (sum: number, x: any) => sum + Number(x.FINAL || 0),
+    )
+      .sort({ DATE: -1 })
+      .lean();
+    
+    const totalBills = invoices.length;
+    
+    const totalSales = invoices.reduce(
+      (sum: number, x: any) =>
+        sum + Number(x.FINAL || 0),
       0
     );
+    
+    const lastBill = invoices[0] || null;
+
+    // Temporary Outstanding Logic
+// Baad me Receipt Adjustment karenge
+
+const outstandingInvoices = invoices.filter(
+  (x: any) => Number(x.FINAL || 0) > 0
+);
+
+const outstandingBills =
+  outstandingInvoices.length;
+
+const outstandingAmount =
+  outstandingInvoices.reduce(
+    (sum: number, x: any) =>
+      sum + Number(x.FINAL || 0),
+    0
+  );
+
+
+
+
+
+
 
     const totalDebit = ledger.reduce(
       (sum: number, x: any) => sum + x.debit,
@@ -159,16 +179,48 @@ export async function GET(
         currentBalance: Number(customer.BALANCE || 0),
       },
 
+      // summary: {
+      //   opening: Number(customer.OPNING || 0),
+      //   debit: totalDebit,
+      //   credit: totalCredit,
+      //   sale: totalSale,
+      //   closing: runningBalance,
+      // },
       summary: {
         opening: Number(customer.OPNING || 0),
+      
         debit: totalDebit,
+      
         credit: totalCredit,
-        sale: totalSale,
+      
         closing: runningBalance,
+      
+        totalBills,
+      
+        totalSales,
+      
+        outstandingBills,
+      
+        outstandingAmount,
+      
+        ledgerBalance:
+          Number(customer.BALANCE || 0),
+      
+        lastBillNo:
+          lastBill?.VCN || "",
+      
+        lastBillDate:
+          lastBill?.DATE || "",
       },
 
+
+
+
       ledger,
+      
+      invoices
     });
+
   } catch (err: any) {
     return NextResponse.json(
       {
