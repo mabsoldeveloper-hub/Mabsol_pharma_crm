@@ -563,7 +563,8 @@ export default function InvoicePage() {
 
                 <td>
                 <Link
-                    href={`/dashboard/sales/invoice/${row.vcn}`}
+                    href={`/dashboard/sales/invoice/${encodeURIComponent(row.vcn)}`}
+                   // href={`/dashboard/sales/invoice/${row.vcn}`}
                     className="btn btn-sm btn-primary"
                 >
                     View

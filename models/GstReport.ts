@@ -280,20 +280,31 @@ export default class GstReport {
      */
     static async hsnSummary(filter: GstReportFilter = {}) {
         await dbConnect();
-
+    
         const { page = 1, limit = 20, hsn = "" } = filter;
+    
         const pageNum = Math.max(1, Number(page) || 1);
         const pageLimit = Math.max(1, Number(limit) || 20);
-
+    
         const mdisMatch = await buildMdisMatch(filter);
         const vouchers = await Mdis.distinct("VOUCHER", mdisMatch);
-
+    
         if (!vouchers.length) {
-            return { total: 0, page: pageNum, limit: pageLimit, totalPages: 1, rows: [] };
+            return {
+                total: 0,
+                page: pageNum,
+                limit: pageLimit,
+                totalPages: 1,
+                rows: [],
+            };
         }
-
+    
         const grouped = await Dis.aggregate([
-            { $match: { VOUCHER: { $in: vouchers } } },
+            {
+                $match: {
+                    VOUCHER: { $in: vouchers },
+                },
+            },
             {
                 $group: {
                     _id: { $ifNull: ["$CODE", "UNSPECIFIED"] },
@@ -303,55 +314,129 @@ export default class GstReport {
                     sgstAmount: { $sum: "$SSTAAMO" },
                 },
             },
-            { $sort: { taxableAmount: -1 } },
+            {
+                $sort: {
+                    taxableAmount: -1,
+                },
+            },
         ]);
-
-        const productCodes = grouped.map((g) => g._id).filter((c) => c !== "UNSPECIFIED");
+    
+        const productCodes = grouped
+            .map((g) => g._id)
+            .filter((c) => c !== "UNSPECIFIED");
+    
         const products = productCodes.length
-            ? await Product.find({ CODE: { $in: productCodes } }).lean()
+            ? await Product.find({
+                  CODE: { $in: productCodes },
+              }).lean()
             : [];
-        const productByCode = new Map((products as any[]).map((p) => [p.CODE, p]));
-
+    
+        const productByCode = new Map(
+            (products as any[]).map((p) => [p.CODE, p])
+        );
+    
+        // Product.GCODE6 -> SaleType.SCODE
+        const scodes = [
+            ...new Set(
+                (products as any[])
+                    .map((p) => p.GCODE6)
+                    .filter(Boolean)
+            ),
+        ];
+    
+        const saleTypes = await SaleType.find({
+            SCODE: { $in: scodes },
+        }).lean();
+    
+        const saleTypeByScode = new Map(
+            (saleTypes as any[]).map((s) => [s.SCODE, s])
+        );
+    
         let filteredGrouped = grouped;
+    
         if (hsn) {
             const h = hsn.toLowerCase();
+    
             filteredGrouped = grouped.filter((g) => {
+    
                 const p = productByCode.get(g._id);
-                const hsnCode = String(p?.IMSCODE || "").toLowerCase();
-                const code = String(g._id ?? "").toLowerCase();
-                return hsnCode.includes(h) || code.includes(h);
+    
+                const saleType = saleTypeByScode.get(p?.GCODE6);
+    
+                const hsnCode = String(
+                    saleType?.SNAME || ""
+                ).toLowerCase();
+    
+                return (
+                    hsnCode.includes(h) ||
+                    String(g._id).toLowerCase().includes(h)
+                );
             });
         }
-
+    
         const total = filteredGrouped.length;
+    
         const start = (pageNum - 1) * pageLimit;
-        const pageSlice = filteredGrouped.slice(start, start + pageLimit);
-
+    
+        const pageSlice = filteredGrouped.slice(
+            start,
+            start + pageLimit
+        );
+    
         const rows = pageSlice.map((g) => {
+    
             const p = productByCode.get(g._id);
+    
+            const saleType = saleTypeByScode.get(p?.GCODE6);
+    
             return {
+    
                 productCode: g._id,
-                productName: g._id === "UNSPECIFIED" ? "Unspecified / No Code" : (p?.PRODUCT || p?.BILLNAME || "Unknown"),
-                hsnCode: p?.IMSCODE || "-",
-                unit: p?.UNIT || "-",
-                cgstRate: p?.CGST ?? null,
-                igstRate: p?.IGST ?? null,
-                qty: g.qty || 0,
-                taxableAmount: g.taxableAmount || 0,
-                cgstAmount: g.cgstAmount || 0,
-                sgstAmount: g.sgstAmount || 0,
+    
+                productName:
+                    p?.PRODUCT ||
+                    p?.BILLNAME ||
+                    "Unknown",
+    
+                // HSN from SaleType.SNAME
+                hsnCode:
+                    saleType?.SNAME || "-",
+    
+                unit:
+                    p?.UNIT || "-",
+    
+                cgstRate:
+                    p?.CGST ?? null,
+    
+                igstRate:
+                    p?.IGST ?? null,
+    
+                qty:
+                    g.qty || 0,
+    
+                taxableAmount:
+                    g.taxableAmount || 0,
+    
+                cgstAmount:
+                    g.cgstAmount || 0,
+    
+                sgstAmount:
+                    g.sgstAmount || 0,
             };
+    
         });
-
+    
         return {
             total,
             page: pageNum,
             limit: pageLimit,
-            totalPages: Math.max(1, Math.ceil(total / pageLimit)),
+            totalPages: Math.max(
+                1,
+                Math.ceil(total / pageLimit)
+            ),
             rows,
         };
     }
-
     /**
      * GST Ledger — GLEDGER entries linked to invoice via VOUCHER, joined
      * with MDIS (invoice value) and ORDER (party, via GLEDGER.CODE1 = ORDER.ORDNO).

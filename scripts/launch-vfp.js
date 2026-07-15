@@ -32,7 +32,7 @@ async function main() {
 
   if (MONGODB_URI) {
     try {
-      await mongoose.connect(MONGODB_URI);
+      await mongoose.connect(MONGODB_URI, { maxPoolSize: 2 });
       const vfpConfigSchema = new mongoose.Schema({}, { strict: false });
       const VfpConfig = mongoose.models.VfpConfig || mongoose.model("VfpConfig", vfpConfigSchema, "vfpconfigs");
       const config = await VfpConfig.findOne({ dataDir: { $exists: true, $ne: "" } }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
