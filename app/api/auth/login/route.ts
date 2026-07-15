@@ -48,18 +48,16 @@ export async function POST(req: Request) {
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    // Send OTP via email and WhatsApp simultaneously
-    const sendPromises: Promise<any>[] = [sendOtpEmail(user.email, otp)];
+    // Send OTP via email and WhatsApp in the background (non-blocking)
+    sendOtpEmail(user.email, otp).catch((err) => {
+      console.error("Email OTP failed in background:", err);
+    });
 
     if (user.mobile) {
-      sendPromises.push(
-        sendWhatsAppOTP(user.mobile, otp).catch((err) => {
-          console.error("WhatsApp OTP failed (non-blocking):", err);
-        })
-      );
+      sendWhatsAppOTP(user.mobile, otp).catch((err) => {
+        console.error("WhatsApp OTP failed in background:", err);
+      });
     }
-
-    await Promise.all(sendPromises);
 
     return NextResponse.json({
       success: true,

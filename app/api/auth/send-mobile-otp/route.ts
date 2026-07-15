@@ -59,10 +59,12 @@ export async function POST(req: Request) {
     
     console.log("Saved OTP Record:", saved);
 
-    await sendWhatsAppOTP(
+    sendWhatsAppOTP(
       mobile,
       otp
-    );
+    ).catch((err) => {
+      console.error("WhatsApp OTP failed in background:", err);
+    });
 
     return NextResponse.json({
       success: true,
