@@ -116,6 +116,7 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (loading) return;
 
     if (!emailVerified) {
       alert("Please verify your email first.");
@@ -163,6 +164,7 @@ export default function RegisterPage() {
   };
 
   const sendEmailOTP = async () => {
+    if (emailSending) return;
     if (!email) {
       alert("Enter Email");
       return;
@@ -189,6 +191,7 @@ export default function RegisterPage() {
   };
 
   const verifyEmailOTP = async () => {
+    if (emailVerifying) return;
     if (!emailOtp) {
       alert("Enter Email OTP");
       return;
@@ -216,6 +219,7 @@ export default function RegisterPage() {
   };
 
   const sendMobileOTP = async () => {
+    if (mobileSending) return;
     if (!mobile) {
       alert("Enter Mobile Number");
       return;
@@ -242,6 +246,7 @@ export default function RegisterPage() {
   };
 
   const verifyMobileOTP = async () => {
+    if (mobileVerifying) return;
     if (!mobileOtp) {
       alert("Enter OTP");
       return;
