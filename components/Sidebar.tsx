@@ -5,21 +5,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
-
-
 import {
   FaTachometerAlt,
   FaUsers,
+  FaUserShield,
+  FaUserTag,
   FaCog,
   FaBoxOpen,
   FaShoppingCart,
+  FaFileInvoice,
+  FaClipboardList,
   FaChartBar,
   FaChevronDown,
   FaChevronRight,
   FaBuilding,
+  FaPlusCircle,
+  FaListUl,
   FaCalendarAlt,
-  FaDatabase,
   FaExchangeAlt,
+  FaSyncAlt,
+  FaSlidersH,
+  FaWarehouse,
+  FaUserCircle,
 } from "react-icons/fa";
 
 type SidebarProps = {
@@ -28,733 +35,503 @@ type SidebarProps = {
   mobile: boolean;
 };
 
-type CompanyBrand = {
-  logo?: string;
-};
-
-export default function Sidebar({
-  collapsed,
-  mobile,
-}: SidebarProps) {
-
+export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProps) {
   const { can } = usePermission();
   const [crmOpen, setCrmOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
-  const pathname = usePathname();
-
   const [customerOpen, setCustomerOpen] = useState(false);
-  // Comapny Master 
   const [companyOpen, setCompanyOpen] = useState(false);
-  // financial yea master
   const [fyOpen, setFyOpen] = useState(false);
-  // VFP dropdown toggle
   const [vfpOpen, setVfpOpen] = useState(false);
-
+  const pathname = usePathname();
 
   const [company, setCompany] = useState<any>(null);
   useEffect(() => {
     fetch("/api/company-master")
       .then((res) => res.json())
-      .then((data) => setCompany(data));
+      .then((data) => setCompany(data))
+      .catch(() => { });
   }, []);
 
+  // Sidebar is "iconOnly" when collapsed on desktop. On mobile, collapsed just hides it entirely.
+  const iconOnly = collapsed && !mobile;
 
+  // ---------------- Single link (no submenu) ----------------
+  const NavLink = ({
+    href,
+    icon,
+    label,
+    active,
+  }: {
+    href: string;
+    icon: React.ReactNode;
+    label: string;
+    active: boolean;
+  }) => (
+    <Link
+      href={href}
+      title={iconOnly ? label : ""}
+      className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition-all duration-200 group ${iconOnly ? "justify-center px-0" : ""
+        } ${active
+          ? "bg-[#343872]/5 text-[#343872] font-semibold dark:bg-[#fb8c00]/10 dark:text-white"
+          : "text-gray-500 hover:bg-[#fb8c00]/10 hover:text-[#fb8c00] dark:text-gray-400 dark:hover:text-[#fb8c00]"
+        }`}
+    >
+      {active && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-[#343872] dark:bg-[#fb8c00]" />
+      )}
+      <span
+        className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-[14px] transition-colors duration-200 ${active
+            ? "bg-[#343872] text-white shadow-sm"
+            : "bg-gray-100 text-[#343872] group-hover:bg-[#fb8c00] group-hover:text-white dark:bg-white/5 dark:text-gray-200"
+          }`}
+      >
+        {icon}
+      </span>
+      {!iconOnly && <span className="truncate">{label}</span>}
+    </Link>
+  );
+
+  // ---------------- Sub-link inside an expanded group ----------------
+  const SubLink = ({
+    href,
+    icon,
+    label,
+    active,
+  }: {
+    href: string;
+    icon: React.ReactNode;
+    label: string;
+    active: boolean;
+  }) => (
+    <Link
+      href={href}
+      className={`group/sub flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors duration-200 ${active
+          ? "bg-[#343872]/5 text-[#343872] font-medium dark:bg-[#fb8c00]/10 dark:text-white"
+          : "text-gray-500 hover:bg-[#fb8c00]/10 hover:text-[#fb8c00] dark:text-gray-400"
+        }`}
+    >
+      <span
+        className={`text-[12px] ${active ? "text-[#343872] dark:text-[#fb8c00]" : "text-gray-400 group-hover/sub:text-[#fb8c00]"
+          }`}
+      >
+        {icon}
+      </span>
+      <span className="truncate">{label}</span>
+    </Link>
+  );
+
+  // ---------------- Collapsible group ----------------
+  // When the sidebar is fully expanded, clicking toggles an inline accordion.
+  // When the sidebar is icon-only, hovering the icon reveals a flyout panel
+  // with the same submenu items — so functionality is never lost on collapse.
+  const Group = ({
+    icon,
+    label,
+    open,
+    onClick,
+    active,
+    items,
+  }: {
+    icon: React.ReactNode;
+    label: string;
+    open: boolean;
+    onClick: () => void;
+    active: boolean;
+    items: React.ReactNode;
+  }) => (
+    <li className={`group/nav relative ${iconOnly ? "flex justify-center" : ""}`}>
+      <button
+        title={iconOnly ? label : ""}
+        onClick={onClick}
+        className={`w-full flex items-center justify-between rounded-xl text-[13.5px] transition-all duration-200 group ${iconOnly ? "justify-center px-0 py-2.5 w-11" : "px-3 py-2.5"
+          } ${active
+            ? "text-[#343872] font-semibold dark:text-white"
+            : "text-gray-500 hover:bg-[#fb8c00]/10 hover:text-[#fb8c00] dark:text-gray-400 dark:hover:text-[#fb8c00]"
+          }`}
+      >
+        <span className={`flex items-center gap-3 ${iconOnly ? "" : ""}`}>
+          <span
+            className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-[14px] transition-colors duration-200 ${active
+                ? "bg-[#343872] text-white shadow-sm"
+                : "bg-gray-100 text-[#343872] group-hover:bg-[#fb8c00] group-hover:text-white dark:bg-white/5 dark:text-gray-200"
+              }`}
+          >
+            {icon}
+          </span>
+          {!iconOnly && <span>{label}</span>}
+        </span>
+        {!iconOnly && (
+          <FaChevronDown
+            size={11}
+            className={`text-gray-400 transition-transform duration-200 group-hover:text-[#fb8c00] ${open ? "rotate-180" : ""
+              }`}
+          />
+        )}
+      </button>
+
+      {/* Inline accordion (expanded sidebar) */}
+      {open && !iconOnly && (
+        <ul className="flex flex-col gap-0.5 ml-[18px] mt-1 pl-4 border-l border-[#E4E6EF] dark:border-white/10">
+          {items}
+        </ul>
+      )}
+
+      {/* Hover flyout (icon-only sidebar) — keeps submenu functionality when collapsed */}
+      {iconOnly && (
+        <div
+          className="invisible opacity-0 group-hover/nav:visible group-hover/nav:opacity-100 absolute left-full top-0 ml-2 min-w-[200px] rounded-xl bg-[#F5F6FA] dark:bg-[#1c1f3a] border border-[#E4E6EF] dark:border-white/10 shadow-lg py-2 px-2 transition-all duration-150 z-[1100]"
+        >
+          <div className="px-2 pb-1.5 mb-1 text-[12px] font-semibold text-gray-400 dark:text-gray-500 border-b border-[#E4E6EF] dark:border-white/10 flex items-center gap-1">
+            {label}
+            <FaChevronRight size={8} />
+          </div>
+          <ul className="flex flex-col gap-0.5">{items}</ul>
+        </div>
+      )}
+    </li>
+  );
 
   return (
-    <div
-      className="text-white d-flex flex-column"
-      style={{
-        backgroundColor: "#343872",
-        width: mobile
-          ? collapsed
-            ? "0px"
-            : "260px"
-          : collapsed
-            ? "80px"
-            : "260px",
-        height: "100vh",
-        position: "fixed",
-        left: 0,
-        top: 0,
-        transition: "all .3s ease",
-        zIndex: 1050,
-      }}
-    >
-      <div className="p-3 d-flex flex-column" style={{ height: "100%", }} >
-        <div className="text-center flex justify-center">
-          {collapsed ? (<img src={company?.logo || "/logo.png"} alt="logo" width="40" height="40" className="rounded-circle" />) : (
-            <>
+    <>
+      {/* Mobile backdrop — tap to close */}
+      {mobile && !collapsed && (
+        <div
+          className="fixed inset-0 bg-black/40 z-[1040] lg:hidden"
+          onClick={() => setCollapsed && setCollapsed(true)}
+        />
+      )}
+
+      <div
+        className="flex flex-col bg-[#F5F6FA] dark:bg-[#14162c] border-r border-[#E4E6EF] dark:border-white/10 overflow-visible"
+        style={{
+          width: mobile ? (collapsed ? "0px" : "268px") : collapsed ? "84px" : "268px",
+          height: "100vh",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          transition: "width .25s ease, background-color .2s ease",
+          zIndex: 1050,
+          boxShadow: "1px 0 0 rgba(0,0,0,0.03), 4px 0 24px rgba(0,0,0,0.02)",
+        }}
+      >
+        <div className="flex flex-col h-full overflow-hidden">
+          {/* Logo */}
+          <div
+            className={`flex items-center shrink-0 ${iconOnly ? "justify-center" : "px-5"
+              } h-[76px] border-b border-[#E4E6EF] dark:border-white/10`}
+          >
+            {iconOnly ? (
               <img
                 src={company?.logo || "/logo.png"}
                 alt="logo"
-                width="150"
-                className=""
+                width={38}
+                height={38}
+                className="rounded-full object-cover"
               />
-            </>
-          )}
-        </div>
-        <hr />
-
-        <div className="sidebar-scroll"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: "auto",
-            overflowX: "hidden",
-            paddingBottom: "90px",
-          }}
-        >
-
-          <ul className="nav flex-column">
-
-            {/* Dashboard Start Here */}
-            <PermissionGate permission="dashboard.view">
-
-              <li className="nav-item mb-2">
-                <Link href="/dashboard" title={collapsed ? "Dashboard" : ""}
-                  className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname === "/dashboard"
-                    ? "bg-primary text-white"
-                    : "text-white"
-                    }`}
-                >
-                  <FaTachometerAlt />
-
-                  {!collapsed && (
-                    <span className="ms-3"> Dashboard </span>
-                  )}
-
-                </Link>
-              </li>
-
-            </PermissionGate>
-            {/* Dashboard END Here */}
-            {/* ############################################### */}
-            {/* users section Start Here */}
-            <PermissionGate permission="users.view">
-
-              <li className="nav-item">
-                <button
-                  title={collapsed ? "Users" : ""}
-                  className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                  onClick={() => setCrmOpen(!crmOpen)}
-                >
-                  <span className="d-flex align-items-center">
-                    <FaUsers size={16} />
-
-                    {!collapsed && (
-                      <span className="ms-3">
-                        Users
-                      </span>
-                    )}
-                  </span>
-
-                  {!collapsed &&
-                    (crmOpen ? (
-                      <FaChevronDown />
-                    ) : (
-                      <FaChevronRight />
-                    ))}
-                </button>
-
-                {crmOpen && !collapsed && (
-                  <ul className="nav flex-column ms-4">
-                    <li>
-                      <Link href="/dashboard/users" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/users")
-                        ? "bg-primary text-white"
-                        : "text-white"
-                        }`}
-                      >
-                        User management
-                      </Link>
-                    </li>
-
-                    <li>
-                      <Link href="/dashboard/permissions" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/permissions")
-                        ? "bg-primary text-white"
-                        : "text-white"
-                        }`}
-                      >
-                        Permission
-                      </Link>
-                    </li>
-
-                    <li>
-                      <Link href="/dashboard/roles" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/roles")
-                        ? "bg-primary text-white"
-                        : "text-white"
-                        }`}
-                      >
-                        Roles
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-
-              </li>
-
-            </PermissionGate>
-            {/* users section end */}
-            {/* ######################################################### */}
-            {/* Inventory Section start here  */}
-            <PermissionGate permission="inventory.view">
-
-              <li className="nav-item mt-2">
-                <button title={collapsed ? "Inventory" : ""} className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                  onClick={() =>
-                    setInventoryOpen(!inventoryOpen)
-                  }
-                >
-                  <span className="d-flex align-items-center">
-                    <FaBoxOpen size={16} />
-
-                    {!collapsed && (
-                      <span className="ms-3"> Inventory </span>
-                    )}
-                  </span>
-
-                  {!collapsed &&
-                    (inventoryOpen ? (
-                      <FaChevronDown />
-                    ) : (
-                      <FaChevronRight />
-                    ))}
-                </button>
-
-                {inventoryOpen && !collapsed && (
-                  <ul className="nav flex-column ms-4">
-
-                    <li>
-                      <Link href="/dashboard/inventory/dashboard" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname === "/dashboard/inventory/dashboard"
-                        ? "bg-primary text-white"
-                        : "text-white"
-                        }`}
-                      >
-                        Inventory Dashboard
-                      </Link>
-                    </li>
-
-                    <li>
-                      <Link href="/dashboard/inventory/products" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/inventory/products")
-                        ? "bg-primary text-white"
-                        : "text-white"
-                        }`}
-                      >
-                        Products
-                      </Link>
-                    </li>
-
-                    <li>
-                      <Link href="#" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("#")
-                        ? "bg-primary text-white"
-                        : "text-white"
-                        }`}
-                      >
-                        Stock
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-              </li>
-
-            </PermissionGate>
-            {/* Inventory Section END here  */}
-            {/* ######################################## */}
-            {/* Sales Section Start here */}
-            <PermissionGate permission="sales.view">
-              <li className="nav-item mt-2">
-
-                <button
-                  title={collapsed ? "Sales" : ""}
-                  className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                  onClick={() => setSalesOpen(!salesOpen)}
-                >
-                  <span className="d-flex align-items-center">
-                    <FaShoppingCart size={16} />
-
-                    {!collapsed && (
-                      <span className="ms-3">
-                        Sales
-                      </span>
-                    )}
-                  </span>
-
-                  {!collapsed &&
-                    (salesOpen ? (
-                      <FaChevronDown />
-                    ) : (
-                      <FaChevronRight />
-                    ))}
-                </button>
-
-                {salesOpen && !collapsed && (
-                  <ul className="nav flex-column ms-4">
-                    <li>
-                      <Link href="/dashboard/sales/dashboard/" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/sales/dashboard/")
-                        ? "bg-primary text-white"
-                        : "text-white"
-                        }`}
-                      >
-                        Sales Dashboard
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        href="/dashboard/sales/invoices"
-                        className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/sales/invoices")
-                          ? "bg-primary text-white"
-                          : "text-white"
-                          }`}
-                      >
-                        Invoices
-                      </Link>
-                    </li>
-
-                    <li>
-                      <Link
-                        href="#"
-                        className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("#")
-                          ? "bg-primary text-white"
-                          : "text-white"
-                          }`}
-                      >
-                        Orders
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-              </li>
-
-            </PermissionGate>
-            {/* Sales Section END here */}
-            {/* ################################################ */}
-            {/* Customer Section START here */}
-            <PermissionGate permission="customer.view">
-              <li className="nav-item mt-2">
-                <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                  onClick={() =>
-                    setCustomerOpen(!customerOpen)
-                  }
-                >
-                  <span className="d-flex align-items-center">
-                    <FaBuilding />
-
-                    {!collapsed && (
-                      <span className="ms-3">
-                        Customer
-                      </span>
-                    )}
-                  </span>
-
-                  {!collapsed &&
-                    (customerOpen ? (
-                      <FaChevronDown />
-                    ) : (
-                      <FaChevronRight />
-                    ))}
-                </button>
-
-                {customerOpen && !collapsed && (
-                  <ul className="nav flex-column ms-4">
-                    <li>
-                      <Link href="/dashboard/customers" className="nav-link text-white">
-                        List Costomers
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-
-              </li>
-            </PermissionGate>
-
-            {/* // Customer master END Here  */}
-            {/* ############################################### */}
-            {/* // comapny master Start Here  */}
-            <PermissionGate permission="company.view">
-
-              <li className="nav-item mt-2">
-                <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                  onClick={() =>
-                    setCompanyOpen(!companyOpen)
-                  }
-                >
-                  <span className="d-flex align-items-center">
-                    <FaBuilding />
-                    {!collapsed && (
-                      <span className="ms-3">
-                        Company
-                      </span>
-                    )}
-                  </span>
-
-                  {!collapsed &&
-                    (companyOpen ? (
-                      <FaChevronDown />
-                    ) : (
-                      <FaChevronRight />
-                    ))}
-                </button>
-
-                {companyOpen && !collapsed && (
-
-                  <ul className="nav flex-column ms-4">
-                    <li>
-                      <Link href="/dashboard/company/create" className="nav-link text-white"> Create Company </Link>
-                    </li>
-                    <li>
-                      <Link href="/dashboard/company/list" className="nav-link text-white"> List Company</Link>
-                    </li>
-                  </ul>
-                )}
-
-              </li>
-
-            </PermissionGate>
-            {/* // Company master END Here  */}
-            {/* ############################################### */}
-            {/* Financial year Start year */}
-            <PermissionGate permission="financialyear.view">
-
-              <li className="nav-item mt-2">
-                <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                  onClick={() =>
-                    setFyOpen(!fyOpen)
-                  }
-                >
-                  <span className="d-flex align-items-center">
-                    <FaCalendarAlt />
-                    {!collapsed && (
-                      <span className="ms-3"> Financial Year </span>
-                    )}
-                  </span>
-
-                  {!collapsed &&
-                    (fyOpen ? (
-                      <FaChevronDown />
-                    ) : (
-                      <FaChevronRight />
-                    ))}
-                </button>
-
-                {fyOpen && !collapsed && (
-
-                  <ul className="nav flex-column ms-4">
-                    <li>
-                      <Link href="/dashboard/financial-year/create" className="nav-link text-white">  Create FY </Link>
-                    </li>
-                    <li>
-                      <Link href="/dashboard/financial-year/list" className="nav-link text-white"> List FY </Link>
-                    </li>
-                  </ul>
-                )}
-
-              </li>
-            </PermissionGate>
-
-            {/* Financial year END year */}
-            {/* ############################################### */}
-            {/* Reports Section Start here  */}
-            {/* <PermissionGate permission="reports.view">
-
-                          <li className="nav-item mt-2">
-                            <Link href="/dashboard/report" title={collapsed ? "Reports" : ""}
-                                className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
-                                pathname.startsWith("#") ? "bg-primary text-white"
-                                      : "text-white"
-                                }`}
-                              >
-                                Sales Dashboard
-                              </Link>
-                            </li>
-
-                        </PermissionGate> */}
-            {/* Reports Section END here  */}
-            {/* ########################################### */}
-            {/* VFP Section Start here */}
-            {(can("vfp.view") || can("vfp.settings")) && (
-              <li className="nav-item mt-2">
-                <button
-                  title={collapsed ? "VFP Integration" : ""}
-                  className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                  onClick={() => setVfpOpen(!vfpOpen)}
-                >
-                  <span className="d-flex align-items-center">
-                    <FaExchangeAlt size={16} />
-                    {!collapsed && (
-                      <span className="ms-3"> VFP Integration </span>
-                    )}
-                  </span>
-
-                  {!collapsed &&
-                    (vfpOpen ? (
-                      <FaChevronDown />
-                    ) : (
-                      <FaChevronRight />
-                    ))}
-                </button>
-
-                {vfpOpen && !collapsed && (
-                  <ul className="nav flex-column ms-4">
-                    {can("vfp.view") && (
-                      <li>
-                        <Link href="/dashboard/vfp" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname === "/dashboard/vfp"
-                          ? "bg-primary text-white"
-                          : "text-white"
-                          }`}
-                        >
-                          Sync Console
-                        </Link>
-                      </li>
-                    )}
-                    {can("vfp.settings") && (
-                      <li>
-                        <Link href="/dashboard/vfp/settings" className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/vfp/settings")
-                          ? "bg-primary text-white"
-                          : "text-white"
-                          }`}
-                        >
-                          VFP Settings
-                        </Link>
-                      </li>
-                    )}
-                  </ul>
-                )}
-              </li>
+            ) : (
+              <img src={company?.logo || "/logo.png"} alt="logo" className="max-h-10 w-auto object-contain" />
             )}
-            {/* VFP Section END here */}
-            {/* ########################################### */}
-            {/* Settings Section STart here */}
-            {/* <PermissionGate permission="settings.edit">
-                          <li className="nav-item mt-2">
-                            <Link href="/dashboard/settings" title={collapsed ? "Settings" : ""}
-                                  className={`nav-link d-flex align-items-center rounded px-3 py-2 ${
-                                    pathname.startsWith("/dashboard/settings")
-                                      ? "bg-primary text-white"
-                                      : "text-white"
-                                  }`}
-                              >
-                                Sales Dashboard
-                              </Link>
-                            </li>
+          </div>
 
-                            <li>
-                              <Link
-                                href="#"
-                                className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname === "/dashboard/sales/invoices"
-                                    ? "bg-primary text-white"
-                                    : "text-white"
-                                  }`}
-                              >
-                                Invoices
-                              </Link>
-                            </li>
+          {/* Nav */}
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-visible px-3 py-4 sidebar-scroll">
+            <ul className="flex flex-col gap-1">
+              <PermissionGate permission="dashboard.view">
+                <li>
+                  <NavLink
+                    href="/dashboard"
+                    icon={<FaTachometerAlt />}
+                    label="Dashboard"
+                    active={pathname === "/dashboard"}
+                  />
+                </li>
+              </PermissionGate>
 
-                            <li>
-                              <Link
-                                href="#"
-                                className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname === "/dashboard/sales/orders"
-                                    ? "bg-primary text-white"
-                                    : "text-white"
-                                  }`}
-                              >
-                                Orders
-                              </Link>
-                            </li>
-
-                          </ul>
-                        )}
+              <PermissionGate permission="users.view">
+                <Group
+                  icon={<FaUsers />}
+                  label="Users"
+                  open={crmOpen}
+                  onClick={() => setCrmOpen(!crmOpen)}
+                  active={
+                    pathname.startsWith("/dashboard/users") ||
+                    pathname.startsWith("/dashboard/permissions") ||
+                    pathname.startsWith("/dashboard/roles")
+                  }
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/users"
+                          icon={<FaUsers />}
+                          label="User Management"
+                          active={pathname.startsWith("/dashboard/users")}
+                        />
                       </li>
-
-                    </PermissionGate>  */}
-            {/* Sales Section END here */}
-            {/* ################################################ */}
-            {/* Customer Section START here */}
-            {/* <PermissionGate permission="customer.view">
-                      <li className="nav-item mt-2">
-                        <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                          onClick={() =>
-                            setCustomerOpen(!customerOpen)
-                          }
-                        >
-                          <span className="d-flex align-items-center">
-                            <FaBuilding />
-
-                            {!collapsed && (
-                              <span className="ms-3">
-                                Customer
-                              </span>
-                            )}
-                          </span>
-
-                          {!collapsed &&
-                            (customerOpen ? (
-                              <FaChevronDown />
-                            ) : (
-                              <FaChevronRight />
-                            ))}
-                        </button>
-
-                        {customerOpen && !collapsed && (
-                          <ul className="nav flex-column ms-4">
-                            <li>
-                              <Link href="/dashboard/customers" className="nav-link text-white">
-                                List Costomers
-                              </Link>
-                            </li>
-                          </ul>
-                        )}
-
+                      <li>
+                        <SubLink
+                          href="/dashboard/permissions"
+                          icon={<FaUserShield />}
+                          label="Permission"
+                          active={pathname.startsWith("/dashboard/permissions")}
+                        />
                       </li>
-                    </PermissionGate>
-
-                    {/* // Customer master END Here  */}
-            {/* ############################################### */}
-            {/* // comapny master Start Here  */}
-            {/* <PermissionGate permission="company.view">
-
-                      <li className="nav-item mt-2">
-                        <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                          onClick={() =>
-                            setCompanyOpen(!companyOpen)
-                          }
-                        >
-                          <span className="d-flex align-items-center">
-                            <FaBuilding />
-                            {!collapsed && (
-                              <span className="ms-3">
-                                Company
-                              </span>
-                            )}
-                          </span>
-
-                          {!collapsed &&
-                            (companyOpen ? (
-                              <FaChevronDown />
-                            ) : (
-                              <FaChevronRight />
-                            ))}
-                        </button>
-
-                        {companyOpen && !collapsed && (
-
-                          <ul className="nav flex-column ms-4">
-                            <li>
-                              <Link href="/dashboard/company/create" className="nav-link text-white"> Create Company </Link>
-                            </li>
-                            <li>
-                              <Link href="/dashboard/company/list" className="nav-link text-white"> List Company</Link>
-                            </li>
-                          </ul>
-                        )}
-
+                      <li>
+                        <SubLink
+                          href="/dashboard/roles"
+                          icon={<FaUserTag />}
+                          label="Roles"
+                          active={pathname.startsWith("/dashboard/roles")}
+                        />
                       </li>
+                    </>
+                  }
+                />
+              </PermissionGate>
 
-                    </PermissionGate> */}
-            {/* // Company master END Here  */}
-            {/* ############################################### */}
-            {/* Financial year Start year */}
-            {/* <PermissionGate permission="financialyear.view">
-
-                      <li className="nav-item mt-2">
-                        <button className="btn text-white w-100 d-flex align-items-center justify-content-between"
-                          onClick={() =>
-                            setFyOpen(!fyOpen)
-                          }
-                        >
-                          <span className="d-flex align-items-center">
-                            <FaCalendarAlt />
-                            {!collapsed && (
-                              <span className="ms-3"> Financial Year </span>
-                            )}
-                          </span>
-
-                          {!collapsed &&
-                            (fyOpen ? (
-                              <FaChevronDown />
-                            ) : (
-                              <FaChevronRight />
-                            ))}
-                        </button>
-
-                        {fyOpen && !collapsed && (
-
-                          <ul className="nav flex-column ms-4">
-                            <li>
-                              <Link href="/dashboard/financial-year/create" className="nav-link text-white">  Create FY </Link>
-                            </li>
-                            <li>
-                              <Link href="/dashboard/financial-year/list" className="nav-link text-white"> List FY </Link>
-                            </li>
-                          </ul>
-                        )}
-
+              <PermissionGate permission="inventory.view">
+                <Group
+                  icon={<FaBoxOpen />}
+                  label="Inventory"
+                  open={inventoryOpen}
+                  onClick={() => setInventoryOpen(!inventoryOpen)}
+                  active={pathname.startsWith("/dashboard/inventory")}
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/inventory/dashboard"
+                          icon={<FaTachometerAlt />}
+                          label="Inventory Dashboard"
+                          active={pathname === "/dashboard/inventory/dashboard"}
+                        />
                       </li>
-                    </PermissionGate> */}
+                      <li>
+                        <SubLink
+                          href="/dashboard/inventory/products"
+                          icon={<FaBoxOpen />}
+                          label="Products"
+                          active={pathname.startsWith("/dashboard/inventory/products")}
+                        />
+                      </li>
+                      <li>
+                        <SubLink href="#" icon={<FaWarehouse />} label="Stock" active={false} />
+                      </li>
+                    </>
+                  }
+                />
+              </PermissionGate>
 
-            {/* Financial year END year */}
-            {/* ############################################### */}
-            {/* Reports Section Start here  */}
-            <PermissionGate permission="reports.view">
+              <PermissionGate permission="sales.view">
+                <Group
+                  icon={<FaShoppingCart />}
+                  label="Sales"
+                  open={salesOpen}
+                  onClick={() => setSalesOpen(!salesOpen)}
+                  active={pathname.startsWith("/dashboard/sales")}
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/sales/dashboard/"
+                          icon={<FaTachometerAlt />}
+                          label="Sales Dashboard"
+                          active={pathname.startsWith("/dashboard/sales/dashboard/")}
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/sales/invoice"
+                          icon={<FaFileInvoice />}
+                          label="Invoices"
+                          active={pathname.startsWith("/dashboard/sales/invoice")}
+                        />
+                      </li>
+                      <li>
+                        <SubLink href="#" icon={<FaClipboardList />} label="Orders" active={false} />
+                      </li>
+                    </>
+                  }
+                />
+              </PermissionGate>
 
-              <li className="nav-item mt-2">
-                <Link href="/dashboard/reports" title={collapsed ? "Reports" : ""}
-                  className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("#") ? "bg-primary text-white"
-                    : "text-white"
-                    }`}
-                >
-                  <FaChartBar />
-                  {!collapsed && (
-                    <span className="ms-3"> Reports </span>
-                  )}
-                </Link>
-              </li>
+              <PermissionGate permission="customer.view">
+                <Group
+                  icon={<FaBuilding />}
+                  label="Customer"
+                  open={customerOpen}
+                  onClick={() => setCustomerOpen(!customerOpen)}
+                  active={pathname.startsWith("/dashboard/customers")}
+                  items={
+                    <li>
+                      <SubLink
+                        href="/dashboard/customers"
+                        icon={<FaListUl />}
+                        label="List Customers"
+                        active={pathname.startsWith("/dashboard/customers")}
+                      />
+                    </li>
+                  }
+                />
+              </PermissionGate>
 
-            </PermissionGate>
-            {/* Reports Section END here  */}
-            {/* ########################################### */}
-            {/* Settings Section STart here */}
-            <PermissionGate permission="settings.edit">
-              <li className="nav-item mt-2">
-                <Link href="/dashboard/settings" title={collapsed ? "Settings" : ""}
-                  className={`nav-link d-flex align-items-center rounded px-3 py-2 ${pathname.startsWith("/dashboard/settings")
-                    ? "bg-primary text-white"
-                    : "text-white"
-                    }`}
-                >
-                  <FaCog />
+              <PermissionGate permission="company.view">
+                <Group
+                  icon={<FaBuilding />}
+                  label="Company"
+                  open={companyOpen}
+                  onClick={() => setCompanyOpen(!companyOpen)}
+                  active={pathname.startsWith("/dashboard/company")}
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/company/create"
+                          icon={<FaPlusCircle />}
+                          label="Create Company"
+                          active={pathname.startsWith("/dashboard/company/create")}
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/company/list"
+                          icon={<FaListUl />}
+                          label="List Company"
+                          active={pathname.startsWith("/dashboard/company/list")}
+                        />
+                      </li>
+                    </>
+                  }
+                />
+              </PermissionGate>
 
-                  {!collapsed && (
-                    <span className="ms-3"> Company Settings </span>
-                  )}
-                </Link>
-              </li>
-            </PermissionGate>
+              <PermissionGate permission="financialyear.view">
+                <Group
+                  icon={<FaCalendarAlt />}
+                  label="Financial Year"
+                  open={fyOpen}
+                  onClick={() => setFyOpen(!fyOpen)}
+                  active={pathname.startsWith("/dashboard/financial-year")}
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/financial-year/create"
+                          icon={<FaPlusCircle />}
+                          label="Create FY"
+                          active={pathname.startsWith("/dashboard/financial-year/create")}
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/financial-year/list"
+                          icon={<FaListUl />}
+                          label="List FY"
+                          active={pathname.startsWith("/dashboard/financial-year/list")}
+                        />
+                      </li>
+                    </>
+                  }
+                />
+              </PermissionGate>
 
-            {/* Settings Section END here */}
-          </ul>
+              {(can("vfp.view") || can("vfp.settings")) && (
+                <Group
+                  icon={<FaExchangeAlt />}
+                  label="VFP Integration"
+                  open={vfpOpen}
+                  onClick={() => setVfpOpen(!vfpOpen)}
+                  active={pathname.startsWith("/dashboard/vfp")}
+                  items={
+                    <>
+                      {can("vfp.view") && (
+                        <li>
+                          <SubLink
+                            href="/dashboard/vfp"
+                            icon={<FaSyncAlt />}
+                            label="Sync Console"
+                            active={pathname === "/dashboard/vfp"}
+                          />
+                        </li>
+                      )}
+                      {can("vfp.settings") && (
+                        <li>
+                          <SubLink
+                            href="/dashboard/vfp/settings"
+                            icon={<FaSlidersH />}
+                            label="VFP Settings"
+                            active={pathname.startsWith("/dashboard/vfp/settings")}
+                          />
+                        </li>
+                      )}
+                    </>
+                  }
+                />
+              )}
 
-        </div>
+              <PermissionGate permission="reports.view">
+                <li>
+                  <NavLink
+                    href="/dashboard/reports"
+                    icon={<FaChartBar />}
+                    label="Reports"
+                    active={pathname.startsWith("/dashboard/reports")}
+                  />
+                </li>
+              </PermissionGate>
 
+              <PermissionGate permission="settings.edit">
+                <li>
+                  <NavLink
+                    href="/dashboard/settings"
+                    icon={<FaCog />}
+                    label="Company Settings"
+                    active={pathname.startsWith("/dashboard/settings")}
+                  />
+                </li>
+              </PermissionGate>
+            </ul>
+          </div>
 
-        {!collapsed && (
+          {/* Profile footer */}
           <div
-            className="border-top p-3"
-            style={{
-              backgroundColor: "#343872",
-            }}
+            className={`border-t border-[#E4E6EF] dark:border-white/10 p-3 shrink-0 ${iconOnly ? "flex justify-center" : ""
+              }`}
           >
-            <small className="text-secondary">
-              Logged in as
-            </small>
-
-            <div className="fw-bold">
-              Company Admin
+            <div
+              className={`flex items-center gap-3 rounded-xl px-2 py-2 ${iconOnly ? "" : "bg-[#343872]/5 dark:bg-white/5"
+                }`}
+            >
+              <span className="flex items-center justify-center w-9 h-9 rounded-full bg-[#343872] text-white flex-shrink-0">
+                <FaUserCircle size={18} />
+              </span>
+              {!iconOnly && (
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-[#343872] dark:text-white truncate">
+                    Company Admin
+                  </div>
+                  <div className="text-[11px] text-gray-400">Logged in</div>
+                </div>
+              )}
             </div>
           </div>
-        )}
-
-
+        </div>
       </div>
-    </div>
+
+      <style jsx global>{`
+        .sidebar-scroll::-webkit-scrollbar {
+          width: 5px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+          background-color: rgba(52, 56, 114, 0.15);
+          border-radius: 999px;
+        }
+        .dark .sidebar-scroll::-webkit-scrollbar-thumb {
+          background-color: rgba(255, 255, 255, 0.12);
+        }
+      `}</style>
+    </>
   );
 }
