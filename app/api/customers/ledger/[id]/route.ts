@@ -90,19 +90,6 @@ export async function GET(
     // Sales Summary
     // =========================
 
-    // const invoices = await SalesMdis.find(
-    //   {
-    //     CODEP: customer.ORDNO,
-    //   },
-    //   {
-    //     FINAL: 1,
-    //   }
-    // ).lean();
-
-    // const totalSale = invoices.reduce(
-    //   (sum: number, x: any) => sum + Number(x.FINAL || 0),
-    //   0
-    // );
     const invoices = await SalesMdis.find(
       {
         CODEP: customer.ORDNO,
@@ -119,38 +106,77 @@ export async function GET(
     )
       .sort({ DATE: -1 })
       .lean();
+
+    // =========================
+// Sales Register
+// =========================
+
+const sales = invoices.map((item: any) => {
+
+  const amount = Number(item.FINAL || 0);
+
+  const received = Number(item.RECEIVED || 0);
+
+  const pending = amount - received;
+
+  return {
+
+    date: item.DATE,
+
+    voucher: item.VCN,
+
+    billNo: item.VCN,
+
+    amount,
+
+    received,
+
+    pending,
+
+    status:
+      pending <= 0
+        ? "Paid"
+        : received > 0
+        ? "Partial"
+        : "Pending",
+
+  };
+
+});
+
+
+// =========================
+// Outstanding Register
+// =========================
+
+const outstanding = sales.filter(
+  (x: any) => x.pending > 0
+);
     
-    const totalBills = invoices.length;
-    
-    const totalSales = invoices.reduce(
+    const totalBills = sales.length;
+
+
+    const totalSales = sales.reduce(
       (sum: number, x: any) =>
         sum + Number(x.FINAL || 0),
       0
     );
     
-    const lastBill = invoices[0] || null;
 
+    
+    const lastBill = sales[0] || null;
     // Temporary Outstanding Logic
 // Baad me Receipt Adjustment karenge
 
-const outstandingInvoices = invoices.filter(
-  (x: any) => Number(x.FINAL || 0) > 0
-);
-
 const outstandingBills =
-  outstandingInvoices.length;
+  outstanding.length;
 
 const outstandingAmount =
-  outstandingInvoices.reduce(
+  outstanding.reduce(
     (sum: number, x: any) =>
-      sum + Number(x.FINAL || 0),
+      sum + x.pending,
     0
   );
-
-
-
-
-
 
 
     const totalDebit = ledger.reduce(
@@ -164,62 +190,66 @@ const outstandingAmount =
     );
 
     return NextResponse.json({
-      success: true,
 
-      customer: {
-        id: customer._id,
-        code: customer.ORDNO,
-        name: customer.PARNAM,
-        city: customer.CITY,
-        state: customer.STATE,
-        phone: customer.PHONE1 || customer.PHONE4,
-        gst: customer.GSTNO,
-        dlno: customer.DLNO,
-        opening: Number(customer.OPNING || 0),
-        currentBalance: Number(customer.BALANCE || 0),
+      success:true,
+      
+      customer:{
+      
+      id:customer._id,
+      
+      code:customer.ORDNO,
+      
+      name:customer.PARNAM,
+      
+      city:customer.CITY,
+      
+      state:customer.STATE,
+      
+      phone:customer.PHONE1||customer.PHONE4,
+      
+      gst:customer.GSTNO,
+      
+      dlno:customer.DLNO,
+      
+      opening:Number(customer.OPNING||0),
+      
+      currentBalance:Number(customer.BALANCE||0)
+      
       },
-
-      // summary: {
-      //   opening: Number(customer.OPNING || 0),
-      //   debit: totalDebit,
-      //   credit: totalCredit,
-      //   sale: totalSale,
-      //   closing: runningBalance,
-      // },
-      summary: {
-        opening: Number(customer.OPNING || 0),
       
-        debit: totalDebit,
+      summary:{
       
-        credit: totalCredit,
+      opening:Number(customer.OPNING||0),
       
-        closing: runningBalance,
+      debit:totalDebit,
       
-        totalBills,
+      credit:totalCredit,
       
-        totalSales,
+      closing:runningBalance,
       
-        outstandingBills,
+      totalBills,
       
-        outstandingAmount,
+      totalSales,
       
-        ledgerBalance:
-          Number(customer.BALANCE || 0),
+      outstandingBills,
       
-        lastBillNo:
-          lastBill?.VCN || "",
+      outstandingAmount,
       
-        lastBillDate:
-          lastBill?.DATE || "",
+      ledgerBalance:Number(customer.BALANCE||0),
+      
+      lastBillNo:lastBill?.billNo||"",
+      
+      lastBillDate:lastBill?.date||""
+      
       },
-
-
-
-
+      
       ledger,
       
-      invoices
-    });
+      sales,
+      
+      outstanding
+      
+      });
 
   } catch (err: any) {
     return NextResponse.json(
