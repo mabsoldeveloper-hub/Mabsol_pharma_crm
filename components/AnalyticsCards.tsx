@@ -79,24 +79,84 @@ export default function AnalyticsCards({ analytics }: { analytics: any }) {
 
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <style>{`
+                @keyframes fadeSlideIn {
+                    from { opacity: 0; transform: translateY(14px) scale(0.96); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                .liquid-glass-card {
+                    background:
+                        linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.18) 45%, rgba(255,255,255,0.28) 100%);
+                    backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+                    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+                    box-shadow:
+                        inset 0 1px 1px rgba(255,255,255,0.9),
+                        inset 0 -8px 16px -8px rgba(255,255,255,0.4),
+                        inset 0 -1px 2px rgba(0,0,0,0.05),
+                        0 1px 1px rgba(255,255,255,0.6),
+                        0 10px 30px -8px rgba(31,38,135,0.14),
+                        0 2px 8px rgba(31,38,135,0.06);
+                    border: 1px solid rgba(255,255,255,0.5);
+                }
+                .liquid-glass-card:hover {
+                    box-shadow:
+                        inset 0 1px 1px rgba(255,255,255,0.95),
+                        inset 0 -8px 16px -8px rgba(255,255,255,0.5),
+                        inset 0 -1px 2px rgba(0,0,0,0.05),
+                        0 1px 1px rgba(255,255,255,0.7),
+                        0 20px 45px -10px rgba(31,38,135,0.22),
+                        0 4px 14px rgba(31,38,135,0.1);
+                }
+                .liquid-glass-specular {
+                    background: radial-gradient(120% 100% at 18% 0%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.25) 30%, transparent 60%);
+                    mix-blend-mode: screen;
+                }
+            `}</style>
             {cards.map((card, i) => (
                 <div
                     key={i}
-                    className="group flex cursor-default flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg sm:p-5"
-                    style={{ "--accent": card.color } as React.CSSProperties}
+                    style={{ "--accent": card.color, animationDelay: `${i * 55}ms` } as React.CSSProperties}
+                    className="
+                        liquid-glass-card group relative isolate flex cursor-default flex-col justify-between overflow-hidden
+                        rounded-[1.35rem]
+                        animate-[fadeSlideIn_0.55s_cubic-bezier(0.34,1.56,0.64,1)_both]
+                        transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                        hover:-translate-y-1.5 hover:scale-[1.015]
+                        active:scale-[0.98] active:duration-150
+                        p-4 sm:p-5
+                    "
                 >
-                    <div className="flex items-start justify-between gap-3">
+                    {/* specular highlight — simulates light refracting off curved glass top-left */}
+                    <div className="liquid-glass-specular pointer-events-none absolute inset-0 rounded-[1.35rem] transition-opacity duration-500 opacity-80 group-hover:opacity-100" />
+
+                    {/* soft colored glow blob rising from beneath the glass */}
+                    <div
+                        className="pointer-events-none absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-2xl opacity-40 scale-90 transition-all duration-700 ease-out group-hover:opacity-70 group-hover:scale-125"
+                        style={{ background: `radial-gradient(circle, ${card.color}66, transparent 70%)` }}
+                    />
+
+                    {/* razor-thin top edge catch-light */}
+                    <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
+
+                    <div className="relative flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                            <p className="truncate text-xs font-medium text-slate-400 transition-colors duration-300 group-hover:text-slate-500">
+                            <p className="truncate text-xs font-medium text-slate-600 transition-colors duration-300 group-hover:text-slate-700">
                                 {card.title}
                             </p>
-                            <p className="mt-1.5 truncate text-xl font-bold text-slate-800 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
+                            <p className="mt-1.5 truncate text-xl font-bold text-slate-900 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
                                 {card.value}
                             </p>
                         </div>
                         <div
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 ease-out group-hover:scale-110"
-                            style={{ backgroundColor: `${card.color}14` }}
+                            className="
+                                relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl
+                                bg-white/50 backdrop-blur-md
+                                shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),inset_0_-2px_4px_rgba(0,0,0,0.04),0_2px_6px_rgba(0,0,0,0.06)]
+                                border border-white/60
+                                transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                group-hover:scale-110 group-hover:-rotate-6
+                                group-hover:shadow-[inset_0_1px_1px_rgba(255,255,255,1),inset_0_-2px_4px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.1)]
+                            "
                         >
                             <card.icon className="h-4.5 w-4.5" style={{ color: card.color }} strokeWidth={2} />
                         </div>
@@ -104,7 +164,7 @@ export default function AnalyticsCards({ analytics }: { analytics: any }) {
 
                     {/* accent line that grows in on hover */}
                     <div
-                        className="mt-3 h-0.5 w-0 rounded-full transition-all duration-300 ease-out group-hover:w-full"
+                        className="relative mt-3 h-0.5 w-0 rounded-full transition-all duration-300 ease-out group-hover:w-full"
                         style={{ backgroundColor: card.color }}
                     />
                 </div>

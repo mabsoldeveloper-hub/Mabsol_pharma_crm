@@ -138,26 +138,29 @@ export default function KPICards({ kpis }: { kpis: any }) {
         },
     ];
 
-    // Tailwind ka JIT purely dynamic class string (`border-${color}-500`) resolve nahi karta,
+    // Tailwind ka JIT purely dynamic class string resolve nahi karta,
     // isliye har color ka mapping explicitly likha hai — safe way for production build.
-    const colorMap: Record<string, { border: string; iconBg: string; iconText: string; hoverBg: string }> = {
-        indigo: { border: "border-indigo-500", iconBg: "bg-indigo-50", iconText: "text-indigo-600", hoverBg: "group-hover:bg-indigo-500" },
-        blue: { border: "border-blue-500", iconBg: "bg-blue-50", iconText: "text-blue-600", hoverBg: "group-hover:bg-blue-500" },
-        cyan: { border: "border-cyan-500", iconBg: "bg-cyan-50", iconText: "text-cyan-600", hoverBg: "group-hover:bg-cyan-500" },
-        teal: { border: "border-teal-500", iconBg: "bg-teal-50", iconText: "text-teal-600", hoverBg: "group-hover:bg-teal-500" },
-        amber: { border: "border-amber-500", iconBg: "bg-amber-50", iconText: "text-amber-600", hoverBg: "group-hover:bg-amber-500" },
-        rose: { border: "border-rose-500", iconBg: "bg-rose-50", iconText: "text-rose-600", hoverBg: "group-hover:bg-rose-500" },
-        emerald: { border: "border-emerald-500", iconBg: "bg-emerald-50", iconText: "text-emerald-600", hoverBg: "group-hover:bg-emerald-500" },
-        violet: { border: "border-violet-500", iconBg: "bg-violet-50", iconText: "text-violet-600", hoverBg: "group-hover:bg-violet-500" },
-        sky: { border: "border-sky-500", iconBg: "bg-sky-50", iconText: "text-sky-600", hoverBg: "group-hover:bg-sky-500" },
-        green: { border: "border-green-500", iconBg: "bg-green-50", iconText: "text-green-600", hoverBg: "group-hover:bg-green-500" },
-        orange: { border: "border-orange-500", iconBg: "bg-orange-50", iconText: "text-orange-600", hoverBg: "group-hover:bg-orange-500" },
-        red: { border: "border-red-500", iconBg: "bg-red-50", iconText: "text-red-600", hoverBg: "group-hover:bg-red-500" },
-        purple: { border: "border-purple-500", iconBg: "bg-purple-50", iconText: "text-purple-600", hoverBg: "group-hover:bg-purple-500" },
-        pink: { border: "border-pink-500", iconBg: "bg-pink-50", iconText: "text-pink-600", hoverBg: "group-hover:bg-pink-500" },
-        lime: { border: "border-lime-500", iconBg: "bg-lime-50", iconText: "text-lime-600", hoverBg: "group-hover:bg-lime-500" },
-        fuchsia: { border: "border-fuchsia-500", iconBg: "bg-fuchsia-50", iconText: "text-fuchsia-600", hoverBg: "group-hover:bg-fuchsia-500" },
-        yellow: { border: "border-yellow-500", iconBg: "bg-yellow-50", iconText: "text-yellow-600", hoverBg: "group-hover:bg-yellow-500" },
+    const colorMap: Record<
+        string,
+        { iconText: string; glowFrom: string; ring: string }
+    > = {
+        indigo: { iconText: "text-indigo-600", glowFrom: "from-indigo-400/40", ring: "ring-indigo-300/40" },
+        blue: { iconText: "text-blue-600", glowFrom: "from-blue-400/40", ring: "ring-blue-300/40" },
+        cyan: { iconText: "text-cyan-600", glowFrom: "from-cyan-400/40", ring: "ring-cyan-300/40" },
+        teal: { iconText: "text-teal-600", glowFrom: "from-teal-400/40", ring: "ring-teal-300/40" },
+        amber: { iconText: "text-amber-600", glowFrom: "from-amber-400/40", ring: "ring-amber-300/40" },
+        rose: { iconText: "text-rose-600", glowFrom: "from-rose-400/40", ring: "ring-rose-300/40" },
+        emerald: { iconText: "text-emerald-600", glowFrom: "from-emerald-400/40", ring: "ring-emerald-300/40" },
+        violet: { iconText: "text-violet-600", glowFrom: "from-violet-400/40", ring: "ring-violet-300/40" },
+        sky: { iconText: "text-sky-600", glowFrom: "from-sky-400/40", ring: "ring-sky-300/40" },
+        green: { iconText: "text-green-600", glowFrom: "from-green-400/40", ring: "ring-green-300/40" },
+        orange: { iconText: "text-orange-600", glowFrom: "from-orange-400/40", ring: "ring-orange-300/40" },
+        red: { iconText: "text-red-600", glowFrom: "from-red-400/40", ring: "ring-red-300/40" },
+        purple: { iconText: "text-purple-600", glowFrom: "from-purple-400/40", ring: "ring-purple-300/40" },
+        pink: { iconText: "text-pink-600", glowFrom: "from-pink-400/40", ring: "ring-pink-300/40" },
+        lime: { iconText: "text-lime-600", glowFrom: "from-lime-400/40", ring: "ring-lime-300/40" },
+        fuchsia: { iconText: "text-fuchsia-600", glowFrom: "from-fuchsia-400/40", ring: "ring-fuchsia-300/40" },
+        yellow: { iconText: "text-yellow-600", glowFrom: "from-yellow-400/40", ring: "ring-yellow-300/40" },
     };
 
     return (
@@ -168,32 +171,58 @@ export default function KPICards({ kpis }: { kpis: any }) {
                     <div
                         key={index}
                         onClick={() => card.url && router.push(card.url)}
+                        style={{ animationDelay: `${index * 40}ms` }}
                         className={`
-                            group relative bg-white rounded-xl border-l-4 ${c.border}
-                            shadow-sm hover:shadow-lg
-                            transition-all duration-300 ease-out
-                            hover:-translate-y-1
+                            group relative isolate overflow-hidden rounded-2xl
+                            bg-white/40 backdrop-blur-xl backdrop-saturate-150
+                            border border-white/60
+                            shadow-[0_8px_32px_rgba(31,38,135,0.12)]
+                            ring-1 ${c.ring}
+                            animate-[fadeSlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
+                            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                            hover:-translate-y-1.5 hover:scale-[1.02]
+                            hover:shadow-[0_16px_40px_rgba(31,38,135,0.18)]
+                            active:scale-[0.98] active:duration-150
                             ${card.url ? "cursor-pointer" : "cursor-default"}
                             p-4 sm:p-5
                         `}
                     >
-                        <div className="flex items-center justify-between gap-3">
+                        {/* liquid glass top-sheen */}
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/50 via-white/10 to-transparent" />
+
+                        {/* soft colored glow blob, apple-style, expands on hover */}
+                        <div
+                            className={`
+                                pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full
+                                bg-gradient-to-br ${c.glowFrom} to-transparent blur-2xl
+                                opacity-60 scale-90
+                                transition-all duration-700 ease-out
+                                group-hover:opacity-100 group-hover:scale-125
+                            `}
+                        />
+
+                        {/* faint inner top border for the "glass edge" highlight */}
+                        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
+
+                        <div className="relative flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-500 truncate mb-1">
+                                <p className="text-xs font-medium text-gray-600/90 truncate mb-1 tracking-wide">
                                     {card.title}
                                 </p>
-                                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 truncate">
+                                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 truncate transition-transform duration-500 group-hover:translate-x-0.5">
                                     {card.value}
                                 </h3>
                             </div>
 
                             <div
                                 className={`
-                                    flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center
-                                    ${c.iconBg} ${c.iconText}
-                                    transition-all duration-300
-                                    group-hover:text-white ${c.hoverBg}
-                                    group-hover:scale-110 group-hover:rotate-3
+                                    flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
+                                    bg-white/60 backdrop-blur-md ${c.iconText}
+                                    border border-white/70
+                                    shadow-[0_2px_8px_rgba(0,0,0,0.06)]
+                                    transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                    group-hover:scale-110 group-hover:rotate-6
+                                    group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]
                                 `}
                             >
                                 {card.icon}
@@ -202,6 +231,19 @@ export default function KPICards({ kpis }: { kpis: any }) {
                     </div>
                 );
             })}
+
+            <style jsx global>{`
+                @keyframes fadeSlideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(12px) scale(0.97);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+                }
+            `}</style>
         </div>
     );
 }
