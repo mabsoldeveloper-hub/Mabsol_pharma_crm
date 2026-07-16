@@ -70,25 +70,44 @@ export async function GET() {
     const finalPermissions =
       new Set<string>();
 
-    rolePermissions.forEach(
-      (item: any) => {
+    // rolePermissions.forEach(
+    //   (item: any) => {
 
-        finalPermissions.add(
-          item.permissionId.permissionKey
-        );
+    //     finalPermissions.add(
+    //       item.permissionId.permissionKey
+    //     );
 
+    //   }
+    // );
+
+    // userPermissions.forEach(
+    //   (item: any) => {
+
+    //     finalPermissions.add(
+    //       item.permissionId.permissionKey
+    //     );
+
+    //   }
+    // );
+    rolePermissions.forEach((item: any) => {
+
+      if (item.permissionId) {
+        finalPermissions.add(item.permissionId.permissionKey);
+      } else {
+        console.log("Invalid Role Permission:", item);
       }
-    );
-
-    userPermissions.forEach(
-      (item: any) => {
-
-        finalPermissions.add(
-          item.permissionId.permissionKey
-        );
-
+    
+    });
+    
+    userPermissions.forEach((item: any) => {
+    
+      if (item.permissionId) {
+        finalPermissions.add(item.permissionId.permissionKey);
+      } else {
+        console.log("Invalid User Permission:", item);
       }
-    );
+    
+    });
 
     return NextResponse.json({
 
