@@ -79,7 +79,9 @@ export async function POST(req: Request) {
     //   }
     // );
 
-    await sendEmailOTP(email, otp);
+    sendEmailOTP(email, otp).catch((err) => {
+      console.error("Email OTP failed in background:", err);
+    });
 
     return NextResponse.json({
       success: true,

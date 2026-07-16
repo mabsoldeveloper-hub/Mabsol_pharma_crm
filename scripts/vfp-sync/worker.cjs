@@ -79,7 +79,7 @@ main().catch((error) => {
 });
 
 async function main() {
-  await mongoose.connect(MONGODB_URI);
+  await mongoose.connect(MONGODB_URI, { maxPoolSize: 3 });
   console.log(`[vfp-sync] Connected to MongoDB`);
 
   await resolveDataDirs();
