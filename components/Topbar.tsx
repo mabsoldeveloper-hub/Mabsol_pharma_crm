@@ -47,6 +47,18 @@ export default function Topbar({
       .catch(() => { });
   }, [user]);
 
+
+
+  useEffect(() => {
+    console.log("USER =>", user);
+    console.log("COMPANY ID =>", user?.companyId);
+  }, [user]);
+
+
+
+
+  
+
   useEffect(() => {
     fetch("/api/financial-year")
       .then((res) => res.json())
