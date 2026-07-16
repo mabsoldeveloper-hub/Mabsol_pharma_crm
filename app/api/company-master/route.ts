@@ -3,17 +3,39 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Company from "@/models/Company";
 
+// export async function GET() {
+//   try {
+//     await connectDB();
+
+//     const company = await Company.findOne()
+//       .sort({ createdAt: -1 });
+
+//     return NextResponse.json(company);
+
+//   } catch (error: any) {
+//     console.log(error);
+
+//     return NextResponse.json(
+//       {
+//         error: error.message,
+//       },
+//       {
+//         status: 500,
+//       }
+//     );
+//   }
+// }
 export async function GET() {
   try {
     await connectDB();
 
-    const companies = await Company.find()
-      .sort({ createdAt: -1 });
+    const companies = await Company.find().sort({
+      createdAt: -1,
+    });
 
     return NextResponse.json(companies);
 
   } catch (error: any) {
-
     console.log(error);
 
     return NextResponse.json(
@@ -26,6 +48,31 @@ export async function GET() {
     );
   }
 }
+
+// export async function GET() {
+//   try {
+//     await connectDB();
+
+//     const companies = await Company.find()
+//       .sort({ createdAt: -1 });
+
+//     return NextResponse.json(companies);
+
+//   } catch (error: any) {
+
+//     console.log(error);
+
+//     return NextResponse.json(
+//       {
+//         error: error.message,
+//       },
+//       {
+//         status: 500,
+//       }
+//     );
+//   }
+// }
+
 
 export async function POST(req: Request) {
   try {

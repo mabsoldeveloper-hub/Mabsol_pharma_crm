@@ -339,29 +339,77 @@ export default function CreateCompanyPage() {
   <input
     type="file"
     className="form-control"
-    onChange={(e) => {
 
-      const file =
-        e.target.files?.[0];
 
-      if (file) {
-
-        const imageUrl =
-          URL.createObjectURL(file);
-
-        setLogoPreview(imageUrl);
-
-        setForm({
-          ...form,
-          logo: imageUrl,
-        });
+    onChange={async (e) => {
+      const file = e.target.files?.[0];
+    
+      if (!file) return;
+    
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Maximum file size is 2MB");
+        return;
       }
+    
+      const fd = new FormData();
+      fd.append("file", file);
+    
+      const res = await fetch("/api/upload-logo", {
+        method: "POST",
+        body: fd,
+      });
+    
+      const data = await res.json();
+    
+      if (!data.success) {
+        alert("Upload Failed");
+        return;
+      }
+    
+      setLogoPreview(data.url);
+
+
+
+      
+
+
+
+
+    
+      setForm({
+        ...form,
+        logo: data.url,
+      });
+
+
+
+   //   const data = await res.json();
+
+console.log("Upload Response:", data);
+
+if (!data.success) {
+  alert("Upload Failed");
+  return;
+}
+
+setLogoPreview(data.url);
+
+setForm((prev) => ({
+  ...prev,
+  logo: data.url,
+}));
+
+console.log("Logo Saved:", data.url);
     }}
+
   />
 
   <small className="text-muted">
     PNG, JPG, JPEG (Max 2MB)
   </small>
+
+
+  
 
 </div>
 

@@ -279,26 +279,38 @@ export default function EditUserPage() {
     <input
     type="file"
     className="form-control"
-    onChange={(e)=>{
+    onChange={async (e) => {
+
+      const file = e.target.files?.[0];
     
-    const file=e.target.files?.[0];
+      if (!file) return;
     
-    if(file){
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Maximum file size is 2MB");
+        return;
+      }
     
-    const url=
-    URL.createObjectURL(file);
+      const fd = new FormData();
+      fd.append("file", file);
     
-    setPhotoPreview(url);
+      const res = await fetch("/api/upload-user-photo", {
+        method: "POST",
+        body: fd,
+      });
     
-    setForm({
+      const data = await res.json();
     
-    ...form,
+      if (!data.success) {
+        alert("Upload Failed");
+        return;
+      }
     
-    profilePhoto:url,
+      setPhotoPreview(data.url);
     
-    });
-    
-    }
+      setForm((prev) => ({
+        ...prev,
+        profilePhoto: data.url,
+      }));
     
     }}
     />

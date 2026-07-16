@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
+
+
 import {
   FaTachometerAlt,
   FaUsers,
@@ -28,6 +30,8 @@ import {
   FaWarehouse,
   FaUserCircle,
 } from "react-icons/fa";
+
+
 
 type SidebarProps = {
   collapsed: boolean;
@@ -180,12 +184,26 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   const [vfpOpen, setVfpOpen] = useState(false);
   const pathname = usePathname();
 
+  const [user, setUser] = useState<any>(null);
+
   const [company, setCompany] = useState<any>(null);
-  useEffect(() => {
-    fetch("/api/company-master")
+   useEffect(() => {
+     //fetch("/api/company-master")
+     fetch("/api/company-settings")
+       .then((res) => res.json())
+       .then((data) => setCompany(data))
+       .catch(() => { });
+   }, []);
+
+   useEffect(() => {
+    fetch("/api/auth/me")
       .then((res) => res.json())
-      .then((data) => setCompany(data))
-      .catch(() => { });
+      .then((data) => {
+        console.log(data);
+  
+        setUser(data.user);   // <-- sirf user object save karo
+      })
+      .catch(console.error);
   }, []);
 
   // Sidebar is "iconOnly" when collapsed on desktop. On mobile, collapsed just hides it entirely.
@@ -280,10 +298,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   };
 
   // ---------------- Collapsible group ----------------
-  // When the sidebar is fully expanded, clicking toggles an inline accordion
-  // (smooth max-height/opacity transition). When the sidebar is icon-only,
-  // hovering the icon reveals a flyout panel with the same submenu items —
-  // so functionality is never lost on collapse.
+  
   const Group = ({
     icon,
     label,
@@ -401,7 +416,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           >
             {iconOnly ? (
               <img
-                src={company?.logo || "/logo.png"}
+                src={company?.logo || "/m-logo.jpg"}
                 alt="logo"
                 width={38}
                 height={38}
@@ -409,10 +424,11 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               />
             ) : (
               <img
-                src={company?.logo || "/logo.png"}
+                src={company?.logo || "/m-logo.jpg"}
                 alt="logo"
-                className="max-h-10 w-auto object-contain transition-all duration-300"
+                className="max-h-20 w-auto object-contain"
               />
+              
             )}
           </div>
 
@@ -714,10 +730,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               </span>
               {!iconOnly && (
                 <div className="min-w-0">
-                  <div className="text-[13px] font-semibold text-[#343872] dark:text-white truncate">
-                    Company Admin
-                  </div>
-                  <div className="text-[11px] text-gray-500">Logged in</div>
+
+                  
+<div className="text-[13px] font-semibold text-[#343872] dark:text-white truncate">
+  {user?.name || "User"}
+</div>
+
+<div className="text-[11px] text-gray-500 truncate">
+  {user?.roleId?.roleName || "Logged in"}
+</div>
                 </div>
               )}
             </div>

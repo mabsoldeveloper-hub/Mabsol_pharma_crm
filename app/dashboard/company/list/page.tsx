@@ -6,16 +6,12 @@ import ProtectedPage from "@/components/ProtectedPage";
 
 export default function CompanyListPage() {
 
-  const [companies, setCompanies] =
-    useState<any[]>([]);
-
+  const [companies, setCompanies] = useState<any[]>([]);
   const loadCompanies = async () => {
 
-    const res = await fetch(
-      "/api/company-master"
-    );
-
+    const res = await fetch("/api/company-master");
     const data = await res.json();
+    
 
     setCompanies(data);
   };

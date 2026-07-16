@@ -149,7 +149,7 @@ export default function ProfilePage() {
     formData.append("profilePhoto", file);
 
     try {
-      const res = await fetch("/api/profile/upload", {
+      const res = await fetch("/api/upload-user-photo", {
         method: "POST",
         body: formData,
       });

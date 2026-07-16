@@ -161,9 +161,13 @@ export default function Topbar({
             }}
             className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white pl-2 pr-3 h-10 text-gray-700 hover:bg-gray-50 transition-colors duration-200"
           >
-            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-600 text-white shrink-0">
-              <PersonCircle size={16} />
-            </span>
+            <span className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border border-gray-200 shadow-sm shrink-0 bg-white">
+  <img
+    src={user?.profilePhoto || "/avatar.png"}
+    alt={user?.name || "User"}
+    className="w-full h-full object-cover"
+  />
+</span>
 
             {!mobile && (
               <span className="flex flex-col items-start leading-tight text-left">

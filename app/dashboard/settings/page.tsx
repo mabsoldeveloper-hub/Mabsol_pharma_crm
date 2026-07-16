@@ -70,6 +70,7 @@ export default function SettingsPage() {
   const saveCompany = async () => {
 
     try {
+      console.log(form);
 
       setLoading(true);
 
@@ -355,25 +356,42 @@ export default function SettingsPage() {
           <input
   type="file"
   className="form-control"
-  onChange={(e) => {
+  onChange={async (e) => {
 
-    const file =
-      e.target.files?.[0];
+    const file = e.target.files?.[0];
 
-    if (file) {
+    if (!file) return;
 
-      const imageUrl =
-        URL.createObjectURL(file);
-
-      //setLogoPreview(imageUrl);
-      setLogoPreview(imageUrl);
-
-      setForm({
-        ...form,
-        logo: imageUrl,
-      });
-
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Maximum file size is 2MB");
+      return;
     }
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const res = await fetch("/api/upload-logo", {
+      method: "POST",
+      body: fd,
+    });
+
+    const data = await res.json();
+
+    console.log("Upload Response:", data);
+
+    if (!data.success) {
+      alert("Upload Failed");
+      return;
+    }
+
+    setLogoPreview(data.url);
+
+    setForm((prev) => ({
+      ...prev,
+      logo: data.url,
+    }));
+
+    console.log("Logo Saved:", data.url);
   }}
 />
 
