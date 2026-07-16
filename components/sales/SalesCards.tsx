@@ -12,124 +12,136 @@ import {
 } from "react-icons/fa";
 
 export default function SalesCards({ summary }: any) {
-
   const averageBill =
-    summary.totalBills > 0
-      ? summary.totalSales / summary.totalBills
-      : 0;
+    summary.totalBills > 0 ? summary.totalSales / summary.totalBills : 0;
 
   const cards = [
     {
       title: "Total Sales",
-      value:
-        "₹ " +
-        Number(summary.totalSales || 0).toLocaleString("en-IN"),
-      icon: <FaRupeeSign size={28} />,
-      color: "success",
+      value: "₹ " + Number(summary.totalSales || 0).toLocaleString("en-IN"),
+      icon: <FaRupeeSign size={16} />,
+      ring: "from-emerald-400/40 to-green-500/40",
+      iconBg: "bg-emerald-500/15 text-emerald-600",
+      glow: "group-hover:shadow-emerald-400/30",
     },
-
     {
       title: "Total Bills",
       value: Number(summary.totalBills || 0).toLocaleString(),
-      icon: <FaFileInvoice size={28} />,
-      color: "primary",
+      icon: <FaFileInvoice size={16} />,
+      ring: "from-blue-400/40 to-indigo-500/40",
+      iconBg: "bg-blue-500/15 text-blue-600",
+      glow: "group-hover:shadow-blue-400/30",
     },
-
     {
       title: "Customers",
       value: Number(summary.customers || 0).toLocaleString(),
-      icon: <FaUsers size={28} />,
-      color: "info",
+      icon: <FaUsers size={16} />,
+      ring: "from-cyan-400/40 to-sky-500/40",
+      iconBg: "bg-cyan-500/15 text-cyan-600",
+      glow: "group-hover:shadow-cyan-400/30",
     },
-
     {
       title: "Products",
       value: Number(summary.products || 0).toLocaleString(),
-      icon: <FaBoxes size={28} />,
-      color: "warning",
+      icon: <FaBoxes size={16} />,
+      ring: "from-amber-400/40 to-orange-500/40",
+      iconBg: "bg-amber-500/15 text-amber-700",
+      glow: "group-hover:shadow-amber-400/30",
     },
-
     {
       title: "Qty Sold",
       value: Number(summary.totalQty || 0).toLocaleString(),
-      icon: <FaShoppingCart size={28} />,
-      color: "danger",
+      icon: <FaShoppingCart size={16} />,
+      ring: "from-rose-400/40 to-red-500/40",
+      iconBg: "bg-rose-500/15 text-rose-600",
+      glow: "group-hover:shadow-rose-400/30",
     },
-
     {
       title: "Average Bill",
       value:
         "₹ " +
-        averageBill.toLocaleString("en-IN", {
-          maximumFractionDigits: 2,
-        }),
-      icon: <FaChartLine size={28} />,
-      color: "secondary",
+        averageBill.toLocaleString("en-IN", { maximumFractionDigits: 2 }),
+      icon: <FaChartLine size={16} />,
+      ring: "from-slate-400/40 to-gray-500/40",
+      iconBg: "bg-slate-500/15 text-slate-600",
+      glow: "group-hover:shadow-slate-400/30",
     },
-
     {
       title: "Today's Sale",
-      value:
-        "₹ " +
-        Number(summary.todaySales || 0).toLocaleString("en-IN"),
-      icon: <FaCalendarDay size={28} />,
-      color: "dark",
+      value: "₹ " + Number(summary.todaySales || 0).toLocaleString("en-IN"),
+      icon: <FaCalendarDay size={16} />,
+      ring: "from-violet-400/40 to-purple-500/40",
+      iconBg: "bg-violet-500/15 text-violet-600",
+      glow: "group-hover:shadow-violet-400/30",
     },
-
     {
       title: "Active Users",
       value: Number(summary.users || 0).toLocaleString(),
-      icon: <FaUserTie size={28} />,
-      color: "primary",
+      icon: <FaUserTie size={16} />,
+      ring: "from-teal-400/40 to-emerald-500/40",
+      iconBg: "bg-teal-500/15 text-teal-600",
+      glow: "group-hover:shadow-teal-400/30",
     },
   ];
 
   return (
-    <div className="row g-3">
-
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {cards.map((card, index) => (
-
         <div
-          className="col-xl-3 col-lg-3 col-md-6"
           key={index}
+          className={`
+            group relative rounded-2xl p-[1px]
+            bg-gradient-to-br ${card.ring}
+            transition-all duration-500 ease-out
+            hover:-translate-y-1.5 hover:scale-[1.02]
+          `}
         >
-
           <div
-            className={`card border-0 shadow bg-${card.color} text-white h-100`}
+            className={`
+              relative h-full rounded-2xl overflow-hidden
+              bg-white/60 backdrop-blur-xl
+              border border-white/40
+              shadow-[0_4px_20px_rgba(0,0,0,0.06)]
+              transition-all duration-500 ease-out
+              group-hover:shadow-xl ${card.glow}
+              p-3
+            `}
           >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/50 to-transparent" />
+            <div className="pointer-events-none absolute -inset-y-10 -left-1/2 w-1/3 rotate-12 bg-white/30 blur-md opacity-0 group-hover:opacity-100 group-hover:translate-x-[250%] transition-all duration-700 ease-out" />
 
-            <div className="card-body">
-
-              <div className="d-flex justify-content-between align-items-center">
-
-                <div>
-
-                  <h6 className="mb-1">
-
-                    {card.title}
-
-                  </h6>
-
-                  <h3 className="fw-bold mb-0">
-
-                    {card.value}
-
-                  </h3>
-
-                </div>
-
-                {card.icon}
-
+            <div className="relative flex items-start justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-gray-500 tracking-wide truncate">
+                  {card.title}
+                </p>
+                <h3
+                  className={`mt-0.5 font-semibold text-gray-800 tabular-nums whitespace-nowrap ${String(card.value ?? 0).length > 9
+                    ? "text-sm"
+                    : String(card.value ?? 0).length > 6
+                      ? "text-base"
+                      : "text-lg"
+                    }`}
+                >
+                  {card.value ?? 0}
+                </h3>
               </div>
 
+              <div
+                className={`
+                  flex items-center justify-center h-8 w-8 rounded-lg shrink-0
+                  ${card.iconBg}
+                  ring-1 ring-white/50
+                  transition-transform duration-500
+                  group-hover:scale-110 group-hover:rotate-3
+                `}
+              >
+                {card.icon}
+              </div>
             </div>
-
           </div>
-
         </div>
-
       ))}
-
     </div>
   );
 }
