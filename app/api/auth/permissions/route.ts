@@ -72,21 +72,21 @@ export async function GET() {
 
     rolePermissions.forEach(
       (item: any) => {
-
-        finalPermissions.add(
-          item.permissionId.permissionKey
-        );
-
+        if (item.permissionId) {
+          finalPermissions.add(
+            item.permissionId.permissionKey
+          );
+        }
       }
     );
 
     userPermissions.forEach(
       (item: any) => {
-
-        finalPermissions.add(
-          item.permissionId.permissionKey
-        );
-
+        if (item.permissionId) {
+          finalPermissions.add(
+            item.permissionId.permissionKey
+          );
+        }
       }
     );
 

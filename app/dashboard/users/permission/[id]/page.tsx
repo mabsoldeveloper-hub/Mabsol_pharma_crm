@@ -60,11 +60,9 @@ export default function UserPermissionPage() {
     const data =
       await res.json();
 
-    const arr =
-      data.map(
-        (x:any)=>
-          x.permissionId
-      );
+    const arr = data
+      .map((x: any) => x.permissionId)
+      .filter(Boolean);
 
     setChecked(arr);
 

@@ -63,11 +63,9 @@ export default function RolePermissionPage() {
     //   );
 
     // setChecked(arr);
-    const arr =
-      data.map(
-        (x:any)=>
-          x.permissionId._id
-      );
+    const arr = data
+      .filter((x: any) => x.permissionId)
+      .map((x: any) => x.permissionId._id);
 
     setChecked(arr);
 
