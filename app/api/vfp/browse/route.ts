@@ -109,6 +109,8 @@ export async function GET(request: NextRequest) {
             files.push(item.name);
           } else if (filterType === "prg" && ext === ".prg") {
             files.push(item.name);
+          } else if (filterType === "dbf" && ext === ".dbf") {
+            files.push(item.name);
           } else if (!filterType) {
             files.push(item.name);
           }

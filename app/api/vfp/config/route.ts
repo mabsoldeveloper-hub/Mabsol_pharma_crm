@@ -19,6 +19,8 @@ export async function GET() {
     let sourceDir = "";
     let enabledFiles: string[] = [];
     let useVfpEngine = false;
+    let autoSync = false;
+    let autoSyncInterval = 10;
     let vfpExePath = process.env.VFP_EXE_PATH || "";
     let prgPath = "";
     let userName = user.name || "";
@@ -38,6 +40,12 @@ export async function GET() {
       }
       if ((config as any).enabledFiles) {
         enabledFiles = (config as any).enabledFiles;
+      }
+      if ((config as any).autoSync !== undefined) {
+        autoSync = (config as any).autoSync;
+      }
+      if ((config as any).autoSyncInterval !== undefined) {
+        autoSyncInterval = (config as any).autoSyncInterval;
       }
       if ((config as any).useVfpEngine !== undefined) {
         useVfpEngine = (config as any).useVfpEngine;
@@ -78,6 +86,8 @@ export async function GET() {
       dataDir,
       sourceDir,
       enabledFiles,
+      autoSync,
+      autoSyncInterval,
       useVfpEngine,
       vfpExePath,
       prgPath,
@@ -108,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip") || "127.0.0.1";
     const body = await request.json();
-    const { dataDir, sourceDir, enabledFiles, useVfpEngine, vfpExePath, prgPath, userName, companyName, license, startupCommand } = body;
+    const { dataDir, sourceDir, enabledFiles, autoSync, autoSyncInterval, useVfpEngine, vfpExePath, prgPath, userName, companyName, license, startupCommand } = body;
 
     const updateFields: any = {};
     const existingConfig = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
@@ -183,6 +193,14 @@ export async function POST(request: NextRequest) {
       updateFields.enabledFiles = enabledFiles;
     }
 
+    if (autoSync !== undefined) {
+      updateFields.autoSync = Boolean(autoSync);
+    }
+
+    if (autoSyncInterval !== undefined) {
+      updateFields.autoSyncInterval = Number(autoSyncInterval) || 10;
+    }
+
     if (useVfpEngine !== undefined) {
       updateFields.useVfpEngine = Boolean(useVfpEngine);
     }
@@ -241,7 +259,7 @@ export async function POST(request: NextRequest) {
     // Calculate detailed changes
     const changesList: string[] = [];
     const changes: any = {};
-    const fieldsToCompare = ["userName", "companyName", "license", "vfpExePath", "prgPath", "dataDir", "sourceDir", "useVfpEngine", "enabledFiles", "startupCommand"];
+    const fieldsToCompare = ["userName", "companyName", "license", "vfpExePath", "prgPath", "dataDir", "sourceDir", "autoSync", "autoSyncInterval", "useVfpEngine", "enabledFiles", "startupCommand"];
     for (const field of fieldsToCompare) {
       if (body[field] !== undefined) {
         const oldVal = existingConfig ? (existingConfig as any)[field] : undefined;
