@@ -12,7 +12,8 @@ import {
   X, 
   FolderOpen,
   Loader2,
-  Check
+  Check,
+  Database
 } from "lucide-react";
 
 interface FileSelectorModalProps {
@@ -20,7 +21,7 @@ interface FileSelectorModalProps {
   onClose: () => void;
   onSelect: (selectedPath: string) => void;
   title: string;
-  filterType: "exe" | "prg" | "dir";
+  filterType: "exe" | "prg" | "dir" | "dbf";
   initialPath?: string;
 }
 
@@ -77,7 +78,7 @@ export default function FileSelectorModal({
       if (initialPath) {
         // If initial path is a file, get directory part
         let startDir = initialPath;
-        if (filterType !== "dir" && (startDir.endsWith(".exe") || startDir.endsWith(".prg"))) {
+        if (filterType !== "dir" && (startDir.endsWith(".exe") || startDir.endsWith(".prg") || startDir.endsWith(".dbf"))) {
           const lastSlash = Math.max(startDir.lastIndexOf("/"), startDir.lastIndexOf("\\"));
           if (lastSlash !== -1) {
             startDir = startDir.substring(0, lastSlash);
@@ -142,7 +143,13 @@ export default function FileSelectorModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-850 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
           <div>
             <h3 className="font-bold text-slate-850 dark:text-white text-base flex items-center gap-2">
-              {filterType === "dir" ? <FolderOpen className="text-blue-500 w-5 h-5" /> : <Terminal className="text-indigo-500 w-5 h-5" />}
+              {filterType === "dir" ? (
+                <FolderOpen className="text-blue-500 w-5 h-5" />
+              ) : filterType === "dbf" ? (
+                <Database className="text-teal-500 w-5 h-5" />
+              ) : (
+                <Terminal className="text-indigo-500 w-5 h-5" />
+              )}
               {title}
             </h3>
             <p className="text-xs text-slate-450 dark:text-slate-500 mt-0.5">
@@ -251,6 +258,8 @@ export default function FileSelectorModal({
                   >
                     {filterType === "exe" ? (
                       <Terminal className={selectedItem === file ? "text-indigo-500" : "text-indigo-400"} size={16} />
+                    ) : filterType === "dbf" ? (
+                      <Database className={selectedItem === file ? "text-teal-500" : "text-teal-400"} size={16} />
                     ) : (
                       <FileCode className={selectedItem === file ? "text-teal-500" : "text-teal-400"} size={16} />
                     )}

@@ -199,6 +199,8 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
   let dataDir = process.env.VFP_DATA_DIR || "";
   let sourceDir = "";
   let enabledFiles: string[] = [];
+  let autoSync = false;
+  let autoSyncInterval = 10;
   let useVfpEngine = false;
   let vfpExePath = "C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe";
   let prgPath = "";
@@ -208,6 +210,8 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     if (config.dataDir) dataDir = config.dataDir;
     if (config.sourceDir) sourceDir = config.sourceDir;
     if (config.enabledFiles) enabledFiles = config.enabledFiles;
+    if (config.autoSync !== undefined) autoSync = config.autoSync;
+    if (config.autoSyncInterval !== undefined) autoSyncInterval = config.autoSyncInterval;
     if (config.useVfpEngine !== undefined) useVfpEngine = config.useVfpEngine;
     if (config.vfpExePath) vfpExePath = config.vfpExePath;
     if (config.prgPath) prgPath = config.prgPath;
@@ -258,6 +262,8 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     dataDirExists,
     sourceDir,
     enabledFiles,
+    autoSync,
+    autoSyncInterval,
     useVfpEngine,
     vfpExePath,
     prgPath,

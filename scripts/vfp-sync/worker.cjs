@@ -159,6 +159,28 @@ async function runSync(reason, targetEmail) {
     }
 
     for (const config of configs) {
+      const isAutoTrigger = reason === "interval" || reason === "startup" || (typeof reason === "string" && reason.startsWith("file:"));
+      if (isAutoTrigger) {
+        if (!config.autoSync) {
+          continue;
+        }
+        
+        // Dynamic interval checking
+        const currentEmail = config.email || "global";
+        try {
+          const lastLog = await SyncLog.findOne({ email: currentEmail, action: "sync", status: "success" }).sort({ finishedAt: -1 });
+          if (lastLog && lastLog.finishedAt) {
+            const elapsedMs = Date.now() - new Date(lastLog.finishedAt).getTime();
+            const intervalMins = config.autoSyncInterval || 10;
+            if (elapsedMs < intervalMins * 60 * 1000) {
+              continue; // Skip periodic run as interval has not elapsed yet
+            }
+          }
+        } catch (err) {
+          console.error(`[vfp-sync] Error checking last sync log for ${currentEmail}:`, err.message);
+        }
+      }
+
       const currentEmail = config.email || "global";
       const currentDataDir = config.dataDir;
       const currentEnabledFiles = config.enabledFiles || [];
