@@ -419,7 +419,7 @@ fetch(`/api/customers/ledger/${id}`)
                     }}
                     onClick={() =>
                       router.push(
-                        `/dashboard/invoice/${row.voucher}`
+                        `/dashboard/sales/invoice/${row.voucher}`
                       )
                     }
                   >
