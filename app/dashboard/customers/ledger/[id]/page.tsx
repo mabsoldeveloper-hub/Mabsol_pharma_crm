@@ -16,10 +16,9 @@ export default function CustomerLedgerPage() {
   const router = useRouter();
   const [view, setView] = useState<"ledger" | "sales" | "outstanding">("ledger");
 
+
   useEffect(() => {
     if (!id) return;
-
-
 
 fetch(`/api/customers/ledger/${id}`)
     
@@ -52,6 +51,17 @@ fetch(`/api/customers/ledger/${id}`)
       </div>
     );
   }
+
+
+  
+
+
+  const rows =
+  view === "ledger"
+    ? data?.ledger || []
+    : view === "sales"
+    ? data?.sales || []
+    : data?.outstanding || [];
 
   return (
     <div className="container-fluid py-4">
@@ -152,7 +162,7 @@ fetch(`/api/customers/ledger/${id}`)
     <div
       className="card shadow-sm h-100 border-0"
       style={{ cursor: "pointer" }}
-      onClick={() => setView("sales")}
+      onClick={() => setView("ledger")}
     >
       <div className="card-body text-center">
         <small className="text-muted">Total Bills</small>
@@ -284,13 +294,23 @@ fetch(`/api/customers/ledger/${id}`)
 
       <div className="card-header bg-dark text-white d-flex justify-content-between align-items-center">
 
-<span>
-  {view === "ledger"
-    ? "Ledger Register"
-    : view === "sales"
-    ? "Sales Register"
-    : "Outstanding Register"}
-</span>
+      <div>
+        <h6 className="mb-0">
+
+          {view === "ledger" && "Ledger Register"}
+
+          {view === "sales" && "Sales Register"}
+
+          {view === "outstanding" && "Outstanding Register"}
+
+        </h6>
+
+        <small>
+
+          Total Records : {rows.length}
+
+        </small>
+      </div>
 
 <div>
 
@@ -338,58 +358,169 @@ fetch(`/api/customers/ledger/${id}`)
           {/* <table className="table table-bordered table-hover mb-0"> */}
           <table className="table table-hover align-middle mb-0">
 
-            <thead className="table-dark">
-              <tr>
-                <th>Date</th>
-                <th>Voucher</th>
-                <th>Bill No</th>
-                <th>Particulars</th>
-                <th className="text-end">Debit</th>
-                <th className="text-end">Credit</th>
-                <th className="text-end">Balance</th>
-              </tr>
+          <thead className="table-dark">
+
+            {view === "ledger" ? (
+
+            <tr>
+
+            <th>Date</th>
+
+            <th>Voucher</th>
+
+            <th>Bill No</th>
+
+            <th>Particulars</th>
+
+            <th className="text-end">Debit</th>
+
+            <th className="text-end">Credit</th>
+
+            <th className="text-end">Balance</th>
+
+            </tr>
+
+            ) : (
+
+            <tr>
+
+            <th>Date</th>
+
+            <th>Voucher</th>
+
+            <th>Bill No</th>
+
+            <th className="text-end">Amount</th>
+
+            <th className="text-end">Received</th>
+
+            <th className="text-end">Pending</th>
+
+            <th>Status</th>
+
+            </tr>
+
+            )}
+
             </thead>
 
             <tbody>
-              {data.ledger?.length > 0 ? (
+              {/* {data.ledger?.length > 0 ? (
 
-                data.ledger.map((row: any, index: number) => (
+                data.map((row: any, index: number) => ( */}
 
-                  // <tr key={index}>
-                  <tr
-                    key={index}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => router.push(`/dashboard/invoice/${row.voucher}`)}
+                {rows.length > 0 ? (
+
+                rows.map((row:any,index:number)=>
+
+                  <tr key={index}
+                    style={{
+                      cursor: "pointer"
+                    }}
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/invoice/${row.voucher}`
+                      )
+                    }
                   >
+                  
 
-                  <td>{row.date}</td>
-                
-                  <td className="fw-bold text-primary">
-                    {row.voucher}
-                  </td>
-                
-                  <td>{row.billNo || "-"}</td>
-                
-                  <td>{row.particulars}</td>
-                
-                  <td className="text-end text-danger">
-                    {row.debit > 0
-                      ? Number(row.debit).toLocaleString()
-                      : "-"}
-                  </td>
-                
-                  <td className="text-end text-success">
-                    {row.credit > 0
-                      ? Number(row.credit).toLocaleString()
-                      : "-"}
-                  </td>
-                
-                  <td className="text-end fw-bold">
-                    {Number(row.balance).toLocaleString()}
-                  </td>
+{view==="ledger" ? (
+
+<>
+
+<td>{row.date}</td>
+
+<td className="fw-bold text-primary">
+
+{row.voucher}
+
+</td>
+
+<td>{row.billNo}</td>
+
+<td>{row.particulars}</td>
+
+<td className="text-end text-danger">
+
+{row.debit>0
+?Number(row.debit).toLocaleString()
+:"-"}
+
+</td>
+
+<td className="text-end text-success">
+
+{row.credit>0
+?Number(row.credit).toLocaleString()
+:"-"}
+
+</td>
+
+<td className="text-end fw-bold">
+
+{Number(row.balance).toLocaleString()}
+
+</td>
+
+</>
+
+):(
+
+<>
+
+<td>{row.date}</td>
+
+<td className="fw-bold text-primary">
+
+{row.voucher}
+
+</td>
+
+<td>{row.billNo}</td>
+
+<td className="text-end">
+
+₹{Number(row.amount).toLocaleString()}
+
+</td>
+
+<td className="text-end text-success">
+
+₹{Number(row.received).toLocaleString()}
+
+</td>
+
+<td className="text-end text-danger">
+
+₹{Number(row.pending).toLocaleString()}
+
+</td>
+
+<td>
+
+<span
+className={`badge ${
+row.status==="Paid"
+?"bg-success"
+:row.status==="Partial"
+?"bg-warning text-dark"
+:"bg-danger"
+}`}
+>
+
+{row.status}
+
+</span>
+
+</td>
+
+</>
+
+)}
                 </tr>
 
-                ))
+                )
 
               ) : (
 
