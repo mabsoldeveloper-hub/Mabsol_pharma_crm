@@ -108,41 +108,28 @@ export async function GET(
       .lean();
 
     // =========================
-// Sales Register
-// =========================
+    // Sales Register
+    // =========================
 
-const sales = invoices.map((item: any) => {
-
-  const amount = Number(item.FINAL || 0);
-
-  const received = Number(item.RECEIVED || 0);
-
-  const pending = amount - received;
-
-  return {
-
-    date: item.DATE,
-
-    voucher: item.VCN,
-
-    billNo: item.VCN,
-
-    amount,
-
-    received,
-
-    pending,
-
-    status:
-      pending <= 0
-        ? "Paid"
-        : received > 0
-        ? "Partial"
-        : "Pending",
-
-  };
-
-});
+    const sales = invoices.map((item: any) => {
+      const amount = Number(item.FINAL || 0);
+      const received = Number(item.RECEIVED || 0);
+      const pending = amount - received;
+      return {
+        date: item.DATE,
+        voucher: item.VCN,
+        billNo: item.VCN,
+        amount,
+        received,
+        pending,
+        status:
+          pending <= 0
+            ? "Paid"
+            : received > 0
+            ? "Partial"
+            : "Pending",
+      };
+    });
 
 
 // =========================

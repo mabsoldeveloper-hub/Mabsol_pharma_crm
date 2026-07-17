@@ -143,6 +143,7 @@ export default function ProfilePage() {
   // Profile Photo Upload Handler
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    console.log("====>>",file);
     if (!file) return;
 
     // const formData = new FormData();
