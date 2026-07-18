@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
     ShoppingCart,
@@ -16,7 +16,11 @@ import {
     Wallet,
     AlertCircle,
     RefreshCw,
+    Search,
+    SlidersHorizontal,
 } from "lucide-react";
+import { createColumnHelper } from "@tanstack/react-table";
+import { GlassDataTable } from "./Glassdatatable";
 
 interface DashboardData {
     kpiCards: {
@@ -98,7 +102,6 @@ export default function OrdersDashboardPage() {
         }
     };
 
-    // Initial load (no filters)
     useEffect(() => {
         loadDashboard();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,75 +115,148 @@ export default function OrdersDashboardPage() {
         setArea("");
         setRoute("");
         setDsm("");
-        // reload immediately with cleared filters
         setTimeout(loadDashboard, 0);
     };
-
-    if (loading && !dashboard) {
-        return (
-            <div className="flex items-center justify-center h-[70vh] text-lg font-semibold text-gray-500">
-                Loading Dashboard...
-            </div>
-        );
-    }
 
     const kpi = dashboard?.kpiCards;
     const options = dashboard?.filterOptions;
 
     const cards = [
-        { title: "Total Orders", value: kpi?.totalOrders ?? 0, icon: <ShoppingCart size={22} /> },
-        { title: "Today's Orders", value: kpi?.todaysOrders ?? 0, icon: <CalendarDays size={22} /> },
-        { title: "Monthly Orders", value: kpi?.monthlyOrders ?? 0, icon: <CalendarRange size={22} /> },
-        { title: "Yearly Orders", value: kpi?.yearlyOrders ?? 0, icon: <CalendarClock size={22} /> },
-        { title: "Total Sales", value: formatINR(kpi?.totalSales ?? 0), icon: <IndianRupee size={22} /> },
-        { title: "Pending Orders", value: kpi?.pendingOrders ?? 0, icon: <Clock size={22} /> },
+        { title: "Total Orders", value: kpi?.totalOrders ?? 0, icon: <ShoppingCart size={20} /> },
+        { title: "Today's Orders", value: kpi?.todaysOrders ?? 0, icon: <CalendarDays size={20} /> },
+        { title: "Monthly Orders", value: kpi?.monthlyOrders ?? 0, icon: <CalendarRange size={20} /> },
+        { title: "Yearly Orders", value: kpi?.yearlyOrders ?? 0, icon: <CalendarClock size={20} /> },
+        { title: "Total Sales", value: formatINR(kpi?.totalSales ?? 0), icon: <IndianRupee size={20} /> },
+        { title: "Pending Orders", value: kpi?.pendingOrders ?? 0, icon: <Clock size={20} /> },
         {
             title: "Delivered Orders",
             value: kpi?.deliveredOrders ?? 0,
-            icon: <Truck size={22} />,
+            icon: <Truck size={20} />,
             note: "Proxy: total dispatch records (no status field yet)",
         },
         {
             title: "Cancelled Orders",
             value: kpi?.cancelledOrders ?? "N/A",
-            icon: <XCircle size={22} />,
-            note: "MDIS TYPE = \"V\" (unposted/void vouchers)",
+            icon: <XCircle size={20} />,
+            note: 'MDIS TYPE = "V" (unposted/void vouchers)',
         },
-        { title: "Total Customers", value: kpi?.totalCustomers ?? 0, icon: <Users size={22} /> },
-        { title: "Products Sold (Qty)", value: kpi?.totalProductsSold ?? 0, icon: <Package size={22} /> },
-        { title: "Total Collection", value: formatINR(kpi?.totalCollection ?? 0), icon: <Wallet size={22} /> },
-        { title: "Outstanding", value: formatINR(kpi?.outstanding ?? 0), icon: <AlertCircle size={22} /> },
+        { title: "Total Customers", value: kpi?.totalCustomers ?? 0, icon: <Users size={20} /> },
+        { title: "Products Sold (Qty)", value: kpi?.totalProductsSold ?? 0, icon: <Package size={20} /> },
+        { title: "Total Collection", value: formatINR(kpi?.totalCollection ?? 0), icon: <Wallet size={20} /> },
+        { title: "Outstanding", value: formatINR(kpi?.outstanding ?? 0), icon: <AlertCircle size={20} /> },
     ];
 
+    // ---------- Column defs (memoized) ----------
+    const colHelper = createColumnHelper<any>();
+
+    const orderSummaryCols = useMemo(
+        () => [
+            colHelper.accessor("VCN", { header: "Invoice" }),
+            colHelper.accessor("DATE", { header: "Date" }),
+            colHelper.accessor("CODEP", { header: "Customer" }),
+            colHelper.accessor((r) => r.ROUT ?? "-", { id: "ROUT", header: "Route" }),
+            colHelper.accessor((r) => r.DSM ?? "-", { id: "DSM", header: "DSM" }),
+            colHelper.accessor((r) => r.NOCS ?? "-", { id: "NOCS", header: "Items" }),
+            colHelper.accessor((r) => formatINR(r.FINAL), { id: "FINAL", header: "Net Amount" }),
+        ],
+        []
+    );
+
+    const latestOrdersCols = useMemo(
+        () => [
+            colHelper.accessor("VCN", { header: "Invoice" }),
+            colHelper.accessor("VOUCHER", { header: "Voucher" }),
+            colHelper.accessor("DATE", { header: "Date" }),
+            colHelper.accessor("CODEP", { header: "Customer" }),
+            colHelper.accessor((r) => formatINR(r.FINAL), { id: "FINAL", header: "Net Amount" }),
+        ],
+        []
+    );
+
+    const orderItemsCols = useMemo(
+        () => [
+            colHelper.accessor("VCN", { header: "Invoice" }),
+            colHelper.accessor((r) => r.productName ?? r.CODE, { id: "product", header: "Product" }),
+            colHelper.accessor("BATCH", { header: "Batch" }),
+            colHelper.accessor((r) => r.batchExpiry ?? "-", { id: "expiry", header: "Expiry" }),
+            colHelper.accessor("QTY", { header: "Qty" }),
+            colHelper.accessor("RATE", { header: "Rate" }),
+            colHelper.accessor((r) => r.batchMrp ?? r.MRP, { id: "mrp", header: "MRP" }),
+            colHelper.accessor((r) => formatINR(r.AMMMOUNT), { id: "amount", header: "Amount" }),
+        ],
+        []
+    );
+
+    const paymentDetailsCols = useMemo(
+        () => [
+            colHelper.accessor("VOUCHER", { header: "Voucher" }),
+            colHelper.accessor("CODE", { header: "Party" }),
+            colHelper.accessor("DATE", { header: "Date" }),
+            colHelper.accessor((r) => formatINR(r.DEBIT), { id: "debit", header: "Debit" }),
+            colHelper.accessor((r) => formatINR(r.CREDIT), { id: "credit", header: "Credit" }),
+        ],
+        []
+    );
+
+    const dispatchDetailsCols = useMemo(
+        () => [
+            colHelper.accessor("VCN", { header: "Invoice" }),
+            colHelper.accessor("VOUCHER", { header: "Voucher" }),
+            colHelper.accessor("DATE", { header: "Date" }),
+            colHelper.accessor("CODEP", { header: "Customer" }),
+            colHelper.accessor((r) => r.DSM ?? "-", { id: "dsm", header: "DSM" }),
+        ],
+        []
+    );
+
+    if (loading && !dashboard) {
+        return (
+            <div className="flex items-center justify-center h-[70vh]">
+                <div className="flex items-center gap-3 rounded-2xl border border-white/40 bg-white/50 backdrop-blur-xl px-6 py-4 shadow-lg">
+                    <RefreshCw size={20} className="animate-spin text-indigo-500" />
+                    <span className="text-sm font-medium text-gray-600">Loading Dashboard...</span>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="p-6 space-y-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/40 to-violet-50/40 p-6 space-y-6">
             {/* Filter Bar */}
-            <div className="bg-white rounded-xl shadow p-5">
+            <div className="rounded-2xl border border-white/40 bg-white/50 backdrop-blur-xl shadow-lg p-5">
+                <div className="flex items-center gap-2 mb-4">
+                    <SlidersHorizontal size={16} className="text-indigo-500" />
+                    <h2 className="text-sm font-semibold text-gray-700">Filters</h2>
+                </div>
+
                 <div className="flex flex-wrap gap-3 items-center">
-                    <input
-                        className="border rounded-lg px-4 py-2 w-56"
-                        placeholder="Search Customer..."
-                        value={customer}
-                        onChange={(e) => setCustomer(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && loadDashboard()}
-                    />
+                    <div className="relative">
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                            className="rounded-xl border border-white/50 bg-white/60 backdrop-blur-md pl-9 pr-4 py-2 w-56 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition"
+                            placeholder="Search Customer..."
+                            value={customer}
+                            onChange={(e) => setCustomer(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && loadDashboard()}
+                        />
+                    </div>
 
                     <input
                         type="date"
-                        className="border rounded-lg px-4 py-2"
+                        className="rounded-xl border border-white/50 bg-white/60 backdrop-blur-md px-4 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition"
                         value={dateFrom}
                         onChange={(e) => setDateFrom(e.target.value)}
                     />
 
                     <input
                         type="date"
-                        className="border rounded-lg px-4 py-2"
+                        className="rounded-xl border border-white/50 bg-white/60 backdrop-blur-md px-4 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition"
                         value={dateTo}
                         onChange={(e) => setDateTo(e.target.value)}
                     />
 
                     <input
-                        className="border rounded-lg px-4 py-2 w-40"
+                        className="rounded-xl border border-white/50 bg-white/60 backdrop-blur-md px-4 py-2 w-40 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition"
                         placeholder="Invoice No..."
                         value={invoice}
                         onChange={(e) => setInvoice(e.target.value)}
@@ -188,7 +264,7 @@ export default function OrdersDashboardPage() {
                     />
 
                     <select
-                        className="border rounded-lg px-4 py-2"
+                        className="rounded-xl border border-white/50 bg-white/60 backdrop-blur-md px-4 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition"
                         value={area}
                         onChange={(e) => setArea(e.target.value)}
                     >
@@ -201,7 +277,7 @@ export default function OrdersDashboardPage() {
                     </select>
 
                     <select
-                        className="border rounded-lg px-4 py-2"
+                        className="rounded-xl border border-white/50 bg-white/60 backdrop-blur-md px-4 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition disabled:opacity-50"
                         value={route}
                         onChange={(e) => setRoute(e.target.value)}
                         disabled={!options?.route?.length}
@@ -216,7 +292,7 @@ export default function OrdersDashboardPage() {
                     </select>
 
                     <select
-                        className="border rounded-lg px-4 py-2"
+                        className="rounded-xl border border-white/50 bg-white/60 backdrop-blur-md px-4 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition"
                         value={dsm}
                         onChange={(e) => setDsm(e.target.value)}
                     >
@@ -230,15 +306,15 @@ export default function OrdersDashboardPage() {
 
                     <button
                         onClick={loadDashboard}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg flex items-center gap-2"
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-violet-600 transition"
                     >
-                        <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+                        <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                         {loading ? "Loading..." : "Apply / Refresh"}
                     </button>
 
                     <button
                         onClick={handleClearFilters}
-                        className="text-gray-500 hover:text-gray-700 px-3 py-2 text-sm"
+                        className="rounded-xl px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-white/50 transition"
                     >
                         Clear filters
                     </button>
@@ -257,16 +333,19 @@ export default function OrdersDashboardPage() {
             {/* 12 KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {cards.map((card, index) => (
-                    <div key={index} className="bg-white rounded-xl shadow hover:shadow-lg transition p-5">
+                    <div
+                        key={index}
+                        className="rounded-2xl border border-white/40 bg-white/50 backdrop-blur-xl shadow-md hover:shadow-xl hover:bg-white/60 transition p-5"
+                    >
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-gray-500 text-sm">{card.title}</p>
-                                <h2 className="text-2xl font-bold mt-2">{card.value}</h2>
+                                <h2 className="text-2xl font-bold mt-2 text-gray-800">{card.value}</h2>
                                 {card.note && (
                                     <p className="text-[11px] text-amber-600 mt-1">{card.note}</p>
                                 )}
                             </div>
-                            <div className="bg-blue-100 text-blue-600 p-3 rounded-full">
+                            <div className="rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-white p-3 shadow-md">
                                 {card.icon}
                             </div>
                         </div>
@@ -276,82 +355,54 @@ export default function OrdersDashboardPage() {
 
             {/* Order Summary */}
             <Section title="Order Summary">
-                <Table
-                    columns={["Invoice", "Date", "Customer", "Route", "DSM", "Items", "Net Amount"]}
-                    rows={dashboard?.orderSummary?.map((r) => [
-                        r.VCN,
-                        r.DATE,
-                        r.CODEP,
-                        r.ROUT ?? "-",
-                        r.DSM ?? "-",
-                        r.NOCS ?? "-",
-                        formatINR(r.FINAL),
-                    ])}
+                <GlassDataTable
+                    data={dashboard?.orderSummary ?? []}
+                    columns={orderSummaryCols}
+                    searchPlaceholder="Search order summary..."
                 />
             </Section>
 
             {/* Latest Orders */}
-            <Section title="Latest Orders (Last 10)">
-                <Table
-                    columns={["Invoice", "Voucher", "Date", "Customer", "Net Amount"]}
-                    rows={dashboard?.latestOrders?.map((r) => [
-                        r.VCN,
-                        r.VOUCHER,
-                        r.DATE,
-                        r.CODEP,
-                        formatINR(r.FINAL),
-                    ])}
+            <Section title="Latest Orders">
+                <GlassDataTable
+                    data={dashboard?.latestOrders ?? []}
+                    columns={latestOrdersCols}
+                    searchPlaceholder="Search latest orders..."
                 />
             </Section>
 
             {/* Order Items */}
             <Section title="Order Items">
-                <Table
-                    columns={["Invoice", "Product", "Batch", "Expiry", "Qty", "Rate", "MRP", "Amount"]}
-                    rows={dashboard?.orderItems?.map((r) => [
-                        r.VCN,
-                        r.productName ?? r.CODE,
-                        r.BATCH,
-                        r.batchExpiry ?? "-",
-                        r.QTY,
-                        r.RATE,
-                        r.batchMrp ?? r.MRP,
-                        formatINR(r.AMMMOUNT),
-                    ])}
+                <GlassDataTable
+                    data={dashboard?.orderItems ?? []}
+                    columns={orderItemsCols}
+                    searchPlaceholder="Search order items..."
                 />
             </Section>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Payment Details */}
                 <Section title="Payment Details">
-                    <Table
-                        columns={["Voucher", "Party", "Date", "Debit", "Credit"]}
-                        rows={dashboard?.paymentDetails?.map((r) => [
-                            r.VOUCHER,
-                            r.CODE,
-                            r.DATE,
-                            formatINR(r.DEBIT),
-                            formatINR(r.CREDIT),
-                        ])}
+                    <GlassDataTable
+                        data={dashboard?.paymentDetails ?? []}
+                        columns={paymentDetailsCols}
+                        searchPlaceholder="Search payments..."
+                        pageSize={5}
                     />
                 </Section>
 
                 {/* Dispatch Details */}
                 <Section title="Dispatch Details">
-                    <Table
-                        columns={["Invoice", "Voucher", "Date", "Customer", "DSM"]}
-                        rows={dashboard?.dispatchDetails?.map((r) => [
-                            r.VCN,
-                            r.VOUCHER,
-                            r.DATE,
-                            r.CODEP,
-                            r.DSM ?? "-",
-                        ])}
+                    <GlassDataTable
+                        data={dashboard?.dispatchDetails ?? []}
+                        columns={dispatchDetailsCols}
+                        searchPlaceholder="Search dispatches..."
+                        pageSize={5}
                     />
                 </Section>
             </div>
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 px-1">
                 Note: "Delivered" is still a dispatch-count proxy until the client
                 confirms a real status field on SUBDIS. "Cancelled" now reflects
                 MDIS records with TYPE = "V" (unposted/void vouchers, verified to
@@ -363,46 +414,9 @@ export default function OrdersDashboardPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="bg-white rounded-xl shadow p-5">
-            <h3 className="text-base font-semibold mb-4">{title}</h3>
+        <div className="rounded-2xl border border-white/40 bg-white/40 backdrop-blur-xl shadow-lg p-5">
+            <h3 className="text-base font-semibold mb-4 text-gray-700">{title}</h3>
             {children}
-        </div>
-    );
-}
-
-function Table({ columns, rows }: { columns: string[]; rows?: any[][] }) {
-    return (
-        <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-                <thead>
-                    <tr className="text-left text-gray-500 border-b">
-                        {columns.map((c) => (
-                            <th key={c} className="py-2 pr-4 font-medium">
-                                {c}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows && rows.length > 0 ? (
-                        rows.map((row, i) => (
-                            <tr key={i} className="border-b last:border-0">
-                                {row.map((cell, j) => (
-                                    <td key={j} className="py-2 pr-4 whitespace-nowrap">
-                                        {cell ?? "-"}
-                                    </td>
-                                ))}
-                            </tr>
-                        ))
-                    ) : (
-                        <tr>
-                            <td colSpan={columns.length} className="py-4 text-center text-gray-400">
-                                No data
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
         </div>
     );
 }
