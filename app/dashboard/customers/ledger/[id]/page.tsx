@@ -9,6 +9,7 @@ export default function CustomerLedgerPage() {
   const params = useParams();
   const id = params.id as string;
  // const code = params.code as string;
+ 
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -166,7 +167,8 @@ fetch(`/api/customers/ledger/${id}`)
     >
       <div className="card-body text-center">
         <small className="text-muted">Total Bills</small>
-        <h3> {data.ledger?.length || 0}</h3>
+        {/* <h3> {data.ledger?.length || 0}</h3> */}
+        <h3>{data.summary?.totalBills || 0}</h3>
       </div>
     </div>
   </div>

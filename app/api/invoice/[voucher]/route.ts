@@ -18,8 +18,12 @@ export async function GET(
 
     // Invoice Header
     const header = await SalesMdis.findOne({
-      VOUCHER: voucherNo,
-    }).lean();
+      VOUCHER: Number((await params).voucher)
+  });
+
+    // const header = await SalesMdis.findOne({
+    //   VOUCHER: voucherNo,
+    // }).lean();
 
     if (!header) {
       return NextResponse.json(
@@ -32,9 +36,14 @@ export async function GET(
     }
 
     // Invoice Items
+    // const items = await SalesDis.find({
+    //   VOUCHER: voucherNo,
+    // }).lean();
+
     const items = await SalesDis.find({
-      VOUCHER: voucherNo,
-    }).lean();
+      VOUCHER: Number((await params).voucher)
+    });
+
 
     // Customer
     const customer = await Customer.findOne({

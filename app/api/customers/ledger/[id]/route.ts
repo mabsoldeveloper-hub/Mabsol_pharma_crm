@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 
 import Customer from "@/models/Customer";
-import SalesMdis from "@/models/SalesMdis";
 import GLedger from "@/models/GLedger";
+import Pendings from "@/models/Pendings";
 
 export async function GET(
   req: NextRequest,
@@ -16,8 +16,9 @@ export async function GET(
     const { id } = await params;
 
     // =========================
-    // Customer (Fetch by Mongo _id)
+    // Customer
     // =========================
+
     const customer: any = await Customer.findById(id).lean();
 
     if (!customer) {
@@ -37,7 +38,10 @@ export async function GET(
     const ledgerRows: any[] = await GLedger.find({
       CODE: customer.ORDNO,
     })
-      .sort({ DATE: 1, VOUCHER: 1 })
+      .sort({
+        DATE: 1,
+        VOUCHER: 1,
+      })
       .lean();
 
     let runningBalance = Number(customer.OPNING || 0);
@@ -45,34 +49,43 @@ export async function GET(
     const ledger = ledgerRows.map((row: any) => {
       const debit = Number(row.DEBIT || 0);
       const credit = Number(row.CREDIT || 0);
-    
+
       runningBalance += debit;
       runningBalance -= credit;
-    
+
       let particulars = row.BOOK || "";
-    
+
       switch (row.BOOK) {
+
         case "S":
           particulars = "Sales Invoice";
           break;
-    
+      
         case "R":
           particulars = "Receipt";
           break;
-    
+      
         case "P":
-          particulars = "Purchase";
+          particulars = "Payment";
           break;
-    
+      
         case "J":
           particulars = "Journal";
           break;
-    
+      
+        case "A":
+          particulars = "Purchase";
+          break;
+      
         case "OB":
           particulars = "Opening Balance";
           break;
+          
+      
+        default:
+          particulars = row.BOOK;
       }
-    
+
       return {
         date: row.DATE,
         voucher: row.VOUCHER,
@@ -87,41 +100,47 @@ export async function GET(
     });
 
     // =========================
-    // Sales Summary
+    // Sales Register (PENDINGS)
     // =========================
+    const invoices = await Pendings.find({
+      ORD: customer.ORDNO
+    })
+    .sort({
+        DDATE: -1,
+        VOUCHER: -1
+    })
+    .lean();
 
-    const invoices = await SalesMdis.find(
-      {
-        CODEP: customer.ORDNO,
-      },
-      {
-        VCN: 1,
-        DATE: 1,
-        TYPE: 1,
-        FINAL: 1,
-        AMOUNTT: 1,
-        TAXAMO: 1,
-        ROUND: 1,
-      }
-    )
-      .sort({ DATE: -1 })
-      .lean();
 
-    // =========================
-    // Sales Register
-    // =========================
 
     const sales = invoices.map((item: any) => {
-      const amount = Number(item.FINAL || 0);
-      const received = Number(item.RECEIVED || 0);
-      const pending = amount - received;
+      const amount = Math.abs(Number(item.FINAL || 0));
+
+      const pending = Math.abs(Number(item.BALANCE || 0));
+
+      const received = Math.max(amount - pending, 0);
+
       return {
-        date: item.DATE,
-        voucher: item.VCN,
-        billNo: item.VCN,
+        date: item.DDATE,
+
+        dueDate: item.DUEDATE,
+
+        voucher: item.VOUCHER,
+
+        billNo:
+          item.VCN ||
+          item.CHALLAN ||
+          item.VOUCHER,
+
         amount,
+
         received,
+
         pending,
+
+        invType: item.INVTYPE,
+        svoucher: item.SVOUCHER,
+
         status:
           pending <= 0
             ? "Paid"
@@ -131,120 +150,139 @@ export async function GET(
       };
     });
 
+    // =========================
+    // Continue in Part 2
+    // =========================
 
-// =========================
-// Outstanding Register
-// =========================
+        // =========================
+    // Outstanding Register
+    // =========================
 
-const outstanding = sales.filter(
-  (x: any) => x.pending > 0
-);
-    
+    const outstanding = sales.filter(
+      (x: any) => x.pending > 0
+    );
+
+    // =========================
+    // Summary
+    // =========================
+
     const totalBills = sales.length;
 
-
     const totalSales = sales.reduce(
-      (sum: number, x: any) =>
-        sum + Number(x.FINAL || 0),
+      (sum: number, x: any) => sum + Number(x.amount || 0),
       0
     );
-    
 
-    
-    const lastBill = sales[0] || null;
-    // Temporary Outstanding Logic
-// Baad me Receipt Adjustment karenge
+    const lastBill =
+      sales.length > 0 ? sales[0] : null;
 
-const outstandingBills =
-  outstanding.length;
+    const outstandingBills = outstanding.length;
 
-const outstandingAmount =
-  outstanding.reduce(
-    (sum: number, x: any) =>
-      sum + x.pending,
-    0
-  );
-
+    const outstandingAmount = outstanding.reduce(
+      (sum: number, x: any) => sum + Number(x.pending || 0),
+      0
+    );
 
     const totalDebit = ledger.reduce(
-      (sum: number, x: any) => sum + x.debit,
+      (sum: number, x: any) =>
+        sum + Number(x.debit || 0),
       0
     );
 
     const totalCredit = ledger.reduce(
-      (sum: number, x: any) => sum + x.credit,
+      (sum: number, x: any) =>
+        sum + Number(x.credit || 0),
       0
     );
 
-    return NextResponse.json({
+    // =========================
+    // Response
+    // =========================
 
-      success:true,
-      
-      customer:{
-      
-      id:customer._id,
-      
-      code:customer.ORDNO,
-      
-      name:customer.PARNAM,
-      
-      city:customer.CITY,
-      
-      state:customer.STATE,
-      
-      phone:customer.PHONE1||customer.PHONE4,
-      
-      gst:customer.GSTNO,
-      
-      dlno:customer.DLNO,
-      
-      opening:Number(customer.OPNING||0),
-      
-      currentBalance:Number(customer.BALANCE||0)
-      
+    return NextResponse.json({
+      success: true,
+
+      customer: {
+        id: customer._id,
+
+        code: customer.ORDNO,
+
+        name: customer.PARNAM,
+
+        city: customer.CITY,
+
+        state: customer.STATE,
+
+        phone:
+          customer.PHONE1 ||
+          customer.PHONE4 ||
+          "",
+
+        gst: customer.GSTNO,
+
+        dlno: customer.DLNO,
+
+        opening: Number(
+          customer.OPNING || 0
+        ),
+
+        currentBalance: Number(
+          customer.BALANCE || 0
+        ),
       },
-      
-      summary:{
-      
-      opening:Number(customer.OPNING||0),
-      
-      debit:totalDebit,
-      
-      credit:totalCredit,
-      
-      closing:runningBalance,
-      
-      totalBills,
-      
-      totalSales,
-      
-      outstandingBills,
-      
-      outstandingAmount,
-      
-      ledgerBalance:Number(customer.BALANCE||0),
-      
-      lastBillNo:lastBill?.billNo||"",
-      
-      lastBillDate:lastBill?.date||""
-      
+
+      summary: {
+        opening: Number(
+          customer.OPNING || 0
+        ),
+
+        debit: totalDebit,
+
+        credit: totalCredit,
+
+        closing: runningBalance,
+
+        totalBills,
+
+        totalSales,
+
+        outstandingBills,
+
+        outstandingAmount,
+
+        ledgerBalance: Number(
+          customer.BALANCE || 0
+        ),
+
+        lastBillNo:
+          lastBill?.billNo || "",
+
+        lastBillDate:
+          lastBill?.date || "",
       },
-      
+
       ledger,
-      
+
       sales,
-      
-      outstanding
-      
-      });
+
+      outstanding,
+    });
 
   } catch (err: any) {
+
+    console.error(err);
+
     return NextResponse.json(
       {
         success: false,
-        message: err.message,
+        message:
+          err.message ||
+          "Internal Server Error",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
+
   }
 }
