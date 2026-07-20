@@ -522,7 +522,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                         />
                       </li>
                       <li>
-                        <SubLink href="#" icon={<FaWarehouse />} label="Stock" active={false} color="sky" />
+                        <SubLink href="/dashboard/stock" icon={<FaWarehouse />} label="Stock" active={false} color="sky" />
                       </li>
                     </>
                   }
