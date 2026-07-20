@@ -21,17 +21,27 @@ import { buildStateResolution, resolveState, monthFilter, MAP_ID_TO_STATE_NAMES 
  *
  * Query params: ?fy=2026-27&month=Jul (optional, same semantics as the
  * national route).
+ *
+ * FIX (build error) — Next.js 15/16 changed dynamic route handler `params`
+ * from a plain object to a Promise: `{ params: Promise<{ state: string }> }`
+ * instead of `{ params: { state: string } }`. The old signature type-checked
+ * fine under Next 14 but fails `next build`'s route-type validator on 15/16
+ * with:
+ *   Type '{ params: { state: string; }; }' is not assignable to type
+ *   '{ params: Promise<{ state: string; }>; }'.
+ * Fixed by typing params as a Promise and `await`-ing it before use.
  * -----------------------------------------------------------------------------
  */
 
-export async function GET(req: Request, { params }: { params: { state: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ state: string }> }) {
     try {
         await connectDB();
 
-        const stateId = params.state?.toLowerCase();
+        const { state: stateParam } = await params;
+        const stateId = stateParam?.toLowerCase();
         const stateNames = MAP_ID_TO_STATE_NAMES[stateId];
         if (!stateNames || stateNames.length === 0) {
-            return NextResponse.json({ error: `Unknown state id "${params.state}"` }, { status: 404 });
+            return NextResponse.json({ error: `Unknown state id "${stateParam}"` }, { status: 404 });
         }
         const stateNameSet = new Set(stateNames);
 
