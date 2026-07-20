@@ -10,6 +10,7 @@ import {
     stateFromCity,
     extractPincode,
     extractDistrict,
+    cleanPartyName,
     isRealParty,
 } from "@/lib/indiaMapStateResolver";
 
@@ -19,37 +20,21 @@ import {
  * Full rollup using all 8 of your real tables: MDIS, DIS, SUBDIS, PEND,
  * GLEDGER, PRO, PROBAT, ORDER.
  *
- * WHAT CHANGED FROM THE PREVIOUS VERSION
- *   1. Purchase is now real. MDIS carries both Sales (TYPE='S') and Purchase
- *      (TYPE='P') vouchers in the same table — verified against VCN prefixes
- *      (S -> "YH…", P -> "P…"). Previously `purchase` was hardcoded to 0.
- *   2. Sales Returns / Debit notes (MDIS TYPE='B', VCN "DN…") are broken out
- *      instead of being silently absent.
- *   3. "Provisional" vouchers (MDIS TYPE='V' — challan-raised but not yet
- *      invoiced, no VCN) are reported as their own national figure instead
- *      of being invisible or accidentally double-counted into Sales.
- *   4. Payments (GLEDGER BOOK='P', DEBIT side) are now rolled up alongside
- *      Collections (BOOK='R', CREDIT side) — same technique as before,
- *      mirrored for the payment side.
- *   5. PROBAT is finally used: stock valuation and an expiry-alert list.
- *   6. PRO's own MINIMUM/BALANCE fields drive a low-stock alert list.
- *   7. ORDER is used for a Party Directory & Ledger Balances panel. It is
- *      kept SEPARATE from the per-state Sales/Outstanding numbers because
- *      ORDER's own code fields do not join to the CODEP code space used by
- *      the other 5 tables (verified: 0/131 overlap) — see the long note in
- *      models/IndiaMapModels.ts. State for ORDER rows is resolved from
- *      GSTNO first (reliable), city-name lookup second (best-effort).
- *   8. NEW: City / District / Pincode on every Party Directory entry. None
- *      of your 8 tables has a dedicated District or Pincode column — they
- *      only exist as free text inside ORDER.PARADD/PARADD1/PARADD2 — so
- *      they're parsed out here via extractDistrict()/extractPincode() (see
- *      lib/indiaMapStateResolver.ts for exactly how, and their fallback
- *      rules). `districtSource` on each party tells you whether the
- *      district was read straight from the address text ("address") or
- *      guessed from the city name because no explicit district text was
- *      found ("city"). A companion full/searchable directory — every party,
- *      not just the top 10 — is available at
- *      /api/dashboard/india-map/parties.
+ * FIX — Party Directory was empty / junk-filled. Checked
+ * mabsol_pharma_crm_vfp_new_folder_order.json directly: it has 297 rows.
+ *   - If the "order" collection in your MongoDB is empty right now, this
+ *     API will correctly return an empty party list — that's a data
+ *     problem, not a code problem. Import all 8 provided JSON files into
+ *     the exact collection names the models below expect (mdis, dis,
+ *     subdis, pend, gledger, pro, probat, order). See the import script
+ *     I've provided alongside this fix.
+ *   - Independently, isRealParty() is now row-aware (see
+ *     lib/indiaMapStateResolver.ts) and cleanPartyName() strips the
+ *     VFP fixed-width padding + duplicated city text that was showing up
+ *     glued onto PARNAM (e.g. "ALCOLABS                      PANCHKULA"
+ *     -> "Alcolabs"), so even once the data is loaded the directory reads
+ *     as an actual customer list instead of a mix of real parties and raw
+ *     ledger heads.
  *
  * Query params: ?fy=2026-27&month=Jul (optional)
  *   Applied to every table that has its own date field (MDIS, DIS, SUBDIS,
@@ -243,15 +228,18 @@ export async function GET(req: Request) {
 
         // ---- 9. ORDER: Party Directory & Ledger Balances (independent panel — see header note). ----
         // isRealParty() filters out chart-of-accounts heads (tax accounts,
-        // stock account, discount heads, etc.) that also live in this table
-        // — shared with /api/dashboard/india-map/parties so both stay
-        // consistent. City / District / Pincode are parsed per-party below;
-        // see extractPincode() / extractDistrict() for exactly how.
+        // stock account, discount heads, expense heads, capital accounts,
+        // etc.) that also live in this table — shared with
+        // /api/dashboard/india-map/parties so both stay consistent. City /
+        // District / Pincode are parsed per-party below; see
+        // extractPincode() / extractDistrict() for exactly how. PARNAM is
+        // cleaned via cleanPartyName() to strip VFP fixed-width padding and
+        // the duplicated trailing city text some rows have.
         const orderRows = await OrderParty.find(
             {},
             { PARNAM: 1, CITY: 1, GSTNO: 1, BALANCE: 1, SALCR: 1, SALDR: 1, PURCR: 1, PURDR: 1, PARADD: 1, PARADD1: 1, PARADD2: 1, PHONE1: 1, PHONE2: 1 }
         ).lean();
-        const partyRows = orderRows.filter((r: any) => isRealParty(r.PARNAM));
+        const partyRows = orderRows.filter((r: any) => isRealParty(r.PARNAM, r));
         let totalLedgerBalance = 0;
         let partyStateResolved = 0;
         let partiesWithPincode = 0;
@@ -270,7 +258,7 @@ export async function GET(req: Request) {
                 partyStateCounts.set(state, (partyStateCounts.get(state) || 0) + 1);
             }
             return {
-                name: (r.PARNAM || "").trim(),
+                name: cleanPartyName(r.PARNAM, city),
                 city,
                 district,
                 districtSource,
@@ -341,6 +329,7 @@ export async function GET(req: Request) {
                 "Outstanding (PEND) and stock/expiry/party-directory figures are as-of-today snapshots and are not affected by the fy/month filter.",
                 "The Party Directory (from ORDER) cannot be joined to per-state Sales/Outstanding — ORDER uses a different code space than MDIS/DIS/SUBDIS/PEND/GLEDGER in this data export. Its state is derived from GSTNO where present, else a best-effort city lookup.",
                 "District and Pincode are not their own VFP columns — none of the 8 tables has one. Both are parsed out of ORDER's free-text address lines (PARADD/PARADD1/PARADD2); District falls back to City when no explicit district text is found (flagged per-party via districtSource). Full searchable directory: /api/dashboard/india-map/parties.",
+                "Party names are cleaned of VFP fixed-width padding and any duplicated trailing city text found in PARNAM (e.g. \"ALCOLABS                      PANCHKULA\" -> \"Alcolabs\") — see cleanPartyName() in lib/indiaMapStateResolver.ts.",
             ],
             filters: { fy, month },
         });

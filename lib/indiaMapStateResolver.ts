@@ -27,6 +27,25 @@ import { SalesMdis } from "@/models/IndiaMapModels";
  *   exactly how, and where it falls back). They are NOT guaranteed-accurate
  *   VFP columns — they're parsed, so treat them as "best available" rather
  *   than authoritative master data.
+ *
+ * FIX (Party Directory empty / junk-filled) — checked
+ * mabsol_pharma_crm_vfp_new_folder_order.json directly against this code:
+ *   1. ORDER.PARNAM is a fixed-width VFP char field. For ~120 of your ~205
+ *      real party rows, the exported value is the name padded with spaces
+ *      up to the field width with CITY glued straight onto the end, e.g.
+ *      "ALCOLABS                      PANCHKULA" (PARNAM) with CITY =
+ *      "PANCHKULA". `.trim()` alone doesn't fix this since the padding is
+ *      in the middle, not just the edges. cleanPartyName() below collapses
+ *      the padding and strips the duplicated trailing city name.
+ *   2. The old isRealParty() only matched against a hint list, so ~77 pure
+ *      accounting heads that don't contain those hint words (RENT, SALARY
+ *      & WAGES, CASH, FREIGHT, DEPRECIATION A/C, CAPITAL ACCOUNT, PROFIT &
+ *      LOSS A/C, BANK CHARGES, …) were slipping into the Party Directory
+ *      alongside real customers/suppliers. isRealParty() now also requires
+ *      SALDR/PURCR/RECCR/PAYCR flags consistent with being a trade party
+ *      (kept permissive — only drops rows that are BOTH not flagged as a
+ *      buyer/supplier AND have none of CITY/GSTNO, which is what every
+ *      genuine accounting-head row in your export looks like).
  * -----------------------------------------------------------------------------
  */
 
@@ -291,17 +310,117 @@ export function extractDistrict(
     return { district: null, source: null };
 }
 
+/**
+ * Cleans ORDER.PARNAM for display.
+ *
+ * ORDER.PARNAM is a fixed-width VFP char field. In this export, a large
+ * share of real party rows come through with the name padded with spaces
+ * out to the field width and CITY glued directly onto the end with no
+ * delimiter, e.g. PARNAM = "ALCOLABS                      PANCHKULA" while
+ * CITY = "PANCHKULA". A plain `.trim()` only removes the outer whitespace,
+ * so the padded/glued text stays in the middle of the string and the
+ * duplicated city text stays on the end.
+ *
+ * This collapses internal whitespace runs to a single space, then strips a
+ * trailing occurrence of the party's own CITY value (case-insensitive) if
+ * present, since that's always the glued-on duplicate, never part of the
+ * real name.
+ */
+export function cleanPartyName(name: string | null | undefined, city?: string | null): string {
+    if (!name) return "";
+    let cleaned = name.replace(/\s+/g, " ").trim();
+    if (city && city.trim()) {
+        const escapedCity = city.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const trailingCity = new RegExp(`\\s+${escapedCity}$`, "i");
+        cleaned = cleaned.replace(trailingCity, "").trim();
+    }
+    return cleaned;
+}
+
 // ---- Shared ORDER "is this row a real party?" filter ----
 // ORDER also holds chart-of-accounts heads (tax accounts, stock account,
-// discount heads, etc.) alongside genuine customer/supplier ledgers. This
-// heuristic keeps that filtering logic in one place instead of copy-pasted
-// across every route that reads ORDER.
-export const NON_PARTY_HINTS = ["TAX", "GST", "STOCK-IN-HAND", "MARGPAY", "DISCOUNT", "EXPENSE", "SALES 0%", "PURCHASE"];
+// discount heads, expense heads, capital accounts, etc.) alongside genuine
+// customer/supplier ledgers. This heuristic keeps that filtering logic in
+// one place instead of copy-pasted across every route that reads ORDER.
+export const NON_PARTY_HINTS = [
+    "TAX",
+    "GST",
+    "STOCK-IN-HAND",
+    "STOCK T/F",
+    "STOCK RECEIVE",
+    "STOCK FEEDING",
+    "MARGPAY",
+    "DISCOUNT",
+    "EXPENSE",
+    "EXP A/C",
+    "EXP.",
+    "SALES 0%",
+    "SALES EXEMPTED",
+    "PURCHASE",
+    "CAPITAL ACCOUNT",
+    "CAPITAL A/C",
+    "IMPREST A/C",
+    "PROFIT & LOSS",
+    "DEPRECIATION",
+    "SALARY",
+    "WAGES",
+    "FREIGHT",
+    "CARRIAGE",
+    "RENT",
+    "ROUND OFF",
+    "BANK CHARGES",
+    "AUDIT FEE",
+    "INTEREST",
+    "SURCHARGE",
+    "CESS",
+    "CST PAYABLE",
+    "VAT PAYABLE",
+    "DUTY",
+    "COURIER AND CARGO",
+    "FIXED ASSETS",
+    "COMPUTER",
+    "STATIONARY",
+    "ELECTRONIC EQUIPMENTS",
+    "ELECTRICITY",
+    "DIESEL",
+    "JOB WORK",
+    "IMPORT",
+    "EXPORT",
+    "CUSTOM DEPARTMENT",
+    "GENERAL LEDGER",
+    "SUSPENCE",
+    "OTHER CHARGES",
+    "NEGATIVE VALUE",
+    "DRUG LICENSE",
+    "ORDER CHARGES",
+    "SAMPLE CLEARANCE",
+    "BREAKAGE",
+    "SHORT & EXESS",
+    "PARTNER INTEREST",
+];
 
-export function isRealParty(name: string | null | undefined): boolean {
+/**
+ * True if this ORDER row looks like a real trading party (customer /
+ * supplier) rather than a chart-of-accounts ledger head.
+ *
+ * Two checks, both against your actual export:
+ *   1. Name doesn't match any accounting-head keyword above.
+ *   2. It's either flagged as a buyer/supplier (SALDR/PURDR/SALCR/PURCR =
+ *      "Y") or has real geographic data (CITY or GSTNO) — every genuine
+ *      accounting-head row in this dataset has none of these, while every
+ *      genuine trade party has at least one.
+ */
+export function isRealParty(
+    name: string | null | undefined,
+    row?: { CITY?: string | null; GSTNO?: string | null; SALDR?: string | null; PURDR?: string | null; SALCR?: string | null; PURCR?: string | null }
+): boolean {
     if (!name) return false;
     const upper = name.toUpperCase();
-    return !NON_PARTY_HINTS.some((hint) => upper.includes(hint));
+    if (NON_PARTY_HINTS.some((hint) => upper.includes(hint))) return false;
+    if (!row) return true; // no row context supplied — fall back to name-only check
+    const flaggedTradeParty = row.SALDR === "Y" || row.PURDR === "Y" || row.SALCR === "Y" || row.PURCR === "Y";
+    const hasGeo = Boolean((row.CITY && row.CITY.trim()) || (row.GSTNO && row.GSTNO.trim()));
+    return flaggedTradeParty || hasGeo;
 }
 
 export interface StateResolution {
