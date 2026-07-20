@@ -25,6 +25,16 @@ const VfpConfigSchema = new mongoose.Schema(
       required: false,
       default: [],
     },
+    autoSync: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
+    autoSyncInterval: {
+      type: Number,
+      required: false,
+      default: 10,
+    },
     useVfpEngine: {
       type: Boolean,
       required: false,
