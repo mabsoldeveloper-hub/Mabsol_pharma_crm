@@ -447,6 +447,16 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                 </li>
               </PermissionGate>
 
+              <li>
+                <NavLink
+                  href="/dashboard/area"
+                  icon={<FaBuilding />}
+                  label="Area Dashboard"
+                  active={pathname.startsWith("/dashboard/area")}
+                  color="emerald"
+                />
+              </li>
+
               <PermissionGate permission="users.view">
                 <Group
                   icon={<FaUsers />}
