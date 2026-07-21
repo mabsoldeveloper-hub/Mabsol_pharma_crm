@@ -1,7 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { FaFolder, FaFolderOpen, FaArrowUp, FaSearch, FaTimes } from "react-icons/fa";
+import { useState, useEffect, useRef } from "react";
+import { 
+  Folder, 
+  FolderOpen, 
+  ArrowUp, 
+  Search, 
+  X, 
+  Check, 
+  Loader2 
+} from "lucide-react";
 
 interface FolderSelectorModalProps {
   isOpen: boolean;
@@ -28,6 +36,14 @@ export default function FolderSelectorModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const crumbTrackRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll breadcrumbs when pathInput changes
+  useEffect(() => {
+    if (crumbTrackRef.current) {
+      crumbTrackRef.current.scrollLeft = crumbTrackRef.current.scrollWidth;
+    }
+  }, [pathInput]);
 
   // Initialize paths when modal opens
   useEffect(() => {
@@ -40,7 +56,6 @@ export default function FolderSelectorModal({
       let folderName = "";
 
       if (currentPath) {
-        // Find the last index of slashes (both Unix / and Windows \)
         const lastSlash = Math.max(currentPath.lastIndexOf("/"), currentPath.lastIndexOf("\\"));
         if (lastSlash !== -1 && lastSlash < currentPath.length - 1) {
           basePath = currentPath.substring(0, lastSlash);
@@ -89,22 +104,11 @@ export default function FolderSelectorModal({
     }
   }
 
-  const handleGoClick = () => {
-    loadFolders(pathInput);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      loadFolders(pathInput);
-    }
-  };
-
   const handleFolderClick = (folderName: string) => {
     setFolderInput(folderName);
   };
 
   const handleFolderDoubleClick = (folderName: string) => {
-    // Append folder name to path input and load folders inside
     const separator = pathInput.endsWith("/") || pathInput.endsWith("\\") ? "" : "\\";
     const newPath = `${pathInput}${separator}${folderName}`;
     setFolderInput("");
@@ -127,7 +131,6 @@ export default function FolderSelectorModal({
       return;
     }
 
-    // Combine path and folder cleanly
     const separator = pathInput.endsWith("/") || pathInput.endsWith("\\") ? "" : "\\";
     const fullPath = folderInput.trim()
       ? `${pathInput.trim()}${separator}${folderInput.trim()}`
@@ -151,7 +154,6 @@ export default function FolderSelectorModal({
       if (configData.success) {
         setSuccess("Sync folder configured successfully!");
         onFolderSelected(fullPath);
-        // Wait a short moment to show success message before closing
         setTimeout(() => {
           onClose();
         }, 1000);
@@ -165,181 +167,214 @@ export default function FolderSelectorModal({
     }
   };
 
+  const getCrumbs = () => {
+    const crumbs = [{ name: "Root", path: "" }];
+    if (!pathInput) return crumbs;
+
+    const parts = pathInput.split(/[\\/]/).filter(Boolean);
+    let tempPath = "";
+    
+    parts.forEach((part, index) => {
+      if (index === 0) {
+        tempPath = part;
+        if (tempPath.endsWith(":")) {
+          tempPath += "\\";
+        }
+      } else {
+        const separator = tempPath.endsWith("\\") || tempPath.endsWith("/") ? "" : "\\";
+        tempPath = `${tempPath}${separator}${part}`;
+      }
+      crumbs.push({ name: part, path: tempPath });
+    });
+    return crumbs;
+  };
+
   if (!isOpen) return null;
 
   const filteredFolders = folders.filter((folder) =>
     folder.toLowerCase().includes(filterText.toLowerCase())
   );
 
+  const crumbs = getCrumbs();
+  const separator = pathInput.endsWith("/") || pathInput.endsWith("\\") ? "" : "\\";
+  const selectedFullPath = folderInput.trim()
+    ? `${pathInput.trim()}${separator}${folderInput.trim()}`
+    : pathInput.trim();
+
   return (
-    <div
-      className="modal show d-block"
-      tabIndex={-1}
-      role="dialog"
-      style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 1050 }}
-    >
-      <div className="modal-dialog modal-dialog-centered modal-lg" role="document">
-        <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden bg-white">
-          
-          {/* Modal Header */}
-          <div className="modal-header border-bottom px-4 py-3 bg-light d-flex align-items-center justify-content-between">
-            <h5 className="modal-title fw-bold text-dark d-flex align-items-center gap-2">
-              <FaFolderOpen className="text-primary fs-5" />
-              {title}
-            </h5>
-            <button
-              type="button"
-              className="btn-close shadow-none"
-              onClick={onClose}
-              aria-label="Close"
-            ></button>
-          </div>
-
-          {/* Modal Body */}
-          <div className="modal-body p-4">
-            {error && (
-              <div className="alert alert-danger border-0 shadow-sm py-2 px-3 mb-3 small d-flex align-items-center gap-2">
-                <span>{error}</span>
-              </div>
-            )}
-            
-            {success && (
-              <div className="alert alert-success border-0 shadow-sm py-2 px-3 mb-3 small d-flex align-items-center gap-2">
-                <span>{success}</span>
-              </div>
-            )}
-
-            {/* Path Form Input */}
-            <div className="mb-3">
-              <label htmlFor="basePathInput" className="form-label fw-semibold text-secondary small">
-                Base Path
-              </label>
-              <div className="input-group input-group-sm">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary d-flex align-items-center"
-                  onClick={handleUpClick}
-                  disabled={!parentPath || loading}
-                  title="Go up to parent directory"
-                >
-                  <FaArrowUp />
-                </button>
-                <input
-                  id="basePathInput"
-                  type="text"
-                  className="form-control font-monospace text-secondary bg-light"
-                  placeholder="e.g. C:\VFPData"
-                  value={pathInput}
-                  onChange={(e) => setPathInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary px-3 shadow-none"
-                  onClick={handleGoClick}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  ) : (
-                    "Open"
-                  )}
-                </button>
-              </div>
+    <div className="fixed inset-0 bg-[#16181D]/40 flex items-center justify-center p-6 z-[1050] backdrop-blur-xs">
+      <div className="bg-white w-full max-w-[480px] rounded-[10px] shadow-2xl flex flex-col max-h-[88vh] overflow-hidden border border-[#E4E6EB] animate-in fade-in zoom-in-95 duration-150">
+        
+        {/* Header */}
+        <div className="flex items-start justify-between p-[20px_22px_16px] gap-[14px] bg-white shrink-0">
+          <div className="flex gap-3 items-start">
+            <div className="w-[34px] h-[34px] rounded-[8px] border border-[#E4E6EB] bg-[#F7F8FA] text-[#63676F] flex items-center justify-center shrink-0">
+              <FolderOpen className="w-4 h-4" />
             </div>
-
-            {/* Subfolders Navigation list */}
-            <div className="mb-3">
-              <div className="d-flex justify-content-between align-items-center mb-1">
-                <span className="fw-semibold text-secondary small">Subfolders inside path</span>
-                {loading && <span className="spinner-border spinner-border-sm text-primary" style={{ borderWidth: "2px" }}></span>}
-              </div>
-
-              <div className="border rounded-3 p-3 bg-light overflow-hidden">
-                {/* Search inside the folders */}
-                <div className="input-group input-group-sm mb-2 shadow-sm">
-                  <span className="input-group-text bg-white border-end-0 text-muted">
-                    <FaSearch size={12} />
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control border-start-0 ps-1"
-                    placeholder="Filter subfolders..."
-                    value={filterText}
-                    onChange={(e) => setFilterText(e.target.value)}
-                    disabled={loading || folders.length === 0}
-                  />
-                  {filterText && (
-                    <button
-                      className="btn btn-outline-secondary border-start-0"
-                      onClick={() => setFilterText("")}
-                      type="button"
-                    >
-                      <FaTimes size={10} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Folders list */}
-                <div
-                  className="overflow-auto bg-white border rounded-2"
-                  style={{ height: "180px" }}
-                >
-                  {filteredFolders.length === 0 ? (
-                    <div className="h-100 d-flex align-items-center justify-content-center text-muted small py-4">
-                      {loading ? "Loading subfolders..." : "No folders found in this directory"}
-                    </div>
-                  ) : (
-                    <div className="list-group list-group-flush">
-                      {filteredFolders.map((folderName) => (
-                        <button
-                          key={folderName}
-                          type="button"
-                          className={`list-group-item list-group-item-action py-2 px-3 text-start border-0 d-flex align-items-center gap-2.5 small font-monospace ${
-                            folderInput === folderName
-                              ? "bg-primary text-white"
-                              : "text-secondary"
-                          }`}
-                          onClick={() => handleFolderClick(folderName)}
-                          onDoubleClick={() => handleFolderDoubleClick(folderName)}
-                          title="Click to select, Double-click to open"
-                        >
-                          <FaFolder className={folderInput === folderName ? "text-white" : "text-warning"} />
-                          <span className="text-truncate">{folderName}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="text-muted small mt-1.5" style={{ fontSize: "0.7rem" }}>
-                  💡 Double-click a folder to navigate down, or select it to set it as target folder.
-                </div>
-              </div>
-            </div>
-
-            {/* Folder Form Input */}
             <div>
-              <label htmlFor="folderNameInput" className="form-label fw-semibold text-secondary small">
-                Target Folder Name
-              </label>
-              <input
-                id="folderNameInput"
-                type="text"
-                className="form-control form-control-sm font-monospace text-secondary"
-                placeholder="Folder name (leave blank to select Base Path directory)"
-                value={folderInput}
-                onChange={(e) => setFolderInput(e.target.value)}
-                disabled={loading}
-              />
+              <h2 className="font-sans text-base font-bold text-[#16181D] m-0 mb-[3px] tracking-[-0.01em] leading-snug">
+                {title}
+              </h2>
+              <p className="text-[12.5px] text-[#9297A1] m-0 leading-normal">
+                Browse your server filesystem to configure VFP paths
+              </p>
             </div>
           </div>
+          <button 
+            type="button"
+            className="w-7 h-7 rounded-md border-0 bg-transparent text-[#9297A1] cursor-pointer flex items-center justify-center shrink-0 hover:bg-[#F7F8FA] hover:text-[#16181D] transition-colors mt-0.5"
+            onClick={onClose}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
-          {/* Modal Footer */}
-          <div className="modal-footer border-top px-4 py-3 bg-light">
+        {/* Navigation Bar */}
+        <div className="flex items-center gap-2 p-[0_22px_14px] shrink-0">
+          <button
+            type="button"
+            className="w-[30px] h-[30px] rounded-[7px] border border-[#E4E6EB] bg-white flex items-center justify-center cursor-pointer text-[#63676F] shrink-0 hover:bg-[#F7F8FA] disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+            onClick={handleUpClick}
+            disabled={!parentPath || loading}
+            title="Up one level"
+          >
+            <ArrowUp className="w-3.5 h-3.5" />
+          </button>
+          
+          <div ref={crumbTrackRef} className="flex-1 min-w-0 flex items-center gap-1.5 bg-[#F7F8FA] border border-[#E4E6EB] rounded-[7px] p-[8px_12px] overflow-x-auto whitespace-nowrap scrollbar-none">
+            {crumbs.map((crumb, idx) => (
+              <span key={idx} className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  className={`text-[12.5px] font-medium cursor-pointer px-[3px] py-[2px] rounded font-mono transition-colors focus:outline-none ${
+                    idx === crumbs.length - 1 
+                      ? "text-[#16181D] font-bold pointer-events-none" 
+                      : "text-[#9297A1] hover:text-[#16181D]"
+                  }`}
+                  onClick={() => {
+                    setFolderInput("");
+                    loadFolders(crumb.path);
+                  }}
+                >
+                  {crumb.name}
+                </button>
+                {idx < crumbs.length - 1 && (
+                  <span className="text-[#D4D7DE] text-[12px] select-none font-mono">/</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Filter Input */}
+        <div className="px-[22px] pb-[14px] shrink-0">
+          <div className="flex items-center gap-2.5 bg-[#F7F8FA] border border-[#E4E6EB] rounded-[7px] p-[9px_12px]">
+            <Search className="w-3.5 h-3.5 text-[#9297A1] shrink-0" />
+            <input
+              type="text"
+              className="w-full text-xs bg-transparent outline-none border-none text-[#16181D] placeholder-[#9297A1]"
+              placeholder="Filter subfolders..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              disabled={loading || folders.length === 0}
+            />
+            {filterText && (
+              <button
+                type="button"
+                className="p-0.5 text-[#9297A1] hover:text-[#16181D] transition-colors focus:outline-none"
+                onClick={() => setFilterText("")}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Message Banner (Errors & Success) */}
+        {error && (
+          <div className="mx-[22px] mb-[14px] flex items-center gap-2.5 bg-[#FCEBEA] border border-[#F3C9C6] rounded-[7px] p-[10px_13px] text-[12.5px] text-[#C0332A] font-medium animate-in fade-in duration-100 shrink-0">
+            <span>{error}</span>
+          </div>
+        )}
+        
+        {success && (
+          <div className="mx-[22px] mb-[14px] flex items-center gap-2.5 bg-[#E2F6F3] border border-[#A7E2D8] rounded-[7px] p-[10px_13px] text-[12.5px] text-[#0D9488] font-medium animate-in fade-in duration-100 shrink-0">
+            <span>{success}</span>
+          </div>
+        )}
+
+        {/* Folders Navigation List */}
+        <div className="mx-[22px] mb-[22px] border border-[#E4E6EB] rounded-[9px] flex-1 min-h-[180px] max-h-[260px] overflow-y-auto bg-white">
+          {loading ? (
+            <div className="h-full min-h-[180px] flex flex-col items-center justify-center text-[#9297A1] gap-2.5">
+              <Loader2 className="w-6 h-6 animate-spin text-[#3457D5]" />
+              <span className="text-xs font-semibold">Loading subfolders...</span>
+            </div>
+          ) : filteredFolders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-[36px_20px] text-center text-[#9297A1] min-h-[180px]">
+              <Folder className="w-7 h-7 mb-2 text-[#D4D7DE]" />
+              <div className="text-[13px] font-semibold text-[#63676F] mb-0.5">No folders found</div>
+              <div className="text-[11.5px] text-[#9297A1]">No subfolders available at this path.</div>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#E4E6EB]">
+              {filteredFolders.map((folderName) => {
+                const isSelected = folderInput === folderName;
+                return (
+                  <div
+                    key={folderName}
+                    className={`flex items-center gap-[12px] p-[12px_14px] cursor-pointer transition-colors group ${
+                      isSelected ? "bg-[#EEEFFD]" : "hover:bg-[#F7F8FA]"
+                    }`}
+                    onClick={() => handleFolderClick(folderName)}
+                    onDoubleClick={() => handleFolderDoubleClick(folderName)}
+                  >
+                    <div className={`w-[28px] h-[28px] rounded-[6px] flex items-center justify-center shrink-0 transition-colors ${
+                      isSelected ? "bg-white text-[#3457D5]" : "bg-[#F7F8FA] text-[#9297A1]"
+                    }`}>
+                      <Folder className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13.5px] font-semibold text-[#16181D] truncate font-sans">
+                        {folderName}
+                      </div>
+                      <div className="text-[11.5px] text-[#9297A1] font-sans">Folder</div>
+                    </div>
+                    <Check className={`w-3.5 h-3.5 text-[#3457D5] shrink-0 ml-auto transition-all ${
+                      isSelected ? "opacity-100 scale-100" : "opacity-0 scale-75"
+                    }`} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Target Folder Name Input (Optional Helper) */}
+        <div className="mx-[22px] mb-[22px] shrink-0">
+          <label htmlFor="folderNameInput" className="block text-[11px] font-semibold text-[#63676F] uppercase tracking-wider mb-1.5">
+            Target Folder Name
+          </label>
+          <input
+            id="folderNameInput"
+            type="text"
+            className="w-full px-[12px] py-[9px] border border-[#E4E6EB] rounded-[7px] text-xs font-mono bg-white text-[#16181D] focus:outline-none focus:border-[#3457D5] focus:ring-1 focus:ring-[#3457D5] transition-all"
+            placeholder="Folder name (leave blank to select Base Path directory)"
+            value={folderInput}
+            onChange={(e) => setFolderInput(e.target.value)}
+            disabled={loading}
+          />
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-between gap-4 p-[15px_22px] border-t border-[#E4E6EB] bg-white shrink-0">
+          <div className="text-[12px] text-[#9297A1] truncate max-w-[220px]">
+            Selected: <span className="text-[#63676F] font-mono font-medium ml-1" title={selectedFullPath}>{selectedFullPath}</span>
+          </div>
+          <div className="flex gap-2.5 shrink-0">
             <button
               type="button"
-              className="btn btn-outline-secondary btn-sm"
+              className="text-[13px] font-semibold rounded-[7px] px-[16px] py-[9px] cursor-pointer border border-[#D4D7DE] bg-white text-[#16181D] hover:bg-[#F7F8FA] active:scale-[0.98] transition-all disabled:opacity-50"
               onClick={onClose}
               disabled={loading}
             >
@@ -347,14 +382,15 @@ export default function FolderSelectorModal({
             </button>
             <button
               type="button"
-              className="btn btn-primary btn-sm px-4 fw-semibold"
+              className="text-[13px] font-semibold rounded-[7px] px-[16px] py-[9px] cursor-pointer border border-[#3457D5] bg-[#3457D5] text-white hover:bg-[#2C48B8] active:scale-[0.98] transition-all disabled:bg-[#B7C1EE] disabled:border-[#B7C1EE] disabled:cursor-not-allowed disabled:active:scale-100"
               onClick={handleSave}
               disabled={loading || !pathInput.trim()}
             >
-              {loading ? "Saving..." : "Save Config"}
+              Confirm selection
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );

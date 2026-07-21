@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import ProtectedPage from "@/components/ProtectedPage";
 import FileSelectorModal from "@/components/FileSelectorModal";
 import {
@@ -16,10 +16,8 @@ import {
   Save,
   RefreshCw,
   Terminal,
-  CheckCircle2,
-  AlertTriangle,
-  AlertCircle,
   Check,
+  AlertTriangle
 } from "lucide-react";
 
 interface VfpSettingLogEntry {
@@ -150,12 +148,9 @@ export default function VfpSettingsPage() {
       !form.userName.trim() ||
       !form.companyName.trim() ||
       !form.license.trim() ||
-      !form.vfpExePath.trim() ||
-      !form.prgPath.trim() ||
-      !form.sourceDir.trim() ||
-      !form.dataDir.trim()
+      !form.prgPath.trim()
     ) {
-      setMessage({ type: "danger", text: "Operator, Company name, License Key, VFP Exe, PRG Path, Source Folder, and Copy Folder are required." });
+      setMessage({ type: "danger", text: "Operator, Company name, License Key, and PRG Path are required." });
       return;
     }
 
@@ -170,8 +165,6 @@ export default function VfpSettingsPage() {
           license: form.license,
           vfpExePath: form.vfpExePath,
           prgPath: form.prgPath,
-          sourceDir: form.sourceDir,
-          dataDir: form.dataDir,
         }),
       });
 
@@ -204,10 +197,7 @@ export default function VfpSettingsPage() {
       !savedForm.userName ||
       !savedForm.companyName ||
       !savedForm.license ||
-      !savedForm.vfpExePath ||
-      !savedForm.prgPath ||
-      !savedForm.sourceDir ||
-      !savedForm.dataDir
+      !savedForm.prgPath
     ) {
       setMessage({ type: "danger", text: "Please enter and save all VFP details before triggering a sync." });
       return;
@@ -268,33 +258,6 @@ export default function VfpSettingsPage() {
     }
   };
 
-  function actionBadge(action: string) {
-    if (action === "save_settings") {
-      return (
-        <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-2xl bg-blue-50 text-blue-700 border border-blue-100">
-          Save Settings
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-2xl bg-green-50 text-green-700 border border-green-100">
-        Sync Triggered
-      </span>
-    );
-  }
-
-  function statusBadge(action: string) {
-    let text = "Completed";
-    if (action === "save_settings") {
-      text = "Saved";
-    }
-    return (
-      <span className="inline-flex items-center text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-        {text}
-      </span>
-    );
-  }
-
   function formatDate(dateStr: string) {
     const d = new Date(dateStr);
     const year = d.getFullYear();
@@ -309,546 +272,343 @@ export default function VfpSettingsPage() {
     savedForm.userName &&
     savedForm.companyName &&
     savedForm.license &&
-    savedForm.vfpExePath &&
-    savedForm.prgPath &&
-    savedForm.sourceDir &&
-    savedForm.dataDir;
+    savedForm.prgPath;
 
   return (
     <ProtectedPage permission="vfp.settings">
-      <div className="space-y-4 px-1.5 sm:px-4">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6 bg-[#F8FAFC] min-h-screen">
         
-        {/* Header Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-3 sm:p-6 space-y-3">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Database size={22} />
+        {/* Header Row */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-[#E2E8F0]">
+          <div className="flex items-center gap-3">
+            {/* VFP Icon Badge */}
+            <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-[#0F2926] rounded-[8px] sm:rounded-[10px] text-white font-bold text-[13px] sm:text-[15px] tracking-wide shrink-0 select-none shadow-sm">
+              VFP
             </div>
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Visual FoxPro Configuration</h1>
-                <span className="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-2xl font-medium">
-                  VFP Integration Settings
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                Manage your Visual FoxPro connection, sync controls, and audit trail from a single streamlined admin workspace.
+            <div>
+              <h1 className="text-[18px] sm:text-[20px] font-bold text-[#0F172A] tracking-tight m-0">
+                VFP integration settings
+              </h1>
+              <p className="text-[12px] sm:text-[13px] text-[#64748B] leading-relaxed max-w-[550px] m-0">
+                Manage how Visual FoxPro connects, syncs, and audits with your modern stack
               </p>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <button
-              onClick={handleSyncNow}
-              disabled={syncing || isEditing || !isFormConfigured}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
-            >
-              <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
-              {syncing ? "Syncing..." : "Sync Now & Log"}
-            </button>
+          
+          <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
             <button
               onClick={handleLaunchConsole}
               disabled={launchingConsole || isEditing || !isFormConfigured}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-2xl bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-[6px] text-[13px] font-semibold px-4 py-2 cursor-pointer bg-white border border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8FAFC] transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 whitespace-nowrap"
             >
-              <Terminal size={15} className={launchingConsole ? "animate-pulse" : ""} />
-              {launchingConsole ? "Launching..." : "Open VFP Console"}
+              {launchingConsole && <RefreshCw size={13} className="animate-spin text-[#64748B]" />}
+              {launchingConsole ? "Launching..." : "Open VFP console"}
+            </button>
+            <button
+              onClick={handleSyncNow}
+              disabled={syncing || isEditing || !isFormConfigured}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-[6px] text-[13px] font-semibold px-4 py-2 cursor-pointer bg-[#115E59] border border-[#115E59] text-white hover:bg-[#0F4E4B] transition-all active:scale-[0.98] disabled:bg-[#8ED0C9] disabled:border-[#8ED0C9] disabled:cursor-not-allowed disabled:active:scale-100 whitespace-nowrap"
+            >
+              {syncing && <RefreshCw size={13} className="animate-spin" />}
+              {syncing ? "Syncing..." : "Sync now and log"}
             </button>
           </div>
         </div>
 
         {/* Alerts / Feedback Message */}
         {message.text && (
-          <div className={`p-3 rounded-2xl border flex items-start gap-3 ${
+          <div className={`p-[12px_14px] rounded-lg border flex items-start gap-2.5 text-[12.5px] leading-relaxed font-medium animate-in fade-in duration-200 ${
             message.type === "success" 
-              ? "bg-green-50 border-green-200 text-green-800" 
-              : "bg-red-50 border-red-200 text-red-800"
+              ? "bg-[#E6F4EA] border-[#B7E1CD] text-[#137333]" 
+              : "bg-[#FCE8E6] border-[#FAD2CF] text-[#C5221F]"
           }`}>
-            {message.type === "success" ? (
-              <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-            )}
-            <span className="text-sm font-medium">{message.text}</span>
+            <div className="w-1.5 h-1.5 rounded-full mt-2 shrink-0 bg-current" />
+            <span className="flex-1">{message.text}</span>
           </div>
         )}
 
         {/* Stored Configuration Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-3 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="text-blue-600 shrink-0">
-                  {isEditing ? <Unlock size={18} /> : <Lock size={18} />}
-                </div>
-                <h3 className="font-semibold text-slate-900 text-sm sm:text-base truncate">
-                  Stored Configuration
-                </h3>
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5 break-words">
-                Current VFP integration values and access state.
-              </p>
+        <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between p-[18px_20px] border-b border-[#E2E8F0] gap-4">
+            <div>
+              <h3 className="text-[14.5px] font-bold text-[#0F172A] m-0">
+                Stored configuration
+              </h3>
+              <p className="text-[12px] text-[#64748B] m-0">Current VFP integration values and access rules</p>
             </div>
             
-            {!isEditing && (
+            {!isEditing ? (
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="self-start sm:self-center inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-2xl border border-slate-200 hover:bg-slate-50 transition-colors text-slate-700 shrink-0"
+                className="inline-flex items-center justify-center rounded-[6px] border border-[#E2E8F0] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-[#0F172A] hover:bg-[#F8FAFC] active:scale-[0.98] transition-all cursor-pointer shrink-0"
               >
-                <Unlock size={12} /> Unlock & Edit
+                Unlock to edit
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="inline-flex items-center justify-center rounded-[6px] border border-[#E2E8F0] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-[#64748B] hover:bg-[#F8FAFC] active:scale-[0.98] transition-all cursor-pointer shrink-0"
+              >
+                Cancel
               </button>
             )}
           </div>
 
-          {isEditing ? (
-            <form onSubmit={handleSave} className="space-y-6">
-              {/* Section 1: Operator & Security */}
-              <div className="bg-slate-50/40 border border-slate-100 rounded-3xl p-5 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <User size={14} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">1. Operator & Security Credentials</h4>
-                    <p className="text-[10px] text-slate-400">Identify who is performing operations and authenticate sync</p>
+          <form onSubmit={handleSave} className="p-[20px] space-y-6">
+            
+            {/* Section 1: Operator & Security Credentials */}
+            <div className="space-y-4">
+              <div className="text-[10px] font-bold tracking-wider uppercase text-[#94A3B8]">
+                OPERATOR AND SECURITY CREDENTIALS
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11.5px] font-medium text-[#64748B]">Operator display name</span>
+                  <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
+                    <input
+                      type="text"
+                      className="w-full bg-transparent outline-none border-none px-3.5 py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-sans"
+                      placeholder="e.g. Rahul Sharma"
+                      value={form.userName}
+                      onChange={(e) => setForm({ ...form, userName: e.target.value })}
+                      disabled={!isEditing}
+                      required
+                    />
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Configured Operator
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <User size={14} />
-                      </span>
-                      <input
-                        type="text"
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 transition-all"
-                        placeholder="Operator's full name"
-                        value={form.userName}
-                        onChange={(e) => setForm({ ...form, userName: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Company Code (e.g. A01, B01)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <Building size={14} />
-                      </span>
-                      <input
-                        type="text"
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 transition-all"
-                        placeholder="Company Code (e.g. A01)"
-                        value={form.companyName}
-                        onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Database Sync License Key
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Key size={14} />
-                    </span>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11.5px] font-medium text-[#64748B]">License key</span>
+                  <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
                     <input
                       type="text"
-                      className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
-                      placeholder="VFP database sync license"
+                      className="w-full bg-transparent outline-none border-none px-3.5 py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-sans"
+                      placeholder="89H-1233-XXXX-XXXX"
                       value={form.license}
                       onChange={(e) => setForm({ ...form, license: e.target.value })}
+                      disabled={!isEditing}
                       required
                     />
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Section 2: VFP Engine */}
-              <div className="bg-slate-50/40 border border-slate-100 rounded-3xl p-5 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <Terminal size={14} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">2. VFP Engine Integration</h4>
-                    <p className="text-[10px] text-slate-400">Paths for executable and startup script automation</p>
-                  </div>
-                </div>
+            <hr className="border-none border-t border-[#F1F5F9]" />
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Visual FoxPro Executable Path
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <Terminal size={14} />
-                      </span>
-                      <input
-                        type="text"
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
-                        placeholder="e.g. C:\Program Files (x86)\Microsoft Visual FoxPro 9\vfp9.exe"
-                        value={form.vfpExePath}
-                        onChange={(e) => setForm({ ...form, vfpExePath: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => openFileBrowser("vfpExePath", "exe", "Select Visual FoxPro Executable")}
-                      className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50 hover:border-slate-350 transition-all shrink-0 text-slate-700 bg-white"
-                    >
-                      Browse...
-                    </button>
+            {/* Section 2: VFP Engine Integration */}
+            <div className="space-y-4">
+              <div className="text-[10px] font-bold tracking-wider uppercase text-[#94A3B8]">
+                VFP ENGINE INTEGRATION
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11.5px] font-medium text-[#64748B]">Company / organization name</span>
+                  <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
+                    <input
+                      type="text"
+                      className="w-full bg-transparent outline-none border-none px-3.5 py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-sans"
+                      placeholder="e.g. Ivy Company"
+                      value={form.companyName}
+                      onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+                      disabled={!isEditing}
+                      required
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    PRG Script File Path
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <FolderOpen size={14} />
-                      </span>
-                      <input
-                        type="text"
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
-                        placeholder="e.g. D:\VFP_Scripts\copy_data.prg"
-                        value={form.prgPath}
-                        onChange={(e) => setForm({ ...form, prgPath: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => openFileBrowser("prgPath", "prg", "Select FoxPro PRG File")}
-                      className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50 hover:border-slate-350 transition-all shrink-0 text-slate-700 bg-white"
-                    >
-                      Browse...
-                    </button>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11.5px] font-medium text-[#64748B]">VFP executable path</span>
+                  <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
+                    <input
+                      type="text"
+                      className={`w-full bg-transparent outline-none border-none pl-3.5 ${isEditing ? 'pr-20' : 'pr-3.5'} py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-mono`}
+                      placeholder="C:\Users\Administrator\Downloads\VfpNet\VfpNet.exe"
+                      value={form.vfpExePath}
+                      onChange={(e) => setForm({ ...form, vfpExePath: e.target.value })}
+                      disabled={!isEditing}
+                      required
+                    />
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => openFileBrowser("vfpExePath", "exe", "Select Visual FoxPro Executable")}
+                        className="absolute right-3.5 text-[12px] font-medium text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+                      >
+                        Browse_
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11.5px] font-medium text-[#64748B]">Log output path</span>
+                  <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
+                    <input
+                      type="text"
+                      className={`w-full bg-transparent outline-none border-none pl-3.5 ${isEditing ? 'pr-20' : 'pr-3.5'} py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-mono`}
+                      placeholder="e.g. D:\VFP_Logs\sync_log.log"
+                      value={form.prgPath}
+                      onChange={(e) => setForm({ ...form, prgPath: e.target.value })}
+                      disabled={!isEditing}
+                      required
+                    />
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => openFileBrowser("prgPath", "prg", "Select FoxPro PRG File")}
+                        className="absolute right-3.5 text-[12px] font-medium text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+                      >
+                        Browse_
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Section 3: Directory Paths */}
-              <div className="bg-slate-50/40 border border-slate-100 rounded-3xl p-5 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-                    <FolderOpen size={14} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">3. Replicated Directory Paths</h4>
-                    <p className="text-[10px] text-slate-400">Configure directory paths to get and copy tables</p>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      VFP Source Directory (Get Data From)
-                    </label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <FolderOpen size={14} />
-                        </span>
-                        <input
-                          type="text"
-                          className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
-                          placeholder="e.g. C:\vfpnew\vfpnew"
-                          value={form.sourceDir}
-                          onChange={(e) => setForm({ ...form, sourceDir: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openFileBrowser("sourceDir", "dir", "Select Source Data Directory")}
-                        className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50 hover:border-slate-350 transition-all shrink-0 text-slate-700 bg-white"
-                      >
-                        Browse...
-                      </button>
-                    </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      VFP Destination Copy Directory
-                    </label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                          <FolderOpen size={14} />
-                        </span>
-                        <input
-                          type="text"
-                          className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-slate-800 font-mono transition-all"
-                          placeholder="e.g. D:\copy data"
-                          value={form.dataDir}
-                          onChange={(e) => setForm({ ...form, dataDir: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openFileBrowser("dataDir", "dir", "Select Destination Copy Directory")}
-                        className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-semibold hover:bg-slate-50 hover:border-slate-350 transition-all shrink-0 text-slate-700 bg-white"
-                      >
-                        Browse...
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-850">
+            {/* Save Row (Only when editing) */}
+            {isEditing && (
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transition-all shadow-md shadow-blue-500/10"
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-[6px] text-[13px] font-semibold px-4 py-2 cursor-pointer bg-[#115E59] border border-[#115E59] text-white hover:bg-[#0F4E4B] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                 >
-                  <Save size={15} /> Save Changes
+                  <Save size={13} />
+                  {loading ? "Saving..." : "Save changes"}
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-[6px] text-[13px] font-semibold px-4 py-2 cursor-pointer bg-white border border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8FAFC] transition-all active:scale-[0.98] disabled:opacity-50 shrink-0"
                 >
                   Cancel
                 </button>
               </div>
-            </form>
-          ) : (
-            <div className="space-y-6">
-              {/* Section 1: Operator & Security */}
-              <div className="bg-slate-50/30 border border-slate-100/80 rounded-3xl p-5 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <User size={14} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">1. Operator & Security Credentials</h4>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="border border-slate-100 rounded-2xl p-3 bg-white">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <User size={13} className="text-slate-400" />
-                      Configured Operator
-                    </span>
-                    <p className="text-sm font-semibold text-slate-800 mt-0.5">{savedForm.userName || "Not set"}</p>
-                  </div>
-
-                  <div className="border border-slate-100 rounded-2xl p-3 bg-white">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Building size={13} className="text-slate-400" />
-                      Company Code / Name
-                    </span>
-                    <p className="text-sm font-semibold text-slate-800 mt-0.5">{savedForm.companyName || "Not set"}</p>
-                  </div>
-                </div>
-
-                <div className="border border-slate-100 rounded-2xl p-3 bg-white">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Key size={13} className="text-slate-400" />
-                    Database Sync License Key
-                  </span>
-                  <p className="text-sm font-semibold text-slate-850 mt-0.5 font-mono break-all">{savedForm.license || "Not set"}</p>
-                </div>
-              </div>
-
-              {/* Section 2: VFP Engine */}
-              <div className="bg-slate-50/30 border border-slate-100/80 rounded-3xl p-5 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <Terminal size={14} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">2. VFP Engine Integration</h4>
-                  </div>
-                </div>
-
-                <div className="border border-slate-100 rounded-2xl p-3 bg-white">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Terminal size={13} className="text-slate-400" />
-                    Visual FoxPro Executable Path
-                  </span>
-                  <p className="text-xs font-semibold text-slate-700 mt-0.5 font-mono break-all">{savedForm.vfpExePath || "Not set"}</p>
-                </div>
-
-                <div className="border border-slate-100 rounded-2xl p-3 bg-white">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <FolderOpen size={13} className="text-slate-400" />
-                    PRG Script File Path
-                  </span>
-                  <p className="text-xs font-semibold text-slate-700 mt-0.5 font-mono break-all">{savedForm.prgPath || "Not set"}</p>
-                </div>
-              </div>
-
-              {/* Section 3: Directory Paths */}
-              <div className="bg-slate-50/30 border border-slate-100/80 rounded-3xl p-5 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-                    <FolderOpen size={14} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">3. Replicated Directory Paths</h4>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="border border-slate-100 rounded-2xl p-3 bg-white">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <FolderOpen size={13} className="text-slate-400" />
-                      VFP Source Directory
-                    </span>
-                    <p className="text-xs font-semibold text-slate-700 mt-0.5 font-mono break-all">{savedForm.sourceDir || "Not set"}</p>
-                  </div>
-
-                  <div className="border border-slate-100 rounded-2xl p-3 bg-white">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <FolderOpen size={13} className="text-slate-400" />
-                      VFP Destination Copy Directory
-                    </span>
-                    <p className="text-xs font-semibold text-slate-700 mt-0.5 font-mono break-all">{savedForm.dataDir || "Not set"}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+          </form>
         </div>
 
         {/* Guidance Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-3 sm:p-6 space-y-3">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-              <HelpCircle size={20} />
-            </div>
+        <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between p-[18px_20px] border-b border-[#E2E8F0] gap-4">
             <div>
-              <h3 className="font-semibold text-slate-900 text-sm sm:text-base">VFP Console Guidance</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Helpful reminders for safe sync operations and configuration checks.
-              </p>
+              <h3 className="text-[14.5px] font-bold text-[#0F172A] m-0">
+                VFP console guidance
+              </h3>
+              <p className="text-[12px] text-[#64748B] m-0">Helpful reminders for safe sync operations and configuration changes</p>
             </div>
+            
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold text-[#15803D] bg-[#F0FDF4] border border-[#DCFCE7] shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
+              Console healthy
+            </span>
           </div>
-
-          <div className="space-y-2 border border-slate-100 rounded-2xl p-3 bg-slate-50/10">
-            <div className="flex items-start gap-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
-              <Check size={14} className="text-blue-500 shrink-0 mt-0.5" />
-              <span>Verify the executable path before launching the console.</span>
-            </div>
-            <div className="flex items-start gap-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
-              <Check size={14} className="text-blue-500 shrink-0 mt-0.5" />
-              <span>Use sync logging to capture database changes and operator actions.</span>
-            </div>
-            <div className="flex items-start gap-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
-              <Check size={14} className="text-blue-500 shrink-0 mt-0.5" />
-              <span>Keep the license key stored securely and rotate access when needed.</span>
-            </div>
-          </div>
-
-          {/* System Health Check alert block */}
-          <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-3 flex gap-2.5 items-start">
-            <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
-            <div>
-              <span className="text-amber-800 text-xs font-bold block">System Health Check</span>
-              <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">
-                Last validation completed successfully. Console access and sync permissions are ready for use.
-              </p>
+          <div className="p-[20px] space-y-4">
+            <ul className="space-y-2 text-[13px] text-[#475569] list-none p-0 m-0">
+              <li className="flex items-start gap-2.5 leading-relaxed">
+                <span className="text-[#94A3B8] font-bold select-none">•</span>
+                Verify the executable path before launching the console
+              </li>
+              <li className="flex items-start gap-2.5 leading-relaxed">
+                <span className="text-[#94A3B8] font-bold select-none">•</span>
+                Use your login to audit database changes and operator activity
+              </li>
+              <li className="flex items-start gap-2.5 leading-relaxed">
+                <span className="text-[#94A3B8] font-bold select-none">•</span>
+                Keep the license key stored securely and visible only when needed
+              </li>
+            </ul>
+            
+            <div className="p-[14px] bg-[#FFFBEB] border border-[#FDE68A] rounded-[6px]">
+              <strong className="block text-[#92400E] text-[11px] font-bold tracking-wider uppercase mb-[2px]">Device audit check</strong>
+              <p className="text-[12.5px] text-[#B45309] m-0 font-medium">Last configuration audit succeeded. Console access and sync permissions are noted.</p>
             </div>
           </div>
         </div>
 
         {/* Audit Log Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/70 p-3 sm:p-6">
-          <div className="flex items-start gap-4 mb-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-              <History size={20} />
-            </div>
+        <div className="bg-white border border-[#E2E8F0] rounded-[8px] shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between p-[18px_20px] border-b border-[#E2E8F0] gap-4">
             <div>
-              <h3 className="font-semibold text-slate-900 text-sm sm:text-base">Setting Audit Log Trail</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Recent configuration events, sync actions, and operator changes.
-              </p>
+              <h3 className="text-[14.5px] font-bold text-[#0F172A] m-0">
+                Setting audit log trail
+              </h3>
+              <p className="text-[12px] text-[#64748B] m-0">Recent configuration edits, sync operations, and property changes</p>
             </div>
+            
+            <button
+              onClick={loadLogs}
+              disabled={logsLoading}
+              className="inline-flex items-center justify-center gap-1.5 rounded-[6px] text-[12.5px] font-semibold px-3.5 py-1.5 cursor-pointer border border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#F8FAFC] active:scale-[0.98] transition-all disabled:opacity-50 shrink-0"
+            >
+              <RefreshCw size={13} className={logsLoading ? "animate-spin" : ""} />
+              Refresh audits
+            </button>
           </div>
 
-          <button
-            onClick={loadLogs}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-2xl bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 disabled:opacity-50 transition-colors"
-            disabled={logsLoading}
-          >
-            <RefreshCw size={13} className={logsLoading ? "animate-spin" : ""} />
-            {logsLoading ? "Refreshing Audits..." : "Refresh Audits"}
-          </button>
-
-          <div className="overflow-x-auto w-full border border-slate-100 rounded-2xl mt-3">
+          <div className="overflow-x-auto w-full">
             <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
-                <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                  <th className="py-2 px-2.5">Timestamp</th>
-                  <th className="py-2 px-2.5">Action</th>
-                  <th className="py-2 px-2.5">Operator</th>
-                  <th className="py-2 px-2.5">Target Path</th>
-                  <th className="py-2 px-2.5">License Key</th>
-                  <th className="py-2 px-2.5">IP Address</th>
-                  <th className="py-2 px-2.5">Change Details</th>
-                  <th className="py-2 px-2.5">Status</th>
+                <tr>
+                  <th className="text-left text-[10px] font-bold tracking-wider uppercase text-[#64748B] p-[12px_20px] border-b border-[#E2E8F0] whitespace-nowrap bg-[#F8FAFC]">TIME AND DATE</th>
+                  <th className="text-left text-[10px] font-bold tracking-wider uppercase text-[#64748B] p-[12px_20px] border-b border-[#E2E8F0] whitespace-nowrap bg-[#F8FAFC]">ACTION</th>
+                  <th className="text-left text-[10px] font-bold tracking-wider uppercase text-[#64748B] p-[12px_20px] border-b border-[#E2E8F0] whitespace-nowrap bg-[#F8FAFC]">OPERATOR</th>
+                  <th className="text-left text-[10px] font-bold tracking-wider uppercase text-[#64748B] p-[12px_20px] border-b border-[#E2E8F0] whitespace-nowrap bg-[#F8FAFC]">TARGET PATH</th>
+                  <th className="text-left text-[10px] font-bold tracking-wider uppercase text-[#64748B] p-[12px_20px] border-b border-[#E2E8F0] whitespace-nowrap bg-[#F8FAFC]">ACCOUNT ID</th>
+                  <th className="text-left text-[10px] font-bold tracking-wider uppercase text-[#64748B] p-[12px_20px] border-b border-[#E2E8F0] whitespace-nowrap bg-[#F8FAFC]">CHANGE SUMMARY</th>
                 </tr>
               </thead>
-              <tbody className="text-xs divide-y divide-slate-100">
+              <tbody className="text-xs divide-y divide-[#E2E8F0]">
                 {logsLoading && logs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-5 text-slate-400 font-medium">
+                    <td colSpan={6} className="text-center py-6 text-[#64748B] font-medium">
                       Loading audit entries...
                     </td>
                   </tr>
                 ) : logs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-5 text-slate-400 font-medium">
+                    <td colSpan={6} className="text-center py-6 text-[#64748B] font-medium">
                       No logs tracked. Set details to populate records.
                     </td>
                   </tr>
                 ) : (
                   logs.map((log) => (
-                    <tr key={log._id} className="hover:bg-slate-50/30 transition-colors">
-                      <td className="py-2.5 px-2.5 font-medium text-slate-500">{formatDate(log.createdAt)}</td>
-                      <td className="py-2.5 px-2.5">{actionBadge(log.action)}</td>
-                      <td className="py-2.5 px-2.5 text-slate-700 font-semibold">{log.userName}</td>
-                      <td className="py-2.5 px-2.5 font-mono text-slate-400 text-xs truncate max-w-[180px]" title={log.vfpExePath}>
+                    <tr key={log._id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <td className="p-[12px_20px] text-xs text-[#64748B] border-b border-[#E2E8F0] align-middle whitespace-nowrap font-mono">
+                        {formatDate(log.createdAt)}
+                      </td>
+                      <td className="p-[12px_20px] text-xs text-[#0F172A] border-b border-[#E2E8F0] align-middle whitespace-nowrap">
+                        {log.action === "save_settings" ? "Edit settings" : "Sync manually"}
+                      </td>
+                      <td className="p-[12px_20px] text-xs text-[#0F172A] font-semibold border-b border-[#E2E8F0] align-middle whitespace-nowrap">
+                        {log.userName}
+                      </td>
+                      <td className="p-[12px_20px] text-xs text-[#64748B] border-b border-[#E2E8F0] align-middle whitespace-nowrap font-mono max-w-[200px] truncate" title={log.vfpExePath}>
                         {log.vfpExePath}
                       </td>
-                      <td className="py-2.5 px-2.5 font-mono text-slate-400 text-xs">{log.license}</td>
-                      <td className="py-2.5 px-2.5 font-mono text-slate-500 text-xs">{log.ipAddress || "127.0.0.1"}</td>
-                      <td className="py-2.5 px-2.5 text-slate-650 max-w-[250px] truncate" title={log.message}>
+                      <td className="p-[12px_20px] text-xs text-[#64748B] border-b border-[#E2E8F0] align-middle whitespace-nowrap font-mono">
+                        {log.license ? log.license.substring(0, 8) : "N/A"}
+                      </td>
+                      <td className="p-[12px_20px] text-xs text-[#0F172A] border-b border-[#E2E8F0] align-middle max-w-[280px] break-words" title={log.message}>
                         {log.message || "N/A"}
                       </td>
-                      <td className="py-2.5 px-2.5">{statusBadge(log.action)}</td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
           </div>
-          
-          <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
-            <span className="text-[10px] font-semibold text-slate-400">
-              Showing {logs.length} of {logs.length} audit entries
-            </span>
+
+          <div className="p-[12px_20px] text-[11.5px] text-[#64748B] border-t border-[#E2E8F0]">
+            Showing {logs.length} of {logs.length} audit entries
           </div>
         </div>
 

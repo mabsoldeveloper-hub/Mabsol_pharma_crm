@@ -16,6 +16,9 @@ interface Customer {
   CREDIT?: number;
   STATUS?: string;
   REF?: string;
+
+  GROUPNAME?: string;
+  SCODE?: string;
 }
 
 export default function CustomerPage() {
@@ -23,10 +26,21 @@ export default function CustomerPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive" | "Outstanding">("All");
   const [loading, setLoading] = useState(true);
+  const [groupFilter, setGroupFilter] = useState("All");
 
   useEffect(() => {
     loadCustomers();
   }, []);
+
+  const groups = useMemo(() => {
+    const arr = customers
+        .map(c => c.GROUPNAME)
+        .filter(Boolean);
+    return ["All", ...new Set(arr)];
+  }, [customers]);
+
+
+  
 
   const loadCustomers = async () => {
     try {
@@ -62,15 +76,19 @@ export default function CustomerPage() {
         matchStatus = Number(c.BALANCE) > 0;
       }
 
-      return matchSearch && matchStatus;
+      const matchGroup =
+        groupFilter === "All" ||
+        c.GROUPNAME === groupFilter;
+      return matchSearch && matchStatus && matchGroup;
     });
-  }, [customers, search, statusFilter]);
+  }, [customers, search, statusFilter, groupFilter]);
 
   // Dashboard Stats
   const totalCustomers = customers.length;
   const activeCustomers = customers.filter((c) => c.STATUS === "Y").length;
   const totalOutstanding = customers.reduce((sum, c) => sum + (Number(c.BALANCE) || 0), 0);
   const totalCredit = customers.reduce((sum, c) => sum + (Number(c.CREDIT) || 0), 0);
+  
 
   return (
     <div className="container-fluid">
@@ -130,7 +148,7 @@ export default function CustomerPage() {
       <div className="card shadow border-0 mb-4">
         <div className="card-body">
           <div className="row align-items-center g-3">
-            <div className="col-lg-5">
+            <div className="col-lg-3">
               <input
                 type="text"
                 placeholder="Search by Name, Code, GST or Phone..."
@@ -140,18 +158,37 @@ export default function CustomerPage() {
               />
             </div>
             <div className="col-lg-3">
+                <select
+                    className="form-select form-select-lg"
+                    value={groupFilter}
+                    onChange={(e)=>setGroupFilter(e.target.value)}
+                >
+
+                  {
+                    groups.map(g=>(
+                    <option key={g} value={g}>
+                    {g}
+                    </option>
+                    ))
+                  }
+
+                </select>
+            </div>
+
+            <div className="col-lg-3">
               <select
                 className="form-select form-select-lg"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
               >
-                <option value="All">All Customers</option>
-                <option value="Active">Active Only</option>
-                <option value="Inactive">Inactive Only</option>
-                <option value="Outstanding">Outstanding Balance</option>
+                <option value="All">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Outstanding">Outstanding</option>
               </select>
             </div>
-            <div className="col-lg-4 text-end">
+
+            <div className="col-lg-3 text-end">
               <button className="btn btn-success me-2">
                 <i className="bi bi-file-earmark-excel"></i> Excel
               </button>
@@ -207,14 +244,6 @@ export default function CustomerPage() {
                       </td>
                       <td>
                         <div className="d-flex align-items-center">
-                          {/* <img
-                            src="/avatar.png"
-                            width="45"
-                            height="45"
-                            className="rounded-circle border me-3"
-                            alt=""
-                            style={{ objectFit: "cover" }}
-                          /> */}
                           <div>
                             <div className="fw-bold">{c.PARNAM}</div>
                             <small className="text-muted">
@@ -247,22 +276,10 @@ export default function CustomerPage() {
                       </td>
                       <td>
                         <div className="d-flex gap-2 justify-content-center">
-                          {/* <button className="btn btn-sm btn-primary">View</button> */}
-                          <Link href={`/dashboard/customers/view/${c._id}`} className="btn btn-primary btn-sm" > View </Link>
 
-                          {/* <button className="btn btn-sm btn-success">Ledger</button> */}
-                          {/* <Link
-                            href={`/dashboard/customers/ledger/${c.ORDNO}`}
-                            className="btn btn-sm btn-success"
-                          >
-                            Ledger
-                          </Link> */}
-                          <Link
-                            href={`/dashboard/customers/ledger/${c._id}`}
-                            className="btn btn-sm btn-success"
-                          >
-                            Ledger
-                          </Link>
+                          <Link href={`/dashboard/customers/view/${c._id}`} className="btn btn-primary btn-sm" > View </Link>
+                          <Link href={`/dashboard/customers/ledger/${c._id}`} className="btn btn-sm btn-success"> Ledger</Link>
+                          
                           <button className="btn btn-sm btn-warning">Edit</button>
                         </div>
                       </td>

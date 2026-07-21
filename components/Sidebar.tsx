@@ -187,20 +187,20 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   const [user, setUser] = useState<any>(null);
 
   const [company, setCompany] = useState<any>(null);
-   useEffect(() => {
-     //fetch("/api/company-master")
-     fetch("/api/company-settings")
-       .then((res) => res.json())
-       .then((data) => setCompany(data))
-       .catch(() => { });
-   }, []);
+  useEffect(() => {
+    //fetch("/api/company-master")
+    fetch("/api/company-settings")
+      .then((res) => res.json())
+      .then((data) => setCompany(data))
+      .catch(() => { });
+  }, []);
 
-   useEffect(() => {
+  useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => res.json())
       .then((data) => {
         console.log(data);
-  
+
         setUser(data.user);   // <-- sirf user object save karo
       })
       .catch(console.error);
@@ -298,7 +298,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   };
 
   // ---------------- Collapsible group ----------------
-  
+
   const Group = ({
     icon,
     label,
@@ -428,7 +428,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                 alt="logo"
                 className="max-h-20 w-auto object-contain"
               />
-              
+
             )}
           </div>
 
@@ -446,6 +446,34 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   />
                 </li>
               </PermissionGate>
+
+              {/* ################ Area Start here ##################### */}
+              <PermissionGate permission="area.view">
+                <li>
+                  <NavLink
+                    href="/dashboard/area"
+                    icon={<FaBuilding />}
+                    label="Area"
+                    active={pathname.startsWith("/dashboard/area")}
+                    color="emerald"
+                  />
+                </li>
+              </PermissionGate>
+              {/* ################ Area END here ##################### */}
+
+              {/* ################ Compare Start here ##################### */}
+              <PermissionGate permission="compare.view">
+              <li>
+                <NavLink
+                  href="/dashboard/compare"
+                  icon={<FaBoxOpen />}
+                  label="Comparison"
+                  active={pathname.startsWith("/dashboard/compare")}
+                  color="blue"
+                />
+              </li>
+              </PermissionGate>
+                {/* ################ Compare END here ##################### */}
 
               <PermissionGate permission="users.view">
                 <Group
@@ -522,7 +550,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                         />
                       </li>
                       <li>
-                        <SubLink href="#" icon={<FaWarehouse />} label="Stock" active={false} color="sky" />
+                        <SubLink href="/dashboard/stock" icon={<FaWarehouse />} label="Stock" active={false} color="sky" />
                       </li>
                     </>
                   }
@@ -558,7 +586,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                         />
                       </li>
                       <li>
-                        <SubLink href="#" icon={<FaClipboardList />} label="Orders" active={false} color="blue" />
+                        <SubLink href="/dashboard/orders" icon={<FaClipboardList />} label="Orders" active={false} color="blue" />
                       </li>
                     </>
                   }
@@ -731,14 +759,14 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               {!iconOnly && (
                 <div className="min-w-0">
 
-                  
-<div className="text-[13px] font-semibold text-[#343872] dark:text-white truncate">
-  {user?.name || "User"}
-</div>
 
-<div className="text-[11px] text-gray-500 truncate">
-  {user?.roleId?.roleName || "Logged in"}
-</div>
+                  <div className="text-[13px] font-semibold text-[#343872] dark:text-white truncate">
+                    {user?.name || "User"}
+                  </div>
+
+                  <div className="text-[11px] text-gray-500 truncate">
+                    {user?.roleId?.roleName || "Logged in"}
+                  </div>
                 </div>
               )}
             </div>

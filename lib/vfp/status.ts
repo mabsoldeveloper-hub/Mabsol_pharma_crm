@@ -35,21 +35,21 @@ function getDateRangeStart(range: VfpDateRange) {
   const start = new Date(now);
 
   if (range === "day") {
-    start.setHours(0, 0, 0, 0);
+    start.setUTCHours(0, 0, 0, 0);
     return start;
   }
 
   if (range === "week") {
-    const day = now.getDay();
+    const day = now.getUTCDay();
     const diff = day === 0 ? 6 : day - 1;
-    start.setDate(now.getDate() - diff);
-    start.setHours(0, 0, 0, 0);
+    start.setUTCDate(now.getUTCDate() - diff);
+    start.setUTCHours(0, 0, 0, 0);
     return start;
   }
 
   if (range === "month") {
-    start.setDate(1);
-    start.setHours(0, 0, 0, 0);
+    start.setUTCDate(1);
+    start.setUTCHours(0, 0, 0, 0);
     return start;
   }
 
@@ -66,7 +66,7 @@ function parseFilterDate(value?: string) {
     const year = Number(dateOnlyMatch[1]);
     const month = Number(dateOnlyMatch[2]) - 1;
     const day = Number(dateOnlyMatch[3]);
-    const parsed = new Date(year, month, day);
+    const parsed = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
     return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
 
@@ -80,12 +80,23 @@ function parseEndOfDay(value?: string) {
     return undefined;
   }
 
-  parsed.setHours(23, 59, 59, 999);
+  parsed.setUTCHours(23, 59, 59, 999);
   return parsed;
 }
 
 export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string) {
   await dbConnect();
+
+  // Clean up stale queued or processing commands older than 1 hour to prevent infinite UI polling loops
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    await VfpSyncCommand.updateMany(
+      { status: { $in: ["queued", "processing"] }, createdAt: { $lt: oneHourAgo } },
+      { $set: { status: "failed", message: "Command timed out" } }
+    );
+  } catch (err) {
+    console.error("Failed to clean up stale VFP sync commands:", err);
+  }
 
   const { range = "all", startDate, endDate, fileLimit = 10 } = filter;
   const rangeFrom = getDateRangeStart(range);
@@ -136,7 +147,7 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
   ] = await Promise.all([
     VfpSyncState.countDocuments(stateFilter),
     VfpSyncState.find(stateFilter).sort({ updatedAt: -1 }).lean(),
-    VfpSyncLog.find(logFilter).sort({ createdAt: -1 }).limit(10).lean(),
+    VfpSyncLog.find(logFilter).sort({ createdAt: -1 }).limit(50).lean(),
     VfpConflict.countDocuments({ status: "open", ...(email ? { email } : {}) }),
     VfpOutboundQueue.countDocuments({ status: "pending", ...(email ? { email } : {}) }),
     VfpSyncCommand.countDocuments({ status: "queued", ...(email ? { email } : {}) }),
@@ -199,15 +210,22 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
   let dataDir = process.env.VFP_DATA_DIR || "";
   let sourceDir = "";
   let enabledFiles: string[] = [];
+  let autoSync = false;
+  let autoSyncInterval = 10;
   let useVfpEngine = false;
   let vfpExePath = "C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe";
   let prgPath = "";
 
-  const config = (await VfpConfig.findOne(email ? { email } : { key: "vfp_sync_config" }).lean()) as any;
+  const config = (
+    await VfpConfig.findOne(email ? { email } : { key: "vfp_sync_config" }).lean() ||
+    await VfpConfig.findOne({ key: "vfp_sync_config" }).lean()
+  ) as any;
   if (config) {
     if (config.dataDir) dataDir = config.dataDir;
     if (config.sourceDir) sourceDir = config.sourceDir;
     if (config.enabledFiles) enabledFiles = config.enabledFiles;
+    if (config.autoSync !== undefined) autoSync = config.autoSync;
+    if (config.autoSyncInterval !== undefined) autoSyncInterval = config.autoSyncInterval;
     if (config.useVfpEngine !== undefined) useVfpEngine = config.useVfpEngine;
     if (config.vfpExePath) vfpExePath = config.vfpExePath;
     if (config.prgPath) prgPath = config.prgPath;
@@ -232,15 +250,25 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     try {
       const req = eval("require");
       const { spawn } = req("child_process");
-      const workerScript = req("path").resolve(process.cwd(), "scripts", "vfp-sync", "worker.cjs");
+      const fs = req("fs");
+      const path = req("path");
+      const workerScript = path.resolve(process.cwd(), "scripts", "vfp-sync", "worker.cjs");
       
+      const logDir = path.resolve(process.cwd(), "logs");
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+      const logFile = path.join(logDir, "worker-process.log");
+      const out = fs.openSync(logFile, "a");
+
       const child = spawn(process.execPath, [workerScript], {
         detached: true,
-        stdio: "ignore",
-        env: { ...process.env }
+        stdio: ["ignore", out, out],
+        env: { ...process.env },
+        shell: process.platform === "win32"
       });
       child.unref();
-      console.log("[vfp-status] Spawned background sync worker child process automatically.");
+      console.log("[vfp-status] Spawned background sync worker child process automatically. Logs: " + logFile);
       workerOnline = true; // Set to true since process is now started
     } catch (err) {
       console.error("[vfp-status] Failed to spawn background sync worker automatically:", err);
@@ -258,6 +286,8 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     dataDirExists,
     sourceDir,
     enabledFiles,
+    autoSync,
+    autoSyncInterval,
     useVfpEngine,
     vfpExePath,
     prgPath,
