@@ -112,4 +112,4 @@ export async function buildGstr1Excel(gstJson: any, meta: any, invoiceDetail: an
 
     const arrayBuffer = await wb.xlsx.writeBuffer();
     return Buffer.from(arrayBuffer);
-}
+} 

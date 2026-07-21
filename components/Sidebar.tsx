@@ -684,7 +684,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               {(can("vfp.view") || can("vfp.settings")) && (
                 <Group
                   icon={<FaExchangeAlt />}
-                  label="Data Migration"
+                  label="Migration"
                   open={vfpOpen}
                   onClick={() => setVfpOpen(!vfpOpen)}
                   active={pathname.startsWith("/dashboard/vfp")}
