@@ -11,6 +11,20 @@
  * resolved `name` / `partyName` field the drilldown API returns (via
  * ORDER.ORDNO — see lib/indiaMapStateResolver.ts) instead of the raw CODEP
  * code, so "Party PY" now shows as e.g. "Aspire Life Sciences".
+ *
+ * RESPONSIVE FIXES in this pass:
+ *  - The fixed 224px (w-56) left filter rail no longer sits permanently next
+ *    to content on small screens. Below `lg` it becomes a slide-in drawer
+ *    (backdrop + hamburger toggle in the header); at `lg` and up it's a
+ *    normal static sidebar exactly like before.
+ *  - Main content switches from `flex` (side-by-side) to `flex-col lg:flex-row`
+ *    so the drawer doesn't squeeze the dashboard on phones/tablets.
+ *  - The India map SVG height scales down on small screens
+ *    (h-[300px] sm:h-[420px] lg:h-[560px]) instead of a fixed 560px that
+ *    forced horizontal scrolling / tiny state shapes on phones.
+ *  - Hover tooltip position is clamped to the viewport so it can't render
+ *    off-screen on narrow devices, and shrinks slightly on mobile.
+ *  - Header, KPI cards, and panel text/padding step down a size on mobile.
  * -----------------------------------------------------------------------------
  */
 
@@ -108,6 +122,18 @@ function partyLocationLine(p: PartyDirectoryEntry): string {
     return line;
 }
 
+/** Clamp a tooltip's top-left corner so a fixed-position box of roughly
+ *  `boxW` x `boxH` never renders past the viewport edge. */
+function clampTooltipPos(x: number, y: number, boxW: number, boxH: number) {
+    const pad = 12;
+    const maxX = (typeof window !== "undefined" ? window.innerWidth : x + boxW) - boxW - pad;
+    const maxY = (typeof window !== "undefined" ? window.innerHeight : y + boxH) - boxH - pad;
+    return {
+        x: Math.max(pad, Math.min(x, maxX)),
+        y: Math.max(pad, Math.min(y, maxY)),
+    };
+}
+
 export default function IndiaMapPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -122,6 +148,7 @@ export default function IndiaMapPage() {
     const [selected, setSelected] = useState<StateSummary | null>(null);
     const [drillDown, setDrillDown] = useState<DrillDown | null>(null);
     const [drillLoading, setDrillLoading] = useState(false);
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -155,6 +182,18 @@ export default function IndiaMapPage() {
             .finally(() => setDrillLoading(false));
     }, [selected, fy, month]);
 
+    // Lock body scroll while the mobile filter drawer is open
+    useEffect(() => {
+        if (mobileFiltersOpen) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, [mobileFiltersOpen]);
+
     const dataById = useMemo(() => {
         const map = new Map<string, StateSummary>();
         stateData.forEach((s) => map.set(s.stateId, s));
@@ -185,7 +224,9 @@ export default function IndiaMapPage() {
     const topStates = useMemo(() => [...stateData].sort((a, b) => b.sales - a.sales).slice(0, 5), [stateData]);
 
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
-        setTooltipPos({ x: e.clientX, y: e.clientY });
+        const boxW = typeof window !== "undefined" && window.innerWidth < 640 ? 208 : 240;
+        const clamped = clampTooltipPos(e.clientX + 16, e.clientY + 16, boxW, 180);
+        setTooltipPos(clamped);
     }, []);
 
     if (loading) {
@@ -194,17 +235,59 @@ export default function IndiaMapPage() {
 
     if (error) {
         return (
-            <div className="flex h-screen items-center justify-center text-red-600">
+            <div className="flex h-screen items-center justify-center px-4 text-center text-red-600">
                 Couldn't load the dashboard: {error}
             </div>
         );
     }
 
     return (
-        <div className="flex min-h-screen w-full bg-gray-50 text-gray-900">
+        <div className="flex min-h-screen w-full flex-col bg-gray-50 text-gray-900 lg:flex-row">
+            {/* ---------------- MOBILE HEADER BAR (filters toggle) ---------------- */}
+            <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
+                <span className="text-sm font-semibold" style={{ color: BRAND }}>
+                    India Business Map
+                </span>
+                <button
+                    onClick={() => setMobileFiltersOpen(true)}
+                    className="flex items-center gap-2 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600"
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="4" y1="6" x2="20" y2="6" />
+                        <line x1="4" y1="12" x2="20" y2="12" />
+                        <line x1="4" y1="18" x2="20" y2="18" />
+                    </svg>
+                    Filters
+                </button>
+            </div>
+
+            {/* ---------------- BACKDROP (mobile drawer) ---------------- */}
+            {mobileFiltersOpen && (
+                <div
+                    className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+                    onClick={() => setMobileFiltersOpen(false)}
+                />
+            )}
+
             {/* ---------------- LEFT FILTER RAIL ---------------- */}
-            <aside className="w-56 shrink-0 border-r border-gray-200 bg-white p-4">
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Filters</h2>
+            <aside
+                className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] transform overflow-y-auto border-r border-gray-200 bg-white p-4 shadow-xl transition-transform duration-200 ease-out
+                lg:static lg:z-auto lg:w-56 lg:max-w-none lg:shrink-0 lg:translate-x-0 lg:shadow-none
+                ${mobileFiltersOpen ? "translate-x-0" : "-translate-x-full"}`}
+            >
+                <div className="mb-4 flex items-center justify-between lg:block">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Filters</h2>
+                    <button
+                        onClick={() => setMobileFiltersOpen(false)}
+                        className="rounded-md p-1 text-gray-400 hover:bg-gray-100 lg:hidden"
+                        aria-label="Close filters"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                            <line x1="6" y1="18" x2="18" y2="6" />
+                        </svg>
+                    </button>
+                </div>
                 <div className="space-y-3">
                     <div>
                         <label className="mb-1 block text-xs font-medium text-gray-500">Financial Year</label>
@@ -257,8 +340,8 @@ export default function IndiaMapPage() {
             </aside>
 
             {/* ---------------- MAIN AREA ---------------- */}
-            <main className="flex-1 overflow-y-auto p-6">
-                <header className="mb-6 flex items-center justify-between">
+            <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                <header className="mb-6 hidden items-center justify-between gap-3 lg:flex">
                     <div>
                         <h1 className="text-xl font-bold" style={{ color: BRAND }}>
                             India Business Map
@@ -275,8 +358,21 @@ export default function IndiaMapPage() {
                     )}
                 </header>
 
+                {/* Mobile-only compact header row (title lives in the top bar already) */}
+                <div className="mb-4 flex items-center justify-between lg:hidden">
+                    <p className="text-xs text-gray-500">MDIS · DIS · SUBDIS · PEND · GLEDGER · PRO · PROBAT · ORDER</p>
+                    {selected && (
+                        <button
+                            onClick={() => setSelected(null)}
+                            className="shrink-0 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                        >
+                            ← Back
+                        </button>
+                    )}
+                </div>
+
                 {/* KPI row 1 — trade */}
-                <div className="mb-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
                     <KpiCard label="Total States" value={stateData.length.toString()} />
                     <KpiCard label="Total Customers" value={totals.customers.toLocaleString("en-IN")} />
                     <KpiCard label="Sales" value={formatINR(totals.sales)} accent="green" />
@@ -285,7 +381,7 @@ export default function IndiaMapPage() {
                     <KpiCard label="Outstanding" value={formatINR(totals.outstanding)} accent="red" />
                 </div>
                 {/* KPI row 2 — cash + dispatch */}
-                <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
                     <KpiCard label="Collection" value={formatINR(totals.collection)} accent="green" />
                     <KpiCard label="Payment" value={formatINR(totals.payment)} accent="red" />
                     <KpiCard label="Total Suppliers" value={totals.suppliers.toLocaleString("en-IN")} />
@@ -301,12 +397,16 @@ export default function IndiaMapPage() {
                 {!selected ? (
                     <>
                         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-                            <div className="relative rounded-xl border border-gray-200 bg-white p-4">
-                                <div className="mb-3 flex items-center justify-between">
+                            <div className="relative rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                     <h3 className="font-semibold text-gray-700">India Sales Heat Map</h3>
                                     <Legend />
                                 </div>
-                                <svg viewBox={INDIA_VIEWBOX} className="mx-auto h-[560px] w-full" onMouseMove={handleMouseMove}>
+                                <svg
+                                    viewBox={INDIA_VIEWBOX}
+                                    className="mx-auto h-[300px] w-full sm:h-[420px] lg:h-[560px]"
+                                    onMouseMove={handleMouseMove}
+                                >
                                     {INDIA_LOCATIONS.map((loc: StatePath) => {
                                         const data = dataById.get(loc.id);
                                         const fill = data ? heatColor(data.sales, maxSales) : "#e5e7eb";
@@ -330,8 +430,8 @@ export default function IndiaMapPage() {
 
                                 {hovered && (
                                     <div
-                                        className="pointer-events-none fixed z-50 w-60 rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
-                                        style={{ left: tooltipPos.x + 16, top: tooltipPos.y + 16 }}
+                                        className="pointer-events-none fixed z-50 w-52 sm:w-60 rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
+                                        style={{ left: tooltipPos.x, top: tooltipPos.y }}
                                     >
                                         <p className="mb-2 font-semibold" style={{ color: BRAND }}>
                                             {hovered.stateName}
@@ -346,7 +446,7 @@ export default function IndiaMapPage() {
                                 )}
                             </div>
 
-                            <div className="rounded-xl border border-gray-200 bg-white p-4">
+                            <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
                                 <h3 className="mb-3 font-semibold text-gray-700">Top States</h3>
                                 {topStates.length === 0 ? (
                                     <p className="text-sm text-gray-400">No state-mapped sales yet — check MDIS.MISC1 values.</p>
@@ -356,18 +456,18 @@ export default function IndiaMapPage() {
                                             <li
                                                 key={s.stateId}
                                                 onClick={() => setSelected(s)}
-                                                className="flex cursor-pointer items-center justify-between rounded-md border border-gray-100 p-2 hover:bg-gray-50"
+                                                className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-gray-100 p-2 hover:bg-gray-50"
                                             >
-                                                <span className="flex items-center gap-2 text-sm">
+                                                <span className="flex min-w-0 items-center gap-2 text-sm">
                                                     <span
-                                                        className="flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white"
+                                                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
                                                         style={{ backgroundColor: BRAND }}
                                                     >
                                                         {i + 1}
                                                     </span>
-                                                    {s.stateName}
+                                                    <span className="truncate">{s.stateName}</span>
                                                 </span>
-                                                <span className="text-sm font-semibold text-gray-700">{formatINR(s.sales)}</span>
+                                                <span className="shrink-0 text-sm font-semibold text-gray-700">{formatINR(s.sales)}</span>
                                             </li>
                                         ))}
                                     </ol>
@@ -446,7 +546,7 @@ export default function IndiaMapPage() {
                     </>
                 ) : (
                     <>
-                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
                             <KpiCard label={`${selected.stateName} — Customers`} value={selected.customers.toString()} />
                             <KpiCard label="Sales" value={formatINR(selected.sales)} accent="green" />
                             <KpiCard label="Purchase" value={formatINR(selected.purchase)} />
@@ -516,9 +616,9 @@ export default function IndiaMapPage() {
 function KpiCard({ label, value, accent }: { label: string; value: string; accent?: "green" | "red" }) {
     const color = accent === "green" ? "#16a34a" : accent === "red" ? "#dc2626" : "#1f2937";
     return (
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p>
-            <p className="mt-1 text-lg font-bold" style={{ color }}>
+        <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
+            <p className="text-[11px] sm:text-xs font-medium uppercase tracking-wide text-gray-400 truncate">{label}</p>
+            <p className="mt-1 text-base sm:text-lg font-bold break-words" style={{ color }}>
                 {value}
             </p>
         </div>
@@ -527,7 +627,7 @@ function KpiCard({ label, value, accent }: { label: string; value: string; accen
 
 function TooltipRow({ label, value }: { label: string; value: string }) {
     return (
-        <div className="flex justify-between text-xs text-gray-600">
+        <div className="flex justify-between gap-2 text-xs text-gray-600">
             <span>{label}</span>
             <span className="font-medium text-gray-900">{value}</span>
         </div>
@@ -536,7 +636,7 @@ function TooltipRow({ label, value }: { label: string; value: string }) {
 
 function Legend() {
     return (
-        <div className="flex items-center gap-3 text-xs text-gray-500">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
             <LegendDot color="#16a34a" label="High" />
             <LegendDot color="#eab308" label="Medium" />
             <LegendDot color="#dc2626" label="Low" />
@@ -555,7 +655,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
             <h3 className="mb-3 font-semibold text-gray-700">{title}</h3>
             <div className="space-y-1.5">{children}</div>
         </div>
@@ -565,9 +665,9 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function RowLine({ left, right, tone }: { left: string; right: string; tone?: "green" | "red" | "yellow" }) {
     const color = tone === "green" ? "#16a34a" : tone === "red" ? "#dc2626" : tone === "yellow" ? "#ca8a04" : "#374151";
     return (
-        <div className="flex items-center justify-between rounded-md border border-gray-100 px-2 py-1.5 text-sm">
+        <div className="flex items-center justify-between gap-2 rounded-md border border-gray-100 px-2 py-1.5 text-sm">
             <span className="truncate text-gray-700">{left}</span>
-            <span className="ml-3 shrink-0 font-medium" style={{ color }}>
+            <span className="shrink-0 font-medium" style={{ color }}>
                 {right}
             </span>
         </div>
