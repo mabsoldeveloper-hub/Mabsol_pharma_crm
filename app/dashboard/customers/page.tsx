@@ -207,14 +207,6 @@ export default function CustomerPage() {
                       </td>
                       <td>
                         <div className="d-flex align-items-center">
-                          {/* <img
-                            src="/avatar.png"
-                            width="45"
-                            height="45"
-                            className="rounded-circle border me-3"
-                            alt=""
-                            style={{ objectFit: "cover" }}
-                          /> */}
                           <div>
                             <div className="fw-bold">{c.PARNAM}</div>
                             <small className="text-muted">
@@ -247,22 +239,10 @@ export default function CustomerPage() {
                       </td>
                       <td>
                         <div className="d-flex gap-2 justify-content-center">
-                          {/* <button className="btn btn-sm btn-primary">View</button> */}
-                          <Link href={`/dashboard/customers/view/${c._id}`} className="btn btn-primary btn-sm" > View </Link>
 
-                          {/* <button className="btn btn-sm btn-success">Ledger</button> */}
-                          {/* <Link
-                            href={`/dashboard/customers/ledger/${c.ORDNO}`}
-                            className="btn btn-sm btn-success"
-                          >
-                            Ledger
-                          </Link> */}
-                          <Link
-                            href={`/dashboard/customers/ledger/${c._id}`}
-                            className="btn btn-sm btn-success"
-                          >
-                            Ledger
-                          </Link>
+                          <Link href={`/dashboard/customers/view/${c._id}`} className="btn btn-primary btn-sm" > View </Link>
+                          <Link href={`/dashboard/customers/ledger/${c._id}`} className="btn btn-sm btn-success"> Ledger</Link>
+                          
                           <button className="btn btn-sm btn-warning">Edit</button>
                         </div>
                       </td>
