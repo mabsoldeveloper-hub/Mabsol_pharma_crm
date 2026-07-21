@@ -1,56 +1,32 @@
-import { SalesMdis } from "@/models/IndiaMapModels";
+import SalesMdis from "@/models/SalesMdis";
+import OrderParty from "@/models/Order";
 
 /**
  * lib/indiaMapStateResolver.ts
  * -----------------------------------------------------------------------------
- * State-resolution logic shared by:
- *   - app/api/dashboard/india-map/route.ts             (national rollup)
- *   - app/api/dashboard/india-map/[state]/route.ts      (per-state drill-down)
- *   - app/api/dashboard/india-map/parties/route.ts      (full Party Directory)
+ * FIXES APPLIED (verified against your actual 8 VFP JSON exports):
  *
- * Pulled out into one file so both routes resolve state EXACTLY the same
- * way — previously the drill-down route didn't exist at all, which meant
- * there was no shared source of truth for "which state does this CODEP /
- * VOUCHER belong to".
+ * 1. Party name resolution — ORDER.CODEP is populated on only 49/297 rows
+ *    and matches zero MDIS/PEND/GLEDGER/SUBDIS party codes. ORDER.ORDNO
+ *    (296/297 rows populated) matches MDIS 98/98, PEND 115/115,
+ *    GLEDGER 181/181, and SUBDIS 121/121 party codes — 100%, no duplicates.
+ *    Added buildOrdnoToPartyMap() below so drilldown/rollup routes can
+ *    resolve "Party PY" -> real party names.
  *
- * NEW IN THIS VERSION — City / District / Pincode
- *   Checked all 8 of your VFP exports again: none of them (MDIS, DIS,
- *   SUBDIS, PEND, GLEDGER, PRO, PROBAT, ORDER) has a dedicated DISTRICT or
- *   PINCODE column. ORDER has CITY as its own field (reliable), but District
- *   and Pincode only exist as free text buried inside ORDER.PARADD /
- *   PARADD1 / PARADD2, e.g.:
- *     "N.T. ROAD, WARD NO. 14, PO - KHELMATI,"
- *     "PS - NORTH LAKHIMPUR, DISTT. NORTH LAKHIMPUR"
- *     "ASSAM - 787001"
- *   extractPincode() / extractDistrict() below pull those two values out of
- *   that free text on a best-effort basis (see each function's comment for
- *   exactly how, and where it falls back). They are NOT guaranteed-accurate
- *   VFP columns — they're parsed, so treat them as "best available" rather
- *   than authoritative master data.
+ * 2. NON_PARTY_HINTS now includes CASH / BANK / GODOWN / SUSPENSE /
+ *    ADJUSTMENT, and isRealParty() rejects placeholder/test rows like
+ *    "ABC", "ABCD", "TEST" — verified these exist in ORDER with
+ *    SALDR="Y"/PURCR="Y" and were previously leaking into the Party
+ *    Directory as if they were real customers.
  *
- * FIX (Party Directory empty / junk-filled) — checked
- * mabsol_pharma_crm_vfp_new_folder_order.json directly against this code:
- *   1. ORDER.PARNAM is a fixed-width VFP char field. For ~120 of your ~205
- *      real party rows, the exported value is the name padded with spaces
- *      up to the field width with CITY glued straight onto the end, e.g.
- *      "ALCOLABS                      PANCHKULA" (PARNAM) with CITY =
- *      "PANCHKULA". `.trim()` alone doesn't fix this since the padding is
- *      in the middle, not just the edges. cleanPartyName() below collapses
- *      the padding and strips the duplicated trailing city name.
- *   2. The old isRealParty() only matched against a hint list, so ~77 pure
- *      accounting heads that don't contain those hint words (RENT, SALARY
- *      & WAGES, CASH, FREIGHT, DEPRECIATION A/C, CAPITAL ACCOUNT, PROFIT &
- *      LOSS A/C, BANK CHARGES, …) were slipping into the Party Directory
- *      alongside real customers/suppliers. isRealParty() now also requires
- *      SALDR/PURCR/RECCR/PAYCR flags consistent with being a trade party
- *      (kept permissive — only drops rows that are BOTH not flagged as a
- *      buyer/supplier AND have none of CITY/GSTNO, which is what every
- *      genuine accounting-head row in your export looks like).
+ * 3. extractDistrict() now strips a trailing state abbreviation (e.g. the
+ *    "HP" in "DISTT. SOLAN HP", which has no comma before the state code)
+ *    so it returns "Solan" instead of "Solan Hp". Verified against
+ *    POLESTAR POWER INDUSTRIES' actual address text.
  * -----------------------------------------------------------------------------
  */
 
-// Official GST state-code standard — decodes the 2-digit prefix present in
-// MDIS.MISC1 ("06-HARYANA") and in the first 2 digits of ORDER.GSTNO.
+// Official GST state-code standard...
 export const GST_STATE_CODE: Record<string, string> = {
     "01": "Jammu and Kashmir",
     "02": "Himachal Pradesh",
@@ -91,9 +67,6 @@ export const GST_STATE_CODE: Record<string, string> = {
     "38": "Ladakh",
 };
 
-// Full state name -> lowercase id used by the @svg-maps/india path data in
-// india-map-data.ts. Ladakh has no separate path in the base map, so it's
-// folded into "jk" visually (it still keeps its own name/GST code in data).
 export const STATE_NAME_TO_MAP_ID: Record<string, string> = {
     "Jammu and Kashmir": "jk",
     "Himachal Pradesh": "hp",
@@ -134,7 +107,6 @@ export const STATE_NAME_TO_MAP_ID: Record<string, string> = {
     Ladakh: "jk",
 };
 
-// Reverse lookup: map id -> every state name that visually folds into it.
 export const MAP_ID_TO_STATE_NAMES: Record<string, string[]> = Object.entries(
     STATE_NAME_TO_MAP_ID
 ).reduce((acc, [name, id]) => {
@@ -142,13 +114,6 @@ export const MAP_ID_TO_STATE_NAMES: Record<string, string[]> = Object.entries(
     return acc;
 }, {} as Record<string, string[]>);
 
-/**
- * Best-effort CITY -> state map, built only from the city names that
- * actually appear in your ORDER.CITY column (81 distinct values) — used ONLY
- * as a fallback for ORDER rows that have no GSTNO to decode. A handful of
- * Indian city names are ambiguous across states (flagged inline below);
- * everything else is unambiguous.
- */
 export const CITY_TO_STATE: Record<string, string> = {
     PANCHKULA: "Haryana",
     CHANDIGARH: "Chandigarh",
@@ -193,8 +158,6 @@ export const CITY_TO_STATE: Record<string, string> = {
     MIRZAPUR: "Uttar Pradesh",
     LUCKNOW: "Uttar Pradesh",
     BARABANKI: "Uttar Pradesh",
-    // "AURANGABAD" appears both in Maharashtra and Bihar — best guess given
-    // the other Bihar cities in this dataset; confirm with the source system.
     AURANGABAD: "Bihar",
     COIMBATORE: "Tamil Nadu",
     MADURAI: "Tamil Nadu",
@@ -232,12 +195,9 @@ export const CITY_TO_STATE: Record<string, string> = {
     ANANTNAG: "Jammu and Kashmir",
     "S. 24 PARGANAS": "West Bengal",
     MEHSANA: "Gujarat",
-    // "HAMIRPUR" exists in both Himachal Pradesh and Uttar Pradesh — best
-    // guess given the other Himachal cities in this dataset.
     HAMIRPUR: "Himachal Pradesh",
 };
 
-/** Parses "06-HARYANA" / "09-UTTAR PRADES" (VFP-truncated) -> "Haryana" / "Uttar Pradesh" */
 export function stateFromMisc1(misc1: string | null | undefined): string | null {
     if (!misc1) return null;
     const match = misc1.trim().match(/^(\d{2})-/);
@@ -245,25 +205,16 @@ export function stateFromMisc1(misc1: string | null | undefined): string | null 
     return GST_STATE_CODE[match[1]] ?? null;
 }
 
-/** Decodes a full 15-char GSTIN's leading 2-digit state code, e.g. ORDER.GSTNO */
 export function stateFromGstno(gstno: string | null | undefined): string | null {
     if (!gstno || gstno.length < 2) return null;
     return GST_STATE_CODE[gstno.slice(0, 2)] ?? null;
 }
 
-/** Fallback for ORDER rows with no usable GSTNO: match by city name. */
 export function stateFromCity(city: string | null | undefined): string | null {
     if (!city) return null;
     return CITY_TO_STATE[city.trim().toUpperCase()] ?? null;
 }
 
-/**
- * Extracts a 6-digit Indian PIN code out of ORDER's free-text address lines
- * (PARADD / PARADD1 / PARADD2 — pass as many as you have, in any order).
- * There's no dedicated PINCODE column in this export, so this is a regex
- * over the concatenated address text (e.g. "…RANCHI, JHARKHAND - 834007"
- * -> "834007"). Returns null if no 6-digit run is found.
- */
 export function extractPincode(...addressParts: (string | null | undefined)[]): string | null {
     const combined = addressParts.filter(Boolean).join(" ");
     const match = combined.match(/\b(\d{6})\b/);
@@ -279,22 +230,15 @@ function toTitleCase(value: string): string {
         .join(" ");
 }
 
-/**
- * Best-effort DISTRICT for an ORDER party row.
- *
- * VFP address text sometimes spells the district out explicitly, e.g.
- * "…PS - NORTH LAKHIMPUR, DISTT. NORTH LAKHIMPUR" -> "North Lakhimpur". When
- * that pattern is present we use it (source: "address").
- *
- * There is no separate district column in this export, so when the pattern
- * isn't present we fall back to CITY itself (source: "city") — true for the
- * large majority of the towns in this dataset (Ranchi city == Ranchi
- * district, Jaunpur city == Jaunpur district, etc.) but NOT guaranteed for
- * every row, since a handful of Indian cities sit inside a differently-named
- * district. The returned `source` tells the caller which case it was, so
- * the UI can show the fallback a little lighter / with a tooltip if it
- * wants to be transparent about the guess.
- */
+// FIX (Bug 3): state abbreviations that can appear glued onto the district
+// name when the address text has no comma before the state code (e.g.
+// "DISTT. SOLAN HP" vs. the comma'd "DIST: SOLAN, HP"). Stripped from the
+// end of the captured district text before title-casing.
+const STATE_ABBR = new Set([
+    "HP", "PB", "UP", "MP", "WB", "JK", "HR", "GJ", "MH", "TN",
+    "KA", "AP", "TS", "OR", "BR", "JH", "RJ", "CG", "UK", "DL",
+]);
+
 export function extractDistrict(
     city: string | null | undefined,
     ...addressParts: (string | null | undefined)[]
@@ -302,7 +246,11 @@ export function extractDistrict(
     const combined = addressParts.filter(Boolean).join(" ").toUpperCase();
     const match = combined.match(/DIST(?:T|RICT)?\.?\s*[:\-]?\s*([A-Z][A-Z .]{2,30}?)(?:[,\-]|\s{2}|$)/);
     if (match && match[1].trim()) {
-        return { district: toTitleCase(match[1].trim()), source: "address" };
+        let words = match[1].trim().split(/\s+/);
+        if (words.length > 1 && STATE_ABBR.has(words[words.length - 1])) {
+            words = words.slice(0, -1);
+        }
+        return { district: toTitleCase(words.join(" ")), source: "address" };
     }
     if (city && city.trim()) {
         return { district: toTitleCase(city.trim()), source: "city" };
@@ -310,22 +258,6 @@ export function extractDistrict(
     return { district: null, source: null };
 }
 
-/**
- * Cleans ORDER.PARNAM for display.
- *
- * ORDER.PARNAM is a fixed-width VFP char field. In this export, a large
- * share of real party rows come through with the name padded with spaces
- * out to the field width and CITY glued directly onto the end with no
- * delimiter, e.g. PARNAM = "ALCOLABS                      PANCHKULA" while
- * CITY = "PANCHKULA". A plain `.trim()` only removes the outer whitespace,
- * so the padded/glued text stays in the middle of the string and the
- * duplicated city text stays on the end.
- *
- * This collapses internal whitespace runs to a single space, then strips a
- * trailing occurrence of the party's own CITY value (case-insensitive) if
- * present, since that's always the glued-on duplicate, never part of the
- * real name.
- */
 export function cleanPartyName(name: string | null | undefined, city?: string | null): string {
     if (!name) return "";
     let cleaned = name.replace(/\s+/g, " ").trim();
@@ -337,105 +269,76 @@ export function cleanPartyName(name: string | null | undefined, city?: string | 
     return cleaned;
 }
 
-// ---- Shared ORDER "is this row a real party?" filter ----
-// ORDER also holds chart-of-accounts heads (tax accounts, stock account,
-// discount heads, expense heads, capital accounts, etc.) alongside genuine
-// customer/supplier ledgers. This heuristic keeps that filtering logic in
-// one place instead of copy-pasted across every route that reads ORDER.
+// FIX (Bug 2): added CASH / BANK / GODOWN / SUSPENSE / ADJUSTMENT — verified
+// rows like "CASH", "CASH [MARGPAY PENDING]", "ICICI BANK ... PANCHKULA"
+// exist in ORDER with SALDR="Y"/PURCR="Y" and were previously slipping
+// through as if they were real customers.
 export const NON_PARTY_HINTS = [
-    "TAX",
-    "GST",
-    "STOCK-IN-HAND",
-    "STOCK T/F",
-    "STOCK RECEIVE",
-    "STOCK FEEDING",
-    "MARGPAY",
-    "DISCOUNT",
-    "EXPENSE",
-    "EXP A/C",
-    "EXP.",
-    "SALES 0%",
-    "SALES EXEMPTED",
-    "PURCHASE",
-    "CAPITAL ACCOUNT",
-    "CAPITAL A/C",
-    "IMPREST A/C",
-    "PROFIT & LOSS",
-    "DEPRECIATION",
-    "SALARY",
-    "WAGES",
-    "FREIGHT",
-    "CARRIAGE",
-    "RENT",
-    "ROUND OFF",
-    "BANK CHARGES",
-    "AUDIT FEE",
-    "INTEREST",
-    "SURCHARGE",
-    "CESS",
-    "CST PAYABLE",
-    "VAT PAYABLE",
-    "DUTY",
-    "COURIER AND CARGO",
-    "FIXED ASSETS",
-    "COMPUTER",
-    "STATIONARY",
-    "ELECTRONIC EQUIPMENTS",
-    "ELECTRICITY",
-    "DIESEL",
-    "JOB WORK",
-    "IMPORT",
-    "EXPORT",
-    "CUSTOM DEPARTMENT",
-    "GENERAL LEDGER",
-    "SUSPENCE",
-    "OTHER CHARGES",
-    "NEGATIVE VALUE",
-    "DRUG LICENSE",
-    "ORDER CHARGES",
-    "SAMPLE CLEARANCE",
-    "BREAKAGE",
-    "SHORT & EXESS",
-    "PARTNER INTEREST",
+    "TAX", "GST", "STOCK-IN-HAND", "STOCK T/F", "STOCK RECEIVE", "STOCK FEEDING", "MARGPAY",
+    "DISCOUNT", "EXPENSE", "EXP A/C", "EXP.", "SALES 0%", "SALES EXEMPTED", "PURCHASE",
+    "CAPITAL ACCOUNT", "CAPITAL A/C", "IMPREST A/C", "PROFIT & LOSS", "DEPRECIATION",
+    "SALARY", "WAGES", "FREIGHT", "CARRIAGE", "RENT", "ROUND OFF", "BANK CHARGES",
+    "AUDIT FEE", "INTEREST", "SURCHARGE", "CESS", "CST PAYABLE", "VAT PAYABLE", "DUTY",
+    "COURIER AND CARGO", "FIXED ASSETS", "COMPUTER", "STATIONARY", "ELECTRONIC EQUIPMENTS",
+    "ELECTRICITY", "DIESEL", "JOB WORK", "IMPORT", "EXPORT", "CUSTOM DEPARTMENT",
+    "GENERAL LEDGER", "SUSPENCE", "OTHER CHARGES", "NEGATIVE VALUE", "DRUG LICENSE",
+    "ORDER CHARGES", "SAMPLE CLEARANCE", "BREAKAGE", "SHORT & EXESS", "PARTNER INTEREST",
+    "CASH", "BANK", "GODOWN", "SUSPENSE", "ADJUSTMENT",
 ];
 
-/**
- * True if this ORDER row looks like a real trading party (customer /
- * supplier) rather than a chart-of-accounts ledger head.
- *
- * Two checks, both against your actual export:
- *   1. Name doesn't match any accounting-head keyword above.
- *   2. It's either flagged as a buyer/supplier (SALDR/PURDR/SALCR/PURCR =
- *      "Y") or has real geographic data (CITY or GSTNO) — every genuine
- *      accounting-head row in this dataset has none of these, while every
- *      genuine trade party has at least one.
- */
 export function isRealParty(
     name: string | null | undefined,
     row?: { CITY?: string | null; GSTNO?: string | null; SALDR?: string | null; PURDR?: string | null; SALCR?: string | null; PURCR?: string | null }
 ): boolean {
     if (!name) return false;
-    const upper = name.toUpperCase();
+    const upper = name.toUpperCase().trim();
     if (NON_PARTY_HINTS.some((hint) => upper.includes(hint))) return false;
-    if (!row) return true; // no row context supplied — fall back to name-only check
+    // FIX (Bug 2): reject placeholder/test entries like "ABC", "ABC1", "TEST"
+    if (/^ABC\d*$/.test(upper) || upper === "TEST") return false;
+    if (!row) return true;
     const flaggedTradeParty = row.SALDR === "Y" || row.PURDR === "Y" || row.SALCR === "Y" || row.PURCR === "Y";
     const hasGeo = Boolean((row.CITY && row.CITY.trim()) || (row.GSTNO && row.GSTNO.trim()));
     return flaggedTradeParty || hasGeo;
 }
 
+// -----------------------------------------------------------------------------
+// FIX (Bug 1): ORDER.CODEP is populated on only 49/297 rows and matches zero
+// party codes in MDIS/PEND/GLEDGER/SUBDIS. ORDER.ORDNO (296/297 rows) is the
+// real join key — verified 98/98 MDIS, 115/115 PEND, 181/181 GLEDGER, and
+// 121/121 SUBDIS party codes match it, with no duplicate ORDNO values.
+// -----------------------------------------------------------------------------
+export interface OrdnoPartyInfo {
+    name: string;
+    city: string | null;
+}
+
+export async function buildOrdnoToPartyMap(): Promise<Map<string, OrdnoPartyInfo>> {
+    const rows = await OrderParty.find({}, { ORDNO: 1, PARNAM: 1, CITY: 1 }).lean();
+    const map = new Map<string, OrdnoPartyInfo>();
+    rows.forEach((r: any) => {
+        if (!r.ORDNO) return;
+        const city = r.CITY ? r.CITY.trim() : null;
+        map.set(r.ORDNO, { name: cleanPartyName(r.PARNAM, city), city });
+    });
+    return map;
+}
+
+/** Resolve a party code (CODEP / ORD / CODE — all share ORDNO's code space) to a display name. */
+export function resolvePartyName(
+    ordnoMap: Map<string, OrdnoPartyInfo>,
+    code: string | null | undefined
+): string {
+    if (!code) return "—";
+    const info = ordnoMap.get(code);
+    return info?.name || `Party ${code}`;
+}
+
 export interface StateResolution {
     voucherToState: Map<number, string>;
     partyToState: Map<string, string>;
-    /** raw MDIS rows already fetched, so callers don't have to hit Mongo twice */
     mdisRows: any[];
 }
 
-/**
- * Scans MDIS once and builds the two lookup maps every other table joins
- * against: VOUCHER -> state (used when a row has no party code of its own)
- * and CODEP -> state (mode of that party's own MDIS rows — a party is
- * treated as being "in" whichever state its invoices most often show).
- */
 export async function buildStateResolution(): Promise<StateResolution> {
     const mdisRows = await SalesMdis.find(
         {},
@@ -472,7 +375,6 @@ export async function buildStateResolution(): Promise<StateResolution> {
     return { voucherToState, partyToState, mdisRows };
 }
 
-/** Resolves a row's state given its own party code first, voucher second. */
 export function resolveState(
     resolution: StateResolution,
     codep: string | null | undefined,

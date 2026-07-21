@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import { SalesDis, SubDis, Pend, GLedger, Product, ProBat, OrderParty } from "@/models/IndiaMapModels";
+import SalesDis from "@/models/SalesDis";
+import SubDis from "@/models/SubDis";
+import Pend from "@/models/Pend";
+import GLedger from "@/models/GLedger";
+import Product from "@/models/Product";
+import ProBat from "@/models/ProductBatch";
+import OrderParty from "@/models/Order";
 import {
     buildStateResolution,
     resolveState,
@@ -13,6 +19,7 @@ import {
     cleanPartyName,
     isRealParty,
 } from "@/lib/indiaMapStateResolver";
+
 
 /**
  * GET /api/dashboard/india-map

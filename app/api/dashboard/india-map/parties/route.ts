@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import { OrderParty } from "@/models/IndiaMapModels";
+import OrderParty from "@/models/Order";
 import {
     extractPincode,
     extractDistrict,
@@ -10,6 +10,7 @@ import {
     isRealParty,
     MAP_ID_TO_STATE_NAMES,
 } from "@/lib/indiaMapStateResolver";
+
 
 /**
  * GET /api/dashboard/india-map/parties

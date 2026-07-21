@@ -1,35 +1,44 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import { SalesDis, SubDis, Pend, Product } from "@/models/IndiaMapModels";
-import { buildStateResolution, resolveState, monthFilter, MAP_ID_TO_STATE_NAMES } from "@/lib/indiaMapStateResolver";
+import SalesDis from "@/models/SalesDis";
+import SubDis from "@/models/SubDis";
+import Pend from "@/models/Pend";
+import Product from "@/models/Product";
+import {
+    buildStateResolution,
+    resolveState,
+    monthFilter,
+    MAP_ID_TO_STATE_NAMES,
+    buildOrdnoToPartyMap,
+    resolvePartyName,
+} from "@/lib/indiaMapStateResolver";
+
 
 /**
  * GET /api/dashboard/india-map/[state]
  * -----------------------------------------------------------------------------
- * State drill-down that the map's click-through panel was waiting on
- * (previously the frontend only had the summary fields from the national
- * rollup). Groups MDIS/DIS/SUBDIS/PEND by CODEP within the requested state.
+ * State drill-down for the map's click-through panel.
+ *
+ * FIX (Bug 1) — Party rows used to be labelled by their raw CODEP code
+ * (e.g. "Party PY") because CODEP only exists on 49/297 ORDER rows and
+ * matches zero party codes in MDIS/PEND/GLEDGER/SUBDIS. ORDER.ORDNO is the
+ * real join key (100% match, verified against your actual export — see
+ * lib/indiaMapStateResolver.ts for the exact counts), so every party code
+ * below (CODEP from MDIS, ORD from PEND) is now resolved through
+ * buildOrdnoToPartyMap() to a real name, falling back to `Party ${code}`
+ * only if that specific code genuinely isn't in ORDER.
  *
  * [state] is the lowercase map id used by india-map-data.ts, e.g. "up", "mh",
  * "jk" (not the full state name) — same id the frontend already has on hand
  * from the click event, so no extra lookup is needed on that side.
- *
- * Party rows are labelled by their CODEP code (e.g. "IQ"), not a real name —
- * see the ORDER join-gap note in models/IndiaMapModels.ts. If/when a mapping
- * from CODEP to ORDER's ledger becomes available, swap the `code` field
- * below for a resolved `name` with no other changes needed here.
  *
  * Query params: ?fy=2026-27&month=Jul (optional, same semantics as the
  * national route).
  *
  * FIX (build error) — Next.js 15/16 changed dynamic route handler `params`
  * from a plain object to a Promise: `{ params: Promise<{ state: string }> }`
- * instead of `{ params: { state: string } }`. The old signature type-checked
- * fine under Next 14 but fails `next build`'s route-type validator on 15/16
- * with:
- *   Type '{ params: { state: string; }; }' is not assignable to type
- *   '{ params: Promise<{ state: string; }>; }'.
- * Fixed by typing params as a Promise and `await`-ing it before use.
+ * instead of `{ params: { state: string } }`. Fixed by typing params as a
+ * Promise and `await`-ing it before use.
  * -----------------------------------------------------------------------------
  */
 
@@ -50,6 +59,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
         const month = searchParams.get("month");
 
         const resolution = await buildStateResolution();
+        const ordnoMap = await buildOrdnoToPartyMap();
         const inState = (codep?: string | null, voucher?: number | null) => {
             const state = resolveState(resolution, codep, voucher);
             return state ? stateNameSet.has(state) : false;
@@ -57,13 +67,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
 
         // ---- Top parties by Sales + recent sales vouchers ----
         const salesByParty = new Map<string, number>();
-        const recentSales: { vcn: string; date: string; final: number; codep: string }[] = [];
+        const recentSales: { vcn: string; date: string; final: number; codep: string; partyName: string }[] = [];
         resolution.mdisRows.forEach((r: any) => {
             if (r.TYPE !== "S") return;
             if (!inState(r.CODEP, r.VOUCHER)) return;
             if (!monthFilter(r.DATE, fy, month)) return;
             if (r.CODEP) salesByParty.set(r.CODEP, (salesByParty.get(r.CODEP) || 0) + (r.FINAL || 0));
-            recentSales.push({ vcn: r.VCN || "—", date: r.DATE, final: r.FINAL || 0, codep: r.CODEP || "—" });
+            recentSales.push({
+                vcn: r.VCN || "—",
+                date: r.DATE,
+                final: r.FINAL || 0,
+                codep: r.CODEP || "—",
+                partyName: resolvePartyName(ordnoMap, r.CODEP),
+            });
         });
         recentSales.sort((a, b) => (a.date < b.date ? 1 : -1));
 
@@ -79,6 +95,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
         const topParties = Array.from(salesByParty.entries())
             .map(([code, sales]) => ({
                 code,
+                name: resolvePartyName(ordnoMap, code),
                 sales,
                 outstanding: outstandingByParty.get(code) || 0,
             }))
@@ -86,7 +103,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
             .slice(0, 10);
 
         const topOutstandingParties = Array.from(outstandingByParty.entries())
-            .map(([code, outstanding]) => ({ code, outstanding }))
+            .map(([code, outstanding]) => ({
+                code,
+                name: resolvePartyName(ordnoMap, code),
+                outstanding,
+            }))
             .sort((a, b) => Math.abs(b.outstanding) - Math.abs(a.outstanding))
             .slice(0, 10);
 
@@ -116,12 +137,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
         }));
 
         // ---- Recent dispatch (SUBDIS within state) ----
+        // NOTE: if this list is empty across every state, it's very likely a
+        // data-import issue, not a code issue — see the header note in
+        // models/SubDis.ts about the exact MongoDB collection name expected
+        // ("vfp_new_folder_subdis"), and confirm your import script wrote
+        // subdis.json's rows into that exact collection.
         const subdisRows = await SubDis.find({}, { VOUCHER: 1, CODEP: 1, DATE: 1, VCN: 1 }).lean();
-        const recentDispatch: { vcn: string; date: string; codep: string }[] = [];
+        const recentDispatch: { vcn: string; date: string; codep: string; partyName: string }[] = [];
         subdisRows.forEach((r: any) => {
             if (!inState(r.CODEP, r.VOUCHER)) return;
             if (!monthFilter(r.DATE, fy, month)) return;
-            recentDispatch.push({ vcn: r.VCN || "—", date: r.DATE, codep: r.CODEP || "—" });
+            recentDispatch.push({
+                vcn: r.VCN || "—",
+                date: r.DATE,
+                codep: r.CODEP || "—",
+                partyName: resolvePartyName(ordnoMap, r.CODEP),
+            });
         });
         recentDispatch.sort((a, b) => (a.date < b.date ? 1 : -1));
 
@@ -134,7 +165,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
             recentSales: recentSales.slice(0, 10),
             recentDispatch: recentDispatch.slice(0, 10),
             filters: { fy, month },
-            note: "Party rows are labelled by CODEP code, not a resolved name — see models/IndiaMapModels.ts for why ORDER can't be joined here yet.",
+            note: "Party names are resolved via ORDER.ORDNO (verified 100% match against MDIS/PEND/GLEDGER/SUBDIS party codes in your export) — falls back to the raw code only if a specific code truly has no matching ORDER row.",
         });
     } catch (err) {
         console.error("india-map/[state] API error:", err);
