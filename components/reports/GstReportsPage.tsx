@@ -55,7 +55,7 @@ export default function GSTReportsPage() {
             title: "GSTR-1",
             desc: "Details of outward supplies (sales)",
             icon: <FaReceipt size={16} />,
-            link: "/dashboard/reports/gstr1/",
+            link: "/dashboard/gst-reports/gstr1/",
             color: "indigo",
         },
         {
