@@ -456,7 +456,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   color="emerald"
                 />
               </li>
-
+              <li>
+                <NavLink
+                  href="/dashboard/compare"
+                  icon={<FaBoxOpen />}
+                  label="Comparison"
+                  active={pathname.startsWith("/dashboard/compare")}
+                  color="blue"
+                />
+              </li>
               <PermissionGate permission="users.view">
                 <Group
                   icon={<FaUsers />}
