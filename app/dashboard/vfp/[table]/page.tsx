@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
 import { FaArrowLeft, FaDatabase, FaLayerGroup, FaTable } from "react-icons/fa";
 import { getVfpTableRows } from "@/lib/vfp/data";
 import ProtectedPage from "@/components/ProtectedPage";
+import { getCurrentUser } from "@/lib/auth";
 
 type PageProps = {
   params: Promise<{ table: string }>;
@@ -36,23 +35,15 @@ function toSearchParams(value: Record<string, string | string[] | undefined>) {
 }
 
 export default async function VfpTablePage({ params, searchParams }: PageProps) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
+  const user = await getCurrentUser();
 
-  if (!token) {
-    redirect("/login");
-  }
-
-  let decoded: any = null;
-  try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET as string);
-  } catch {
+  if (!user) {
     redirect("/login");
   }
 
   const { table } = await params;
   const query = toSearchParams(await searchParams);
-  const data = await getVfpTableRows(table, query, decoded?.email);
+  const data = await getVfpTableRows(table, query, user.email);
 
   if (!data.table) {
     return (

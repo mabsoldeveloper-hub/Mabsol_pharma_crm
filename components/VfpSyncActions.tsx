@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   FolderOpen, 
   Database, 
@@ -20,6 +20,7 @@ interface VfpSyncActionsProps {
   workerOnline?: boolean;
   workerStatus?: string;
   lastSyncedAt?: Date | string;
+  pendingCommandCount?: number;
 }
 
 export default function VfpSyncActions({ 
@@ -29,7 +30,8 @@ export default function VfpSyncActions({
   initialAutoSyncInterval = 10,
   workerOnline = false,
   workerStatus = "offline",
-  lastSyncedAt
+  lastSyncedAt,
+  pendingCommandCount = 0
 }: VfpSyncActionsProps) {
   const router = useRouter();
   const [dataDir, setDataDir] = useState(currentPath);
@@ -59,20 +61,33 @@ export default function VfpSyncActions({
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
   const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
 
+  const isMounted = useRef(false);
+  const prevProps = useRef({ currentPath, enabledFiles });
+
   // Sync state values when props change
   useEffect(() => {
     setDataDir(currentPath);
     setAutoSync(initialAutoSync);
     setAutoSyncInterval(initialAutoSyncInterval);
     setPresetInterval([10, 30, 60].includes(initialAutoSyncInterval) ? String(initialAutoSyncInterval) : "custom");
-    if (enabledFiles.length > 0) {
-      setSyncScope("single");
-      setSelectedFile(enabledFiles[0]);
-    } else {
-      setSyncScope("all");
-      setSelectedFile("");
+    
+    const enabledFilesChanged = JSON.stringify(prevProps.current.enabledFiles) !== JSON.stringify(enabledFiles);
+
+    if (!isMounted.current || enabledFilesChanged) {
+      if (enabledFiles.length > 0) {
+        setSyncScope("single");
+        setSelectedFile(enabledFiles[0]);
+      } else {
+        setSyncScope("all");
+        setSelectedFile("");
+      }
+      isMounted.current = true;
     }
+
+    prevProps.current = { currentPath, enabledFiles };
   }, [currentPath, enabledFiles, initialAutoSync, initialAutoSyncInterval]);
+
+
 
   // Unified save config function
   async function saveConfiguration(
@@ -323,17 +338,6 @@ export default function VfpSyncActions({
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Path validation alert banner */}
-            {!dataDir && (
-              <div className="alert">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-                <div>
-                  <strong>Source path is not configured</strong>
-                  Select a Visual FoxPro database directory to enable synchronization tools.
-                </div>
               </div>
             )}
           </div>
