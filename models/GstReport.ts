@@ -280,15 +280,15 @@ export default class GstReport {
      */
     static async hsnSummary(filter: GstReportFilter = {}) {
         await dbConnect();
-    
+
         const { page = 1, limit = 20, hsn = "" } = filter;
-    
+
         const pageNum = Math.max(1, Number(page) || 1);
         const pageLimit = Math.max(1, Number(limit) || 20);
-    
+
         const mdisMatch = await buildMdisMatch(filter);
         const vouchers = await Mdis.distinct("VOUCHER", mdisMatch);
-    
+
         if (!vouchers.length) {
             return {
                 total: 0,
@@ -298,7 +298,7 @@ export default class GstReport {
                 rows: [],
             };
         }
-    
+
         const grouped = await Dis.aggregate([
             {
                 $match: {
@@ -320,21 +320,21 @@ export default class GstReport {
                 },
             },
         ]);
-    
+
         const productCodes = grouped
             .map((g) => g._id)
             .filter((c) => c !== "UNSPECIFIED");
-    
+
         const products = productCodes.length
             ? await Product.find({
-                  CODE: { $in: productCodes },
-              }).lean()
+                CODE: { $in: productCodes },
+            }).lean()
             : [];
-    
+
         const productByCode = new Map(
             (products as any[]).map((p) => [p.CODE, p])
         );
-    
+
         // Product.GCODE6 -> SaleType.SCODE
         const scodes = [
             ...new Set(
@@ -343,89 +343,89 @@ export default class GstReport {
                     .filter(Boolean)
             ),
         ];
-    
+
         const saleTypes = await SaleType.find({
             SCODE: { $in: scodes },
         }).lean();
-    
+
         const saleTypeByScode = new Map(
             (saleTypes as any[]).map((s) => [s.SCODE, s])
         );
-    
+
         let filteredGrouped = grouped;
-    
+
         if (hsn) {
             const h = hsn.toLowerCase();
-    
+
             filteredGrouped = grouped.filter((g) => {
-    
+
                 const p = productByCode.get(g._id);
-    
+
                 const saleType = saleTypeByScode.get(p?.GCODE6);
-    
+
                 const hsnCode = String(
                     saleType?.SNAME || ""
                 ).toLowerCase();
-    
+
                 return (
                     hsnCode.includes(h) ||
                     String(g._id).toLowerCase().includes(h)
                 );
             });
         }
-    
+
         const total = filteredGrouped.length;
-    
+
         const start = (pageNum - 1) * pageLimit;
-    
+
         const pageSlice = filteredGrouped.slice(
             start,
             start + pageLimit
         );
-    
+
         const rows = pageSlice.map((g) => {
-    
+
             const p = productByCode.get(g._id);
-    
+
             const saleType = saleTypeByScode.get(p?.GCODE6);
-    
+
             return {
-    
+
                 productCode: g._id,
-    
+
                 productName:
                     p?.PRODUCT ||
                     p?.BILLNAME ||
                     "Unknown",
-    
+
                 // HSN from SaleType.SNAME
                 hsnCode:
                     saleType?.SNAME || "-",
-    
+
                 unit:
                     p?.UNIT || "-",
-    
+
                 cgstRate:
                     p?.CGST ?? null,
-    
+
                 igstRate:
                     p?.IGST ?? null,
-    
+
                 qty:
                     g.qty || 0,
-    
+
                 taxableAmount:
                     g.taxableAmount || 0,
-    
+
                 cgstAmount:
                     g.cgstAmount || 0,
-    
+
                 sgstAmount:
                     g.sgstAmount || 0,
             };
-    
+
         });
-    
+
         return {
             total,
             page: pageNum,
