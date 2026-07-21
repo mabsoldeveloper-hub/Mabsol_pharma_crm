@@ -7,19 +7,10 @@
  * GLEDGER, PRO, PROBAT, ORDER) via /api/dashboard/india-map (national
  * rollup) and /api/dashboard/india-map/[state] (per-state drill-down).
  *
- * New vs. the previous version:
- *   - Purchase / Sales Returns / Payment KPIs are real (previously Purchase
- *     was hardcoded to 0 and Payment didn't exist).
- *   - Stock & Expiry panel (low-stock + near-expiry alerts, from PRO/PROBAT).
- *   - Party Directory panel (from ORDER) — shown as its own section since it
- *     can't be reconciled with the per-state figures; see the note banner.
- *   - Clicking a state now calls the drill-down route for real Top
- *     Parties / Top Products / Recent Sales / Recent Dispatch, instead of
- *     just re-displaying the state's summary numbers.
- *   - NEW: Party Directory rows now show City / District / Pincode (parsed
- *     from ORDER's address text — see /api/dashboard/india-map for how),
- *     plus a "View full directory →" link to /dashboard/area/parties, a
- *     searchable table of every party (not just the top 10 shown here).
+ * FIX (Bug 1) — Top Parties / Recent Sales / Recent Dispatch now render the
+ * resolved `name` / `partyName` field the drilldown API returns (via
+ * ORDER.ORDNO — see lib/indiaMapStateResolver.ts) instead of the raw CODEP
+ * code, so "Party PY" now shows as e.g. "Aspire Life Sciences".
  * -----------------------------------------------------------------------------
  */
 
@@ -81,11 +72,11 @@ interface NationalData {
 }
 
 interface DrillDown {
-    topParties: { code: string; sales: number; outstanding: number }[];
-    topOutstandingParties: { code: string; outstanding: number }[];
+    topParties: { code: string; name: string; sales: number; outstanding: number }[];
+    topOutstandingParties: { code: string; name: string; outstanding: number }[];
     topProducts: { code: string; name: string; qty: number }[];
-    recentSales: { vcn: string; date: string; final: number; codep: string }[];
-    recentDispatch: { vcn: string; date: string; codep: string }[];
+    recentSales: { vcn: string; date: string; final: number; codep: string; partyName: string }[];
+    recentDispatch: { vcn: string; date: string; codep: string; partyName: string }[];
     note: string;
 }
 
@@ -474,7 +465,7 @@ export default function IndiaMapPage() {
                                     <EmptyNote text="No sales vouchers found for this state / period." />
                                 ) : (
                                     drillDown.topParties.map((p) => (
-                                        <RowLine key={p.code} left={`Party ${p.code}`} right={formatINR(p.sales)} tone="green" />
+                                        <RowLine key={p.code} left={p.name} right={formatINR(p.sales)} tone="green" />
                                     ))
                                 )}
                             </Panel>
@@ -496,7 +487,7 @@ export default function IndiaMapPage() {
                                     <EmptyNote text="No recent sales vouchers." />
                                 ) : (
                                     drillDown.recentSales.map((v, i) => (
-                                        <RowLine key={i} left={`${v.vcn} — Party ${v.codep} (${v.date})`} right={formatINR(v.final)} tone="green" />
+                                        <RowLine key={i} left={`${v.vcn} — ${v.partyName} (${v.date})`} right={formatINR(v.final)} tone="green" />
                                     ))
                                 )}
                             </Panel>
@@ -507,7 +498,7 @@ export default function IndiaMapPage() {
                                     <EmptyNote text="No recent dispatch entries." />
                                 ) : (
                                     drillDown.recentDispatch.map((d, i) => (
-                                        <RowLine key={i} left={`${d.vcn} — Party ${d.codep}`} right={d.date} />
+                                        <RowLine key={i} left={`${d.vcn} — ${d.partyName}`} right={d.date} />
                                     ))
                                 )}
                             </Panel>
