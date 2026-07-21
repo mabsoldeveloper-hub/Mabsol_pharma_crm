@@ -27,9 +27,6 @@ function useReveal<T extends HTMLElement = HTMLElement>(
   threshold = 0.15
 ): [RefObject<T | null>, RevealState] {
   const ref = useRef<T | null>(null);
-  // 'idle'    -> render exactly like the server (fully visible, no animation classes)
-  // 'hidden'  -> below the fold, waiting to animate in
-  // 'visible' -> revealed
   const [state, setState] = useState<RevealState>("idle");
 
   useIsomorphicLayoutEffect(() => {
@@ -69,6 +66,184 @@ function useReveal<T extends HTMLElement = HTMLElement>(
   }, [threshold]);
 
   return [ref, state];
+}
+
+/* ============================================================
+   NETWORK FIELD — a slowly rotating 3D sphere of connected nodes,
+   rendered on a fixed full-viewport canvas so it runs continuously
+   behind the whole page (not just the hero) as the user scrolls.
+   Nodes are generated once on a sphere (Fibonacci distribution),
+   nearest-neighbour edges are computed once, and every frame we
+   just rotate + project that fixed structure — cheap, and it reads
+   as a genuine 3D object rather than random floating dots.
+   ============================================================ */
+type Point3 = { x: number; y: number; z: number };
+
+function fibonacciSphere(count: number, radius: number): Point3[] {
+  const pts: Point3[] = [];
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < count; i++) {
+    const y = 1 - (i / (count - 1)) * 2; // -1..1
+    const r = Math.sqrt(1 - y * y);
+    const theta = goldenAngle * i;
+    pts.push({
+      x: Math.cos(theta) * r * radius,
+      y: y * radius,
+      z: Math.sin(theta) * r * radius,
+    });
+  }
+  return pts;
+}
+
+function nearestNeighborEdges(pts: Point3[], k: number): [number, number][] {
+  const edges: [number, number][] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < pts.length; i++) {
+    const dists: { j: number; d: number }[] = [];
+    for (let j = 0; j < pts.length; j++) {
+      if (i === j) continue;
+      const dx = pts[i].x - pts[j].x;
+      const dy = pts[i].y - pts[j].y;
+      const dz = pts[i].z - pts[j].z;
+      dists.push({ j, d: dx * dx + dy * dy + dz * dz });
+    }
+    dists.sort((a, b) => a.d - b.d);
+    for (let n = 0; n < k; n++) {
+      const j = dists[n].j;
+      const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        edges.push([i, j]);
+      }
+    }
+  }
+  return edges;
+}
+
+function NetworkField() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return undefined;
+
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const NODE_COUNT = 70;
+    const points = fibonacciSphere(NODE_COUNT, 1);
+    const edges = nearestNeighborEdges(points, 2);
+
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas!.width = width * dpr;
+      canvas!.height = height * dpr;
+      canvas!.style.width = `${width}px`;
+      canvas!.style.height = `${height}px`;
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    let angleY = 0;
+    let angleX = 0.4;
+    let raf = 0;
+    let visible = true;
+
+    function draw(t: number) {
+      if (!ctx) return;
+      const cx = width * 0.72;
+      const cy = height * 0.34;
+      const radius = Math.min(width, height) * 0.42;
+      const fov = radius * 2.6;
+
+      if (!reduced) {
+        angleY = t * 0.00012;
+        angleX = 0.4 + Math.sin(t * 0.00007) * 0.12;
+      }
+
+      const cosY = Math.cos(angleY);
+      const sinY = Math.sin(angleY);
+      const cosX = Math.cos(angleX);
+      const sinX = Math.sin(angleX);
+
+      const projected = points.map((p) => {
+        // rotate around Y
+        const x1 = p.x * cosY - p.z * sinY;
+        const z1 = p.x * sinY + p.z * cosY;
+        // rotate around X
+        const y2 = p.y * cosX - z1 * sinX;
+        const z2 = p.y * sinX + z1 * cosX;
+
+        const scale = fov / (fov + z2 * radius);
+        return {
+          x: cx + x1 * radius * scale,
+          y: cy + y2 * radius * scale,
+          scale,
+        };
+      });
+
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.lineWidth = 1;
+      edges.forEach(([a, b]) => {
+        const pa = projected[a];
+        const pb = projected[b];
+        const avgScale = (pa.scale + pb.scale) / 2;
+        const opacity = Math.max(0, Math.min(0.16, (avgScale - 0.7) * 0.4));
+        ctx.strokeStyle = `rgba(52, 56, 114, ${opacity})`;
+        ctx.beginPath();
+        ctx.moveTo(pa.x, pa.y);
+        ctx.lineTo(pb.x, pb.y);
+        ctx.stroke();
+      });
+
+      projected.forEach((p, i) => {
+        const size = Math.max(0.6, (p.scale - 0.6) * 3.2);
+        const isOrange = i % 5 === 0;
+        const opacity = Math.max(0.08, Math.min(0.85, (p.scale - 0.55) * 1.6));
+        ctx.beginPath();
+        ctx.fillStyle = isOrange
+          ? `rgba(251, 140, 0, ${opacity})`
+          : `rgba(102, 104, 160, ${opacity})`;
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      if (!reduced && visible) {
+        raf = requestAnimationFrame(draw);
+      }
+    }
+
+    raf = requestAnimationFrame(draw);
+
+    function handleVisibility() {
+      visible = document.visibilityState === "visible";
+      if (visible && !reduced) {
+        raf = requestAnimationFrame(draw);
+      } else {
+        cancelAnimationFrame(raf);
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="network-field" aria-hidden="true" />;
 }
 
 interface RevealProps {
@@ -132,6 +307,16 @@ export default function LandingPage() {
     },
   ];
 
+  // Small orbiting data-packet particles around the hero stage — a nod to
+  // records flowing from ERP into the CRM in real time.
+  const particles = [
+    { top: "8%", left: "-6%", size: 8, delay: 0, duration: 7 },
+    { top: "72%", left: "-10%", size: 6, delay: 1.4, duration: 8.5 },
+    { top: "18%", left: "104%", size: 7, delay: 0.6, duration: 6.5 },
+    { top: "55%", left: "108%", size: 5, delay: 2.1, duration: 9 },
+    { top: "92%", left: "40%", size: 6, delay: 1, duration: 7.5 },
+  ];
+
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -159,10 +344,25 @@ export default function LandingPage() {
 
   return (
     <main className="landing-page">
+      {/* AMBIENT BACKGROUND — fixed to the viewport so it runs continuously
+          behind the whole scrolling page: a slowly rotating 3D node network
+          plus two soft drifting color fields, reinforcing "always syncing" */}
+      <div className="bg-ambient" aria-hidden="true">
+        <span className="orb orb-orange" />
+        <span className="orb orb-navy" />
+        <NetworkField />
+      </div>
+
       {/* NAVBAR */}
       <header className="nav">
         <div className="nav-inner">
-          <span className="brand-text">Mabsol Infotech</span>
+          <a href="#product" className="brand">
+            <img
+              src="https://mabsolinfotech.com/images/logo.webp"
+              alt="Mabsol Infotech"
+              className="brand-logo"
+            />
+          </a>
 
           <nav className="nav-links">
             <a href="#product">Product</a>
@@ -204,12 +404,40 @@ export default function LandingPage() {
               See how it works
             </a>
           </div>
+
+          <div className="hero-trust">
+            <div className="trust-avatars" aria-hidden="true">
+              <span className="trust-dot dot-orange" />
+              <span className="trust-dot dot-navy" />
+              <span className="trust-dot dot-green" />
+            </div>
+            <span>Trusted by teams already running ERP + CRM together</span>
+          </div>
         </Reveal>
 
         {/* PRODUCT SCREENSHOT / BENTO DASHBOARD — 3D TILT STAGE */}
         <Reveal className="hero-stage" delay={120}>
           <div className="stage-3d">
-            <div className="ghost-panel" />
+            <span className="stage-glow" aria-hidden="true" />
+            <div className="ghost-panel ghost-panel-back" />
+            <div className="ghost-panel ghost-panel-mid" />
+
+            {particles.map((p, i) => (
+              <span
+                key={i}
+                className="particle"
+                style={
+                  {
+                    top: p.top,
+                    left: p.left,
+                    width: p.size,
+                    height: p.size,
+                    animationDelay: `${p.delay}s`,
+                    animationDuration: `${p.duration}s`,
+                  } as CSSProperties
+                }
+              />
+            ))}
 
             <div
               className="browser-frame"
@@ -226,7 +454,7 @@ export default function LandingPage() {
                   <span className="dot" />
                   <span className="dot" />
                 </div>
-                <span className="browser-url">app.mabsolinfotech.cloud</span>
+                <span className="browser-url">phcrm.mabsolinfotech.cloud</span>
                 <span className="live-pill">
                   <span className="live-dot" />
                   Live
@@ -260,6 +488,7 @@ export default function LandingPage() {
                       strokeWidth="2.4"
                       strokeLinecap="round"
                       strokeLinejoin="round"
+                      className="mini-line-path"
                     />
                   </svg>
                   <span className="tile-tag">+18%</span>
@@ -269,6 +498,7 @@ export default function LandingPage() {
                   <p className="tile-label muted-on-dark">Sync Status</p>
                   <p className="sync-value">60s</p>
                   <p className="sync-caption">refresh from ERP</p>
+                  <span className="sync-ring" aria-hidden="true" />
                 </div>
 
                 <div className="bento-tile bento-notifs">
@@ -288,11 +518,19 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="floating-toast">
+            <div className="floating-toast toast-a">
               <span className="notif-dot dot-orange" />
               <div>
                 <p className="notif-title">Invoice #INV-2291 synced</p>
                 <p className="notif-sub">2 seconds ago</p>
+              </div>
+            </div>
+
+            <div className="floating-toast toast-b">
+              <span className="notif-dot dot-green" />
+              <div>
+                <p className="notif-title">Stock report ready</p>
+                <p className="notif-sub">Just now</p>
               </div>
             </div>
           </div>
@@ -307,7 +545,9 @@ export default function LandingPage() {
         </Reveal>
 
         <div className="timeline">
-          <span className="timeline-line" aria-hidden="true" />
+          <span className="timeline-line" aria-hidden="true">
+            <span className="timeline-pulse" />
+          </span>
           {steps.map((s, i) => (
             <Reveal as="div" className="timeline-step" key={s.n} delay={i * 120}>
               <span className="timeline-node">{s.n}</span>
@@ -373,6 +613,7 @@ export default function LandingPage() {
 
       {/* CTA BAND */}
       <Reveal as="section" className="cta-band">
+        <span className="cta-glow" aria-hidden="true" />
         <h2>Stop switching between ERP and spreadsheets</h2>
         <p>Set up takes minutes. Your team keeps working the same way, just with everything in view.</p>
         <a href="https://phcrm.mabsolinfotech.cloud/login" className="btn btn-primary">
