@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import { OrderParty } from "@/models/IndiaMapModels";
+import OrderParty from "@/models/Order";
 import {
     extractPincode,
     extractDistrict,
     stateFromGstno,
     stateFromCity,
+    cleanPartyName,
     isRealParty,
     MAP_ID_TO_STATE_NAMES,
 } from "@/lib/indiaMapStateResolver";
+
 
 /**
  * GET /api/dashboard/india-map/parties
@@ -16,6 +18,21 @@ import {
  * Full, searchable Party Directory built from ORDER — every real party (not
  * just the national rollup's top 10), with City / District / Pincode / GST /
  * Phone / Balance and Buyer-Supplier flags.
+ *
+ * FIX — Party Directory was empty / junk-filled:
+ *   1. If this still comes back empty after deploying this fix, the "order"
+ *      collection itself is empty in MongoDB — none of the query logic
+ *      below can produce rows that don't exist in the DB. Import the 8
+ *      provided VFP JSON exports (see the import script) into the exact
+ *      collection names models/IndiaMapModels.ts expects, in particular
+ *      "order" for mabsol_pharma_crm_vfp_new_folder_order.json.
+ *   2. isRealParty() is now row-aware, so accounting/ledger heads that
+ *      don't match the old keyword-only filter (RENT, SALARY & WAGES,
+ *      CASH, FREIGHT, DEPRECIATION A/C, CAPITAL ACCOUNT, PROFIT & LOSS A/C,
+ *      …) are excluded too — verified against your actual export.
+ *   3. cleanPartyName() strips VFP fixed-width padding + duplicated
+ *      trailing city text that shows up glued onto PARNAM for ~120 of your
+ *      rows (e.g. "ALCOLABS                      PANCHKULA" -> "Alcolabs").
  *
  * District & Pincode are NOT their own VFP columns anywhere in your 8 tables
  * — they're parsed out of ORDER's free-text address lines (PARADD / PARADD1
@@ -68,13 +85,13 @@ export async function GET(req: Request) {
         const stateNameFilter = stateParam ? MAP_ID_TO_STATE_NAMES[stateParam.toLowerCase()] ?? [stateParam] : null;
         const stateFilterSet = stateNameFilter ? new Set(stateNameFilter) : null;
 
-        let parties = rows.filter((r: any) => isRealParty(r.PARNAM)).map((r: any) => {
+        let parties = rows.filter((r: any) => isRealParty(r.PARNAM, r)).map((r: any) => {
             const city = r.CITY ? r.CITY.trim() : null;
             const pincode = extractPincode(r.PARADD, r.PARADD1, r.PARADD2, city);
             const { district, source: districtSource } = extractDistrict(city, r.PARADD, r.PARADD1, r.PARADD2);
             const state = stateFromGstno(r.GSTNO) ?? stateFromCity(city);
             return {
-                name: (r.PARNAM || "").trim(),
+                name: cleanPartyName(r.PARNAM, city),
                 city,
                 district,
                 districtSource,
@@ -118,7 +135,7 @@ export async function GET(req: Request) {
             pageSize,
             totalPages: Math.max(1, Math.ceil(total / pageSize)),
             filters: { q: q || null, state: stateParam || null, sort },
-            note: "District & Pincode are parsed from ORDER's free-text address lines (PARADD/PARADD1/PARADD2), not dedicated VFP columns — treat as best-effort. See districtSource per row (\"address\" = read explicitly, \"city\" = guessed from City).",
+            note: "District & Pincode are parsed from ORDER's free-text address lines (PARADD/PARADD1/PARADD2), not dedicated VFP columns — treat as best-effort. See districtSource per row (\"address\" = read explicitly, \"city\" = guessed from City). Party names are cleaned of VFP fixed-width padding and any duplicated trailing city text.",
         });
     } catch (err) {
         console.error("india-map/parties API error:", err);
