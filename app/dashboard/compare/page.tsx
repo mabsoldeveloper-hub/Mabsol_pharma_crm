@@ -246,20 +246,36 @@ export default function ComparisonDashboardPage() {
                     {/* Company Comparison + Quarterly */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <Card title="Company Comparison">
-                            <ResponsiveContainer width="100%" height={300}>
-                                <PieChart>
+                            <ResponsiveContainer width="100%" height={340}>
+                                <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                                     <Pie
                                         data={data.companyComparison}
                                         dataKey="amount"
                                         nameKey="company"
-                                        outerRadius={100}
-                                        label={(d: any) => `${d.company}: ₹${formatINR(d.amount)}`}
+                                        cx="38%"
+                                        cy="50%"
+                                        outerRadius={95}
+                                        labelLine={false}
+                                        // Only label slices big enough to fit text without colliding
+                                        label={(d: any) =>
+                                            d.percent > 0.05 ? `${d.company} ${(d.percent * 100).toFixed(0)}%` : ""
+                                        }
                                     >
                                         {data.companyComparison.map((_, i) => (
                                             <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="rgba(255,255,255,0.7)" strokeWidth={2} />
                                         ))}
                                     </Pie>
                                     <Tooltip contentStyle={glassTooltipStyle} formatter={(v) => `₹${formatINR(Number(v))}`} />
+                                    <Legend
+                                        layout="vertical"
+                                        align="right"
+                                        verticalAlign="middle"
+                                        iconType="circle"
+                                        formatter={(value: string, entry: any) =>
+                                            `${value} — ₹${formatINR(entry?.payload?.amount ?? 0)}`
+                                        }
+                                        wrapperStyle={{ fontSize: 12, color: "#334155", lineHeight: "20px" }}
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </Card>
