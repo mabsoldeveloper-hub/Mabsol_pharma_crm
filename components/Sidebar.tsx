@@ -447,15 +447,22 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                 </li>
               </PermissionGate>
 
-              <li>
-                <NavLink
-                  href="/dashboard/area"
-                  icon={<FaBuilding />}
-                  label="Area Dashboard"
-                  active={pathname.startsWith("/dashboard/area")}
-                  color="emerald"
-                />
-              </li>
+              {/* ################ Area Start here ##################### */}
+              <PermissionGate permission="area.view">
+                <li>
+                  <NavLink
+                    href="/dashboard/area"
+                    icon={<FaBuilding />}
+                    label="Area"
+                    active={pathname.startsWith("/dashboard/area")}
+                    color="emerald"
+                  />
+                </li>
+              </PermissionGate>
+              {/* ################ Area END here ##################### */}
+
+              {/* ################ Compare Start here ##################### */}
+              <PermissionGate permission="compare.view">
               <li>
                 <NavLink
                   href="/dashboard/compare"
@@ -465,6 +472,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   color="blue"
                 />
               </li>
+              </PermissionGate>
+                {/* ################ Compare END here ##################### */}
+
               <PermissionGate permission="users.view">
                 <Group
                   icon={<FaUsers />}
