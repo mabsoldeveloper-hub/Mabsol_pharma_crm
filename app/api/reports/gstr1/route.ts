@@ -54,8 +54,8 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // default: return summary + full json for on-screen preview (no download)
-        return NextResponse.json({ success: true, data: { meta, gstJson } });
+        // default: return summary + full json + invoice detail for on-screen preview (no download)
+        return NextResponse.json({ success: true, data: { meta, gstJson, invoiceDetail } });
     } catch (error: any) {
         console.error("GSTR-1 Report API Error:", error);
         return NextResponse.json(
