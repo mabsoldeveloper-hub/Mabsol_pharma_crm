@@ -159,7 +159,7 @@ export default function CustomerPage() {
             </div>
             <div className="col-lg-3">
                 <select
-                    className="form-select form-select-lg"
+                    className="form-select form-select-md"
                     value={groupFilter}
                     onChange={(e)=>setGroupFilter(e.target.value)}
                 >
