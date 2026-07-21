@@ -217,7 +217,7 @@ fetch(`/api/customers/ledger/${id}`)
   <div className="col-lg-3 col-md-6">
     <div className="card shadow-sm border-0">
       <div className="card-body text-center">
-        <small className="text-muted">Opening</small>
+        <small className="text-muted">Opening Balance</small>
         <h4>
           ₹{Number(data.summary?.opening || 0).toLocaleString()}
         </h4>
