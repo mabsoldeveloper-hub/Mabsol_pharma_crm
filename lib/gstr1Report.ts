@@ -1,4 +1,4 @@
-﻿import dbConnect from "@/lib/mongodb";
+import dbConnect from "@/lib/mongodb";
 import Mdis from "@/models/SalesMdis";
 import Dis from "@/models/SalesDis";
 import Order from "@/models/Order";
@@ -210,6 +210,9 @@ export default class Gstr1Report {
 
         const hsnAgg = new Map<string, { desc: string; uqc: string; qty: number; txval: number; iamt: number; camt: number; samt: number; rt: number; saleTypeName: string }>();
 
+        const hsnB2bAgg = new Map<string, { desc: string; uqc: string; qty: number; txval: number; iamt: number; camt: number; samt: number; rt: number; saleTypeName: string }>();
+        const hsnB2cAgg = new Map<string, { desc: string; uqc: string; qty: number; txval: number; iamt: number; camt: number; samt: number; rt: number; saleTypeName: string }>();
+
         const totals = {
             b2b: emptyTotal(), b2cl: emptyTotal(), b2cs: emptyTotal(),
             cdnr: emptyTotal(), cdnur: emptyTotal(), grand: emptyTotal(),
@@ -332,12 +335,23 @@ export default class Gstr1Report {
                     const sgst = l.SSTAAMO || 0;
                     const rate = snapToGstSlab((l.CGST || 0) * 2);
 
-                    if (!hsnAgg.has(hsn)) hsnAgg.set(hsn, { desc: product?.PRODUCT || product?.BILLNAME || "-", uqc: product?.UNIT || "NOS", qty: 0, txval: 0, iamt: 0, camt: 0, samt: 0, rt: rate, saleTypeName: saleTypeNameForHsn });
+                    const record = { desc: product?.PRODUCT || product?.BILLNAME || "-", uqc: product?.UNIT || "NOS", qty: 0, txval: 0, iamt: 0, camt: 0, samt: 0, rt: rate, saleTypeName: saleTypeNameForHsn };
+
+                    if (!hsnAgg.has(hsn)) hsnAgg.set(hsn, { ...record });
                     const agg = hsnAgg.get(hsn)!;
                     agg.qty += l.QTY || 0;
                     agg.txval += taxable;
                     agg.camt += cgst;
                     agg.samt += sgst;
+
+                    const isB2BContext = bucket === "B2B" || bucket === "B2CL" || bucket === "CDNR";
+                    const targetAgg = isB2BContext ? hsnB2bAgg : hsnB2cAgg;
+                    if (!targetAgg.has(hsn)) targetAgg.set(hsn, { ...record });
+                    const target = targetAgg.get(hsn)!;
+                    target.qty += l.QTY || 0;
+                    target.txval += taxable;
+                    target.camt += cgst;
+                    target.samt += sgst;
                 }
             }
         }
@@ -351,26 +365,49 @@ export default class Gstr1Report {
             ],
         };
 
+        const mapHsnData = (aggMap: Map<string, any>) => [...aggMap.entries()].map(([hsn_sc, v], idx) => ({
+            num: idx + 1, hsn_sc, desc: v.desc, uqc: v.uqc, qty: round2(v.qty),
+            val: round2(v.txval + v.camt + v.samt + v.iamt), txval: round2(v.txval),
+            iamt: round2(v.iamt), camt: round2(v.camt), samt: round2(v.samt), csamt: 0, rt: v.rt,
+            saleTypeName: v.saleTypeName,
+        }));
+
         const gstJson = {
             gstin: (company as any).gstNo || "",
             fp: `${mm}${year}`,
             version: "GST3.0",
             b2b: [...b2bByGstin.values()],
+            b2ba: [],
+            b2b_sez_de: [],
             b2cl: b2clRows.length ? [{ inv: b2clRows }] : [],
+            b2cla: [],
             b2cs: [...b2csAgg.values()].map((v) => ({ sply_ty: v.sply_ty, pos: v.pos, typ: "OE", rt: v.rt, txval: round2(v.txval), iamt: round2(v.iamt), camt: round2(v.camt), samt: round2(v.samt), csamt: 0 })),
+            b2csa: [],
             cdnr: [...cdnrByGstin.values()],
+            cdnra: [],
             cdnur: cdnurRows,
+            cdnura: [],
             exp: [],
+            expa: [],
+            at: [],
+            ata: [],
+            atadi: [],
+            atadja: [],
             nil: { inv: [] },
-            hsn: {
-                data: [...hsnAgg.entries()].map(([hsn_sc, v], idx) => ({
-                    num: idx + 1, hsn_sc, desc: v.desc, uqc: v.uqc, qty: round2(v.qty),
-                    val: round2(v.txval + v.camt + v.samt + v.iamt), txval: round2(v.txval),
-                    iamt: round2(v.iamt), camt: round2(v.camt), samt: round2(v.samt), csamt: 0, rt: v.rt,
-                    saleTypeName: v.saleTypeName,
-                })),
-            },
+            hsn: { data: mapHsnData(hsnAgg) },
+            hsn_b2b: { data: mapHsnData(hsnB2bAgg) },
+            hsn_b2c: { data: mapHsnData(hsnB2cAgg) },
             doc_issue: docIssue,
+            eco: [],
+            ecoa: [],
+            ecob2b: [],
+            ecob2csb: [],
+            ecourp2b: [],
+            ecourp2c: [],
+            ecoab2b: [],
+            ecoab2c: [],
+            ecoaurp2b: [],
+            ecoaurp2c: [],
         };
 
         return {
@@ -383,12 +420,36 @@ export default class Gstr1Report {
                 companyStateCode,
                 invoiceCount: mdisRows.length,
                 b2bCount: [...b2bByGstin.values()].reduce((s, g) => s + g.inv.length, 0),
+                b2baCount: 0,
+                b2bSezDeCount: 0,
                 b2clCount: b2clRows.length,
+                b2claCount: 0,
                 b2csGroupCount: b2csAgg.size,
+                b2csaCount: 0,
                 cdnrCount: [...cdnrByGstin.values()].reduce((s, g) => s + g.nt.length, 0),
+                cdnraCount: 0,
                 cdnurCount: cdnurRows.length,
+                cdnuraCount: 0,
+                expCount: 0,
+                expaCount: 0,
+                atCount: 0,
+                ataCount: 0,
+                atadiCount: 0,
+                atadjaCount: 0,
                 hsnLineCount: hsnAgg.size,
+                hsnB2bCount: hsnB2bAgg.size,
+                hsnB2cCount: hsnB2cAgg.size,
                 docsIssuedCount: salesVcns.length + noteVcns.length,
+                ecoCount: 0,
+                ecoaCount: 0,
+                ecob2bCount: 0,
+                ecob2csbCount: 0,
+                ecourp2bCount: 0,
+                ecourp2cCount: 0,
+                ecoab2bCount: 0,
+                ecoab2cCount: 0,
+                ecoaurp2bCount: 0,
+                ecoaurp2cCount: 0,
                 totals: {
                     b2b: round2Total(totals.b2b),
                     b2cl: round2Total(totals.b2cl),
