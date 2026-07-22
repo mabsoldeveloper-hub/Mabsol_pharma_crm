@@ -66,8 +66,8 @@ export function buildGstr1Pdf(gstJson: any, meta: any): Promise<Buffer> {
         // Row 1 KPI
         const kpis1 = [
             { label: "TOTAL INVOICES", val: `${fmtInt(meta.invoiceCount)} Docs`, sub: `B2B: ${meta.b2bCount} | B2C: ${meta.b2clCount + meta.b2csGroupCount}`, bg: "#EFF6FF", border: "#BFDBFE", color: "#1E40AF" },
-            { label: "TAXABLE VALUE", val: `₹${fmt(grand.taxableValue)}`, sub: "Net taxable amount", bg: "#ECFDF5", border: "#A7F3D0", color: "#065F46" },
-            { label: "TOTAL INVOICE VALUE", val: `₹${fmt(grand.invoiceValue)}`, sub: "Gross sales value", bg: "#EEF2FF", border: "#C7D2FE", color: "#3730A3" },
+            { label: "TAXABLE VALUE", val: `Rs. ${fmt(grand.taxableValue)}`, sub: "Net taxable amount", bg: "#ECFDF5", border: "#A7F3D0", color: "#065F46" },
+            { label: "TOTAL INVOICE VALUE", val: `Rs. ${fmt(grand.invoiceValue)}`, sub: "Gross sales value", bg: "#EEF2FF", border: "#C7D2FE", color: "#3730A3" },
         ];
 
         kpis1.forEach((k, i) => {
@@ -83,9 +83,9 @@ export function buildGstr1Pdf(gstJson: any, meta: any): Promise<Buffer> {
         // Row 2 Tax Split KPI
         const kpiWidth4 = (pageWidth - 18) / 3;
         const taxKpis = [
-            { label: "CGST AMOUNT", val: `₹${fmt(grand.cgst)}`, bg: "#EFF6FF", border: "#BFDBFE", color: "#1D4ED8" },
-            { label: "SGST AMOUNT", val: `₹${fmt(grand.sgst)}`, bg: "#EFF6FF", border: "#BFDBFE", color: "#1D4ED8" },
-            { label: "IGST AMOUNT", val: `₹${fmt(grand.igst)}`, bg: "#F3E8FF", border: "#E9D5FF", color: "#6B21A8" },
+            { label: "CGST AMOUNT", val: `Rs. ${fmt(grand.cgst)}`, bg: "#EFF6FF", border: "#BFDBFE", color: "#1D4ED8" },
+            { label: "SGST AMOUNT", val: `Rs. ${fmt(grand.sgst)}`, bg: "#EFF6FF", border: "#BFDBFE", color: "#1D4ED8" },
+            { label: "IGST AMOUNT", val: `Rs. ${fmt(grand.igst)}`, bg: "#F3E8FF", border: "#E9D5FF", color: "#6B21A8" },
         ];
 
         taxKpis.forEach((k, i) => {
@@ -131,10 +131,10 @@ export function buildGstr1Pdf(gstJson: any, meta: any): Promise<Buffer> {
             { name: "INV NO", width: 65 },
             { name: "DATE", width: 55 },
             { name: "POS", width: 40 },
-            { name: "TAXABLE (₹)", width: 75, align: "right" },
-            { name: "CGST (₹)", width: 65, align: "right" },
-            { name: "SGST (₹)", width: 65, align: "right" },
-            { name: "IGST (₹)", width: 75, align: "right" },
+            { name: "TAXABLE (Rs.)", width: 75, align: "right" },
+            { name: "CGST (Rs.)", width: 65, align: "right" },
+            { name: "SGST (Rs.)", width: 65, align: "right" },
+            { name: "IGST (Rs.)", width: 75, align: "right" },
         ];
         drawTableHeader(b2bCols);
 
@@ -178,10 +178,10 @@ export function buildGstr1Pdf(gstJson: any, meta: any): Promise<Buffer> {
             { name: "SUPPLY TYPE", width: 85 },
             { name: "P.O.S. (STATE)", width: 125 },
             { name: "RATE %", width: 55, align: "right" },
-            { name: "TAXABLE (₹)", width: 80, align: "right" },
-            { name: "CGST (₹)", width: 60, align: "right" },
-            { name: "SGST (₹)", width: 60, align: "right" },
-            { name: "IGST (₹)", width: 70, align: "right" },
+            { name: "TAXABLE (Rs.)", width: 80, align: "right" },
+            { name: "CGST (Rs.)", width: 60, align: "right" },
+            { name: "SGST (Rs.)", width: 60, align: "right" },
+            { name: "IGST (Rs.)", width: 70, align: "right" },
         ];
         drawTableHeader(b2csCols);
 
@@ -218,10 +218,10 @@ export function buildGstr1Pdf(gstJson: any, meta: any): Promise<Buffer> {
             { name: "DESCRIPTION", width: 135 },
             { name: "UQC", width: 40 },
             { name: "QTY", width: 55, align: "right" },
-            { name: "TAXABLE (₹)", width: 75, align: "right" },
-            { name: "CGST (₹)", width: 45, align: "right" },
-            { name: "SGST (₹)", width: 45, align: "right" },
-            { name: "IGST (₹)", width: 65, align: "right" },
+            { name: "TAXABLE (Rs.)", width: 75, align: "right" },
+            { name: "CGST (Rs.)", width: 45, align: "right" },
+            { name: "SGST (Rs.)", width: 45, align: "right" },
+            { name: "IGST (Rs.)", width: 65, align: "right" },
         ];
         drawTableHeader(hsnCols);
 
