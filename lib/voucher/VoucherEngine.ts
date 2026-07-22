@@ -1,52 +1,128 @@
+// import SalesMdis from "@/models/SalesMdis";
+// import { loadSalesVoucher } from "./loaders/SalesLoader";
+
+
+
+// export async function getVoucher(voucher: number) {
+//   const header: any = await SalesMdis.findOne({
+//     VOUCHER: voucher,
+//   }).lean();
+
+//   if (!header) {
+//     throw new Error("Voucher not found");
+//   }
+
+//   switch (header.TYPE) {
+//     case "S":
+//       return loadSalesVoucher(header);
+
+//     case "P":
+//       return loadSalesVoucher(header);
+
+//     case "R":
+//       return loadSalesVoucher(header);
+
+//     case "B":
+//       return loadSalesVoucher(header);
+
+//     case "W":
+//       return loadSalesVoucher(header);
+
+//     case "Q":
+//       return loadSalesVoucher(header);
+
+//     case "U":
+//       return loadSalesVoucher(header);
+
+//     case "u":
+//       return loadSalesVoucher(header);
+
+//     case "T":
+//       return loadSalesVoucher(header);
+
+//     case "t":
+//       return loadSalesVoucher(header);
+
+//     case "J":
+//       return loadSalesVoucher(header);
+
+//     default:
+//       throw new Error(`Unsupported Voucher Type ${header.TYPE}`);
+//   }
+// }
 import SalesMdis from "@/models/SalesMdis";
+import GLedger from "@/models/GLedger";
+
 import { loadSalesVoucher } from "./loaders/SalesLoader";
 
-
+import { loadPaymentVoucher } from "./accounting/PaymentLoader";
+import { loadReceiptVoucher } from "./accounting/ReceiptLoader";
+import { loadJournalVoucher } from "./accounting/JournalLoader";
 
 export async function getVoucher(voucher: number) {
-  const header: any = await SalesMdis.findOne({
+  // ============================================
+  // Inventory Voucher
+  // (Sales / Purchase / Returns)
+  // ============================================
+
+  const inventoryHeader: any = await SalesMdis.findOne({
     VOUCHER: voucher,
   }).lean();
 
-  if (!header) {
-    throw new Error("Voucher not found");
+  if (inventoryHeader) {
+    switch (inventoryHeader.TYPE) {
+      case "S":
+      case "P":
+      case "R":
+      case "B":
+      case "W":
+      case "Q":
+      case "U":
+      case "u":
+      case "T":
+      case "t":
+        return loadSalesVoucher(inventoryHeader);
+
+      default:
+        throw new Error(
+          `Unsupported Inventory Voucher Type : ${inventoryHeader.TYPE}`
+        );
+    }
   }
 
-  switch (header.TYPE) {
-    case "S":
-      return loadSalesVoucher(header);
+  // ============================================
+  // Accounting Voucher
+  // (Payment / Receipt / Journal)
+  // ============================================
 
-    case "P":
-      return loadSalesVoucher(header);
+  const accountingHeader: any = await GLedger.findOne({
+    VOUCHER: voucher,
+  }).lean();
 
-    case "R":
-      return loadSalesVoucher(header);
+  if (accountingHeader) {
+    switch (accountingHeader.BOOK) {
+      // Payment
+      case "P":
+        return loadPaymentVoucher(voucher);
 
-    case "B":
-      return loadSalesVoucher(header);
+      // Receipt
+      case "R":
+        return loadReceiptVoucher(voucher);
 
-    case "W":
-      return loadSalesVoucher(header);
+      // Journal
+      case "J":
+        return loadJournalVoucher(voucher);
 
-    case "Q":
-      return loadSalesVoucher(header);
-
-    case "U":
-      return loadSalesVoucher(header);
-
-    case "u":
-      return loadSalesVoucher(header);
-
-    case "T":
-      return loadSalesVoucher(header);
-
-    case "t":
-      return loadSalesVoucher(header);
-
-    case "J":
-      return loadSalesVoucher(header);
-
-    default:
-      throw new Error(`Unsupported Voucher Type ${header.TYPE}`);
+      default:
+        throw new Error(
+          `Unsupported Accounting Voucher Book : ${accountingHeader.BOOK}`
+        );
+    }
   }
+
+  // ============================================
+  // Voucher Not Found
+  // ============================================
+
+  throw new Error("Voucher not found");
 }

@@ -44,6 +44,158 @@ export default function VoucherPage() {
     );
   }
 
+
+
+  // ==========================================
+// Accounting Voucher
+// ==========================================
+
+if (data.entries) {
+  return (
+    <div className="container-fluid py-4">
+
+      <div className="card shadow">
+
+        <div className="card-header bg-success text-white">
+          <h4 className="mb-0">
+            {data.voucherType} Voucher
+          </h4>
+        </div>
+
+        <div className="card-body">
+
+          <div className="row mb-4">
+
+            <div className="col-md-3">
+              <strong>Voucher</strong>
+              <br />
+              {data.header.voucher}
+            </div>
+
+            <div className="col-md-3">
+              <strong>Date</strong>
+              <br />
+              {data.header.date}
+            </div>
+
+            <div className="col-md-6">
+              <strong>Narration</strong>
+              <br />
+              {data.header.narration}
+            </div>
+
+          </div>
+
+          <div className="table-responsive">
+
+            <table className="table table-bordered">
+
+              <thead className="table-dark">
+
+                <tr>
+
+                  <th>Ledger</th>
+
+                  <th className="text-end">
+                    Debit
+                  </th>
+
+                  <th className="text-end">
+                    Credit
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {data.entries.map(
+                  (row: any, index: number) => (
+
+                    <tr key={index}>
+
+                      <td>
+                        {row.ledger}
+                      </td>
+
+                      <td className="text-end">
+
+                        {row.debit > 0
+                          ? row.debit.toLocaleString(
+                              undefined,
+                              {
+                                minimumFractionDigits: 2,
+                              }
+                            )
+                          : ""}
+
+                      </td>
+
+                      <td className="text-end">
+
+                        {row.credit > 0
+                          ? row.credit.toLocaleString(
+                              undefined,
+                              {
+                                minimumFractionDigits: 2,
+                              }
+                            )
+                          : ""}
+
+                      </td>
+
+                    </tr>
+
+                  )
+                )}
+
+              </tbody>
+
+              <tfoot>
+
+                <tr className="table-success">
+
+                  <th>Total</th>
+
+                  <th className="text-end">
+
+                    {data.totals.debit.toLocaleString(
+                      undefined,
+                      {
+                        minimumFractionDigits: 2,
+                      }
+                    )}
+
+                  </th>
+
+                  <th className="text-end">
+
+                    {data.totals.credit.toLocaleString(
+                      undefined,
+                      {
+                        minimumFractionDigits: 2,
+                      }
+                    )}
+
+                  </th>
+
+                </tr>
+
+              </tfoot>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
   const colorMap: any = {
     S: "primary",
     P: "success",
@@ -256,82 +408,76 @@ export default function VoucherPage() {
 
           <table className="table table-hover mb-0">
 
-            <thead className="table-dark">
+          <thead className="table-dark">
+  <tr>
+    <th>#</th>
+    <th>Product</th>
+    <th>Batch</th>
+    <th>Expiry</th>
+    <th className="text-end">Qty</th>
+    <th className="text-end">Free</th>
+    <th className="text-end">Rate</th>
+    <th className="text-end">MRP</th>
+    <th className="text-end">GST %</th>
+    <th className="text-end">Taxable</th>
+    <th className="text-end">Tax</th>
+    <th className="text-end">Total</th>
+  </tr>
+</thead>
 
-              <tr>
+<tbody>
+  {data.items.map((row: any, index: number) => (
+    <tr key={index}>
+      <td>{index + 1}</td>
 
-                <th>#</th>
+      <td>
+        <div className="fw-semibold">{row.product}</div>
 
-                <th>Product</th>
+        <small className="text-muted">
+          {row.packing}
+        </small>
+      </td>
 
-                <th>Batch</th>
+      <td>{row.batch}</td>
 
-                <th>Expiry</th>
+      <td>{row.exp}</td>
 
-                <th>Qty</th>
+      <td className="text-end">
+        {row.qty}
+      </td>
 
-                <th>Free</th>
+      <td className="text-end">
+        {row.free}
+      </td>
 
-                <th>Rate</th>
+      <td className="text-end">
+        ₹{row.rate.toFixed(2)}
+      </td>
 
-                <th>MRP</th>
+      <td className="text-end">
+        ₹{row.mrp.toFixed(2)}
+      </td>
 
-                <th>Amount</th>
+      <td className="text-end">
+        <span className="badge bg-info">
+          {row.gstPercent}%
+        </span>
+      </td>
 
-              </tr>
+      <td className="text-end">
+        ₹{row.taxableAmount.toFixed(2)}
+      </td>
 
-            </thead>
+      <td className="text-end">
+        ₹{row.taxAmount.toFixed(2)}
+      </td>
 
-            <tbody>
-
-              {data.items.map(
-                (row: any, index: number) => (
-                  <tr key={index}>
-
-                    <td>{index + 1}</td>
-
-                    <td>
-
-                      <b>{row.product}</b>
-
-                      <br />
-
-                      <small>
-                        {row.packing}
-                      </small>
-
-                    </td>
-
-                    <td>{row.batch}</td>
-
-                    <td>{row.exp}</td>
-
-                    <td>{row.qty}</td>
-
-                    <td>{row.free}</td>
-
-                    <td>
-                      {row.rate}
-                    </td>
-
-                    <td>
-                      {row.mrp}
-                    </td>
-
-                    <td className="text-end">
-
-                      ₹
-                      {Number(
-                        row.amount
-                      ).toLocaleString()}
-
-                    </td>
-
-                  </tr>
-                )
-              )}
-
-            </tbody>
+      <td className="text-end fw-bold">
+        ₹{row.amount.toFixed(2)}
+      </td>
+    </tr>
+  ))}
+</tbody>
 
           </table>
 
@@ -341,79 +487,155 @@ export default function VoucherPage() {
 
       {/* Totals */}
 
+
+      <div className="card shadow border-0 mt-4">
+
+<div className="card-header fw-bold">
+  GST Summary
+</div>
+
+<div className="card-body">
+
+  <div className="row text-center">
+
+    <div className="col-md-3">
+      <h6>CGST</h6>
+      <h4 className="text-primary">
+        ₹{data.totals.cgst.toFixed(2)}
+      </h4>
+    </div>
+
+    <div className="col-md-3">
+      <h6>SGST</h6>
+      <h4 className="text-success">
+        ₹{data.totals.sgst.toFixed(2)}
+      </h4>
+    </div>
+
+    <div className="col-md-3">
+      <h6>IGST</h6>
+      <h4 className="text-danger">
+        ₹{data.totals.igst.toFixed(2)}
+      </h4>
+    </div>
+
+    <div className="col-md-3">
+      <h6>Total GST</h6>
+      <h4 className="text-warning">
+        ₹{data.totals.totalTax.toFixed(2)}
+      </h4>
+    </div>
+
+  </div>
+
+</div>
+
+</div>
+
+
+
+
       <div className="row mt-4">
 
-        <div className="col-lg-4 offset-lg-8">
+  <div className="col-lg-5 ms-auto">
 
-          <div className="card shadow">
+    <div className="card shadow">
 
-            <div className="card-body">
+      <div className="card-header fw-bold">
+        Invoice Summary
+      </div>
 
-              <table className="table">
+      <div className="card-body p-0">
 
-                <tbody>
+        <table className="table table-bordered mb-0">
 
-                  <tr>
+          <tbody>
 
-                    <td>Total Qty</td>
+            <tr>
+              <td>Total Qty</td>
+              <td className="text-end">
+                {data.totals.qty}
+              </td>
+            </tr>
 
-                    <td className="text-end">
-                      {data.totals.qty}
-                    </td>
+            <tr>
+              <td>Total Free</td>
+              <td className="text-end">
+                {data.totals.free}
+              </td>
+            </tr>
 
-                  </tr>
+            <tr>
+              <td>Taxable Amount</td>
+              <td className="text-end">
+                ₹{data.totals.taxableAmount.toLocaleString(undefined,{
+                  minimumFractionDigits:2
+                })}
+              </td>
+            </tr>
 
-                  <tr>
+            <tr>
+              <td>CGST</td>
+              <td className="text-end">
+                ₹{data.totals.cgst.toLocaleString(undefined,{
+                  minimumFractionDigits:2
+                })}
+              </td>
+            </tr>
 
-                    <td>Total Free</td>
+            <tr>
+              <td>SGST</td>
+              <td className="text-end">
+                ₹{data.totals.sgst.toLocaleString(undefined,{
+                  minimumFractionDigits:2
+                })}
+              </td>
+            </tr>
 
-                    <td className="text-end">
-                      {data.totals.free}
-                    </td>
+            <tr>
+              <td>IGST</td>
+              <td className="text-end">
+                ₹{data.totals.igst.toLocaleString(undefined,{
+                  minimumFractionDigits:2
+                })}
+              </td>
+            </tr>
 
-                  </tr>
+            <tr className="table-warning">
 
-                  <tr>
+              <th>Total Tax</th>
 
-                    <td>Tax</td>
+              <th className="text-end">
+                ₹{data.totals.totalTax.toLocaleString(undefined,{
+                  minimumFractionDigits:2
+                })}
+              </th>
 
-                    <td className="text-end">
+            </tr>
 
-                      ₹
-                      {Number(
-                        data.taxes.totalTax
-                      ).toLocaleString()}
+            <tr className="table-success">
 
-                    </td>
+              <th>Grand Total</th>
 
-                  </tr>
+              <th className="text-end fs-5">
+                ₹{data.totals.grandTotal.toLocaleString(undefined,{
+                  minimumFractionDigits:2
+                })}
+              </th>
 
-                  <tr className="table-primary">
+            </tr>
 
-                    <th>Grand Total</th>
+          </tbody>
 
-                    <th className="text-end">
-
-                      ₹
-                      {Number(
-                        data.header.final
-                      ).toLocaleString()}
-
-                    </th>
-
-                  </tr>
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          </div>
-
-        </div>
+        </table>
 
       </div>
+
+    </div>
+
+  </div>
+
+</div>
 
     </div>
   );

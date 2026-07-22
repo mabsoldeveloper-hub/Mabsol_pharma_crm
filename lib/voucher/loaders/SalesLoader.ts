@@ -60,52 +60,87 @@ export async function loadSalesVoucher(header: any) {
 
   const items = rows.map((row: any, index: number) => {
     const product = productMap.get(Number(row.CODE));
-
-    const batch = batchMap.get(
-      `${row.CODE}_${row.BATCH}`
+  
+    const batch = batchMap.get(`${row.CODE}_${row.BATCH}`);
+  
+    const taxableAmount = Number(
+      row.AMMMWOD || row.AMMMOUNT || 0
     );
-
+  
+    const cgstPercent = Number(row.CGST || 0);
+    const sgstPercent = Number(row.SSTA || 0);
+    const igstPercent = Number(row.IGST || 0);
+  
+    const cgstAmount = Number(row.CGSTAMO || 0);
+    const sgstAmount = Number(row.SSTAAMO || 0);
+    const igstAmount = Number(row.IGSTAMO || 0);
+  
     return {
       srNo: index + 1,
-
+  
       code: row.CODE,
-
+  
       product: product?.PRODUCT || "",
-
+  
       billName: product?.BILLNAME || "",
-
+  
       packing: product?.PACKING || "",
-
+  
       unit: product?.UNIT || "",
-
+  
       batch: row.BATCH,
-
+  
       mfd: batch?.MFD || row.MFD || "",
-
+  
       exp: batch?.EXP || row.EXP || "",
-
+  
       qty: Number(row.QTY || 0),
-
+  
       free: Number(row.FREE || 0),
-
+  
       rate: Number(row.RATE || 0),
-
+  
       mrp: Number(row.MRP || product?.MRP || 0),
-
+  
       discount:
         Number(row.DISC1 || 0) +
         Number(row.DISC2 || 0),
-
-      cgst: Number(row.CGST || 0),
-
-      sgst: Number(row.SSTA || 0),
-
-      igst: Number(row.IGST || 0),
-
+  
+      // GST %
+  
+      cgst: cgstPercent,
+  
+      sgst: sgstPercent,
+  
+      igst: igstPercent,
+  
+      gstPercent:
+        cgstPercent +
+        sgstPercent +
+        igstPercent,
+  
+      // GST Amount
+  
+      cgstAmount,
+  
+      sgstAmount,
+  
+      igstAmount,
+  
+      taxAmount:
+        cgstAmount +
+        sgstAmount +
+        igstAmount,
+  
+      taxableAmount,
+  
       amount: Number(
-        row.AMMMOUNT ||
-          row.AMMMWOD ||
-          0
+        (
+          taxableAmount +
+          cgstAmount +
+          sgstAmount +
+          igstAmount
+        ).toFixed(2)
       ),
     };
   });
@@ -113,37 +148,45 @@ export async function loadSalesVoucher(header: any) {
   // ======================================
   // Totals
   // ======================================
-
   const totals = {
-    qty: items.reduce(
-      (s, x) => s + x.qty,
-      0
-    ),
+    qty: items.reduce((s, x) => s + x.qty, 0),
+  
+    free: items.reduce((s, x) => s + x.free, 0),
+  
+    taxableAmount: Number(
+        items
+          .reduce((s, x) => s + x.taxableAmount, 0)
+          .toFixed(2)
+      ),
+      
+      cgst: Number(
+        items
+          .reduce((s, x) => s + x.cgstAmount, 0)
+          .toFixed(2)
+      ),
+      
+      sgst: Number(
+        items
+          .reduce((s, x) => s + x.sgstAmount, 0)
+          .toFixed(2)
+      ),
+      
+      igst: Number(
+        items
+          .reduce((s, x) => s + x.igstAmount, 0)
+          .toFixed(2)
+      ),
+      
+      totalTax: Number(
+        items
+          .reduce((s, x) => s + x.taxAmount, 0)
+          .toFixed(2)
+      ),
+  
+   // grandTotal: Number(header.FINAL || 0),
 
-    free: items.reduce(
-      (s, x) => s + x.free,
-      0
-    ),
+   grandTotal: Number( Number(header.FINAL || 0).toFixed(2)),
 
-    amount: items.reduce(
-      (s, x) => s + x.amount,
-      0
-    ),
-
-    cgst: items.reduce(
-      (s, x) => s + x.cgst,
-      0
-    ),
-
-    sgst: items.reduce(
-      (s, x) => s + x.sgst,
-      0
-    ),
-
-    igst: items.reduce(
-      (s, x) => s + x.igst,
-      0
-    ),
   };
 
   // ======================================
@@ -204,14 +247,14 @@ export async function loadSalesVoucher(header: any) {
     totals,
 
     taxes: {
-      cgst: Number(header.CGSTAMO || 0),
-
-      sgst: Number(header.STAXAMO || 0),
-
-      igst: Number(header.IGSTAMO || 0),
-
-      totalTax: Number(header.TAXAMO || 0),
-    },
+        cgst: totals.cgst,
+      
+        sgst: totals.sgst,
+      
+        igst: totals.igst,
+      
+        totalTax: totals.totalTax,
+      },
 
     rawHeader: header,
   };
