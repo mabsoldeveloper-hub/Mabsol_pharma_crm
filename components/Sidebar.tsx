@@ -463,17 +463,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
               {/* ################ Compare Start here ##################### */}
               <PermissionGate permission="compare.view">
-              <li>
-                <NavLink
-                  href="/dashboard/compare"
-                  icon={<FaBoxOpen />}
-                  label="Comparison"
-                  active={pathname.startsWith("/dashboard/compare")}
-                  color="blue"
-                />
-              </li>
+                <li>
+                  <NavLink
+                    href="/dashboard/compare"
+                    icon={<FaBoxOpen />}
+                    label="Comparison"
+                    active={pathname.startsWith("/dashboard/compare")}
+                    color="blue"
+                  />
+                </li>
               </PermissionGate>
-                {/* ################ Compare END here ##################### */}
+              {/* ################ Compare END here ##################### */}
 
               <PermissionGate permission="users.view">
                 <Group
@@ -684,7 +684,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               {(can("vfp.view") || can("vfp.settings")) && (
                 <Group
                   icon={<FaExchangeAlt />}
-                  label="Data Migration"
+                  label="Migration"
                   open={vfpOpen}
                   onClick={() => setVfpOpen(!vfpOpen)}
                   active={pathname.startsWith("/dashboard/vfp")}
@@ -723,8 +723,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   <NavLink
                     href="/dashboard/reports"
                     icon={<FaChartBar />}
-                    label="Reports"
+                    label="Dash Reports"
                     active={pathname.startsWith("/dashboard/reports")}
+                    color="orange"
+                  />
+                </li>
+                <li>
+                  <NavLink
+                    href="/dashboard/gst-reports"
+                    icon={<FaChartBar />}
+                    label="GST Reports"
+                    active={pathname.startsWith("/dashboard/gst-reports")}
                     color="orange"
                   />
                 </li>
