@@ -466,7 +466,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                       />
                     </li>
 
-                    <li>
+                    {/* <li>
                       <SubLink
                         href="/dashboard/master/hsn-master"
                         icon={<FaListUl />}
@@ -524,7 +524,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                         active={pathname.startsWith("/dashboard/master/sub-category-master")}
                         color="cyan"
                       />
-                    </li>
+                    </li> */}
                   </>
                 }
               />
