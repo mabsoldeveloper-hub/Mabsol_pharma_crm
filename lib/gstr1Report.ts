@@ -199,6 +199,7 @@ export default class Gstr1Report {
 
         // ---- Buckets ----
         const b2bByGstin = new Map<string, any>();
+        const b2clByPos = new Map<string, any[]>();
         const b2clRows: any[] = [];
         const b2csAgg = new Map<string, { sply_ty: string; pos: string; rt: number; txval: number; iamt: number; camt: number; samt: number }>();
         const cdnrByGstin = new Map<string, any>();
@@ -291,6 +292,8 @@ export default class Gstr1Report {
                 b2bByGstin.get(ctin).inv.push({ inum: row.VCN || String(row.VOUCHER), idt: ddmmyyyy(row.DATE), val: round2(invoiceValue), pos: custStateCode, rchrg: "N", inv_typ: "R", itms });
                 addToTotal(totals.b2b, rowTotal);
             } else if (bucket === "B2CL") {
+                if (!b2clByPos.has(custStateCode)) b2clByPos.set(custStateCode, []);
+                b2clByPos.get(custStateCode)!.push({ inum: row.VCN || String(row.VOUCHER), idt: ddmmyyyy(row.DATE), val: round2(invoiceValue), pos: custStateCode, itms });
                 b2clRows.push({ inum: row.VCN || String(row.VOUCHER), idt: ddmmyyyy(row.DATE), val: round2(invoiceValue), pos: custStateCode, itms });
                 addToTotal(totals.b2cl, rowTotal);
             } else if (bucket === "CDNR") {
@@ -379,7 +382,7 @@ export default class Gstr1Report {
             b2b: [...b2bByGstin.values()],
             b2ba: [],
             b2b_sez_de: [],
-            b2cl: b2clRows.length ? [{ inv: b2clRows }] : [],
+            b2cl: [...b2clByPos.entries()].map(([pos, inv]) => ({ pos, inv })),
             b2cla: [],
             b2cs: [...b2csAgg.values()].map((v) => ({ sply_ty: v.sply_ty, pos: v.pos, typ: "OE", rt: v.rt, txval: round2(v.txval), iamt: round2(v.iamt), camt: round2(v.camt), samt: round2(v.samt), csamt: 0 })),
             b2csa: [],
