@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { INDIA_LOCATIONS, INDIA_VIEWBOX, type StatePath } from "./india-map-data";
 
@@ -66,50 +66,54 @@ interface DrillDown {
     note: string;
 }
 
-const BRAND = "#3730a3";
+const BRAND = "#5E5CE6";
+const BRAND_BLUE = "#0A84FF";
+const SYS_GREEN = "#30D158";
+const SYS_ORANGE = "#FF9F0A";
+const SYS_RED = "#FF453A";
 
 const STYLES = `
 .glass-panel {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.66) 0%, rgba(255,255,255,0.52) 100%);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 12px 40px rgba(94, 92, 230, 0.07), 0 2px 8px rgba(15, 23, 42, 0.04);
+  border-radius: 22px;
 }
 .glass-card {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-  border-radius: 16px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.56) 100%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 4px 18px rgba(15, 23, 42, 0.05);
+  border-radius: 18px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .glass-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.07);
-  border-color: rgba(255, 255, 255, 1);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 14px 34px rgba(94, 92, 230, 0.14);
+  border-color: rgba(255, 255, 255, 0.95);
 }
 .glass-input {
-  background: rgba(248, 250, 252, 0.8);
-  backdrop-filter: blur(8px);
-  border: 1.5px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px) saturate(160%);
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
   border-radius: 12px;
   transition: all 0.2s ease;
 }
 .glass-input:focus {
-  background: #ffffff;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: #5E5CE6;
+  box-shadow: 0 0 0 4px rgba(94, 92, 230, 0.14);
 }
 .glass-tooltip {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1.5px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04);
-  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(255,255,255,0.74) 100%);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 24px 48px rgba(15, 23, 42, 0.14), 0 4px 14px rgba(94, 92, 230, 0.08);
+  border-radius: 18px;
 }
 `;
 
@@ -122,11 +126,11 @@ function formatINR(value: number): string {
 }
 
 function heatColor(sales: number, maxSales: number): string {
-    if (maxSales <= 0 || sales <= 0) return "#e2e8f0";
+    if (maxSales <= 0 || sales <= 0) return "#e2e6ee";
     const ratio = sales / maxSales;
-    if (ratio >= 0.6) return "#10b981";
-    if (ratio >= 0.3) return "#f59e0b";
-    return "#ef4444";
+    if (ratio >= 0.6) return SYS_GREEN;
+    if (ratio >= 0.3) return SYS_ORANGE;
+    return SYS_RED;
 }
 
 function partyLocationLine(p: PartyDirectoryEntry): string {
@@ -138,10 +142,10 @@ function partyLocationLine(p: PartyDirectoryEntry): string {
     return line;
 }
 
-function clampTooltipPos(x: number, y: number, boxW: number, boxH: number) {
-    const pad = 14;
-    const maxX = (typeof window !== "undefined" ? window.innerWidth : x + boxW) - boxW - pad;
-    const maxY = (typeof window !== "undefined" ? window.innerHeight : y + boxH) - boxH - pad;
+function clampTooltipPos(x: number, y: number, boxW: number, boxH: number, containerW: number, containerH: number) {
+    const pad = 10;
+    const maxX = containerW - boxW - pad;
+    const maxY = containerH - boxH - pad;
     return {
         x: Math.max(pad, Math.min(x, maxX)),
         y: Math.max(pad, Math.min(y, maxY)),
@@ -163,6 +167,7 @@ export default function IndiaMapPage() {
     const [drillDown, setDrillDown] = useState<DrillDown | null>(null);
     const [drillLoading, setDrillLoading] = useState(false);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+    const mapCardRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         setLoading(true);
@@ -237,16 +242,22 @@ export default function IndiaMapPage() {
     const topStates = useMemo(() => [...stateData].sort((a, b) => b.sales - a.sales).slice(0, 5), [stateData]);
 
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
-        const boxW = typeof window !== "undefined" && window.innerWidth < 640 ? 210 : 250;
-        const clamped = clampTooltipPos(e.clientX + 16, e.clientY + 16, boxW, 190);
+        const container = mapCardRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const boxW = rect.width < 640 ? 210 : 250;
+        const boxH = 190;
+        const relX = e.clientX - rect.left + 16;
+        const relY = e.clientY - rect.top + 16;
+        const clamped = clampTooltipPos(relX, relY, boxW, boxH, rect.width, rect.height);
         setTooltipPos(clamped);
     }, []);
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-[#f8fafc]">
+            <div className="flex h-screen items-center justify-center" style={{ background: "linear-gradient(180deg, #F7F7FB 0%, #F1F2F8 100%)" }}>
                 <div className="flex items-center gap-3 rounded-2xl bg-white/80 p-6 shadow-xl backdrop-blur-xl border border-white">
-                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: BRAND, borderTopColor: "transparent" }} />
                     <span className="text-sm font-semibold text-slate-700">Loading India Business Intelligence…</span>
                 </div>
             </div>
@@ -255,8 +266,8 @@ export default function IndiaMapPage() {
 
     if (error) {
         return (
-            <div className="flex h-screen items-center justify-center bg-[#f8fafc] px-4">
-                <div className="rounded-2xl bg-rose-50/80 p-6 text-center shadow-lg backdrop-blur-xl border border-rose-200 text-rose-700">
+            <div className="flex h-screen items-center justify-center px-4" style={{ background: "linear-gradient(180deg, #F7F7FB 0%, #F1F2F8 100%)" }}>
+                <div className="rounded-2xl bg-red-50/80 p-6 text-center shadow-lg backdrop-blur-xl border border-red-200" style={{ color: SYS_RED }}>
                     <div className="text-xl font-bold mb-1">Error Loading Dashboard</div>
                     <div className="text-sm">{error}</div>
                 </div>
@@ -267,11 +278,17 @@ export default function IndiaMapPage() {
     return (
         <>
             <style>{STYLES}</style>
-            <div className="flex min-h-screen w-full flex-col bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-50 text-slate-900 lg:flex-row font-sans">
+            <div
+                className="relative flex min-h-screen w-full flex-col text-slate-900 lg:flex-row font-sans"
+                style={{
+                    background:
+                        "radial-gradient(1100px 560px at 8% -8%, rgba(94,92,230,0.10), transparent 60%), radial-gradient(900px 520px at 100% 8%, rgba(10,132,255,0.09), transparent 55%), linear-gradient(180deg, #F7F7FB 0%, #F1F2F8 100%)",
+                }}
+            >
                 {/* ---------------- MOBILE HEADER BAR ---------------- */}
                 <div className="flex items-center justify-between border-b border-slate-200/60 bg-white/80 backdrop-blur-md px-4 py-3.5 lg:hidden">
                     <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-xs shadow-md">🗺️</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg text-white font-bold text-xs shadow-md" style={{ background: `linear-gradient(135deg, ${BRAND}, ${BRAND_BLUE})`, boxShadow: `0 4px 12px ${BRAND}40` }}>🗺️</span>
                         <span className="text-base font-extrabold tracking-tight text-slate-900">
                             India Business Intelligence
                         </span>
@@ -358,7 +375,11 @@ export default function IndiaMapPage() {
                     <div className="mt-8">
                         <Link
                             href="/dashboard/area/parties"
-                            className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-2.5 text-center text-xs font-bold text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-700 hover:to-indigo-800 transition-all hover:scale-[1.02]"
+                            className="flex items-center justify-center gap-2 w-full rounded-xl px-4 py-2.5 text-center text-xs font-bold text-white transition-all hover:scale-[1.02]"
+                            style={{
+                                background: `linear-gradient(135deg, ${BRAND}, ${BRAND_BLUE})`,
+                                boxShadow: `0 8px 20px ${BRAND}33`,
+                            }}
                         >
                             <span>🏢 Party Directory</span>
                             <span>→</span>
@@ -375,7 +396,7 @@ export default function IndiaMapPage() {
                     <header className="mb-6 hidden items-center justify-between gap-4 lg:flex">
                         <div>
                             <div className="flex items-center gap-3">
-                                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white font-bold text-base shadow-lg shadow-indigo-500/30">🗺️</span>
+                                <span className="flex h-9 w-9 items-center justify-center rounded-xl text-white font-bold text-base" style={{ background: `linear-gradient(135deg, ${BRAND}, ${BRAND_BLUE})`, boxShadow: `0 8px 20px ${BRAND}40` }}>🗺️</span>
                                 <div>
                                     <h1 className="text-2xl font-black tracking-tight text-slate-900">
                                         India Business Intelligence
@@ -435,10 +456,10 @@ export default function IndiaMapPage() {
                         <>
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
                                 {/* ── Map Container ── */}
-                                <div className="glass-panel p-5 relative overflow-hidden">
+                                <div ref={mapCardRef} className="glass-panel p-5 relative overflow-hidden">
                                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                                         <div className="flex items-center gap-2">
-                                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ backgroundColor: SYS_GREEN }} />
                                             <h3 className="font-extrabold text-sm tracking-tight text-slate-800">State Sales Heat Map</h3>
                                         </div>
                                         <Legend />
@@ -472,7 +493,7 @@ export default function IndiaMapPage() {
                                     {/* Liquid Floating Tooltip */}
                                     {hovered && (
                                         <div
-                                            className="glass-tooltip pointer-events-none fixed z-50 w-56 sm:w-64 p-4 text-xs"
+                                            className="glass-tooltip pointer-events-none absolute z-50 w-56 sm:w-64 p-4 text-xs"
                                             style={{ left: tooltipPos.x, top: tooltipPos.y }}
                                         >
                                             <div className="mb-2.5 border-b border-slate-200/60 pb-2 flex items-center justify-between">
@@ -485,7 +506,7 @@ export default function IndiaMapPage() {
                                                 <TooltipRow label="Sales Value" value={formatINR(hovered.sales)} bold />
                                                 <TooltipRow label="Purchases" value={formatINR(hovered.purchase)} />
                                                 <TooltipRow label="Active Customers" value={hovered.customers.toString()} />
-                                                <TooltipRow label="Outstanding" value={formatINR(hovered.outstanding)} color="#dc2626" />
+                                                <TooltipRow label="Outstanding" value={formatINR(hovered.outstanding)} color={SYS_RED} />
                                                 <TooltipRow label="Total Dispatches" value={hovered.dispatch.toString()} />
                                                 <TooltipRow label="Top Product" value={hovered.topProduct} />
                                             </div>
@@ -518,7 +539,7 @@ export default function IndiaMapPage() {
                                                         </span>
                                                         <span className="truncate font-bold text-slate-800">{s.stateName}</span>
                                                     </span>
-                                                    <span className="shrink-0 text-xs font-extrabold text-emerald-600">{formatINR(s.sales)}</span>
+                                                    <span className="shrink-0 text-xs font-extrabold" style={{ color: SYS_GREEN }}>{formatINR(s.sales)}</span>
                                                 </li>
                                             ))}
                                         </ol>
@@ -651,7 +672,7 @@ export default function IndiaMapPage() {
                                         <EmptyNote text="No recent sales vouchers." />
                                     ) : (
                                         drillDown.recentSales.map((v, i) => (
-                                            <RowLine key={i} left={`${v.vcn} — ${v.partyName} (${v.date ? v.date.slice(0,10) : ""})`} right={formatINR(v.final)} tone="green" />
+                                            <RowLine key={i} left={`${v.vcn} — ${v.partyName} (${v.date ? v.date.slice(0, 10) : ""})`} right={formatINR(v.final)} tone="green" />
                                         ))
                                     )}
                                 </Panel>
@@ -662,7 +683,7 @@ export default function IndiaMapPage() {
                                         <EmptyNote text="No recent dispatch entries." />
                                     ) : (
                                         drillDown.recentDispatch.map((d, i) => (
-                                            <RowLine key={i} left={`${d.vcn} — ${d.partyName}`} right={d.date ? d.date.slice(0,10) : ""} />
+                                            <RowLine key={i} left={`${d.vcn} — ${d.partyName}`} right={d.date ? d.date.slice(0, 10) : ""} />
                                         ))
                                     )}
                                 </Panel>
@@ -676,7 +697,7 @@ export default function IndiaMapPage() {
 }
 
 function KpiCard({ label, value, accent, icon }: { label: string; value: string; accent?: "green" | "red"; icon?: string }) {
-    const color = accent === "green" ? "#10b981" : accent === "red" ? "#ef4444" : "#0f172a";
+    const color = accent === "green" ? SYS_GREEN : accent === "red" ? SYS_RED : "#1d1d1f";
     return (
         <div className="glass-card p-4">
             <div className="flex items-center justify-between mb-1">
@@ -694,7 +715,7 @@ function TooltipRow({ label, value, color, bold }: { label: string; value: strin
     return (
         <div className="flex justify-between gap-2 text-slate-600">
             <span className="font-medium text-[11px] text-slate-500">{label}</span>
-            <span className={`text-[11.5px] ${bold ? "font-extrabold" : "font-semibold"}`} style={color ? { color } : { color: "#0f172a" }}>
+            <span className={`text-[11.5px] ${bold ? "font-extrabold" : "font-semibold"}`} style={color ? { color } : { color: "#1d1d1f" }}>
                 {value}
             </span>
         </div>
@@ -704,9 +725,9 @@ function TooltipRow({ label, value, color, bold }: { label: string; value: strin
 function Legend() {
     return (
         <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500">
-            <LegendDot color="#10b981" label="High Sales" />
-            <LegendDot color="#f59e0b" label="Medium Sales" />
-            <LegendDot color="#ef4444" label="Low Sales" />
+            <LegendDot color={SYS_GREEN} label="High Sales" />
+            <LegendDot color={SYS_ORANGE} label="Medium Sales" />
+            <LegendDot color={SYS_RED} label="Low Sales" />
         </div>
     );
 }
@@ -730,7 +751,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 }
 
 function RowLine({ left, right, tone }: { left: string; right: string; tone?: "green" | "red" | "yellow" }) {
-    const color = tone === "green" ? "#10b981" : tone === "red" ? "#ef4444" : tone === "yellow" ? "#d97706" : "#334155";
+    const color = tone === "green" ? SYS_GREEN : tone === "red" ? SYS_RED : tone === "yellow" ? SYS_ORANGE : "#48484a";
     return (
         <div className="glass-card flex items-center justify-between gap-3 px-3 py-2 text-xs">
             <span className="truncate font-semibold text-slate-700">{left}</span>
