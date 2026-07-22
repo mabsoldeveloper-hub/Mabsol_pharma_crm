@@ -648,3 +648,27 @@ body {
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background: #999;
 }
+
+/* Add this to your globals.css (or any global stylesheet) */
+@media print {
+
+  /* hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* only the printable area (and its children) becomes visible */
+  #printable-area,
+  #printable-area * {
+    visibility: visible;
+  }
+
+  /* pull the printable area out to the top-left of the page */
+  #printable-area {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 16px !important;
+  }
+}

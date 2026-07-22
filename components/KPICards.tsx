@@ -114,7 +114,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
             title: "Total Companies",
             value: kpis?.totalCompanies ?? 0,
             icon: <FaBuilding size={20} />,
-            url: "/dashboard/companies",
+            url: "/dashboard/company/list",
             color: "pink",
         },
         {
