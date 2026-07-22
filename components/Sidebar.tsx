@@ -176,6 +176,7 @@ const colorMap: Record<ColorKey, ColorClasses> = {
 export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProps) {
   const { can } = usePermission();
   const [crmOpen, setCrmOpen] = useState(false);
+  const [masterOpen, setMasterOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
@@ -446,7 +447,87 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   />
                 </li>
               </PermissionGate>
+              <Group
+                icon={<FaCog />}
+                label="Master"
+                open={masterOpen}
+                onClick={() => setMasterOpen(!masterOpen)}
+                active={pathname.startsWith("/dashboard/master")}
+                color="cyan"
+                items={
+                  <>
+                    <li>
+                      <SubLink
+                        href="/dashboard/master/product-master"
+                        icon={<FaBoxOpen />}
+                        label="Product Master"
+                        active={pathname.startsWith("/dashboard/master/product-master")}
+                        color="cyan"
+                      />
+                    </li>
 
+                    <li>
+                      <SubLink
+                        href="/dashboard/master/hsn-master"
+                        icon={<FaListUl />}
+                        label="HSN Master"
+                        active={pathname.startsWith("/dashboard/master/hsn-master")}
+                        color="cyan"
+                      />
+                    </li>
+
+                    <li>
+                      <SubLink
+                        href="/dashboard/master/company-master"
+                        icon={<FaBuilding />}
+                        label="Company Master"
+                        active={pathname.startsWith("/dashboard/master/company-master")}
+                        color="cyan"
+                      />
+                    </li>
+
+                    <li>
+                      <SubLink
+                        href="/dashboard/master/area-master"
+                        icon={<FaBuilding />}
+                        label="Area Master"
+                        active={pathname.startsWith("/dashboard/master/area-master")}
+                        color="cyan"
+                      />
+                    </li>
+
+                    <li>
+                      <SubLink
+                        href="/dashboard/master/customer-master"
+                        icon={<FaUsers />}
+                        label="Customer Master"
+                        active={pathname.startsWith("/dashboard/master/customer-master")}
+                        color="cyan"
+                      />
+                    </li>
+
+                    <li>
+                      <SubLink
+                        href="/dashboard/master/division-master"
+                        icon={<FaListUl />}
+                        label="Division Master"
+                        active={pathname.startsWith("/dashboard/master/division-master")}
+                        color="cyan"
+                      />
+                    </li>
+
+                    <li>
+                      <SubLink
+                        href="/dashboard/master/sub-category-master"
+                        icon={<FaListUl />}
+                        label="Sub Category Master"
+                        active={pathname.startsWith("/dashboard/master/sub-category-master")}
+                        color="cyan"
+                      />
+                    </li>
+                  </>
+                }
+              />
               {/* ################ Area Start here ##################### */}
               <PermissionGate permission="area.view">
                 <li>
