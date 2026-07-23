@@ -138,7 +138,7 @@ export default function AccountGroupViewPage() {
                             <FaBookOpen size={11} /> View Ledger
                         </Link>
                         <Link
-                            href={`/dashboard/customers/full?group=${encodeURIComponent(group.ORDNO)}`}
+                            href={`/dashboard/customers/`}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500 text-white ring-1 ring-emerald-400 hover:bg-emerald-600 transition-all duration-200"
                         >
                             <FaUsers size={11} /> Customers
