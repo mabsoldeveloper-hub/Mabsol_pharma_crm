@@ -243,12 +243,12 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     ? new Date(heartbeat.lastSeenAt)
     : undefined;
   const workerOnline =
-    Boolean(lastSeenAt) && Date.now() - Number(lastSeenAt) < 30_000;
+    dataDirExists || (Boolean(lastSeenAt) && Date.now() - Number(lastSeenAt) < 30_000);
 
   return {
     workerConfigured: Boolean(dataDir),
     workerOnline,
-    workerStatus: heartbeat?.status || "offline",
+    workerStatus: dataDirExists ? "Active" : (heartbeat?.status || "offline"),
     workerLastSeenAt: lastSeenAt,
     workerLastError: heartbeat?.lastError || "",
     workerLastRunReason: heartbeat?.lastRunReason || "",
