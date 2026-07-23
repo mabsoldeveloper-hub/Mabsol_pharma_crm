@@ -13,7 +13,12 @@ import Rate from "@/models/Rate";           // RATE collection
 // distinct HSN/SAC code. Join keys:
 //
 //   SaleType (SGCODE === "COMMCD") IS the HSN master itself:
-//     SaleType.SNAME   -> the actual HSN / SAC code
+//     SaleType.SNAME   -> the HSN / SAC code, and — on a few rows — extra
+//                         trailing text after padding (e.g. "21069099  FOOD").
+//                         Split into HSNCODE (first token) and DESCRIPTION
+//                         (anything after it, blank when there isn't any).
+//                         PARNAM on this table just duplicates SNAME, so it's
+//                         not used.
 //     SaleType.CGST    -> CGST % for that HSN     (authoritative, straight from the table)
 //     SaleType.IGST    -> IGST % for that HSN     (authoritative, straight from the table)
 //     SGST is not stored separately — under GST rules SGST always equals CGST,
@@ -69,10 +74,20 @@ export async function GET() {
         const sgst = cgst; // SGST always mirrors CGST under GST rules
         const igst = Number(h.IGST || 0);
 
+        // SNAME is normally just the HSN code (e.g. "30049069"). A handful of
+        // rows carry extra trailing text after padding (e.g. "21069099   FOOD")
+        // — split it so the code stays clean and the trailing word, if any,
+        // becomes the description. PARNAM on this table always duplicates the
+        // HSN code, so it's not used here.
+        const rawSname = String(h.SNAME || "").trim();
+        const snameParts = rawSname.split(/\s+/).filter(Boolean);
+        const hsnCode = snameParts[0] || "";
+        const description = snameParts.slice(1).join(" ");
+
         hsnMap.set(code, {
-            HSNCODE: h.SNAME || "",
+            HSNCODE: hsnCode,
             SCODE: code,
-            DESCRIPTION: h.PARNAM || "",
+            DESCRIPTION: description,
             CGST: cgst,
             SGST: sgst,
             IGST: igst,
