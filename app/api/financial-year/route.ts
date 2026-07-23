@@ -34,37 +34,7 @@ export async function GET(
       years
     );
   }
-// export async function GET() {
 
-//   try {
-
-//     await connectDB();
-
-//     const years = await FinancialYear.find()
-//       .populate(
-//         "companyId",
-//         "companyName companyCode"
-//       )
-//       .sort({
-//         createdAt: -1,
-//       });
-
-//     return NextResponse.json(years);
-
-//   } catch (error) {
-
-//     return NextResponse.json(
-//       {
-//         error: "Failed to load FY",
-//       },
-//       {
-//         status: 500,
-//       }
-//     );
-
-//   }
-
-// }
 
 export async function POST(
   req: Request

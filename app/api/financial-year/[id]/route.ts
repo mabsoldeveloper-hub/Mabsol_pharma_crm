@@ -4,62 +4,70 @@ import FinancialYear from "@/models/FinancialYear";
 
 export async function PUT(
   req: Request,
-  { params }: any
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-
     await connectDB();
 
-    const data =
-      await req.json();
+    const { id } = await params;
+    const data = await req.json();
 
-    await FinancialYear.findByIdAndUpdate(
-      params.id,
-      data
-    );
+    const updated = await FinancialYear.findByIdAndUpdate(id, data, {
+      new: true,
+    });
+
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: "Financial Year not found" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
+      data: updated,
     });
-
   } catch (error) {
+    console.error(error);
 
     return NextResponse.json(
-      {
-        error: "Update Failed",
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: "Update Failed" },
+      { status: 500 }
     );
   }
 }
 
 export async function DELETE(
   req: Request,
-  { params }: any
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-
     await connectDB();
 
-    await FinancialYear.findByIdAndDelete(
-      params.id
-    );
+    const { id } = await params;
+
+    console.log("Deleting ID:", id);
+
+    const deleted = await FinancialYear.findByIdAndDelete(id);
+
+    console.log("Deleted:", deleted);
+
+    if (!deleted) {
+      return NextResponse.json(
+        { success: false, error: "Financial Year not found" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
     });
-
   } catch (error) {
+    console.error(error);
 
     return NextResponse.json(
-      {
-        error: "Delete Failed",
-      },
-      {
-        status: 500,
-      }
+      { success: false, error: "Delete Failed" },
+      { status: 500 }
     );
   }
 }
