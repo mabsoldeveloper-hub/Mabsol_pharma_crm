@@ -6,74 +6,100 @@ import {
   useEffect,
   useState,
   useRef,
+  useCallback,
 } from "react";
+import { SESSION_CHECK_INTERVAL_MS } from "@/lib/constants/session.constant";
 
-const UserContext =
-createContext<any>(null);
+const UserContext = createContext<any>(null);
 
-export function UserProvider({
-  children,
-}:any){
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const loadStarted = useRef(false);
 
-const [user,setUser]=
-useState(null);
+  const logoutAndRedirect = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      console.error("Logout failed:", e);
+    }
+    setUser(null);
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
+      window.location.href = "/login";
+    }
+  }, []);
 
-const [loading,setLoading]=
-useState(true);
+  const loadUser = useCallback(async () => {
+    try {
+      // Add timestamp and no-cache headers to prevent browser response caching
+      const res = await fetch(`/api/auth/me?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+      const data = await res.json();
 
-const loadStarted = useRef(false);
+      if (res.ok && data.success && data.user) {
+        setUser(data.user);
+      } else {
+        setUser(null);
+        if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
+          await logoutAndRedirect();
+        }
+      }
+    } catch {
+      setUser(null);
+      if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
+        await logoutAndRedirect();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [logoutAndRedirect]);
 
-useEffect(()=>{
+  useEffect(() => {
+    if (loadStarted.current) return;
+    loadStarted.current = true;
+    loadUser();
+  }, [loadUser]);
 
-if (loadStarted.current) return;
-loadStarted.current = true;
-loadUser();
+  // Periodically check session (based on SESSION_CHECK_INTERVAL_MS) and when window gets focus
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
+        loadUser();
+      }
+    }, SESSION_CHECK_INTERVAL_MS);
 
-},[]);
+    const onFocus = () => {
+      if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
+        loadUser();
+      }
+    };
 
-const loadUser=
-async()=>{
+    window.addEventListener("focus", onFocus);
 
-const res=
-await fetch(
-"/api/auth/me"
-);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadUser]);
 
-const data=
-await res.json();
-
-if(data.success){
-
-setUser(data.user);
-
+  return (
+    <UserContext.Provider
+      value={{
+        user,
+        loading,
+        reload: loadUser,
+        logout: logoutAndRedirect,
+      }}
+    >
+      {children}
+    </UserContext.Provider>
+  );
 }
 
-setLoading(false);
-
-};
-
-return(
-
-<UserContext.Provider
-value={{
-user,
-loading,
-reload:loadUser,
-}}
->
-
-{children}
-
-</UserContext.Provider>
-
-);
-
-}
-
-export function useUser(){
-
-return useContext(
-UserContext
-);
-
+export function useUser() {
+  return useContext(UserContext);
 }
