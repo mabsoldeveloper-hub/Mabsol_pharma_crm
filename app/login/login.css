@@ -39,7 +39,7 @@ h2,
 
 /* ---------------- PAGE / BACKGROUND ---------------- */
 
-.page {
+.login-page {
   position: relative;
   min-height: 100vh;
   display: flex;

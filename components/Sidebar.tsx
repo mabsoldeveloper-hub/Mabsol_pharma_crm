@@ -185,6 +185,21 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   const [vfpOpen, setVfpOpen] = useState(false);
   const pathname = usePathname();
 
+  useEffect(() => {
+    if (pathname.startsWith("/dashboard/master")) setMasterOpen(true);
+    if (
+      pathname.startsWith("/dashboard/users") ||
+      pathname.startsWith("/dashboard/permissions") ||
+      pathname.startsWith("/dashboard/roles")
+    ) setCrmOpen(true);
+    if (pathname.startsWith("/dashboard/inventory") || pathname.startsWith("/dashboard/stock")) setInventoryOpen(true);
+    if (pathname.startsWith("/dashboard/sales") || pathname.startsWith("/dashboard/orders")) setSalesOpen(true);
+    if (pathname.startsWith("/dashboard/customers")) setCustomerOpen(true);
+    if (pathname.startsWith("/dashboard/company")) setCompanyOpen(true);
+    if (pathname.startsWith("/dashboard/financial-year")) setFyOpen(true);
+    if (pathname.startsWith("/dashboard/mabsolcrmsync")) setVfpOpen(true);
+  }, [pathname]);
+
   const [user, setUser] = useState<any>(null);
 
   const [company, setCompany] = useState<any>(null);

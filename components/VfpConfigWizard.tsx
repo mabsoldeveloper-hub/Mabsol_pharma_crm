@@ -340,7 +340,7 @@ export default function VfpConfigWizard({
                 <FaCheckCircle className="text-success display-4 mb-3" />
                 <h4 className="fw-bold text-dark">Configuration Saved!</h4>
                 <p className="text-secondary small mb-4">
-                  The VFP database directory path is configured and sync table selection is saved. A rescan command has been queued for the local sync worker.
+                  The VFP database directory path is configured and sync table selection is saved.
                 </p>
                 <div className="p-3 border rounded-3 bg-light text-start font-monospace small mb-4 mx-auto" style={{ maxWidth: "500px" }}>
                   <div className="d-flex justify-content-between mb-1 text-break">

@@ -4,6 +4,8 @@ import VfpSyncCommand from "@/models/VfpSyncCommand";
 import VfpSyncLog from "@/models/VfpSyncLog";
 import { getCurrentUser } from "@/lib/auth";
 
+import { performDirectServerSync } from "@/lib/vfp/dbfSync";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -15,25 +17,12 @@ export async function POST() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const command = await VfpSyncCommand.create({
-      command: "rescan",
-      status: "queued",
-      requestedBy: "crm",
-      email: user.email,
-    });
-
-    await VfpSyncLog.create({
-      runId: String(command._id),
-      email: user.email,
-      action: "rescan",
-      status: "queued",
-      message: "metadata rescan queued for the local sync worker.",
-    });
+    const syncResult = await performDirectServerSync(user.email);
 
     return NextResponse.json({
       success: true,
-      commandId: command._id,
-      message: "Rescan queued. Keep the  sync worker running to process it.",
+      message: `DBF rescan & synchronization completed! Synced ${syncResult.importedTables} table(s), ${syncResult.importedRows} row(s).`,
+      result: syncResult,
     });
   } catch (error: unknown) {
     return NextResponse.json(

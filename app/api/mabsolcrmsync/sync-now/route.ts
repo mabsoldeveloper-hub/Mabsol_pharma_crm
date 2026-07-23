@@ -6,6 +6,8 @@ import VfpConfig from "@/models/VfpConfig";
 import VfpSettingLog from "@/models/VfpSettingLog";
 import { getCurrentUser } from "@/lib/auth";
 
+import { performDirectServerSync } from "@/lib/vfp/dbfSync";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -35,21 +37,6 @@ export async function POST(request: NextRequest) {
       vfpExePath = config?.vfpExePath || "Unknown",
     } = body;
 
-    const command = await VfpSyncCommand.create({
-      command: "sync_now",
-      status: "queued",
-      requestedBy: userName,
-      email: user.email,
-    });
-
-    await VfpSyncLog.create({
-      runId: String(command._id),
-      email: user.email,
-      action: "sync_now",
-      status: "queued",
-      message: `Immediate import queued by ${userName} (${companyName}).`,
-    });
-
     // Create entry in VfpSettingLog to log who did the sync and when
     await VfpSettingLog.create({
       email: user.email,
@@ -60,13 +47,16 @@ export async function POST(request: NextRequest) {
       vfpExePath,
       action: "sync_triggered",
       status: "success",
-      message: `Sync manually triggered from Settings Page.`,
+      message: `Direct server sync manually triggered from dashboard.`,
     });
+
+    // Execute direct server-side DBF sync
+    const syncResult = await performDirectServerSync(user.email);
 
     return NextResponse.json({
       success: true,
-      commandId: command._id,
-      message: "Sync queued. Keep the sync worker running to process it.",
+      message: `DBF synchronization completed! Synced ${syncResult.importedTables} table(s), ${syncResult.importedRows} row(s).`,
+      result: syncResult,
     });
   } catch (error: unknown) {
     return NextResponse.json(

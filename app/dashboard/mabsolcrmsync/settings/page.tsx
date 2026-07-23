@@ -37,7 +37,6 @@ interface VfpSettingLogEntry {
 export default function VfpSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [launchingConsole, setLaunchingConsole] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "danger" | ""; text: string }>({ type: "", text: "" });
@@ -225,38 +224,7 @@ export default function VfpSettingsPage() {
     }
   };
 
-  const handleLaunchConsole = async () => {
-    setMessage({ type: "", text: "" });
 
-    if (
-      !savedForm.userName ||
-      !savedForm.companyName ||
-      !savedForm.license ||
-      !savedForm.vfpExePath ||
-      !savedForm.prgPath
-    ) {
-      setMessage({ type: "danger", text: "Please enter and save all details before launching the console." });
-      return;
-    }
-
-    try {
-      setLaunchingConsole(true);
-      const res = await fetch("/api/mabsolcrmsync/launch-vfp", {
-        method: "POST",
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setMessage({ type: "success", text: data.message || "Sync Console launched successfully." });
-      } else {
-        setMessage({ type: "danger", text: data.error || "Failed to launch VFP Console." });
-      }
-    } catch {
-      setMessage({ type: "danger", text: "An error occurred while launching VFP Console." });
-    } finally {
-      setLaunchingConsole(false);
-    }
-  };
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr);
@@ -296,14 +264,6 @@ export default function VfpSettingsPage() {
           </div>
           
           <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
-            <button
-              onClick={handleLaunchConsole}
-              disabled={launchingConsole || isEditing || !isFormConfigured}
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-[6px] text-[13px] font-semibold px-4 py-2 cursor-pointer bg-white border border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8FAFC] transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 whitespace-nowrap"
-            >
-              {launchingConsole && <RefreshCw size={13} className="animate-spin text-[#64748B]" />}
-              {launchingConsole ? "Launching..." : "Open Sync console"}
-            </button>
             <button
               onClick={handleSyncNow}
               disabled={syncing || isEditing || !isFormConfigured}

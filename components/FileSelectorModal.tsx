@@ -78,24 +78,25 @@ export default function FileSelectorModal({
     }
   };
 
+  const wasOpenRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpenRef.current) {
+      wasOpenRef.current = true;
       setError("");
       setSearchQuery("");
-      if (initialPath) {
-        let startDir = initialPath;
-        if (filterType !== "dir" && (startDir.endsWith(".exe") || startDir.endsWith(".prg") || startDir.endsWith(".dbf"))) {
-          const lastSlash = Math.max(startDir.lastIndexOf("/"), startDir.lastIndexOf("\\"));
-          if (lastSlash !== -1) {
-            startDir = startDir.substring(0, lastSlash);
-          }
+      let startDir = initialPath || "";
+      if (filterType !== "dir" && (startDir.endsWith(".exe") || startDir.endsWith(".prg") || startDir.endsWith(".dbf"))) {
+        const lastSlash = Math.max(startDir.lastIndexOf("/"), startDir.lastIndexOf("\\"));
+        if (lastSlash !== -1) {
+          startDir = startDir.substring(0, lastSlash);
         }
-        browsePath(startDir);
-      } else {
-        browsePath("");
       }
+      browsePath(startDir);
+    } else if (!isOpen) {
+      wasOpenRef.current = false;
     }
-  }, [isOpen, filterType, initialPath]);
+  }, [isOpen]);
 
   const handleSelectItem = (name: string) => {
     setSelectedItem(name);
@@ -184,7 +185,7 @@ export default function FileSelectorModal({
 
   return (
     <div className="fixed inset-0 bg-[#16181D]/40 flex items-center justify-center p-6 z-[1050] backdrop-blur-xs">
-      <div className="bg-white w-full max-w-[480px] rounded-[10px] shadow-2xl flex flex-col max-h-[88vh] overflow-hidden border border-[#E4E6EB] animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white w-full max-w-[480px] rounded-[10px] shadow-2xl flex flex-col max-h-[88vh] overflow-hidden border border-[#E4E6EB]">
         
         {/* Header */}
         <div className="flex items-start justify-between p-[20px_22px_16px] gap-[14px] bg-white shrink-0">

@@ -45,9 +45,12 @@ export default function FolderSelectorModal({
     }
   }, [pathInput]);
 
+  const wasOpenRef = useRef(false);
+
   // Initialize paths when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpenRef.current) {
+      wasOpenRef.current = true;
       setError("");
       setSuccess("");
       setFilterText("");
@@ -72,8 +75,10 @@ export default function FolderSelectorModal({
       setPathInput(basePath);
       setFolderInput(folderName);
       loadFolders(basePath);
+    } else if (!isOpen) {
+      wasOpenRef.current = false;
     }
-  }, [isOpen, currentPath]);
+  }, [isOpen]);
 
   async function loadFolders(targetPath: string) {
     setLoading(true);
@@ -203,7 +208,7 @@ export default function FolderSelectorModal({
 
   return (
     <div className="fixed inset-0 bg-[#16181D]/40 flex items-center justify-center p-6 z-[1050] backdrop-blur-xs">
-      <div className="bg-white w-full max-w-[480px] rounded-[10px] shadow-2xl flex flex-col max-h-[88vh] overflow-hidden border border-[#E4E6EB] animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white w-full max-w-[480px] rounded-[10px] shadow-2xl flex flex-col max-h-[88vh] overflow-hidden border border-[#E4E6EB]">
         
         {/* Header */}
         <div className="flex items-start justify-between p-[20px_22px_16px] gap-[14px] bg-white shrink-0">

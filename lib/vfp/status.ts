@@ -242,38 +242,8 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
   const lastSeenAt = heartbeat?.lastSeenAt
     ? new Date(heartbeat.lastSeenAt)
     : undefined;
-  let workerOnline =
+  const workerOnline =
     Boolean(lastSeenAt) && Date.now() - Number(lastSeenAt) < 30_000;
-
-  // Auto-spawn the sync worker background daemon if it is offline and VFP database directory is configured
-  if (!workerOnline && dataDirExists) {
-    try {
-      const req = eval("require");
-      const { spawn } = req("child_process");
-      const fs = req("fs");
-      const path = req("path");
-      const workerScript = path.resolve(process.cwd(), "scripts", "vfp-sync", "worker.cjs");
-      
-      const logDir = path.resolve(process.cwd(), "logs");
-      if (!fs.existsSync(logDir)) {
-        fs.mkdirSync(logDir, { recursive: true });
-      }
-      const logFile = path.join(logDir, "worker-process.log");
-      const out = fs.openSync(logFile, "a");
-
-      const child = spawn(process.execPath, [workerScript], {
-        detached: true,
-        stdio: ["ignore", out, out],
-        env: { ...process.env },
-        shell: process.platform === "win32"
-      });
-      child.unref();
-      console.log("[vfp-status] Spawned background sync worker child process automatically. Logs: " + logFile);
-      workerOnline = true; // Set to true since process is now started
-    } catch (err) {
-      console.error("[vfp-status] Failed to spawn background sync worker automatically:", err);
-    }
-  }
 
   return {
     workerConfigured: Boolean(dataDir),

@@ -214,7 +214,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={`page ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
+    <div className={`login-page ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
       <div className="mesh" aria-hidden="true">
         <span className="orb orb-a" />
         <span className="orb orb-b" />

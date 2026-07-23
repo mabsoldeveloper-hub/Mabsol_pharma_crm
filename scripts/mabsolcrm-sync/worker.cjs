@@ -87,7 +87,7 @@ async function main() {
   await updateHeartbeat("online");
   scheduleSync("startup");
   setInterval(() => scheduleSync("interval"), SYNC_INTERVAL_MS);
-  setInterval(processCommands, 1000); // Poll commands every 1 second for fast responsive directory browsing
+  setInterval(processCommands, 1000); // Poll commands every 1 second
   setInterval(resolveDataDirs, 30000);
   setInterval(() => updateHeartbeat(isRunning ? "syncing" : "online"), 10000);
 }
@@ -306,17 +306,10 @@ async function processCommands() {
     await command.save();
 
     try {
-      if (command.command === "browse_dir" || command.command === "browse_folders") {
-        const result = await handleBrowseCommand(command.payload);
-        command.result = result;
-        command.status = "done";
-        console.log(`[vfp-sync] Command ${command.command} completed successfully.`);
-      } else {
-        await runSync(command.command, command.email);
-        command.status = "done";
-        command.message = "Processed by local VFP sync worker.";
-        console.log(`[vfp-sync] Command ${command.command} sync completed successfully.`);
-      }
+      await runSync(command.command, command.email);
+      command.status = "done";
+      command.message = "Processed by local VFP sync worker.";
+      console.log(`[vfp-sync] Command ${command.command} sync completed successfully.`);
     } catch (error) {
       console.error(`[vfp-sync] Command ${command.command} failed:`, error.message);
       command.status = "failed";
@@ -326,75 +319,6 @@ async function processCommands() {
     command.processedAt = new Date();
     await command.save();
   }
-}
-
-async function handleBrowseCommand(payload) {
-  const { dir, type, filter } = payload || {};
-  
-  if (!dir) {
-    // Return active Windows drives
-    const drives = [];
-    for (let i = 65; i <= 90; i++) {
-      const drive = String.fromCharCode(i) + ":\\";
-      try {
-        if (fs.existsSync(drive)) {
-          drives.push(drive);
-        }
-      } catch (e) {}
-    }
-    return {
-      success: true,
-      currentDir: "",
-      parentDir: null,
-      drives,
-      directories: [],
-      files: [],
-    };
-  }
-
-  if (!fs.existsSync(dir)) {
-    throw new Error(`Directory does not exist on local Windows computer: ${dir}`);
-  }
-
-  const stat = fs.statSync(dir);
-  if (!stat.isDirectory()) {
-    throw new Error(`Target is not a directory: ${dir}`);
-  }
-
-  const items = fs.readdirSync(dir, { withFileTypes: true });
-  const directories = [];
-  const files = [];
-
-  for (const item of items) {
-    try {
-      if (item.isDirectory()) {
-        if (!item.name.startsWith(".") && !item.name.startsWith("$")) {
-          directories.push(item.name);
-        }
-      } else if (item.isFile() && type !== "dir") {
-        const ext = path.extname(item.name).toLowerCase();
-        if (filter === "exe" && ext === ".exe") {
-          files.push(item.name);
-        } else if (filter === "prg" && ext === ".prg") {
-          files.push(item.name);
-        } else if (!filter) {
-          files.push(item.name);
-        }
-      }
-    } catch (e) {}
-  }
-
-  const parentDir = path.dirname(dir);
-  const hasParent = parentDir !== dir;
-
-  return {
-    success: true,
-    currentDir: dir.endsWith("\\") || dir.endsWith("/") ? dir : dir + "\\",
-    parentDir: hasParent ? parentDir : null,
-    drives: [],
-    directories: directories.sort((a, b) => a.localeCompare(b)),
-    files: files.sort((a, b) => a.localeCompare(b)),
-  };
 }
 
 async function processOutboundQueue(runId, email, dataDir) {

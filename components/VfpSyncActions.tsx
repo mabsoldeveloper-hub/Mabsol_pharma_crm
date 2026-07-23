@@ -159,7 +159,7 @@ export default function VfpSyncActions({
       const data = await response.json();
 
       if (data.success) {
-        setMessage({ type: "success", text: "Sync queued. Keep sync worker running." });
+        setMessage({ type: "success", text: "Sync queued successfully." });
         router.refresh();
       } else {
         setMessage({ type: "error", text: data.error || "Failed to trigger sync." });

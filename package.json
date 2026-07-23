@@ -6,9 +6,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "mabsolcrm:sync": "node scripts/mabsolcrm-sync/worker.cjs",
-    "mabsolcrm:service:install": "powershell -ExecutionPolicy Bypass -File scripts/mabsolcrm-sync/install-windows-service.ps1",
-    "mabsolcrm:service:remove": "powershell -ExecutionPolicy Bypass -File scripts/mabsolcrm-sync/remove-windows-service.ps1",
     "lint": "eslint"
   },
   "dependencies": {
