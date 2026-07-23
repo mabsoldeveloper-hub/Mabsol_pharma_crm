@@ -449,15 +449,76 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               </PermissionGate>
               {/* ################ master Start here ##################### */}
               <PermissionGate permission="master.view">
-                <li>
-                  <NavLink
-                    href="/dashboard/master"
-                    icon={<FaCog />}
-                    label="Master"
-                    active={pathname.startsWith("/dashboard/master")}
-                    color="cyan"
-                  />
-                </li>
+                <Group
+                  icon={<FaCog />}
+                  label="Master"
+                  open={masterOpen}
+                  onClick={() => setMasterOpen(!masterOpen)}
+                  active={pathname.startsWith("/dashboard/master")}
+                  color="cyan"
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/master"
+                          icon={<FaTachometerAlt />}
+                          label="Dashboard"
+                          active={pathname === "/dashboard/master"}
+                          color="cyan"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/customer-master"
+                          icon={<FaUsers />}
+                          label="Ledger Master"
+                          active={pathname.startsWith("/dashboard/master/customer-master")}
+                          color="cyan"
+                        />
+                      </li>
+
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/area-master"
+                          icon={<FaBuilding />}
+                          label="Area Master"
+                          active={pathname.startsWith("/dashboard/master/area-master")}
+                          color="cyan"
+                        />
+                      </li>
+
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/product-master"
+                          icon={<FaBoxOpen />}
+                          label="Product Master"
+                          active={pathname.startsWith("/dashboard/master/product-master")}
+                          color="cyan"
+                        />
+                      </li>
+
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/hsn-master"
+                          icon={<FaListUl />}
+                          label="HSN Master"
+                          active={pathname.startsWith("/dashboard/master/hsn-master")}
+                          color="cyan"
+                        />
+                      </li>
+
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/division-master"
+                          icon={<FaListUl />}
+                          label="Division Master"
+                          active={pathname.startsWith("/dashboard/master/division-master")}
+                          color="cyan"
+                        />
+                      </li>
+                    </>
+                  }
+                />
               </PermissionGate>
               {/* ################ master end here ##################### */}
               {/* ################ Area Start here ##################### */}

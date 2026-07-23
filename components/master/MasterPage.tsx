@@ -59,8 +59,8 @@ export default function MasterPage() {
             color: "indigo",
         },
         {
-            title: "Customer Master",
-            desc: "Manage customer records",
+            title: "Ledger Master",
+            desc: "Manage ledger records",
             icon: <FaUsers size={16} />,
             link: "/dashboard/master/customer-master",
             color: "cyan",
