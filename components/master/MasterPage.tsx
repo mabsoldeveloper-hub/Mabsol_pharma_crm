@@ -9,6 +9,7 @@ import {
     FaMapMarkedAlt,
     FaSitemap,
     FaArrowRight,
+    FaLayerGroup,
 } from "react-icons/fa";
 
 const colorMap = {
@@ -37,6 +38,11 @@ const colorMap = {
         glowFrom: "from-violet-400/40",
         ring: "ring-violet-300/40",
     },
+    rose: {
+        iconText: "text-rose-600",
+        glowFrom: "from-rose-400/40",
+        ring: "ring-rose-300/40",
+    },
 };
 
 type ColorKey = keyof typeof colorMap;
@@ -51,6 +57,13 @@ interface MasterItem {
 
 export default function MasterPage() {
     const masters: MasterItem[] = [
+        {
+            title: "Accounting Group",
+            desc: "Manage accounting groups",
+            icon: <FaLayerGroup size={16} />,
+            link: "/dashboard/master/accounting-group-master",
+            color: "rose",
+        },
         {
             title: "Product Master",
             desc: "Manage products and inventory items",

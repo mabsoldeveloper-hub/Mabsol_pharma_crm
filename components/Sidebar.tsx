@@ -29,6 +29,7 @@ import {
   FaSlidersH,
   FaWarehouse,
   FaUserCircle,
+  FaLayerGroup,
 } from "react-icons/fa";
 
 
@@ -464,6 +465,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           icon={<FaTachometerAlt />}
                           label="Dashboard"
                           active={pathname === "/dashboard/master"}
+                          color="cyan"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/accounting-group-master"
+                          icon={<FaLayerGroup />}
+                          label="Accounting Group"
+                          active={pathname.startsWith("/dashboard/master/accounting-group-master")}
                           color="cyan"
                         />
                       </li>
