@@ -1,7 +1,7 @@
 "use client";
 
-// NOTE: Put this file at: src/app/dashboard/accounts/group/full/page.tsx
-// It reads data from: /api/accountgroup/full  (see route.ts)
+// File: src/app/dashboard/master/accounting-group-master/page.tsx
+// Data source: GET /api/master/accounting-group  (see src/app/api/accountgroup/full/route.ts)
 //
 // Requires the "xlsx" package for the Excel export button:
 //   npm install xlsx
@@ -23,9 +23,6 @@ import {
 } from "@tanstack/react-table";
 import {
     FaSitemap,
-    FaLayerGroup,
-    FaWallet,
-    FaCoins,
     FaSearch,
     FaSort,
     FaSortUp,
@@ -37,7 +34,17 @@ import {
     FaFilter,
     FaUndo,
     FaTimes,
+    FaLayerGroup,
     FaUsers,
+    FaWallet,
+    FaEye,
+    FaBookOpen,
+    FaCheckCircle,
+    FaTimesCircle,
+    FaTable,
+    FaProjectDiagram,
+    FaCaretDown,
+    FaCaretRight,
 } from "react-icons/fa";
 
 type AccountGroup = Record<string, any>;
@@ -64,9 +71,7 @@ const fmtDate = (v: any) => {
 };
 
 /* ---------------------------------------------------------- */
-/* Field configuration — every field on the ACGROUP table,      */
-/* grouped, plus the derived/joined fields (parent group,       */
-/* child count, customer rollup, ledger rollup).                 */
+/* Field configuration                                          */
 /* ---------------------------------------------------------- */
 
 type FieldType = "text" | "money" | "date" | "flag" | "balance" | "boolyn";
@@ -162,15 +167,75 @@ const DEFAULT_VISIBLE = [
 ];
 
 /* ---------------------------------------------------------- */
-/* KPI chip                                                      */
+/* Stat Chip                                                    */
 /* ---------------------------------------------------------- */
 
 function StatChip({ label, value, tone }: { label: string; value: string | number; tone: string }) {
     return (
-        <div className="flex items-center gap-2 rounded-xl bg-white/60 backdrop-blur-xl border border-white/40 px-3 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-xl border border-white/50 shadow-sm">
             <span className={`h-2 w-2 rounded-full ${tone}`} />
-            <span className="text-[11px] text-gray-500">{label}</span>
-            <span className="text-sm font-semibold text-gray-700 tabular-nums">{value}</span>
+            <span className="text-xs text-gray-500 font-medium">{label}:</span>
+            <span className="text-xs font-bold text-gray-800 tabular-nums">{value}</span>
+        </div>
+    );
+}
+
+/* ---------------------------------------------------------- */
+/* KPI Card                                                     */
+/* ---------------------------------------------------------- */
+
+function KpiCard({ icon, label, value, sub, gradient }: {
+    icon: React.ReactNode; label: string; value: string | number; sub?: string; gradient: string;
+}) {
+    return (
+        <div className="relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_4px_20px_rgba(0,0,0,0.06)] p-4 flex items-center gap-4">
+            <div className={`flex items-center justify-center h-11 w-11 rounded-xl ${gradient} text-white shrink-0 shadow-lg`}>{icon}</div>
+            <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-gray-500 truncate">{label}</p>
+                <p className="text-lg font-bold text-gray-800 tabular-nums leading-tight">{value}</p>
+                {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+            </div>
+            <div className={`absolute -right-4 -top-4 h-16 w-16 rounded-full opacity-10 ${gradient}`} />
+        </div>
+    );
+}
+
+/* ---------------------------------------------------------- */
+/* Tree Node                                                    */
+/* ---------------------------------------------------------- */
+
+function TreeNode({ group, allGroups, depth = 0 }: {
+    group: AccountGroup; allGroups: AccountGroup[]; depth?: number;
+}) {
+    const [open, setOpen] = useState(depth < 1);
+    const children = allGroups.filter((g) => g.PARENTCODE && group.ORDNO && String(g.PARENTCODE).trim() === String(group.ORDNO).trim());
+    const hasChildren = children.length > 0;
+    const bal = Number(group.BALANCE || 0);
+    return (
+        <div>
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/60 transition-all group ${depth === 0 ? "border border-white/40 bg-white/30 mb-1" : "border-l-2 border-indigo-100"}`} style={{ marginLeft: depth * 16 }}>
+                {hasChildren ? (
+                    <button onClick={() => setOpen((v) => !v)} className="text-indigo-400 hover:text-indigo-600 transition-colors shrink-0">
+                        {open ? <FaCaretDown size={12} /> : <FaCaretRight size={12} />}
+                    </button>
+                ) : <span className="w-3 shrink-0" />}
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                    <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-700 truncate">{group.PARNAM}</p>
+                        <p className="text-[10px] text-gray-400">{group.ORDNO}</p>
+                    </div>
+                    {group.ISROOT && <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-500/15 text-indigo-700 ring-1 ring-indigo-500/30">Root</span>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    {hasChildren && <span className="text-[10px] text-gray-400">{children.length} sub</span>}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ring-1 ${balanceClasses(bal)}`}>{money(bal)}</span>
+                    <div className="hidden group-hover:flex items-center gap-1">
+                        <Link href={`/dashboard/master/accounting-group-master/view/${group._id}`} onClick={(e) => e.stopPropagation()} className="flex items-center justify-center h-5 w-5 rounded bg-blue-500/10 text-blue-600 hover:bg-blue-500 hover:text-white transition-all"><FaEye size={9} /></Link>
+                        <Link href={`/dashboard/master/accounting-group-master/ledger/${group._id}`} onClick={(e) => e.stopPropagation()} className="flex items-center justify-center h-5 w-5 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all"><FaBookOpen size={9} /></Link>
+                    </div>
+                </div>
+            </div>
+            {open && hasChildren && children.map((child) => <TreeNode key={child._id} group={child} allGroups={allGroups} depth={depth + 1} />)}
         </div>
     );
 }
@@ -182,7 +247,9 @@ function StatChip({ label, value, tone }: { label: string; value: string | numbe
 export default function AccountGroupFullViewPage() {
     const [groups, setGroups] = useState<AccountGroup[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [sorting, setSorting] = useState<SortingState>([]);
+    const [viewMode, setViewMode] = useState<"table" | "tree">("table");
 
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
         const state: VisibilityState = {};
@@ -202,7 +269,7 @@ export default function AccountGroupFullViewPage() {
     const [controlFilter, setControlFilter] = useState(""); // "", "Y", "N"
     const [balanceStatus, setBalanceStatus] = useState(""); // "", "debit", "credit", "zero"
     const [customerActivity, setCustomerActivity] = useState(""); // "", "with_customers", "no_customers"
-    const [voucherFlag, setVoucherFlag] = useState(""); // "", "SALDR", "SALCR", "PURDR", "PURCR", "RECDR", "RECCR", "PAYDR", "PAYCR"
+    const [voucherFlag, setVoucherFlag] = useState("");
     const [minBalance, setMinBalance] = useState("");
     const [maxBalance, setMaxBalance] = useState("");
     const [minCustomers, setMinCustomers] = useState("");
@@ -214,10 +281,14 @@ export default function AccountGroupFullViewPage() {
 
     const loadGroups = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const res = await fetch("/api/master/accounting-group/");
+            const res = await fetch("/api/master/accounting-group");
+            if (!res.ok) throw new Error("Failed to load account groups");
             const data = await res.json();
             setGroups(Array.isArray(data) ? data : []);
+        } catch (e: any) {
+            setError(e?.message || "Something went wrong");
         } finally {
             setLoading(false);
         }
@@ -299,7 +370,12 @@ export default function AccountGroupFullViewPage() {
     const totalCount = filtered.length;
     const rootCount = filtered.filter((g) => g.ISROOT).length;
     const totalCustomers = filtered.reduce((sum, g) => sum + Number(g.CUSTOMERCOUNT || 0), 0);
+    const activeCustomers = filtered.reduce((sum, g) => sum + Number(g.ACTIVECUSTOMERCOUNT || 0), 0);
     const totalBalance = filtered.reduce((sum, g) => sum + Number(g.BALANCE || 0), 0);
+    const totalLedgerDebit = filtered.reduce((sum, g) => sum + Number(g.LEDGERDEBIT || 0), 0);
+    const totalLedgerCredit = filtered.reduce((sum, g) => sum + Number(g.LEDGERCREDIT || 0), 0);
+    const totalLedgerEntries = filtered.reduce((sum, g) => sum + Number(g.LEDGERTXNCOUNT || 0), 0);
+    const rootGroups = useMemo(() => groups.filter((g) => g.ISROOT), [groups]);
 
     // ---- Columns ---------------------------------------------------
     const columns = useMemo(() => {
@@ -313,8 +389,8 @@ export default function AccountGroupFullViewPage() {
                     if (f.type === "date") return fmtDate(val);
                     if (f.type === "flag") {
                         return val ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-700 ring-1 ring-indigo-500/30">
-                                Root
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-700 ring-1 ring-indigo-500/30">
+                                <FaCheckCircle size={9} /> Root
                             </span>
                         ) : (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-600 ring-1 ring-slate-500/30">
@@ -324,12 +400,12 @@ export default function AccountGroupFullViewPage() {
                     }
                     if (f.type === "boolyn") {
                         return val === "Y" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30">
-                                Yes
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30">
+                                <FaCheckCircle size={9} /> Yes
                             </span>
                         ) : val === "N" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30">
-                                No
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30">
+                                <FaTimesCircle size={9} /> No
                             </span>
                         ) : (
                             "-"
@@ -359,22 +435,16 @@ export default function AccountGroupFullViewPage() {
                 cell: (info) => (
                     <div className="flex gap-1.5">
                         <Link
-                            href={`/dashboard/accounts/group/view/${info.row.original._id}`}
-                            className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-blue-600 ring-1 ring-blue-500/30 hover:bg-blue-500 hover:text-white hover:ring-blue-500 transition-all duration-200"
+                            href={`/dashboard/master/accounting-group-master/view/${info.row.original._id}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 ring-1 ring-blue-500/30 hover:bg-blue-500 hover:text-white hover:ring-blue-500 transition-all duration-200"
                         >
-                            View
+                            <FaEye size={10} /> View
                         </Link>
                         <Link
-                            href={`/dashboard/accounts/group/ledger/${info.row.original._id}`}
-                            className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-emerald-600 ring-1 ring-emerald-500/30 hover:bg-emerald-500 hover:text-white hover:ring-emerald-500 transition-all duration-200"
+                            href={`/dashboard/master/accounting-group-master/ledger/${info.row.original._id}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/30 hover:bg-emerald-500 hover:text-white hover:ring-emerald-500 transition-all duration-200"
                         >
-                            Ledger
-                        </Link>
-                        <Link
-                            href={`/dashboard/customers/full?group=${encodeURIComponent(info.row.original.ORDNO)}`}
-                            className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-indigo-600 ring-1 ring-indigo-500/30 hover:bg-indigo-500 hover:text-white hover:ring-indigo-500 transition-all duration-200"
-                        >
-                            Customers
+                            <FaBookOpen size={10} /> Ledger
                         </Link>
                     </div>
                 ),
@@ -398,7 +468,7 @@ export default function AccountGroupFullViewPage() {
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
-        initialState: { pagination: { pageSize: 10 } },
+        initialState: { pagination: { pageSize: 15 } },
     });
 
     const toggleGroup = (group: { label: string; fields: FieldDef[] }, value: boolean) => {
@@ -639,6 +709,12 @@ export default function AccountGroupFullViewPage() {
                                         Loading account groups...
                                     </td>
                                 </tr>
+                            ) : error ? (
+                                <tr>
+                                    <td colSpan={visibleCount + 1} className="text-center text-rose-500 py-10 text-sm">
+                                        {error}
+                                    </td>
+                                </tr>
                             ) : table.getRowModel().rows.length > 0 ? (
                                 table.getRowModel().rows.map((row) => (
                                     <tr
@@ -721,7 +797,6 @@ export default function AccountGroupFullViewPage() {
                         onClick={(e) => e.stopPropagation()}
                         className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden"
                     >
-                        {/* modal header */}
                         <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-[#343872] to-indigo-600 shrink-0">
                             <div className="flex items-center gap-2 text-white">
                                 <FaColumns size={14} />
@@ -740,7 +815,6 @@ export default function AccountGroupFullViewPage() {
                             </button>
                         </div>
 
-                        {/* global select all / clear all */}
                         <div className="flex items-center justify-between px-5 py-2.5 border-b border-gray-100 bg-gray-50 shrink-0">
                             <span className="text-[11px] text-gray-400">Tick the columns you want in the table</span>
                             <div className="flex gap-3">
@@ -763,7 +837,6 @@ export default function AccountGroupFullViewPage() {
                             </div>
                         </div>
 
-                        {/* scrollable field groups */}
                         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
                             {FIELD_GROUPS.map((group) => (
                                 <div key={group.label}>
@@ -801,7 +874,6 @@ export default function AccountGroupFullViewPage() {
                             ))}
                         </div>
 
-                        {/* footer */}
                         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50 shrink-0">
                             <button
                                 onClick={() => setShowColumnPicker(false)}

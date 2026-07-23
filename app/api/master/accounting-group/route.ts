@@ -3,22 +3,16 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 
 import AccountGroup from "@/models/AccountGroup";
-import Customer from "@/models/Customer";   // ORDER collection (customers)
-import GLedger from "@/models/GLedger";     // GLEDGER collection
+import Customer from "@/models/Customer"; // ORDER collection (parties/customers)
+import GLedger from "@/models/GLedger"; // GLEDGER collection
 
-// NOTE: Put this file at: src/app/api/accountgroup/full/route.ts
-// (matching page.tsx at src/app/dashboard/accounts/group/full/page.tsx)
+// GET /api/master/accounting-group
 //
-// Join keys (confirmed from real exported data):
-//   AccountGroup.GROUP   <-->  AccountGroup.ORDNO   (self join -> parent group)
-//   AccountGroup.ORDNO   <-->  Customer.SCODE       (customers that fall under this group)
-//   Customer.ORDNO       <-->  GLedger.CODE         (ledger balance per customer)
-//
-// ACGROUP (ACGROUP_E10.DBF) has 27 real business fields (rest is _vfp* sync metadata):
-//   ORDNO, PARNAM, GROUP, GCODE, TYPE, CON, SINGLE,
-//   OPNING, OPNINGD, DEBIT, DEBITD, CREDIT, CREDITD, BALANCE, BALANCED, BUDGET,
-//   PAYCR, PAYDR, PURCR, PURDR, RECCR, RECDR, SALCR, SALDR,
-//   CIN, COUT, DATE
+// Returns every account group joined with:
+//   - PARENTCODE / PARENTNAME / ISROOT / CHILDCOUNT   (self join on ORDNO <-> GROUP)
+//   - CUSTOMERCOUNT / ACTIVECUSTOMERCOUNT / CUSTOMERBALANCE  (Customer.SCODE = group.ORDNO)
+//   - LEDGERDEBIT / LEDGERCREDIT / LEDGERBALANCE / LEDGERTXNCOUNT
+//         (sum of GLedger rows for every customer that falls under the group)
 
 export async function GET() {
     await connectDB();
@@ -26,7 +20,7 @@ export async function GET() {
     // ---- Base account-group records --------------------------------------
     const groups: any[] = await AccountGroup.find({}).sort({ ORDNO: 1 }).lean();
 
-    // ---- Self-join map: ORDNO -> group (so we can resolve parent/child names) ----
+    // ---- Self-join map: ORDNO -> group (resolve parent/child names) -------
     const byOrdno = new Map<string, any>();
     groups.forEach((g: any) => {
         if (g.ORDNO) byOrdno.set(String(g.ORDNO).trim(), g);
@@ -42,10 +36,13 @@ export async function GET() {
     // ---- Customers per group: Customer.SCODE -> AccountGroup.ORDNO --------
     const customers: any[] = await Customer.find(
         {},
-        { SCODE: 1, ORDNO: 1, BALANCE: 1, STATUS: 1 }
+        { ORDNO: 1, SCODE: 1, BALANCE: 1, STATUS: 1, PARNAM: 1 }
     ).lean();
 
-    const customerAgg = new Map<string, { count: number; activeCount: number; totalBalance: number; codes: string[] }>();
+    const customerAgg = new Map<
+        string,
+        { count: number; activeCount: number; totalBalance: number; codes: string[] }
+    >();
     customers.forEach((c: any) => {
         const scode = c.SCODE ? String(c.SCODE).trim() : "";
         if (!scode) return;
@@ -58,19 +55,24 @@ export async function GET() {
     });
 
     // ---- Ledger rollup for every customer code touched above --------------
-    const allCustomerCodes = Array.from(new Set(customers.map((c: any) => (c.ORDNO ? String(c.ORDNO).trim() : "")).filter(Boolean)));
+    const allCustomerCodes = Array.from(
+        new Set(customers.map((c: any) => (c.ORDNO ? String(c.ORDNO).trim() : "")).filter(Boolean))
+    );
 
-    const gledgerAgg = await GLedger.aggregate([
-        { $match: { CODE: { $in: allCustomerCodes } } },
-        {
-            $group: {
-                _id: "$CODE",
-                totalDebit: { $sum: { $ifNull: ["$DEBIT", 0] } },
-                totalCredit: { $sum: { $ifNull: ["$CREDIT", 0] } },
-                txnCount: { $sum: 1 },
+    const gledgerAgg = allCustomerCodes.length
+        ? await GLedger.aggregate([
+            { $match: { CODE: { $in: allCustomerCodes } } },
+            {
+                $group: {
+                    _id: "$CODE",
+                    totalDebit: { $sum: { $ifNull: ["$DEBIT", 0] } },
+                    totalCredit: { $sum: { $ifNull: ["$CREDIT", 0] } },
+                    txnCount: { $sum: 1 },
+                },
             },
-        },
-    ]);
+        ])
+        : [];
+
     const gledgerMap = new Map<string, any>();
     gledgerAgg.forEach((d: any) => {
         if (d._id) gledgerMap.set(String(d._id).trim(), d);
