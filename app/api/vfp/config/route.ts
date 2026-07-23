@@ -29,7 +29,10 @@ export async function GET() {
     let startupCommand = "";
     let isFromDb = false;
 
-    const config = await VfpConfig.findOne({ email: user.email }).lean() || await VfpConfig.findOne({ key: "vfp_sync_config" }).lean();
+    const config =
+      (await VfpConfig.findOne({
+        $or: [{ email: user.email }, { key: "vfp_sync_config_" + user.email }],
+      }).lean()) || (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean());
     if (config) {
       if ((config as any).dataDir) {
         dataDir = (config as any).dataDir;
@@ -245,12 +248,14 @@ export async function POST(request: NextRequest) {
     // Save to database
     await VfpConfig.updateOne(
       { key: "vfp_sync_config_" + user.email },
-      { $set: { ...updateFields, email: user.email } },
+      { $set: { ...updateFields, email: user.email, key: "vfp_sync_config_" + user.email } },
       { upsert: true }
     );
 
     // Get final values for logging (merging with existing)
-    const activeConfig = await VfpConfig.findOne({ email: user.email });
+    const activeConfig = await VfpConfig.findOne({
+      $or: [{ email: user.email }, { key: "vfp_sync_config_" + user.email }],
+    });
     const logUserName = activeConfig?.userName || user.name || "Unknown";
     const logCompanyName = activeConfig?.companyName || (user.companyId as any)?.companyName || "Unknown";
     const logLicense = activeConfig?.license || "Unknown";

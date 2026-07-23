@@ -39,7 +39,19 @@ const SyncLog = mongoose.model(
 );
 const SyncCommand = mongoose.model(
   "VfpSyncCommand",
-  new mongoose.Schema({}, { strict: false, timestamps: true }),
+  new mongoose.Schema(
+    {
+      command: String,
+      email: String,
+      status: String,
+      payload: mongoose.Schema.Types.Mixed,
+      result: mongoose.Schema.Types.Mixed,
+      requestedBy: String,
+      message: String,
+      processedAt: Date,
+    },
+    { strict: false, timestamps: true }
+  ),
   "vfpsynccommands"
 );
 const OutboundQueue = mongoose.model(
@@ -292,7 +304,13 @@ async function updateHeartbeat(status, extra = {}) {
 }
 
 async function processCommands() {
-  const commands = await SyncCommand.find({ status: "queued" })
+  const workerEmail = process.env.VFP_USER_EMAIL || process.env.VFP_EMAIL || "";
+  const query = { status: "queued" };
+  if (workerEmail) {
+    query.$or = [{ email: workerEmail }, { email: "global" }, { email: "" }, { email: { $exists: false } }];
+  }
+
+  const commands = await SyncCommand.find(query)
     .sort({ createdAt: 1 })
     .limit(5);
 
@@ -302,29 +320,38 @@ async function processCommands() {
 
   for (const command of commands) {
     console.log(`[vfp-sync] Processing command: ${command.command} (ID: ${command._id})`);
-    command.status = "processing";
-    await command.save();
+    await SyncCommand.updateOne({ _id: command._id }, { $set: { status: "processing" } });
+
+    let status = "done";
+    let result = null;
+    let message = "";
 
     try {
       if (command.command === "browse_dir" || command.command === "browse_folders") {
-        const result = await handleBrowseCommand(command.payload);
-        command.result = result;
-        command.status = "done";
+        result = await handleBrowseCommand(command.payload);
         console.log(`[vfp-sync] Command ${command.command} completed successfully.`);
       } else {
         await runSync(command.command, command.email);
-        command.status = "done";
-        command.message = "Processed by local VFP sync worker.";
+        message = "Processed by local VFP sync worker.";
         console.log(`[vfp-sync] Command ${command.command} sync completed successfully.`);
       }
     } catch (error) {
       console.error(`[vfp-sync] Command ${command.command} failed:`, error.message);
-      command.status = "failed";
-      command.message = error.message;
+      status = "failed";
+      message = error.message;
     }
 
-    command.processedAt = new Date();
-    await command.save();
+    await SyncCommand.updateOne(
+      { _id: command._id },
+      {
+        $set: {
+          status,
+          result,
+          message,
+          processedAt: new Date()
+        }
+      }
+    );
   }
 }
 

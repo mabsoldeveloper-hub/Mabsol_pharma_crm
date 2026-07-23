@@ -65,6 +65,11 @@ const VfpConfigSchema = new mongoose.Schema(
       required: false,
       default: "",
     },
+    licenseKey: {
+      type: String,
+      required: false,
+      default: "",
+    },
     startupCommand: {
       type: String,
       required: false,

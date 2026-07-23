@@ -14,6 +14,7 @@ import {
   Settings,
 } from "lucide-react";
 import VfpSyncActions from "@/components/VfpSyncActions";
+import SyncAgentDashboard from "@/components/sync-agent/SyncAgentDashboard";
 import { getVfpStatus } from "@/lib/vfp/status";
 
 type VfpLogRow = {
@@ -177,6 +178,9 @@ export default async function VfpDashboardPage({
             </div>
           </div>
         </div>
+
+        {/* Mabsol Sync Agent Dashboard */}
+        <SyncAgentDashboard />
 
         {/* Control Panel - Full Width */}
         <VfpSyncActions 
