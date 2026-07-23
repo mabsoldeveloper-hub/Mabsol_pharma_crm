@@ -1,7 +1,7 @@
 "use client";
 
-// NOTE: Put this file at: src/app/dashboard/accounts/group/full/page.tsx
-// It reads data from: /api/accountgroup/full  (see route.ts)
+// File: src/app/dashboard/master/accounting-group-master/page.tsx
+// Data source: GET /api/master/accounting-group  (see src/app/api/accountgroup/full/route.ts)
 //
 // Requires the "xlsx" package for the Excel export button:
 //   npm install xlsx
@@ -23,9 +23,6 @@ import {
 } from "@tanstack/react-table";
 import {
     FaSitemap,
-    FaLayerGroup,
-    FaWallet,
-    FaCoins,
     FaSearch,
     FaSort,
     FaSortUp,
@@ -37,7 +34,6 @@ import {
     FaFilter,
     FaUndo,
     FaTimes,
-    FaUsers,
 } from "react-icons/fa";
 
 type AccountGroup = Record<string, any>;
@@ -64,9 +60,7 @@ const fmtDate = (v: any) => {
 };
 
 /* ---------------------------------------------------------- */
-/* Field configuration — every field on the ACGROUP table,      */
-/* grouped, plus the derived/joined fields (parent group,       */
-/* child count, customer rollup, ledger rollup).                 */
+/* Field configuration                                          */
 /* ---------------------------------------------------------- */
 
 type FieldType = "text" | "money" | "date" | "flag" | "balance" | "boolyn";
@@ -182,6 +176,7 @@ function StatChip({ label, value, tone }: { label: string; value: string | numbe
 export default function AccountGroupFullViewPage() {
     const [groups, setGroups] = useState<AccountGroup[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [sorting, setSorting] = useState<SortingState>([]);
 
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
@@ -202,7 +197,7 @@ export default function AccountGroupFullViewPage() {
     const [controlFilter, setControlFilter] = useState(""); // "", "Y", "N"
     const [balanceStatus, setBalanceStatus] = useState(""); // "", "debit", "credit", "zero"
     const [customerActivity, setCustomerActivity] = useState(""); // "", "with_customers", "no_customers"
-    const [voucherFlag, setVoucherFlag] = useState(""); // "", "SALDR", "SALCR", "PURDR", "PURCR", "RECDR", "RECCR", "PAYDR", "PAYCR"
+    const [voucherFlag, setVoucherFlag] = useState("");
     const [minBalance, setMinBalance] = useState("");
     const [maxBalance, setMaxBalance] = useState("");
     const [minCustomers, setMinCustomers] = useState("");
@@ -214,10 +209,14 @@ export default function AccountGroupFullViewPage() {
 
     const loadGroups = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const res = await fetch("/api/master/accounting-group/");
+            const res = await fetch("/api/master/accounting-group");
+            if (!res.ok) throw new Error("Failed to load account groups");
             const data = await res.json();
             setGroups(Array.isArray(data) ? data : []);
+        } catch (e: any) {
+            setError(e?.message || "Something went wrong");
         } finally {
             setLoading(false);
         }
@@ -359,22 +358,16 @@ export default function AccountGroupFullViewPage() {
                 cell: (info) => (
                     <div className="flex gap-1.5">
                         <Link
-                            href={`/dashboard/accounts/group/view/${info.row.original._id}`}
+                            href={`/dashboard/master/accounting-group-master/view/${info.row.original._id}`}
                             className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-blue-600 ring-1 ring-blue-500/30 hover:bg-blue-500 hover:text-white hover:ring-blue-500 transition-all duration-200"
                         >
                             View
                         </Link>
                         <Link
-                            href={`/dashboard/accounts/group/ledger/${info.row.original._id}`}
+                            href={`/dashboard/master/accounting-group-master/ledger/${info.row.original._id}`}
                             className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-emerald-600 ring-1 ring-emerald-500/30 hover:bg-emerald-500 hover:text-white hover:ring-emerald-500 transition-all duration-200"
                         >
                             Ledger
-                        </Link>
-                        <Link
-                            href={`/dashboard/customers/full?group=${encodeURIComponent(info.row.original.ORDNO)}`}
-                            className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-indigo-600 ring-1 ring-indigo-500/30 hover:bg-indigo-500 hover:text-white hover:ring-indigo-500 transition-all duration-200"
-                        >
-                            Customers
                         </Link>
                     </div>
                 ),
@@ -639,6 +632,12 @@ export default function AccountGroupFullViewPage() {
                                         Loading account groups...
                                     </td>
                                 </tr>
+                            ) : error ? (
+                                <tr>
+                                    <td colSpan={visibleCount + 1} className="text-center text-rose-500 py-10 text-sm">
+                                        {error}
+                                    </td>
+                                </tr>
                             ) : table.getRowModel().rows.length > 0 ? (
                                 table.getRowModel().rows.map((row) => (
                                     <tr
@@ -721,7 +720,6 @@ export default function AccountGroupFullViewPage() {
                         onClick={(e) => e.stopPropagation()}
                         className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden"
                     >
-                        {/* modal header */}
                         <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-[#343872] to-indigo-600 shrink-0">
                             <div className="flex items-center gap-2 text-white">
                                 <FaColumns size={14} />
@@ -740,7 +738,6 @@ export default function AccountGroupFullViewPage() {
                             </button>
                         </div>
 
-                        {/* global select all / clear all */}
                         <div className="flex items-center justify-between px-5 py-2.5 border-b border-gray-100 bg-gray-50 shrink-0">
                             <span className="text-[11px] text-gray-400">Tick the columns you want in the table</span>
                             <div className="flex gap-3">
@@ -763,7 +760,6 @@ export default function AccountGroupFullViewPage() {
                             </div>
                         </div>
 
-                        {/* scrollable field groups */}
                         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
                             {FIELD_GROUPS.map((group) => (
                                 <div key={group.label}>
@@ -801,7 +797,6 @@ export default function AccountGroupFullViewPage() {
                             ))}
                         </div>
 
-                        {/* footer */}
                         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50 shrink-0">
                             <button
                                 onClick={() => setShowColumnPicker(false)}
