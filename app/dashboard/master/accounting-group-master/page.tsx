@@ -1,7 +1,7 @@
 "use client";
 
-// NOTE: Put this file at: src/app/dashboard/customers/full/page.tsx
-// It reads data from: /api/customers/full  (see route.ts)
+// NOTE: Put this file at: src/app/dashboard/accounts/group/full/page.tsx
+// It reads data from: /api/accountgroup/full  (see route.ts)
 //
 // Requires the "xlsx" package for the Excel export button:
 //   npm install xlsx
@@ -22,8 +22,8 @@ import {
     ColumnDef,
 } from "@tanstack/react-table";
 import {
-    FaUsers,
-    FaUserCheck,
+    FaSitemap,
+    FaLayerGroup,
     FaWallet,
     FaCoins,
     FaSearch,
@@ -37,11 +37,12 @@ import {
     FaFilter,
     FaUndo,
     FaTimes,
+    FaUsers,
 } from "react-icons/fa";
 
-type Customer = Record<string, any>;
+type AccountGroup = Record<string, any>;
 
-const columnHelper = createColumnHelper<Customer>();
+const columnHelper = createColumnHelper<AccountGroup>();
 
 /* ---------------------------------------------------------- */
 /* Helpers                                                      */
@@ -63,12 +64,12 @@ const fmtDate = (v: any) => {
 };
 
 /* ---------------------------------------------------------- */
-/* Field configuration — every field on the Customer / Order    */
-/* table, grouped, plus the joined/derived fields from          */
-/* AccountGroup, DIS, MDIS, GLEDGER and SaleType.                */
+/* Field configuration — every field on the ACGROUP table,      */
+/* grouped, plus the derived/joined fields (parent group,       */
+/* child count, customer rollup, ledger rollup).                 */
 /* ---------------------------------------------------------- */
 
-type FieldType = "text" | "money" | "date" | "status" | "balance";
+type FieldType = "text" | "money" | "date" | "flag" | "balance" | "boolyn";
 
 type FieldDef = { key: string; label: string; type?: FieldType };
 
@@ -76,109 +77,72 @@ const FIELD_GROUPS: { label: string; fields: FieldDef[] }[] = [
     {
         label: "Basic Information",
         fields: [
-            { key: "ORDNO", label: "Customer Code" },
-            { key: "PARNAM", label: "Customer Name" },
-            { key: "MAILNAM", label: "Display Name" },
-            { key: "CODER", label: "Reference Code" },
-            { key: "TYPE", label: "Type" },
-            { key: "STATUS", label: "Status", type: "status" },
-            { key: "GROUPNAME", label: "Group" },
-            { key: "MAINGROUP", label: "Main Group" },
-            { key: "PARENTGROUP", label: "Parent Group" },
+            { key: "ORDNO", label: "Group Code" },
+            { key: "PARNAM", label: "Group Name" },
+            { key: "PARENTCODE", label: "Parent Code" },
+            { key: "PARENTNAME", label: "Parent Group" },
+            { key: "ISROOT", label: "Root Group", type: "flag" },
+            { key: "CHILDCOUNT", label: "Sub-Groups" },
+            { key: "TYPE", label: "Type", type: "boolyn" },
+            { key: "CON", label: "Control A/c", type: "boolyn" },
+            { key: "SINGLE", label: "Single" },
         ],
     },
     {
-        label: "Contact Details",
+        label: "Opening Balance",
         fields: [
-            { key: "PHONE1", label: "Phone 1" },
-            { key: "PHONE2", label: "Phone 2" },
-            { key: "PHONE3", label: "Phone 3" },
-            { key: "PHONE4", label: "Phone 4" },
-            { key: "FAX1", label: "Fax 1" },
-            { key: "FAX2", label: "Fax 2" },
-        ],
-    },
-    {
-        label: "Address",
-        fields: [
-            { key: "PARADD", label: "Address Line 1" },
-            { key: "PARADD1", label: "Address Line 2" },
-            { key: "PARADD2", label: "Address Line 3" },
-            { key: "CITY", label: "City" },
-            { key: "AREA", label: "Area" },
-        ],
-    },
-    {
-        label: "Tax / Legal",
-        fields: [
-            { key: "GSTNO", label: "GST No" },
-            { key: "GSTDATE", label: "GST Date", type: "date" },
-            { key: "DLNO", label: "DL No" },
-            { key: "CSTNO", label: "CST No" },
-            { key: "CSTDATE", label: "CST Date", type: "date" },
-            { key: "CIN", label: "CIN" },
-            { key: "FORM", label: "Form" },
-            { key: "TAX", label: "Tax" },
-            { key: "TAXTYPENAME", label: "Tax Type Name" },
-        ],
-    },
-    {
-        label: "Financial",
-        fields: [
-            { key: "BALANCE", label: "Outstanding Balance", type: "balance" },
-            { key: "CREDIT", label: "Credit", type: "money" },
-            { key: "CREDITD", label: "Credit Days" },
-            { key: "LIMIT", label: "Credit Limit", type: "money" },
-            { key: "DUEDAYS", label: "Due Days" },
             { key: "OPNING", label: "Opening Balance", type: "money" },
-            { key: "OPNINGD", label: "Opening Debit/Credit" },
-            { key: "TARGET", label: "Target", type: "money" },
-            { key: "RATE", label: "Rate" },
-            { key: "PRICE", label: "Price" },
+            { key: "OPNINGD", label: "Opening Dr/Cr" },
         ],
     },
     {
-        label: "Sales Configuration",
+        label: "Current Financials",
         fields: [
-            { key: "SCODE", label: "Sale Code" },
-            { key: "DISC1", label: "Discount 1" },
-            { key: "DISC2", label: "Discount 2" },
-            { key: "DEAL", label: "Deal" },
-            { key: "FREE", label: "Free Scheme" },
-            { key: "SALUN", label: "Sale Unit" },
-            { key: "SALSC", label: "Sale Scheme" },
+            { key: "DEBIT", label: "Debit", type: "money" },
+            { key: "DEBITD", label: "Debit Dr/Cr" },
+            { key: "CREDIT", label: "Credit", type: "money" },
+            { key: "CREDITD", label: "Credit Dr/Cr" },
+            { key: "BALANCE", label: "Balance", type: "balance" },
+            { key: "BALANCED", label: "Balance Dr/Cr" },
+            { key: "BUDGET", label: "Budget", type: "money" },
         ],
     },
     {
-        label: "Staff & Route",
+        label: "Voucher Applicability",
         fields: [
-            { key: "DSM", label: "DSM" },
-            { key: "RSM", label: "RSM" },
-            { key: "ASM", label: "ASM" },
-            { key: "ROUT", label: "Route" },
-            { key: "MR", label: "MR" },
-            { key: "HQT", label: "Headquarter" },
+            { key: "SALDR", label: "Sales Debit", type: "boolyn" },
+            { key: "SALCR", label: "Sales Credit", type: "boolyn" },
+            { key: "PURDR", label: "Purchase Debit", type: "boolyn" },
+            { key: "PURCR", label: "Purchase Credit", type: "boolyn" },
+            { key: "RECDR", label: "Receipt Debit", type: "boolyn" },
+            { key: "RECCR", label: "Receipt Credit", type: "boolyn" },
+            { key: "PAYDR", label: "Payment Debit", type: "boolyn" },
+            { key: "PAYCR", label: "Payment Credit", type: "boolyn" },
         ],
     },
     {
-        label: "Sales & Purchase Summary",
+        label: "Customer Rollup",
         fields: [
-            { key: "TOTALSALES", label: "Total Sales", type: "money" },
-            { key: "SALECOUNT", label: "Sale Vouchers" },
-            { key: "LASTSALEDATE", label: "Last Sale Date", type: "date" },
-            { key: "TOTALPURCHASE", label: "Total Purchase", type: "money" },
-            { key: "PURCHASECOUNT", label: "Purchase Vouchers" },
-            { key: "LASTPURCHASEDATE", label: "Last Purchase Date", type: "date" },
+            { key: "CUSTOMERCOUNT", label: "Customers" },
+            { key: "ACTIVECUSTOMERCOUNT", label: "Active Customers" },
+            { key: "CUSTOMERBALANCE", label: "Customers Balance", type: "balance" },
         ],
     },
     {
-        label: "Ledger",
+        label: "Ledger Rollup",
         fields: [
             { key: "LEDGERDEBIT", label: "Ledger Debit", type: "money" },
             { key: "LEDGERCREDIT", label: "Ledger Credit", type: "money" },
             { key: "LEDGERBALANCE", label: "Ledger Balance", type: "balance" },
             { key: "LEDGERTXNCOUNT", label: "Ledger Entries" },
-            { key: "LASTLEDGERDATE", label: "Last Ledger Date", type: "date" },
+        ],
+    },
+    {
+        label: "Other",
+        fields: [
+            { key: "CIN", label: "CIN" },
+            { key: "COUT", label: "COUT" },
+            { key: "DATE", label: "Date", type: "date" },
         ],
     },
 ];
@@ -188,14 +152,13 @@ const ALL_FIELDS: FieldDef[] = FIELD_GROUPS.flatMap((g) => g.fields);
 const DEFAULT_VISIBLE = [
     "ORDNO",
     "PARNAM",
-    "GROUPNAME",
-    "CITY",
-    "PHONE1",
-    "GSTNO",
+    "PARENTNAME",
+    "CHILDCOUNT",
+    "TYPE",
     "BALANCE",
-    "STATUS",
-    "TOTALSALES",
-    "LASTSALEDATE",
+    "CUSTOMERCOUNT",
+    "CUSTOMERBALANCE",
+    "LEDGERBALANCE",
 ];
 
 /* ---------------------------------------------------------- */
@@ -216,8 +179,8 @@ function StatChip({ label, value, tone }: { label: string; value: string | numbe
 /* Main page                                                    */
 /* ---------------------------------------------------------- */
 
-export default function CustomerFullViewPage() {
-    const [customers, setCustomers] = useState<Customer[]>([]);
+export default function AccountGroupFullViewPage() {
+    const [groups, setGroups] = useState<AccountGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -234,136 +197,113 @@ export default function CustomerFullViewPage() {
 
     // ---- Filters -------------------------------------------------
     const [search, setSearch] = useState("");
-    const [group, setGroup] = useState("");
-    const [status, setStatus] = useState(""); // "", "Y", "N"
-    const [city, setCity] = useState("");
-    const [dsm, setDsm] = useState("");
-    const [rsm, setRsm] = useState("");
-    const [balanceStatus, setBalanceStatus] = useState(""); // "", "outstanding", "credit", "zero"
-    const [gstStatus, setGstStatus] = useState(""); // "", "with", "without"
-    const [salesActivity, setSalesActivity] = useState(""); // "", "with_sales", "no_sales"
+    const [parentGroup, setParentGroup] = useState("");
+    const [levelFilter, setLevelFilter] = useState(""); // "", "root", "sub"
+    const [controlFilter, setControlFilter] = useState(""); // "", "Y", "N"
+    const [balanceStatus, setBalanceStatus] = useState(""); // "", "debit", "credit", "zero"
+    const [customerActivity, setCustomerActivity] = useState(""); // "", "with_customers", "no_customers"
+    const [voucherFlag, setVoucherFlag] = useState(""); // "", "SALDR", "SALCR", "PURDR", "PURCR", "RECDR", "RECCR", "PAYDR", "PAYCR"
     const [minBalance, setMinBalance] = useState("");
     const [maxBalance, setMaxBalance] = useState("");
-    const [minSales, setMinSales] = useState("");
-    const [maxSales, setMaxSales] = useState("");
+    const [minCustomers, setMinCustomers] = useState("");
+    const [maxCustomers, setMaxCustomers] = useState("");
 
     useEffect(() => {
-        loadCustomers();
+        loadGroups();
     }, []);
 
-    const loadCustomers = async () => {
+    const loadGroups = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/master/customer/");
+            const res = await fetch("/api/master/accounting-group/");
             const data = await res.json();
-            setCustomers(Array.isArray(data) ? data : []);
+            setGroups(Array.isArray(data) ? data : []);
         } finally {
             setLoading(false);
         }
     };
 
     // ---- Distinct filter options derived from data ---------------
-    const groupOptions = useMemo(
-        () => Array.from(new Set(customers.map((c) => c.GROUPNAME).filter(Boolean))).sort(),
-        [customers]
-    );
-    const cityOptions = useMemo(
-        () => Array.from(new Set(customers.map((c) => c.CITY).filter(Boolean))).sort(),
-        [customers]
-    );
-    const dsmOptions = useMemo(
-        () => Array.from(new Set(customers.map((c) => c.DSM).filter(Boolean))).sort(),
-        [customers]
-    );
-    const rsmOptions = useMemo(
-        () => Array.from(new Set(customers.map((c) => c.RSM).filter(Boolean))).sort(),
-        [customers]
+    const parentOptions = useMemo(
+        () => Array.from(new Set(groups.map((g) => g.PARENTNAME).filter(Boolean))).sort(),
+        [groups]
     );
 
     const resetFilters = () => {
         setSearch("");
-        setGroup("");
-        setStatus("");
-        setCity("");
-        setDsm("");
-        setRsm("");
+        setParentGroup("");
+        setLevelFilter("");
+        setControlFilter("");
         setBalanceStatus("");
-        setGstStatus("");
-        setSalesActivity("");
+        setCustomerActivity("");
+        setVoucherFlag("");
         setMinBalance("");
         setMaxBalance("");
-        setMinSales("");
-        setMaxSales("");
+        setMinCustomers("");
+        setMaxCustomers("");
     };
 
     // ---- Filtering -------------------------------------------------
     const filtered = useMemo(() => {
         const s = search.toLowerCase();
-        return customers.filter((c) => {
-            const bal = Number(c.BALANCE || 0);
-            const sales = Number(c.TOTALSALES || 0);
+        return groups.filter((g) => {
+            const bal = Number(g.BALANCE || 0);
+            const custCount = Number(g.CUSTOMERCOUNT || 0);
 
             if (
                 s &&
                 !(
-                    (c.PARNAM || "").toLowerCase().includes(s) ||
-                    (c.MAILNAM || "").toLowerCase().includes(s) ||
-                    String(c.ORDNO || "").toLowerCase().includes(s) ||
-                    (c.GSTNO || "").toLowerCase().includes(s) ||
-                    (c.PHONE1 || "").toLowerCase().includes(s) ||
-                    (c.CITY || "").toLowerCase().includes(s)
+                    (g.PARNAM || "").toLowerCase().includes(s) ||
+                    String(g.ORDNO || "").toLowerCase().includes(s) ||
+                    (g.PARENTNAME || "").toLowerCase().includes(s)
                 )
             )
                 return false;
 
-            if (group && c.GROUPNAME !== group) return false;
-            if (status && c.STATUS !== status) return false;
-            if (city && c.CITY !== city) return false;
-            if (dsm && c.DSM !== dsm) return false;
-            if (rsm && c.RSM !== rsm) return false;
+            if (parentGroup && g.PARENTNAME !== parentGroup) return false;
+            if (levelFilter === "root" && !g.ISROOT) return false;
+            if (levelFilter === "sub" && g.ISROOT) return false;
+            if (controlFilter && g.CON !== controlFilter) return false;
 
-            if (balanceStatus === "outstanding" && !(bal > 0)) return false;
+            if (balanceStatus === "debit" && !(bal > 0)) return false;
             if (balanceStatus === "credit" && !(bal < 0)) return false;
             if (balanceStatus === "zero" && bal !== 0) return false;
 
-            if (gstStatus === "with" && !c.GSTNO) return false;
-            if (gstStatus === "without" && c.GSTNO) return false;
+            if (customerActivity === "with_customers" && !(custCount > 0)) return false;
+            if (customerActivity === "no_customers" && custCount > 0) return false;
 
-            if (salesActivity === "with_sales" && !(sales > 0)) return false;
-            if (salesActivity === "no_sales" && sales > 0) return false;
+            if (voucherFlag && g[voucherFlag] !== "Y") return false;
 
             if (minBalance && bal < Number(minBalance)) return false;
             if (maxBalance && bal > Number(maxBalance)) return false;
-            if (minSales && sales < Number(minSales)) return false;
-            if (maxSales && sales > Number(maxSales)) return false;
+            if (minCustomers && custCount < Number(minCustomers)) return false;
+            if (maxCustomers && custCount > Number(maxCustomers)) return false;
 
             return true;
         });
     }, [
-        customers,
+        groups,
         search,
-        group,
-        status,
-        city,
-        dsm,
-        rsm,
+        parentGroup,
+        levelFilter,
+        controlFilter,
         balanceStatus,
-        gstStatus,
-        salesActivity,
+        customerActivity,
+        voucherFlag,
         minBalance,
         maxBalance,
-        minSales,
-        maxSales,
+        minCustomers,
+        maxCustomers,
     ]);
 
     const totalCount = filtered.length;
-    const activeCount = filtered.filter((c) => c.STATUS === "Y").length;
-    const totalOutstanding = filtered.reduce((sum, c) => sum + Math.max(Number(c.BALANCE || 0), 0), 0);
-    const totalSalesSum = filtered.reduce((sum, c) => sum + Number(c.TOTALSALES || 0), 0);
+    const rootCount = filtered.filter((g) => g.ISROOT).length;
+    const totalCustomers = filtered.reduce((sum, g) => sum + Number(g.CUSTOMERCOUNT || 0), 0);
+    const totalBalance = filtered.reduce((sum, g) => sum + Number(g.BALANCE || 0), 0);
 
     // ---- Columns ---------------------------------------------------
     const columns = useMemo(() => {
-        const cols: ColumnDef<Customer, any>[] = ALL_FIELDS.map((f) =>
+        const cols: ColumnDef<AccountGroup, any>[] = ALL_FIELDS.map((f) =>
             columnHelper.accessor(f.key, {
                 id: f.key,
                 header: f.label,
@@ -371,15 +311,28 @@ export default function CustomerFullViewPage() {
                     const val = info.getValue();
                     if (f.type === "money") return money(val);
                     if (f.type === "date") return fmtDate(val);
-                    if (f.type === "status") {
-                        return val === "Y" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30">
-                                Active
+                    if (f.type === "flag") {
+                        return val ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-700 ring-1 ring-indigo-500/30">
+                                Root
                             </span>
                         ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30">
-                                Inactive
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-600 ring-1 ring-slate-500/30">
+                                Sub
                             </span>
+                        );
+                    }
+                    if (f.type === "boolyn") {
+                        return val === "Y" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30">
+                                Yes
+                            </span>
+                        ) : val === "N" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30">
+                                No
+                            </span>
+                        ) : (
+                            "-"
                         );
                     }
                     if (f.type === "balance") {
@@ -406,16 +359,22 @@ export default function CustomerFullViewPage() {
                 cell: (info) => (
                     <div className="flex gap-1.5">
                         <Link
-                            href={`/dashboard/customers/view/${info.row.original._id}`}
+                            href={`/dashboard/accounts/group/view/${info.row.original._id}`}
                             className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-blue-600 ring-1 ring-blue-500/30 hover:bg-blue-500 hover:text-white hover:ring-blue-500 transition-all duration-200"
                         >
                             View
                         </Link>
                         <Link
-                            href={`/dashboard/customers/ledger/${info.row.original._id}`}
+                            href={`/dashboard/accounts/group/ledger/${info.row.original._id}`}
                             className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-emerald-600 ring-1 ring-emerald-500/30 hover:bg-emerald-500 hover:text-white hover:ring-emerald-500 transition-all duration-200"
                         >
                             Ledger
+                        </Link>
+                        <Link
+                            href={`/dashboard/customers/full?group=${encodeURIComponent(info.row.original.ORDNO)}`}
+                            className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-white/50 text-indigo-600 ring-1 ring-indigo-500/30 hover:bg-indigo-500 hover:text-white hover:ring-indigo-500 transition-all duration-200"
+                        >
+                            Customers
                         </Link>
                     </div>
                 ),
@@ -466,19 +425,19 @@ export default function CustomerFullViewPage() {
 
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Customers");
-        XLSX.writeFile(wb, `customers_full_export_${Date.now()}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "AccountGroups");
+        XLSX.writeFile(wb, `account_group_full_export_${Date.now()}.xlsx`);
     };
 
     return (
         <div className="space-y-4">
             {/* ==================== STAT STRIP ==================== */}
             <div className="flex flex-wrap gap-2">
-                <StatChip label="Customers" value={totalCount} tone="bg-blue-500" />
-                <StatChip label="Active" value={activeCount} tone="bg-emerald-500" />
-                <StatChip label="Outstanding" value={money(totalOutstanding)} tone="bg-rose-500" />
-                <StatChip label="Total Sales" value={money(totalSalesSum)} tone="bg-indigo-500" />
-                <StatChip label="Columns shown" value={`${visibleCount}/${ALL_FIELDS.length}`} tone="bg-violet-500" />
+                <StatChip label="Groups" value={totalCount} tone="bg-blue-500" />
+                <StatChip label="Root Groups" value={rootCount} tone="bg-indigo-500" />
+                <StatChip label="Customers Linked" value={totalCustomers} tone="bg-violet-500" />
+                <StatChip label="Total Balance" value={money(totalBalance)} tone="bg-rose-500" />
+                <StatChip label="Columns shown" value={`${visibleCount}/${ALL_FIELDS.length}`} tone="bg-emerald-500" />
             </div>
 
             {/* ==================== MAIN CARD ==================== */}
@@ -489,9 +448,9 @@ export default function CustomerFullViewPage() {
                 <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 bg-gradient-to-r from-[#343872]/90 to-indigo-600/85 backdrop-blur-md">
                     <div className="flex items-center gap-2">
                         <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-white/15 text-white">
-                            <FaUsers size={14} />
+                            <FaSitemap size={14} />
                         </div>
-                        <h5 className="text-sm font-semibold text-white tracking-wide m-0">Ledger/Customer Master — Full View</h5>
+                        <h5 className="text-sm font-semibold text-white tracking-wide m-0">Account Group Master — Full View</h5>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -501,7 +460,7 @@ export default function CustomerFullViewPage() {
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search name, code, GST, phone, city..."
+                                placeholder="Search group name, code, parent..."
                                 className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-white/15 text-white placeholder-white/60 ring-1 ring-white/25 focus:ring-white/50 outline-none backdrop-blur-md transition-all duration-200"
                             />
                         </div>
@@ -533,65 +492,36 @@ export default function CustomerFullViewPage() {
                 {showFilters && (
                     <div className="relative grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 px-4 py-3 bg-white/40 border-b border-gray-200/60">
                         <select
-                            value={group}
-                            onChange={(e) => setGroup(e.target.value)}
+                            value={parentGroup}
+                            onChange={(e) => setParentGroup(e.target.value)}
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
                         >
-                            <option value="">All Groups</option>
-                            {groupOptions.map((g) => (
-                                <option key={g} value={g}>
-                                    {g}
+                            <option value="">All Parent Groups</option>
+                            {parentOptions.map((p) => (
+                                <option key={p} value={p}>
+                                    {p}
                                 </option>
                             ))}
                         </select>
 
                         <select
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value)}
+                            value={levelFilter}
+                            onChange={(e) => setLevelFilter(e.target.value)}
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
                         >
-                            <option value="">All Status</option>
-                            <option value="Y">Active</option>
-                            <option value="N">Inactive</option>
+                            <option value="">Root &amp; Sub-groups</option>
+                            <option value="root">Root Groups Only</option>
+                            <option value="sub">Sub-groups Only</option>
                         </select>
 
                         <select
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
+                            value={controlFilter}
+                            onChange={(e) => setControlFilter(e.target.value)}
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
                         >
-                            <option value="">All Cities</option>
-                            {cityOptions.map((c) => (
-                                <option key={c} value={c}>
-                                    {c}
-                                </option>
-                            ))}
-                        </select>
-
-                        <select
-                            value={dsm}
-                            onChange={(e) => setDsm(e.target.value)}
-                            className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
-                        >
-                            <option value="">All DSM</option>
-                            {dsmOptions.map((d) => (
-                                <option key={d} value={d}>
-                                    {d}
-                                </option>
-                            ))}
-                        </select>
-
-                        <select
-                            value={rsm}
-                            onChange={(e) => setRsm(e.target.value)}
-                            className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
-                        >
-                            <option value="">All RSM</option>
-                            {rsmOptions.map((r) => (
-                                <option key={r} value={r}>
-                                    {r}
-                                </option>
-                            ))}
+                            <option value="">Control A/c — All</option>
+                            <option value="Y">Control A/c: Yes</option>
+                            <option value="N">Control A/c: No</option>
                         </select>
 
                         <select
@@ -600,29 +530,35 @@ export default function CustomerFullViewPage() {
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
                         >
                             <option value="">All Balances</option>
-                            <option value="outstanding">Outstanding (Dr)</option>
-                            <option value="credit">Advance (Cr)</option>
+                            <option value="debit">Debit Balance</option>
+                            <option value="credit">Credit Balance</option>
                             <option value="zero">Zero Balance</option>
                         </select>
 
                         <select
-                            value={gstStatus}
-                            onChange={(e) => setGstStatus(e.target.value)}
+                            value={customerActivity}
+                            onChange={(e) => setCustomerActivity(e.target.value)}
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
                         >
-                            <option value="">GST — All</option>
-                            <option value="with">GST No. Present</option>
-                            <option value="without">GST No. Missing</option>
+                            <option value="">Customers — All</option>
+                            <option value="with_customers">Has Customers</option>
+                            <option value="no_customers">No Customers</option>
                         </select>
 
                         <select
-                            value={salesActivity}
-                            onChange={(e) => setSalesActivity(e.target.value)}
+                            value={voucherFlag}
+                            onChange={(e) => setVoucherFlag(e.target.value)}
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
                         >
-                            <option value="">Sales Activity — All</option>
-                            <option value="with_sales">Has Sales</option>
-                            <option value="no_sales">No Sales Yet</option>
+                            <option value="">Voucher Flag — Any</option>
+                            <option value="SALDR">Sales Debit = Y</option>
+                            <option value="SALCR">Sales Credit = Y</option>
+                            <option value="PURDR">Purchase Debit = Y</option>
+                            <option value="PURCR">Purchase Credit = Y</option>
+                            <option value="RECDR">Receipt Debit = Y</option>
+                            <option value="RECCR">Receipt Credit = Y</option>
+                            <option value="PAYDR">Payment Debit = Y</option>
+                            <option value="PAYCR">Payment Credit = Y</option>
                         </select>
 
                         <input
@@ -641,16 +577,16 @@ export default function CustomerFullViewPage() {
                         />
                         <input
                             type="number"
-                            value={minSales}
-                            onChange={(e) => setMinSales(e.target.value)}
-                            placeholder="Min Total Sales"
+                            value={minCustomers}
+                            onChange={(e) => setMinCustomers(e.target.value)}
+                            placeholder="Min Customers"
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
                         />
                         <input
                             type="number"
-                            value={maxSales}
-                            onChange={(e) => setMaxSales(e.target.value)}
-                            placeholder="Max Total Sales"
+                            value={maxCustomers}
+                            onChange={(e) => setMaxCustomers(e.target.value)}
+                            placeholder="Max Customers"
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/70 ring-1 ring-gray-200 text-gray-600 outline-none"
                         />
 
@@ -700,7 +636,7 @@ export default function CustomerFullViewPage() {
                             {loading ? (
                                 <tr>
                                     <td colSpan={visibleCount + 1} className="text-center text-gray-400 py-10 text-sm">
-                                        Loading ledger...
+                                        Loading account groups...
                                     </td>
                                 </tr>
                             ) : table.getRowModel().rows.length > 0 ? (
@@ -726,7 +662,7 @@ export default function CustomerFullViewPage() {
                             ) : (
                                 <tr>
                                     <td colSpan={visibleCount + 1} className="text-center text-gray-400 py-10 text-sm">
-                                        No ledger found
+                                        No account groups found
                                     </td>
                                 </tr>
                             )}
