@@ -15,19 +15,20 @@ import GLedger from "@/models/GLedger";
 //   - customers         : parties whose SCODE == group.ORDNO, each with its own ledger totals
 //   - totals            : rollups across the customers above
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     await connectDB();
 
     let group: any = null;
     try {
-        group = await AccountGroup.findById(params.id).lean();
+        group = await AccountGroup.findById(id).lean();
     } catch (err) {
-        console.error("[accountgroup/:id] invalid id or query error:", params.id, err);
+        console.error("[accountgroup/:id] invalid id or query error:", id, err);
         return NextResponse.json({ error: "Invalid account group id" }, { status: 400 });
     }
 
     if (!group) {
-        console.warn("[accountgroup/:id] no document found for _id:", params.id);
+        console.warn("[accountgroup/:id] no document found for _id:", id);
         return NextResponse.json({ error: "Account group not found" }, { status: 404 });
     }
 
