@@ -16,6 +16,7 @@ import {
     ColumnDef,
 } from "@tanstack/react-table";
 import {
+    FaFileInvoice,
     FaBoxes,
     FaSearch,
     FaSort,
@@ -28,110 +29,62 @@ import {
     FaFilter,
     FaUndo,
     FaTimes,
-    FaIdCard,
-    FaChartLine,
-    FaExclamationTriangle,
-    FaTag,
-    FaLayerGroup,
-    FaBuilding,
+    FaPercentage,
+    FaExclamationCircle,
+    FaBoxOpen,
     FaArrowRight,
-    FaCoins,
+    FaIdCard,
 } from "react-icons/fa";
 
-type Product = Record<string, any>;
+type HsnRow = Record<string, any>;
 
-const columnHelper = createColumnHelper<Product>();
+const columnHelper = createColumnHelper<HsnRow>();
 
-/* ---------------------------------------------------------- */
-/* Helpers                                                      */
-/* ---------------------------------------------------------- */
-
-const money = (v: any) => `₹ ${Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-const pct = (v: any) => `${v ?? 0}%`;
-
-function stockClasses(balance: number) {
-    if (balance <= 0) return "bg-rose-500/15 text-rose-600 ring-rose-500/30";
-    if (balance <= 10) return "bg-amber-500/15 text-amber-700 ring-amber-500/30";
-    return "bg-emerald-500/15 text-emerald-700 ring-emerald-500/30";
+function pctRange(min: any, max: any) {
+    if (min === null || min === undefined) return "-";
+    if (max === null || max === undefined || min === max) return `${min}%`;
+    return `${min}% – ${max}%`;
 }
 
-type FieldType = "text" | "money" | "percent" | "status" | "stock" | "margin";
+type FieldType = "text" | "count" | "range" | "products" | "percent";
 
 type FieldDef = {
     key: string;
     label: string;
     type?: FieldType;
-    derived?: boolean;
+    rangeKeys?: [string, string];
 };
 
 const FIELD_GROUPS: { label: string; fields: FieldDef[] }[] = [
     {
         label: "Basic Information",
         fields: [
-            { key: "CODE", label: "Code" },
-            { key: "PRODUCT", label: "Product Name" },
-            { key: "company", label: "Company", derived: true },
-            { key: "GCODE", label: "GCode" },
-            { key: "STATUS", label: "Status", type: "status" },
-            { key: "UNIT", label: "Unit" },
-            { key: "UNIT2", label: "Second Unit" },
-            { key: "PACKING", label: "Packing" },
-            { key: "PACK", label: "Pack Qty" },
-            { key: "HSN", label: "HSN / SAC" },
-            { key: "UPCCODE", label: "UPC Code" },
-            { key: "RACKNO", label: "Rack No." },
-            { key: "RACKNO2", label: "Rack No. 2" },
+            { key: "HSNCODE", label: "HSN / SAC Code" },
+            { key: "SCODE", label: "Internal Code" },
+            { key: "DESCRIPTION", label: "Description" },
         ],
     },
     {
-        label: "Pricing & Margin",
+        label: "GST Information",
         fields: [
-            { key: "MRP", label: "MRP", type: "money" },
-            { key: "PRATE", label: "Purchase Rate", type: "money" },
-            { key: "RATEF", label: "Sale Rate", type: "money" },
-            { key: "marginPct", label: "Margin %", type: "margin" },
-            { key: "LPRATE", label: "Last Purchase Rate", type: "money" },
-            { key: "COST", label: "Cost / PCS", type: "money" },
-            { key: "RATEA", label: "Rate A", type: "money" },
-            { key: "RATEB", label: "Rate B", type: "money" },
-            { key: "RATEC", label: "Rate C", type: "money" },
-            { key: "RATED", label: "Rate D", type: "money" },
-            { key: "RATEE", label: "Rate E", type: "money" },
+            { key: "CGST", label: "CGST %", type: "percent" },
+            { key: "SGST", label: "SGST %", type: "percent" },
+            { key: "IGST", label: "IGST %", type: "percent" },
+            { key: "TOTALGST", label: "Total GST % (Normal)", type: "percent" },
         ],
     },
     {
-        label: "GST / Tax Information",
+        label: "Product Coverage",
         fields: [
-            { key: "CGST", label: "CGST", type: "percent" },
-            { key: "SGST", label: "SGST", type: "percent" },
-            { key: "IGST", label: "IGST", type: "percent" },
-            { key: "PURTAX", label: "Purchase Tax", type: "percent" },
-            { key: "SALTAX", label: "Sale Tax", type: "percent" },
-            { key: "TAXL", label: "Tax Type" },
-            { key: "TAXC", label: "Tax Category" },
+            { key: "PRODUCTCOUNT", label: "Total Products", type: "count" },
+            { key: "ACTIVECOUNT", label: "Active Products", type: "count" },
+            { key: "PRODUCTS", label: "Products Summary", type: "products" },
         ],
     },
     {
-        label: "Stock & Valuation",
+        label: "Scheme Rate (RATE table)",
         fields: [
-            { key: "BALANCE", label: "Current Stock", type: "stock" },
-            { key: "stockValue", label: "Stock Value", type: "money" },
-            { key: "OPENING", label: "Opening Stock" },
-            { key: "FREEBAL", label: "Free Balance" },
-            { key: "HOLD", label: "Hold Stock" },
-            { key: "MINIMUM", label: "Minimum Stock" },
-            { key: "MAXIMUM", label: "Maximum Stock" },
-        ],
-    },
-    {
-        label: "Discount & Scheme",
-        fields: [
-            { key: "SALDIS", label: "Sale Discount", type: "percent" },
-            { key: "PURDIS", label: "Purchase Discount", type: "percent" },
-            { key: "SALVDIS", label: "Sale Special Discount", type: "percent" },
-            { key: "PURSPDIS", label: "Purchase Special Discount", type: "percent" },
-            { key: "FIXDIS", label: "Fixed Discount" },
-            { key: "FREE", label: "Free Scheme" },
+            { key: "SCHEMERATE", label: "Scheme Rate %", type: "range", rangeKeys: ["SCHEMERATEMIN", "SCHEMERATEMAX"] },
         ],
     },
 ];
@@ -139,17 +92,14 @@ const FIELD_GROUPS: { label: string; fields: FieldDef[] }[] = [
 const ALL_FIELDS: FieldDef[] = FIELD_GROUPS.flatMap((g) => g.fields);
 
 const DEFAULT_VISIBLE = [
-    "CODE",
-    "PRODUCT",
-    "company",
-    "STATUS",
-    "UNIT",
-    "MRP",
-    "PRATE",
-    "RATEF",
-    "marginPct",
-    "BALANCE",
+    "HSNCODE",
+    "DESCRIPTION",
+    "PRODUCTCOUNT",
+    "ACTIVECOUNT",
+    "CGST",
+    "SGST",
     "IGST",
+    "TOTALGST",
 ];
 
 function StatChip({
@@ -171,7 +121,7 @@ function StatChip({
             onClick={onClick}
             className={`flex items-center gap-2.5 rounded-xl backdrop-blur-xl border px-3 py-2 text-left shadow-[0_2px_10px_rgba(0,0,0,0.05)] transition-all duration-200 ${
                 active
-                    ? "bg-white border-blue-600 ring-2 ring-blue-600/20 shadow-md scale-[1.02]"
+                    ? "bg-white border-indigo-600 ring-2 ring-indigo-600/20 shadow-md scale-[1.02]"
                     : "bg-white/60 border-white/40 hover:bg-white/80 hover:border-gray-300"
             }`}
         >
@@ -184,8 +134,8 @@ function StatChip({
     );
 }
 
-export default function ProductsFullViewPage() {
-    const [products, setProducts] = useState<Product[]>([]);
+export default function HsnMasterPage() {
+    const [rows, setRows] = useState<HsnRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [pageSize, setPageSize] = useState<number>(10);
@@ -201,195 +151,150 @@ export default function ProductsFullViewPage() {
     const [showColumnPicker, setShowColumnPicker] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
-    // Selected product for quick side drawer
-    const [selectedProductDrawer, setSelectedProductDrawer] = useState<Product | null>(null);
+    // Selected HSN for quick side drawer
+    const [selectedHsnDrawer, setSelectedHsnDrawer] = useState<HsnRow | null>(null);
+    const [drawerProductSearch, setDrawerProductSearch] = useState("");
 
-    // Preset Tabs: "all" | "low_stock" | "high_margin" | "active" | "inactive"
+    // GST Slab Preset Tabs: "all" | "0" | "5" | "12" | "18" | "28" | "unused"
     const [activeTab, setActiveTab] = useState<string>("all");
 
     // Filters
     const [search, setSearch] = useState("");
-    const [company, setCompany] = useState("");
-    const [status, setStatus] = useState("");
-    const [stockStatus, setStockStatus] = useState("");
-    const [unit, setUnit] = useState("");
-    const [igst, setIgst] = useState("");
-    const [hsn, setHsn] = useState("");
-    const [minMRP, setMinMRP] = useState("");
-    const [maxMRP, setMaxMRP] = useState("");
-    const [minStock, setMinStock] = useState("");
-    const [maxStock, setMaxStock] = useState("");
+    const [coverage, setCoverage] = useState("");
+    const [minProducts, setMinProducts] = useState("");
+    const [maxProducts, setMaxProducts] = useState("");
+    const [minGst, setMinGst] = useState("");
+    const [maxGst, setMaxGst] = useState("");
 
     useEffect(() => {
-        loadProducts();
+        loadHsn();
     }, []);
 
-    const loadProducts = async () => {
+    const loadHsn = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/master/product");
+            const res = await fetch("/api/master/hsn");
             const data = await res.json();
-            setProducts(Array.isArray(data) ? data : []);
+            setRows(Array.isArray(data) ? data : []);
         } finally {
             setLoading(false);
         }
     };
 
-    const companyOptions = useMemo(
-        () => Array.from(new Set(products.map((p) => p.companyName || p.GCODE).filter(Boolean))).sort(),
-        [products]
-    );
-    const unitOptions = useMemo(
-        () => Array.from(new Set(products.map((p) => p.UNIT).filter(Boolean))).sort(),
-        [products]
-    );
-    const igstOptions = useMemo(
-        () =>
-            Array.from(new Set(products.map((p) => p.IGST).filter((v) => v !== undefined && v !== null))).sort(
-                (a, b) => Number(a) - Number(b)
-            ),
-        [products]
-    );
-
     const resetFilters = () => {
         setSearch("");
-        setCompany("");
-        setStatus("");
-        setStockStatus("");
-        setUnit("");
-        setIgst("");
-        setHsn("");
-        setMinMRP("");
-        setMaxMRP("");
-        setMinStock("");
-        setMaxStock("");
+        setCoverage("");
+        setMinProducts("");
+        setMaxProducts("");
+        setMinGst("");
+        setMaxGst("");
         setActiveTab("all");
     };
 
     const filtered = useMemo(() => {
         const s = search.toLowerCase();
 
-        let base = products.filter((p) => {
-            const comp = p.companyName || p.GCODE || "";
-            const bal = Number(p.BALANCE || 0);
+        let base = rows.filter((r) => {
+            const count = Number(r.PRODUCTCOUNT || 0);
+            const totalGst = r.TOTALGST === null || r.TOTALGST === undefined ? null : Number(r.TOTALGST);
 
             if (
                 s &&
                 !(
-                    (p.PRODUCT || "").toLowerCase().includes(s) ||
-                    String(p.CODE || "").toLowerCase().includes(s) ||
-                    (p.GCODE || "").toLowerCase().includes(s) ||
-                    String(comp).toLowerCase().includes(s) ||
-                    (p.HSN || "").toString().toLowerCase().includes(s)
+                    (r.HSNCODE || "").toLowerCase().includes(s) ||
+                    (r.DESCRIPTION || "").toLowerCase().includes(s) ||
+                    (r.SCODE || "").toLowerCase().includes(s) ||
+                    (r.PRODUCTS || "").toLowerCase().includes(s)
                 )
             )
                 return false;
 
-            if (company && comp !== company) return false;
-            if (status && p.STATUS !== status) return false;
-            if (unit && p.UNIT !== unit) return false;
-            if (igst && String(p.IGST ?? "") !== String(igst)) return false;
-            if (hsn && !String(p.HSN || "").toLowerCase().includes(hsn.toLowerCase())) return false;
+            if (coverage === "with_products" && count === 0) return false;
+            if (coverage === "no_products" && count > 0) return false;
 
-            if (stockStatus === "in" && bal <= 10) return false;
-            if (stockStatus === "low" && !(bal > 0 && bal <= 10)) return false;
-            if (stockStatus === "out" && bal > 0) return false;
+            if (minProducts && count < Number(minProducts)) return false;
+            if (maxProducts && count > Number(maxProducts)) return false;
 
-            if (minMRP && Number(p.MRP || 0) < Number(minMRP)) return false;
-            if (maxMRP && Number(p.MRP || 0) > Number(maxMRP)) return false;
-            if (minStock && bal < Number(minStock)) return false;
-            if (maxStock && bal > Number(maxStock)) return false;
+            if (minGst && (totalGst === null || totalGst < Number(minGst))) return false;
+            if (maxGst && (totalGst === null || totalGst > Number(maxGst))) return false;
 
             return true;
         });
 
         // Tab Presets
-        if (activeTab === "low_stock") {
-            base = base.filter((p) => Number(p.BALANCE || 0) <= 10);
-            base.sort((a, b) => Number(a.BALANCE || 0) - Number(b.BALANCE || 0));
-        } else if (activeTab === "high_margin") {
-            base = base.filter((p) => Number(p.marginPct || 0) >= 20);
-            base.sort((a, b) => Number(b.marginPct || 0) - Number(a.marginPct || 0));
-        } else if (activeTab === "active") {
-            base = base.filter((p) => p.STATUS === "Y");
-        } else if (activeTab === "inactive") {
-            base = base.filter((p) => p.STATUS === "N" || p.STATUS === "C");
+        if (activeTab === "0") {
+            base = base.filter((r) => Number(r.TOTALGST || 0) === 0);
+        } else if (activeTab === "5") {
+            base = base.filter((r) => Number(r.TOTALGST || 0) === 5);
+        } else if (activeTab === "12") {
+            base = base.filter((r) => Number(r.TOTALGST || 0) === 12);
+        } else if (activeTab === "18") {
+            base = base.filter((r) => Number(r.TOTALGST || 0) === 18);
+        } else if (activeTab === "28") {
+            base = base.filter((r) => Number(r.TOTALGST || 0) === 28);
+        } else if (activeTab === "unused") {
+            base = base.filter((r) => Number(r.PRODUCTCOUNT || 0) === 0);
         }
 
         return base;
-    }, [
-        products,
-        search,
-        company,
-        status,
-        unit,
-        igst,
-        hsn,
-        stockStatus,
-        minMRP,
-        maxMRP,
-        minStock,
-        maxStock,
-        activeTab,
-    ]);
+    }, [rows, search, coverage, minProducts, maxProducts, minGst, maxGst, activeTab]);
 
-    const totalCount = filtered.length;
-    const activeCount = filtered.filter((p) => p.STATUS === "Y").length;
-    const inactiveCount = totalCount - activeCount;
-    const lowOrOutOfStockCount = filtered.filter((p) => Number(p.BALANCE || 0) <= 10).length;
-    const totalValuation = filtered.reduce((sum, p) => sum + Number(p.stockValue || 0), 0);
+    const totalHsn = filtered.length;
+    const totalProducts = filtered.reduce((sum, r) => sum + Number(r.PRODUCTCOUNT || 0), 0);
+    const withProducts = filtered.filter((r) => Number(r.PRODUCTCOUNT || 0) > 0).length;
+    const withoutProducts = totalHsn - withProducts;
+
+    const slab12Count = rows.filter((r) => Number(r.TOTALGST || 0) === 12).length;
+    const slab18Count = rows.filter((r) => Number(r.TOTALGST || 0) === 18).length;
 
     const columns = useMemo(() => {
-        const cols: ColumnDef<Product, any>[] = ALL_FIELDS.map((f) => {
-            const accessor = f.derived ? (row: Product) => row.companyName || row.GCODE : f.key;
+        const cols: ColumnDef<HsnRow, any>[] = ALL_FIELDS.map((f) => {
+            if (f.type === "range" && f.rangeKeys) {
+                const [minKey, maxKey] = f.rangeKeys;
+                return columnHelper.accessor((row) => row[maxKey] ?? row[minKey] ?? null, {
+                    id: f.key,
+                    header: f.label,
+                    cell: (info) => {
+                        const row = info.row.original;
+                        return pctRange(row[minKey], row[maxKey]);
+                    },
+                });
+            }
 
-            return columnHelper.accessor(accessor as any, {
+            return columnHelper.accessor(f.key, {
                 id: f.key,
                 header: f.label,
                 cell: (info) => {
                     const val = info.getValue();
-                    if (f.type === "money") return money(val);
-                    if (f.type === "percent") return pct(val);
-                    if (f.type === "margin") {
-                        const m = Number(val || 0);
+                    if (f.type === "count") {
+                        const count = Number(val || 0);
                         return (
-                            <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ring-1 ${
-                                    m >= 25
-                                        ? "bg-emerald-500/15 text-emerald-700 ring-emerald-500/30"
-                                        : m >= 10
-                                        ? "bg-blue-500/15 text-blue-700 ring-blue-500/30"
-                                        : "bg-amber-500/15 text-amber-700 ring-amber-500/30"
+                            <button
+                                type="button"
+                                onClick={() => setSelectedHsnDrawer(info.row.original)}
+                                className={`inline-flex items-center justify-center min-w-[2.5rem] px-2 py-0.5 rounded-full text-xs font-bold transition-all ${
+                                    count > 0
+                                        ? "bg-indigo-500/15 text-indigo-700 ring-1 ring-indigo-500/30 hover:bg-indigo-600 hover:text-white"
+                                        : "bg-slate-100 text-slate-400 ring-1 ring-slate-200"
                                 }`}
+                                title="Click to view mapped products"
                             >
-                                {m}%
-                            </span>
+                                {count}
+                            </button>
                         );
                     }
-                    if (f.type === "status") {
-                        return val === "Y" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30">
-                                Active
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-600 ring-1 ring-rose-500/30">
-                                Inactive
-                            </span>
-                        );
-                    }
-                    if (f.type === "stock") {
-                        const n = Number(val || 0);
+                    if (f.type === "products") {
                         return (
-                            <span
-                                className={`inline-flex items-center justify-center min-w-[3rem] px-2 py-0.5 rounded-full text-xs font-bold ring-1 ${stockClasses(
-                                    n
-                                )}`}
-                            >
-                                {n.toLocaleString()}
+                            <span className="block max-w-[280px] truncate text-xs text-gray-500" title={val || ""}>
+                                {val || "-"}
                             </span>
                         );
                     }
-                    if (f.key === "PRODUCT") {
+                    if (f.type === "percent") {
+                        if (val === undefined || val === null) return "-";
+                        return <span className="font-semibold text-gray-700">{val}%</span>;
+                    }
+                    if (f.key === "HSNCODE") {
                         return <span className="font-bold text-gray-800">{val || "—"}</span>;
                     }
                     return val === undefined || val === null || val === "" ? "-" : String(val);
@@ -400,18 +305,15 @@ export default function ProductsFullViewPage() {
         cols.push(
             columnHelper.display({
                 id: "action",
-                header: "Actions",
+                header: "Action",
                 cell: (info) => (
-                    <div className="flex items-center gap-1.5">
-                        <button
-                            type="button"
-                            onClick={() => setSelectedProductDrawer(info.row.original)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-600 hover:text-white transition-all"
-                            title="Quick Product Drawer"
-                        >
-                            <FaIdCard size={11} /> Quick
-                        </button>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setSelectedHsnDrawer(info.row.original)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-600 hover:text-white transition-all"
+                    >
+                        <FaIdCard size={11} /> Products ({info.row.original.PRODUCTCOUNT || 0})
+                    </button>
                 ),
             })
         );
@@ -420,9 +322,7 @@ export default function ProductsFullViewPage() {
     }, []);
 
     const numericTypes = new Set(
-        ALL_FIELDS.filter((f) => f.type === "money" || f.type === "percent" || f.type === "stock" || f.type === "margin").map(
-            (f) => f.key
-        )
+        ALL_FIELDS.filter((f) => f.type === "count" || f.type === "range" || f.type === "percent").map((f) => f.key)
     );
 
     const table = useReactTable({
@@ -454,57 +354,73 @@ export default function ProductsFullViewPage() {
 
     const exportToExcel = () => {
         const visibleCols = table.getVisibleLeafColumns().filter((c) => c.id !== "action");
-        const rows = table.getFilteredRowModel().rows.map((row) => {
+        const rowsOut = table.getFilteredRowModel().rows.map((row) => {
             const obj: Record<string, any> = {};
             visibleCols.forEach((col) => {
                 const header = typeof col.columnDef.header === "string" ? col.columnDef.header : col.id;
-                obj[header] = row.getValue(col.id);
+                const field = ALL_FIELDS.find((f) => f.key === col.id);
+                if (field?.type === "range" && field.rangeKeys) {
+                    const [minKey, maxKey] = field.rangeKeys;
+                    obj[header] = pctRange(row.original[minKey], row.original[maxKey]);
+                } else {
+                    obj[header] = row.getValue(col.id);
+                }
             });
             return obj;
         });
 
-        const ws = XLSX.utils.json_to_sheet(rows);
+        const ws = XLSX.utils.json_to_sheet(rowsOut);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Products");
-        XLSX.writeFile(wb, `products_catalog_export_${Date.now()}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "HSN Master");
+        XLSX.writeFile(wb, `hsn_master_export_${Date.now()}.xlsx`);
     };
+
+    // Filter drawer product list
+    const drawerProducts = useMemo(() => {
+        if (!selectedHsnDrawer) return [];
+        const items = selectedHsnDrawer.PRODUCTLIST || [];
+        const s = drawerProductSearch.trim().toLowerCase();
+        if (!s) return items;
+        return items.filter(
+            (p: any) =>
+                (p.name || "").toLowerCase().includes(s) ||
+                (p.code || "").toLowerCase().includes(s) ||
+                (p.pack || "").toLowerCase().includes(s)
+        );
+    }, [selectedHsnDrawer, drawerProductSearch]);
 
     return (
         <div className="space-y-4 p-2 sm:p-4">
-            {/* ==================== TOP STAT STRIP ==================== */}
+            {/* ==================== STAT STRIP ==================== */}
             <div className="flex flex-wrap gap-2.5 items-center">
                 <StatChip
-                    label="Products"
-                    value={totalCount}
+                    label="HSN Codes"
+                    value={totalHsn}
                     tone="bg-blue-500"
                     active={activeTab === "all"}
                     onClick={() => setActiveTab("all")}
                 />
+                <StatChip label="Mapped Products" value={totalProducts} tone="bg-[#343872]" />
                 <StatChip
-                    label="Active Catalog"
-                    value={activeCount}
-                    tone="bg-emerald-500"
-                    active={activeTab === "active"}
-                    onClick={() => setActiveTab("active")}
-                />
-                <StatChip
-                    label="Low & Out of Stock"
-                    value={lowOrOutOfStockCount}
-                    tone="bg-rose-500"
-                    active={activeTab === "low_stock"}
-                    onClick={() => setActiveTab("low_stock")}
-                />
-                <StatChip
-                    label="High Margin (>=20%)"
-                    value={filtered.filter((p) => Number(p.marginPct || 0) >= 20).length}
+                    label="12% Slab HSN"
+                    value={slab12Count}
                     tone="bg-indigo-500"
-                    active={activeTab === "high_margin"}
-                    onClick={() => setActiveTab("high_margin")}
+                    active={activeTab === "12"}
+                    onClick={() => setActiveTab("12")}
                 />
                 <StatChip
-                    label="Stock Valuation"
-                    value={money(totalValuation)}
+                    label="18% Slab HSN"
+                    value={slab18Count}
                     tone="bg-amber-500"
+                    active={activeTab === "18"}
+                    onClick={() => setActiveTab("18")}
+                />
+                <StatChip
+                    label="Unmapped HSN"
+                    value={withoutProducts}
+                    tone="bg-rose-500"
+                    active={activeTab === "unused"}
+                    onClick={() => setActiveTab("unused")}
                 />
             </div>
 
@@ -516,17 +432,17 @@ export default function ProductsFullViewPage() {
                 <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 px-4 py-3 bg-gradient-to-r from-blue-600/90 to-indigo-600/85 backdrop-blur-md">
                     <div className="flex items-center gap-2.5">
                         <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-white/15 text-white">
-                            <FaBoxes size={16} />
+                            <FaFileInvoice size={16} />
                         </div>
                         <div>
-                            <h5 className="text-sm font-bold text-white tracking-wide m-0">Product Master Hub</h5>
-                            <p className="text-[11px] text-white/70 m-0">Inventory pricing, margins & stock catalog</p>
+                            <h5 className="text-sm font-bold text-white tracking-wide m-0">HSN Tax Master</h5>
+                            <p className="text-[11px] text-white/70 m-0">GST codes & product tax classifications</p>
                         </div>
                     </div>
 
                     {/* Presets & Actions */}
                     <div className="flex flex-wrap items-center gap-2">
-                        {/* Preset tabs */}
+                        {/* Slab Tabs */}
                         <div className="flex items-center bg-white/15 p-1 rounded-xl ring-1 ring-white/20 backdrop-blur-md">
                             <button
                                 type="button"
@@ -535,38 +451,43 @@ export default function ProductsFullViewPage() {
                                     activeTab === "all" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
                                 }`}
                             >
-                                All Products
+                                All HSN
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setActiveTab("low_stock")}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                                    activeTab === "low_stock"
-                                        ? "bg-white text-indigo-900 shadow-sm font-semibold"
-                                        : "text-white/80 hover:text-white"
-                                }`}
-                            >
-                                <FaExclamationTriangle size={10} /> Low Stock
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("high_margin")}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                                    activeTab === "high_margin"
-                                        ? "bg-white text-indigo-900 shadow-sm font-semibold"
-                                        : "text-white/80 hover:text-white"
-                                }`}
-                            >
-                                <FaChartLine size={10} /> High Margin
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("active")}
+                                onClick={() => setActiveTab("12")}
                                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                                    activeTab === "active" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
+                                    activeTab === "12" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
                                 }`}
                             >
-                                Active
+                                12% GST
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("18")}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                                    activeTab === "18" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
+                                }`}
+                            >
+                                18% GST
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("28")}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                                    activeTab === "28" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
+                                }`}
+                            >
+                                28% GST
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("unused")}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                                    activeTab === "unused" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
+                                }`}
+                            >
+                                Unmapped
                             </button>
                         </div>
 
@@ -577,7 +498,7 @@ export default function ProductsFullViewPage() {
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search product, code, company, HSN…"
+                                placeholder="Search HSN, description, products…"
                                 className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-white/15 text-white placeholder-white/60 ring-1 ring-white/25 focus:ring-white/50 outline-none backdrop-blur-md transition-all duration-200"
                             />
                         </div>
@@ -614,100 +535,41 @@ export default function ProductsFullViewPage() {
                 {showFilters && (
                     <div className="relative grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 px-4 py-3 bg-white/40 border-b border-gray-200/60">
                         <select
-                            value={company}
-                            onChange={(e) => setCompany(e.target.value)}
+                            value={coverage}
+                            onChange={(e) => setCoverage(e.target.value)}
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
                         >
-                            <option value="">All Companies</option>
-                            {companyOptions.map((c) => (
-                                <option key={c} value={c}>
-                                    {c}
-                                </option>
-                            ))}
+                            <option value="">Coverage — All</option>
+                            <option value="with_products">Has Products</option>
+                            <option value="no_products">No Products Mapped</option>
                         </select>
-
-                        <select
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value)}
-                            className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
-                        >
-                            <option value="">All Status</option>
-                            <option value="Y">Active</option>
-                            <option value="N">Inactive</option>
-                        </select>
-
-                        <select
-                            value={stockStatus}
-                            onChange={(e) => setStockStatus(e.target.value)}
-                            className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
-                        >
-                            <option value="">All Stock Levels</option>
-                            <option value="in">In Stock (&gt;10)</option>
-                            <option value="low">Low Stock (1-10)</option>
-                            <option value="out">Out of Stock (0)</option>
-                        </select>
-
-                        <select
-                            value={unit}
-                            onChange={(e) => setUnit(e.target.value)}
-                            className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
-                        >
-                            <option value="">All Units</option>
-                            {unitOptions.map((u) => (
-                                <option key={u} value={u}>
-                                    {u}
-                                </option>
-                            ))}
-                        </select>
-
-                        <select
-                            value={igst}
-                            onChange={(e) => setIgst(e.target.value)}
-                            className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
-                        >
-                            <option value="">All IGST %</option>
-                            {igstOptions.map((g) => (
-                                <option key={g} value={g}>
-                                    {g}%
-                                </option>
-                            ))}
-                        </select>
-
-                        <input
-                            type="text"
-                            value={hsn}
-                            onChange={(e) => setHsn(e.target.value)}
-                            placeholder="Filter by HSN"
-                            className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
-                        />
 
                         <input
                             type="number"
-                            value={minMRP}
-                            onChange={(e) => setMinMRP(e.target.value)}
-                            placeholder="Min MRP"
+                            value={minProducts}
+                            onChange={(e) => setMinProducts(e.target.value)}
+                            placeholder="Min Products"
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
                         />
                         <input
                             type="number"
-                            value={maxMRP}
-                            onChange={(e) => setMaxMRP(e.target.value)}
-                            placeholder="Max MRP"
-                            className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
-                        />
-
-                        <input
-                            type="number"
-                            value={minStock}
-                            onChange={(e) => setMinStock(e.target.value)}
-                            placeholder="Min Stock"
+                            value={maxProducts}
+                            onChange={(e) => setMaxProducts(e.target.value)}
+                            placeholder="Max Products"
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
                         />
                         <input
                             type="number"
-                            value={maxStock}
-                            onChange={(e) => setMaxStock(e.target.value)}
-                            placeholder="Max Stock"
+                            value={minGst}
+                            onChange={(e) => setMinGst(e.target.value)}
+                            placeholder="Min GST %"
+                            className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
+                        />
+                        <input
+                            type="number"
+                            value={maxGst}
+                            onChange={(e) => setMaxGst(e.target.value)}
+                            placeholder="Max GST %"
                             className="text-xs rounded-lg px-2 py-1.5 bg-white/80 ring-1 ring-gray-200 text-gray-700 outline-none focus:ring-blue-500"
                         />
 
@@ -759,7 +621,7 @@ export default function ProductsFullViewPage() {
                             {loading ? (
                                 <tr>
                                     <td colSpan={visibleCount + 1} className="text-center text-gray-400 py-12 text-sm">
-                                        Loading product catalog…
+                                        Loading HSN tax master…
                                     </td>
                                 </tr>
                             ) : table.getRowModel().rows.length > 0 ? (
@@ -786,7 +648,7 @@ export default function ProductsFullViewPage() {
                             ) : (
                                 <tr>
                                     <td colSpan={visibleCount + 1} className="text-center text-gray-400 py-12 text-sm">
-                                        No products found matching active filters.
+                                        No HSN codes found matching active filters.
                                     </td>
                                 </tr>
                             )}
@@ -800,7 +662,7 @@ export default function ProductsFullViewPage() {
                         <span>
                             Page <span className="font-semibold text-gray-800">{table.getState().pagination.pageIndex + 1}</span> of{" "}
                             <span className="font-semibold text-gray-800">{table.getPageCount() || 1}</span> &middot;{" "}
-                            <span className="font-semibold text-gray-800">{table.getFilteredRowModel().rows.length}</span> products
+                            <span className="font-semibold text-gray-800">{table.getFilteredRowModel().rows.length}</span> HSN codes
                         </span>
 
                         <div className="flex items-center gap-1.5 text-xs">
@@ -856,34 +718,40 @@ export default function ProductsFullViewPage() {
                 </div>
             </div>
 
-            {/* ==================== PRODUCT QUICK-VIEW SIDE DRAWER ==================== */}
-            {selectedProductDrawer && (
+            {/* ==================== MAPPED PRODUCTS SIDE DRAWER ==================== */}
+            {selectedHsnDrawer && (
                 <div
                     className="fixed inset-0 z-[110] flex justify-end bg-black/50 backdrop-blur-sm transition-opacity"
-                    onClick={() => setSelectedProductDrawer(null)}
+                    onClick={() => {
+                        setSelectedHsnDrawer(null);
+                        setDrawerProductSearch("");
+                    }}
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full sm:max-w-xl md:max-w-2xl h-full flex flex-col bg-white shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
+                        className="w-full sm:max-w-xl md:max-w-2xl h-full flex flex-col bg-white shadow-2xl overflow-hidden animate-in slide-in-from-right duration-300"
                     >
                         {/* Drawer Header */}
                         <div className="relative flex items-center justify-between px-4 sm:px-6 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shrink-0">
                             <div className="flex items-center gap-2.5 min-w-0 pr-2">
                                 <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-white/15 text-white shrink-0">
-                                    <FaBoxes size={18} />
+                                    <FaBoxOpen size={18} />
                                 </div>
                                 <div className="min-w-0">
                                     <h4 className="text-sm sm:text-base font-bold tracking-wide m-0 truncate">
-                                        {selectedProductDrawer.PRODUCT}
+                                        HSN {selectedHsnDrawer.HSNCODE}
                                     </h4>
                                     <p className="text-[11px] sm:text-xs text-white/80 m-0 truncate">
-                                        Code: {selectedProductDrawer.CODE} &middot; {selectedProductDrawer.companyName || selectedProductDrawer.GCODE || "No Company"}
+                                        {selectedHsnDrawer.DESCRIPTION || "No description provided"}
                                     </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setSelectedProductDrawer(null)}
+                                onClick={() => {
+                                    setSelectedHsnDrawer(null);
+                                    setDrawerProductSearch("");
+                                }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-semibold shadow-sm transition-all shrink-0 cursor-pointer"
                                 aria-label="Close drawer"
                             >
@@ -892,144 +760,104 @@ export default function ProductsFullViewPage() {
                             </button>
                         </div>
 
-                        {/* Drawer Body Content */}
-                        <div className="flex-1 p-4 sm:p-6 space-y-5">
-                            {/* Key Metrics Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                                <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-100">
-                                    <span className="text-[10px] font-semibold text-blue-600 uppercase block">MRP</span>
-                                    <span className="text-sm font-extrabold text-blue-950 block">{money(selectedProductDrawer.MRP)}</span>
-                                </div>
-                                <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100">
-                                    <span className="text-[10px] font-semibold text-emerald-600 uppercase block">Sale Rate (RATE F)</span>
-                                    <span className="text-sm font-extrabold text-emerald-950 block">{money(selectedProductDrawer.RATEF)}</span>
-                                </div>
-                                <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-100">
-                                    <span className="text-[10px] font-semibold text-amber-600 uppercase block">Purchase Rate</span>
-                                    <span className="text-sm font-extrabold text-amber-950 block">{money(selectedProductDrawer.PRATE)}</span>
-                                </div>
-                                <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100">
-                                    <span className="text-[10px] font-semibold text-indigo-600 uppercase block">Profit Margin</span>
-                                    <span className="text-sm font-extrabold text-indigo-950 block">
-                                        {selectedProductDrawer.marginPct || 0}%
-                                    </span>
-                                </div>
+                        {/* Tax Rates Summary Strip */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-4 sm:px-6 py-2.5 bg-indigo-50/70 border-b border-indigo-100 shrink-0 text-center text-xs">
+                            <div className="bg-white/80 p-1.5 rounded-lg border border-indigo-100">
+                                <span className="text-[10px] text-gray-500 font-semibold block">CGST</span>
+                                <span className="font-bold text-indigo-900">{selectedHsnDrawer.CGST}%</span>
                             </div>
-
-                            {/* Stock & Reorder Breakdown */}
-                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
-                                        <FaCoins className="text-[#343872]" /> Stock & Inventory Status
-                                    </span>
-                                    <span
-                                        className={`px-2 py-0.5 rounded-full text-xs font-bold ring-1 ${stockClasses(
-                                            Number(selectedProductDrawer.BALANCE || 0)
-                                        )}`}
-                                    >
-                                        {Number(selectedProductDrawer.BALANCE || 0) <= 0
-                                            ? "Out of Stock"
-                                            : Number(selectedProductDrawer.BALANCE || 0) <= 10
-                                            ? "Low Stock Alert"
-                                            : "In Stock"}
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs text-gray-600">
-                                    <div>
-                                        <span className="text-gray-400 text-[10px] block">Current Balance:</span>
-                                        <span className="font-bold text-gray-800 text-sm">
-                                            {Number(selectedProductDrawer.BALANCE || 0).toLocaleString()} {selectedProductDrawer.UNIT}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-400 text-[10px] block">Stock Value:</span>
-                                        <span className="font-bold text-emerald-700 text-sm">
-                                            {money(selectedProductDrawer.stockValue)}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-400 text-[10px] block">Min Limit:</span>
-                                        <span className="font-medium text-gray-800">{selectedProductDrawer.MINIMUM || "—"}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-400 text-[10px] block">Max Limit:</span>
-                                        <span className="font-medium text-gray-800">{selectedProductDrawer.MAXIMUM || "—"}</span>
-                                    </div>
-                                </div>
+                            <div className="bg-white/80 p-1.5 rounded-lg border border-indigo-100">
+                                <span className="text-[10px] text-gray-500 font-semibold block">SGST</span>
+                                <span className="font-bold text-indigo-900">{selectedHsnDrawer.SGST}%</span>
                             </div>
-
-                            {/* GST & Tax Specification */}
-                            <div className="space-y-2 border-t pt-4 border-gray-100">
-                                <h6 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
-                                    <FaTag className="text-[#343872]" /> Tax & HSN Specification
-                                </h6>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-600">
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">HSN / SAC:</span>
-                                        <span className="font-bold text-gray-800">{selectedProductDrawer.HSN || "—"}</span>
-                                    </div>
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">CGST:</span>
-                                        <span className="font-semibold text-gray-800">{selectedProductDrawer.CGST || 0}%</span>
-                                    </div>
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">SGST:</span>
-                                        <span className="font-semibold text-gray-800">{selectedProductDrawer.SGST || 0}%</span>
-                                    </div>
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">IGST:</span>
-                                        <span className="font-bold text-indigo-700">{selectedProductDrawer.IGST || 0}%</span>
-                                    </div>
-                                </div>
+                            <div className="bg-white/80 p-1.5 rounded-lg border border-indigo-100">
+                                <span className="text-[10px] text-gray-500 font-semibold block">IGST</span>
+                                <span className="font-bold text-indigo-900">{selectedHsnDrawer.IGST}%</span>
                             </div>
-
-                            {/* Additional Rate Tiers */}
-                            <div className="space-y-2 border-t pt-4 border-gray-100">
-                                <h6 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
-                                    <FaLayerGroup className="text-[#343872]" /> Wholesale Tiered Rates
-                                </h6>
-                                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-xs text-gray-600">
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">Rate A:</span>
-                                        <span className="font-medium text-gray-800">{money(selectedProductDrawer.RATEA)}</span>
-                                    </div>
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">Rate B:</span>
-                                        <span className="font-medium text-gray-800">{money(selectedProductDrawer.RATEB)}</span>
-                                    </div>
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">Rate C:</span>
-                                        <span className="font-medium text-gray-800">{money(selectedProductDrawer.RATEC)}</span>
-                                    </div>
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">Rate D:</span>
-                                        <span className="font-medium text-gray-800">{money(selectedProductDrawer.RATED)}</span>
-                                    </div>
-                                    <div className="p-2 bg-gray-50 rounded-lg">
-                                        <span className="text-gray-400 text-[10px] block">Rate E:</span>
-                                        <span className="font-medium text-gray-800">{money(selectedProductDrawer.RATEE)}</span>
-                                    </div>
-                                </div>
+                            <div className="bg-indigo-600/10 p-1.5 rounded-lg border border-indigo-200">
+                                <span className="text-[10px] text-indigo-700 font-bold block">TOTAL GST</span>
+                                <span className="font-extrabold text-indigo-800">{selectedHsnDrawer.TOTALGST}%</span>
                             </div>
                         </div>
 
-                        {/* Drawer Footer Actions with Explicit Close Button */}
+                        {/* Drawer Search & Count Bar */}
+                        <div className="p-3.5 sm:p-4 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+                            <div className="relative flex-1">
+                                <FaSearch size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    value={drawerProductSearch}
+                                    onChange={(e) => setDrawerProductSearch(e.target.value)}
+                                    placeholder="Search mapped products by code, name, pack…"
+                                    className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-white border border-gray-200 text-gray-700 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <span className="text-xs font-semibold text-gray-600 self-end sm:self-auto shrink-0">
+                                {drawerProducts.length} products found
+                            </span>
+                        </div>
+
+                        {/* Mapped Products List */}
+                        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-2">
+                            {drawerProducts.length > 0 ? (
+                                drawerProducts.map((p: any, idx: number) => (
+                                    <div
+                                        key={`${p.code}-${idx}`}
+                                        className="flex items-center justify-between p-3 rounded-xl bg-white border border-gray-200 hover:border-blue-400 hover:shadow-sm transition-all"
+                                    >
+                                        <div className="flex flex-col gap-0.5 min-w-0 pr-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-xs font-bold text-gray-800 truncate">{p.name}</span>
+                                                <span
+                                                    className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
+                                                        p.status === "Active"
+                                                            ? "bg-green-100 text-green-700"
+                                                            : "bg-red-100 text-red-700"
+                                                    }`}
+                                                >
+                                                    {p.status}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
+                                                <span>Code: <span className="font-mono text-gray-700">{p.code}</span></span>
+                                                {p.pack && <span>Pack: <span className="text-gray-700">{p.pack}</span></span>}
+                                            </div>
+                                        </div>
+
+                                        <div className="text-right shrink-0">
+                                            {p.rate > 0 && (
+                                                <span className="text-xs font-bold text-indigo-900 block">
+                                                    ₹{Number(p.rate).toFixed(2)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-12 text-gray-400 text-xs">
+                                    No products mapped under this HSN code matching search.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Drawer Footer with Actions & Explicit Close Button */}
                         <div className="p-3.5 sm:p-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row items-center gap-2 shrink-0">
                             <button
                                 type="button"
-                                onClick={() => setSelectedProductDrawer(null)}
+                                onClick={() => {
+                                    setSelectedHsnDrawer(null);
+                                    setDrawerProductSearch("");
+                                }}
                                 className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                                 <FaTimes size={12} /> Close Drawer
                             </button>
-                            {selectedProductDrawer.HSN && (
-                                <Link
-                                    href={`/dashboard/master/hsn-master?search=${encodeURIComponent(selectedProductDrawer.HSN)}`}
-                                    className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold bg-[#343872] text-white hover:bg-indigo-900 shadow-md transition-all"
-                                >
-                                    View HSN Tax Master <FaArrowRight size={11} />
-                                </Link>
-                            )}
+                            <Link
+                                href={`/dashboard/master/product-master?search=${encodeURIComponent(selectedHsnDrawer.HSNCODE)}`}
+                                className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold bg-[#343872] text-white hover:bg-indigo-900 shadow-md transition-all"
+                            >
+                                Open Product Master <FaArrowRight size={11} />
+                            </Link>
                         </div>
                     </div>
                 </div>
