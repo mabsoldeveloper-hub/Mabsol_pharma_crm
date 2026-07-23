@@ -447,87 +447,19 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   />
                 </li>
               </PermissionGate>
-              <Group
-                icon={<FaCog />}
-                label="Master"
-                open={masterOpen}
-                onClick={() => setMasterOpen(!masterOpen)}
-                active={pathname.startsWith("/dashboard/master")}
-                color="cyan"
-                items={
-                  <>
-                    <li>
-                      <SubLink
-                        href="/dashboard/master/product-master"
-                        icon={<FaBoxOpen />}
-                        label="Product Master"
-                        active={pathname.startsWith("/dashboard/master/product-master")}
-                        color="cyan"
-                      />
-                    </li>
-
-                    {/* <li>
-                      <SubLink
-                        href="/dashboard/master/hsn-master"
-                        icon={<FaListUl />}
-                        label="HSN Master"
-                        active={pathname.startsWith("/dashboard/master/hsn-master")}
-                        color="cyan"
-                      />
-                    </li>
-
-                    <li>
-                      <SubLink
-                        href="/dashboard/master/company-master"
-                        icon={<FaBuilding />}
-                        label="Company Master"
-                        active={pathname.startsWith("/dashboard/master/company-master")}
-                        color="cyan"
-                      />
-                    </li>
-
-                    <li>
-                      <SubLink
-                        href="/dashboard/master/area-master"
-                        icon={<FaBuilding />}
-                        label="Area Master"
-                        active={pathname.startsWith("/dashboard/master/area-master")}
-                        color="cyan"
-                      />
-                    </li>
-
-                    <li>
-                      <SubLink
-                        href="/dashboard/master/customer-master"
-                        icon={<FaUsers />}
-                        label="Customer Master"
-                        active={pathname.startsWith("/dashboard/master/customer-master")}
-                        color="cyan"
-                      />
-                    </li>
-
-                    <li>
-                      <SubLink
-                        href="/dashboard/master/division-master"
-                        icon={<FaListUl />}
-                        label="Division Master"
-                        active={pathname.startsWith("/dashboard/master/division-master")}
-                        color="cyan"
-                      />
-                    </li>
-
-                    <li>
-                      <SubLink
-                        href="/dashboard/master/sub-category-master"
-                        icon={<FaListUl />}
-                        label="Sub Category Master"
-                        active={pathname.startsWith("/dashboard/master/sub-category-master")}
-                        color="cyan"
-                      />
-                    </li> */}
-                  </>
-                }
-              />
+              {/* ################ master Start here ##################### */}
+              <PermissionGate permission="master.view">
+                <li>
+                  <NavLink
+                    href="/dashboard/master"
+                    icon={<FaCog />}
+                    label="Master"
+                    active={pathname.startsWith("/dashboard/master")}
+                    color="cyan"
+                  />
+                </li>
+              </PermissionGate>
+              {/* ################ master end here ##################### */}
               {/* ################ Area Start here ##################### */}
               <PermissionGate permission="area.view">
                 <li>
@@ -862,7 +794,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
             </div>
           </div>
         </div>
-      </div>
+      </div >
 
       <style>{`
         .glass-sidebar {
