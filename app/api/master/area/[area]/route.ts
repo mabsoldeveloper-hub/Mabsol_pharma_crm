@@ -29,7 +29,7 @@ export async function GET(
         return NextResponse.json({ area: areaParam, parties: [], summary: null }, { status: 200 });
     }
 
-    const summary = matched.reduce(
+    const summaryAcc = matched.reduce(
         (acc, p) => {
             acc.totalCustomers += 1;
             if (p.balance > 0) acc.totalOutstanding += p.balance;
@@ -38,10 +38,34 @@ export async function GET(
             acc.totalPurchase += p.totalPurchase;
             acc.gstCount += p.hasGst ? 1 : 0;
             acc.phoneCount += p.phone ? 1 : 0;
+            if (p.totalSales > (acc.topPartySales || 0)) {
+                acc.topPartySales = p.totalSales;
+                acc.topPartyName = p.name;
+            }
             return acc;
         },
-        { totalCustomers: 0, totalOutstanding: 0, totalCreditBal: 0, totalSales: 0, totalPurchase: 0, gstCount: 0, phoneCount: 0 }
+        {
+            totalCustomers: 0,
+            totalOutstanding: 0,
+            totalCreditBal: 0,
+            totalSales: 0,
+            totalPurchase: 0,
+            gstCount: 0,
+            phoneCount: 0,
+            topPartyName: "",
+            topPartySales: 0,
+        }
     );
+
+    const totalCust = summaryAcc.totalCustomers || 1;
+    const netBal = summaryAcc.totalOutstanding - summaryAcc.totalCreditBal;
+
+    const summary = {
+        ...summaryAcc,
+        gstPercent: Math.round((summaryAcc.gstCount / totalCust) * 100),
+        phonePercent: Math.round((summaryAcc.phoneCount / totalCust) * 100),
+        avgBalance: Math.round(netBal / totalCust),
+    };
 
     const parties_ = matched
         .map((p) => ({

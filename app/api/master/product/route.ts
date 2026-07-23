@@ -47,11 +47,22 @@ export async function GET() {
     const result = products.map((p: any) => {
         const gcode = p.GCODE ? String(p.GCODE).trim() : "";
         const gcode6 = p.GCODE6 ? String(p.GCODE6).trim() : "";
+        const obj = p.toObject();
+
+        const ratef = Number(obj.RATEF || 0);
+        const prate = Number(obj.PRATE || 0);
+        const mrp = Number(obj.MRP || 0);
+        const bal = Number(obj.BALANCE || 0);
+
+        const marginPct = ratef > 0 && prate > 0 ? Math.round(((ratef - prate) / ratef) * 100) : 0;
+        const stockValue = bal > 0 ? Math.round(bal * (ratef || mrp)) : 0;
 
         return {
-            ...p.toObject(),
+            ...obj,
             companyName: companyMap.get(gcode) || "",
             HSN: hsnMap.get(gcode6) || "",
+            marginPct,
+            stockValue,
         };
     });
 

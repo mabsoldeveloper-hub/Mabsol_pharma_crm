@@ -108,6 +108,10 @@ export async function GET() {
         ) {
             a.LASTLEDGERDATE = row.lastLedgerDate;
         }
+        if (row.totalSales > (a.TOPPARTYSALES || 0)) {
+            a.TOPPARTYSALES = row.totalSales;
+            a.TOPPARTYNAME = row.name;
+        }
     }
 
     // ---- Flatten to plain, serializable rows -------------------------------
@@ -117,6 +121,11 @@ export async function GET() {
             // "derived from District/City" hint instead of implying every
             // area name came from an explicit AREA field.
             const dominantSource = Object.entries(a.AREASOURCECOUNTS).sort((x: any, y: any) => y[1] - x[1])[0][0];
+
+            const totalCust = a.TOTALCUSTOMERS || 1;
+            const netBal = a.TOTALOUTSTANDING - a.TOTALCREDITBAL;
+            const gstPct = Math.round((a.GSTCOUNT / totalCust) * 100);
+            const phonePct = Math.round((a.PHONECOUNT / totalCust) * 100);
 
             return {
                 _id: a.AREA,
@@ -145,17 +154,22 @@ export async function GET() {
 
                 GSTCOUNT: a.GSTCOUNT,
                 NOGSTCOUNT: a.NOGSTCOUNT,
+                GSTPERCENT: gstPct,
                 PHONECOUNT: a.PHONECOUNT,
                 NOPHONECOUNT: a.NOPHONECOUNT,
+                PHONEPERCENT: phonePct,
 
                 TOTALOUTSTANDING: a.TOTALOUTSTANDING,
                 TOTALCREDITBAL: a.TOTALCREDITBAL,
-                NETBALANCE: a.TOTALOUTSTANDING - a.TOTALCREDITBAL,
+                NETBALANCE: netBal,
+                AVGBALANCE: Math.round(netBal / totalCust),
                 TOTALCREDITLIMIT: a.TOTALCREDITLIMIT,
 
                 TOTALSALES: a.TOTALSALES,
                 SALECOUNT: a.SALECOUNT,
                 LASTSALEDATE: a.LASTSALEDATE,
+                TOPPARTYNAME: a.TOPPARTYNAME || null,
+                TOPPARTYSALES: a.TOPPARTYSALES || 0,
 
                 TOTALPURCHASE: a.TOTALPURCHASE,
                 PURCHASECOUNT: a.PURCHASECOUNT,

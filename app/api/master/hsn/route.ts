@@ -91,11 +91,12 @@ export async function GET() {
             CGST: cgst,
             SGST: sgst,
             IGST: igst,
-            TOTALGST: cgst + sgst, // the "normal"/overall GST % that was missing
+            TOTALGST: cgst + sgst, // the "normal"/overall GST %
             productCount: 0,
             activeCount: 0,
             schemeRateValues: [] as number[],
             productNames: [] as string[],
+            productItems: [] as any[],
         });
     });
 
@@ -106,12 +107,22 @@ export async function GET() {
 
         const bucket = hsnMap.get(gcode6);
         bucket.productCount += 1;
-        if (String(p.STATUS || "").trim() !== "C") bucket.activeCount += 1; // "C" = closed/discontinued in PRO
+        const isActive = String(p.STATUS || "").trim() !== "C";
+        if (isActive) bucket.activeCount += 1; // "C" = closed/discontinued in PRO
 
-        const rateEntry = latestRateMap.get(String(p.CODE).trim());
+        const pcode = String(p.CODE || "").trim();
+        const rateEntry = latestRateMap.get(pcode);
         if (rateEntry) bucket.schemeRateValues.push(rateEntry.rate);
 
-        bucket.productNames.push(p.PRODUCT || p.BILLNAME || String(p.CODE));
+        const name = p.PRODUCT || p.BILLNAME || pcode;
+        bucket.productNames.push(name);
+        bucket.productItems.push({
+            code: pcode,
+            name,
+            pack: p.PACK || "",
+            status: isActive ? "Active" : "Closed",
+            rate: rateEntry?.rate || 0,
+        });
     });
 
     // ---- Build the final HSN master rows ------------------------------------
@@ -136,6 +147,7 @@ export async function GET() {
             SCHEMERATEMIN: scheme.min,
             SCHEMERATEMAX: scheme.max,
             PRODUCTS: h.productNames.join(", "),
+            PRODUCTLIST: h.productItems,
         };
     });
 
