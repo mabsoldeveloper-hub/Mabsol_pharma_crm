@@ -250,13 +250,13 @@ if (data.entries) {
         </div>
 
         <div>
-
-          <Link
-            href="javascript:history.back()"
+        {/* <Link
+            href="/dashboard/customers/"
             className="btn btn-secondary me-2"
           >
             Back
-          </Link>
+          </Link> */}
+          
 
           <button
             className="btn btn-primary"
