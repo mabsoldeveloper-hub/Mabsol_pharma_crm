@@ -79,7 +79,7 @@ export default function FolderSelectorModal({
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/vfp/browse-folders", {
+      const response = await fetch("/api/mabsolcrmsync/browse-folders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPath }),
@@ -144,7 +144,7 @@ export default function FolderSelectorModal({
 
     setLoading(true);
     try {
-      const configRes = await fetch("/api/vfp/config", {
+      const configRes = await fetch("/api/mabsolcrmsync/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataDir: fullPath }),

@@ -371,7 +371,7 @@ export default function LandingPage() {
           </nav>
 
           <a
-            href="https://phcrm.mabsolinfotech.cloud/login"
+            href="/login"
             className="btn btn-primary nav-btn"
           >
             Get Started
@@ -395,7 +395,7 @@ export default function LandingPage() {
           </p>
           <div className="hero-actions">
             <a
-              href="https://phcrm.mabsolinfotech.cloud/login"
+              href="/login"
               className="btn btn-primary"
             >
               Get Started
@@ -616,7 +616,7 @@ export default function LandingPage() {
         <span className="cta-glow" aria-hidden="true" />
         <h2>Stop switching between ERP and spreadsheets</h2>
         <p>Set up takes minutes. Your team keeps working the same way, just with everything in view.</p>
-        <a href="https://phcrm.mabsolinfotech.cloud/login" className="btn btn-primary">
+        <a href="/login" className="btn btn-primary">
           Get Started
         </a>
       </Reveal>

@@ -768,17 +768,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   label="Migration"
                   open={vfpOpen}
                   onClick={() => setVfpOpen(!vfpOpen)}
-                  active={pathname.startsWith("/dashboard/vfp")}
+                  active={pathname.startsWith("/dashboard/mabsolcrmsync")}
                   color="rose"
                   items={
                     <>
                       {can("vfp.view") && (
                         <li>
                           <SubLink
-                            href="/dashboard/vfp"
+                            href="/dashboard/mabsolcrmsync"
                             icon={<FaSyncAlt />}
                             label="Sync Console"
-                            active={pathname === "/dashboard/vfp"}
+                            active={pathname === "/dashboard/mabsolcrmsync"}
                             color="rose"
                           />
                         </li>
@@ -786,10 +786,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                       {can("vfp.settings") && (
                         <li>
                           <SubLink
-                            href="/dashboard/vfp/settings"
+                            href="/dashboard/mabsolcrmsync/settings"
                             icon={<FaSlidersH />}
-                            label="VFP Settings"
-                            active={pathname.startsWith("/dashboard/vfp/settings")}
+                            label="Sync Settings"
+                            active={pathname.startsWith("/dashboard/mabsolcrmsync/settings")}
                             color="rose"
                           />
                         </li>

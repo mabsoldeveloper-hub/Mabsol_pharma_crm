@@ -122,7 +122,7 @@ export default async function VfpDashboardPage({
         <div className="header-row">
           <div>
             <h1 className="vfp-h1">Migrate Data Control</h1>
-            <p className="subtitle">Monitor local Visual FoxPro folder changes, DBF imports, file snapshots, and queued updates from one dashboard.</p>
+            <p className="subtitle">Monitor local folder changes, DBF imports, file snapshots, and queued updates from one dashboard.</p>
           </div>
           <span className="status-pill">
             <span className="dot-pulse"></span>
@@ -199,7 +199,7 @@ export default async function VfpDashboardPage({
                 Sync activity logs
               </div>
               <span style={{ fontSize: "12px", color: "var(--ink-faint)" }}>
-                Filter and review VFP to CRM data transfer logs
+                Filter and review CRM data transfer logs
               </span>
             </div>
             <RefreshButton />
@@ -211,7 +211,7 @@ export default async function VfpDashboardPage({
               <Link
                 key={option}
                 className={`chip ${range === option && !startDate && !endDate ? "active" : ""}`}
-                href={`/dashboard/vfp?range=${option}`}
+                href={`/dashboard/mabsolcrmsync?range=${option}`}
               >
                 {formatRangeName(option)}
               </Link>
@@ -234,7 +234,7 @@ export default async function VfpDashboardPage({
               <button className="btn btn-primary ml-1" type="submit">
                 Apply
               </button>
-              <Link href="/dashboard/vfp" className="btn">
+              <Link href="/dashboard/mabsolcrmsync" className="btn">
                 Reset
               </Link>
             </form>

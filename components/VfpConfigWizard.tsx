@@ -49,7 +49,7 @@ export default function VfpConfigWizard({
     if (isOpen) {
       setError("");
       setLoading(true);
-      fetch("/api/vfp/config")
+      fetch("/api/mabsolcrmsync/config")
         .then((res) => res.json())
         .then((data) => {
           if (data.success) {
@@ -85,7 +85,7 @@ export default function VfpConfigWizard({
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/vfp/transfer-data", {
+      const response = await fetch("/api/mabsolcrmsync/transfer-data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataDir }),
@@ -97,10 +97,10 @@ export default function VfpConfigWizard({
         setAvailableFiles(data.dbfFiles || []);
         setStep(2); // Proceed to selecting files
       } else {
-        setError(data.error || "Failed to load VFP database files.");
+        setError(data.error || "Failed to load database files.");
       }
     } catch {
-      setError("An error occurred during VFP database file scan.");
+      setError("An error occurred during database file scan.");
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export default function VfpConfigWizard({
     setError("");
     try {
       // 1. Save config (enabledFiles, dataDir, useVfpEngine, vfpExePath)
-      const configRes = await fetch("/api/vfp/config", {
+      const configRes = await fetch("/api/mabsolcrmsync/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataDir, enabledFiles, useVfpEngine, vfpExePath }),
@@ -143,7 +143,7 @@ export default function VfpConfigWizard({
       }
 
       // 2. Trigger worker rescan
-      await fetch("/api/vfp/rescan", {
+      await fetch("/api/mabsolcrmsync/rescan", {
         method: "POST",
       });
 
@@ -217,20 +217,20 @@ export default function VfpConfigWizard({
             {step === 1 && (
               <div>
                 <p className="text-secondary small mb-4">
-                  Select the local directory on this system containing the Visual FoxPro database (.dbf) files that you wish to sync.
+                  Select the local directory on this system containing the database (.dbf) files that you wish to sync.
                 </p>
 
                 {/* Destination Path */}
                 <div className="mb-4">
                   <label className="form-label fw-semibold text-secondary small d-flex align-items-center gap-2">
                     <FaFolder className="text-primary" />
-                    VFP Database Sync Directory
+                    Database Sync Directory
                   </label>
                   <div className="input-group input-group-sm">
                     <input
                       type="text"
                       className="form-control font-monospace text-secondary bg-light"
-                      placeholder="e.g. C:\VFP_Data_Files"
+                      placeholder="e.g. C:\Data_Files"
                       value={dataDir}
                       onChange={(e) => setDataDir(e.target.value)}
                       disabled={loading}
@@ -245,7 +245,7 @@ export default function VfpConfigWizard({
                     </button>
                   </div>
                   <div className="form-text text-muted" style={{ fontSize: "0.75rem" }}>
-                    Select the directory where Visual FoxPro currently writes/saves its database.
+                    Select the directory where your database files are saved.
                   </div>
                 </div>
               </div>

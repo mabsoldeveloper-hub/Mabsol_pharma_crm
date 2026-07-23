@@ -59,7 +59,7 @@ export default function FileSelectorModal({
     try {
       const typeParam = filterType === "dir" ? "" : filterType;
       const response = await fetch(
-        `/api/vfp/browse?dir=${encodeURIComponent(dirPath)}&type=${typeParam}`
+        `/api/mabsolcrmsync/browse?dir=${encodeURIComponent(dirPath)}&type=${typeParam}`
       );
       const data = await response.json();
       if (data.success) {

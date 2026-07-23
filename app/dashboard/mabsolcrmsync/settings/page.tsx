@@ -103,7 +103,7 @@ export default function VfpSettingsPage() {
   const loadConfig = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/vfp/config");
+      const res = await fetch("/api/mabsolcrmsync/config");
       const data = await res.json();
       if (data.success) {
         const configData = {
@@ -119,7 +119,7 @@ export default function VfpSettingsPage() {
         setSavedForm(configData);
       }
     } catch (error) {
-      console.error("Failed to load VFP config:", error);
+      console.error("Failed to load sync config:", error);
     } finally {
       setLoading(false);
     }
@@ -128,13 +128,13 @@ export default function VfpSettingsPage() {
   const loadLogs = async () => {
     try {
       setLogsLoading(true);
-      const res = await fetch("/api/vfp/setting-logs");
+      const res = await fetch("/api/mabsolcrmsync/setting-logs");
       const data = await res.json();
       if (data.success) {
         setLogs(data.logs || []);
       }
     } catch (error) {
-      console.error("Failed to load VFP setting logs:", error);
+      console.error("Failed to load setting logs:", error);
     } finally {
       setLogsLoading(false);
     }
@@ -156,7 +156,7 @@ export default function VfpSettingsPage() {
 
     try {
       setLoading(true);
-      const res = await fetch("/api/vfp/config", {
+      const res = await fetch("/api/mabsolcrmsync/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -170,7 +170,7 @@ export default function VfpSettingsPage() {
 
       const data = await res.json();
       if (data.success) {
-        setMessage({ type: "success", text: "VFP settings saved and logged successfully." });
+        setMessage({ type: "success", text: "Settings saved and logged successfully." });
         setSavedForm(form);
         setIsEditing(false);
         loadLogs();
@@ -178,7 +178,7 @@ export default function VfpSettingsPage() {
         setMessage({ type: "danger", text: data.error || "Failed to save configuration." });
       }
     } catch {
-      setMessage({ type: "danger", text: "An error occurred while saving VFP settings." });
+      setMessage({ type: "danger", text: "An error occurred while saving settings." });
     } finally {
       setLoading(false);
     }
@@ -199,13 +199,13 @@ export default function VfpSettingsPage() {
       !savedForm.license ||
       !savedForm.prgPath
     ) {
-      setMessage({ type: "danger", text: "Please enter and save all VFP details before triggering a sync." });
+      setMessage({ type: "danger", text: "Please enter and save all details before triggering a sync." });
       return;
     }
 
     try {
       setSyncing(true);
-      const res = await fetch("/api/vfp/sync-now", {
+      const res = await fetch("/api/mabsolcrmsync/sync-now", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(savedForm),
@@ -213,7 +213,7 @@ export default function VfpSettingsPage() {
 
       const data = await res.json();
       if (data.success) {
-        setMessage({ type: "success", text: "Immediate VFP sync triggered and logged successfully." });
+        setMessage({ type: "success", text: "Immediate sync triggered and logged successfully." });
         loadLogs();
       } else {
         setMessage({ type: "danger", text: data.error || "Failed to trigger sync." });
@@ -235,19 +235,19 @@ export default function VfpSettingsPage() {
       !savedForm.vfpExePath ||
       !savedForm.prgPath
     ) {
-      setMessage({ type: "danger", text: "Please enter and save all VFP details before launching the console." });
+      setMessage({ type: "danger", text: "Please enter and save all details before launching the console." });
       return;
     }
 
     try {
       setLaunchingConsole(true);
-      const res = await fetch("/api/vfp/launch-vfp", {
+      const res = await fetch("/api/mabsolcrmsync/launch-vfp", {
         method: "POST",
       });
 
       const data = await res.json();
       if (data.success) {
-        setMessage({ type: "success", text: data.message || "Visual FoxPro Console launched successfully." });
+        setMessage({ type: "success", text: data.message || "Sync Console launched successfully." });
       } else {
         setMessage({ type: "danger", text: data.error || "Failed to launch VFP Console." });
       }
@@ -281,16 +281,16 @@ export default function VfpSettingsPage() {
         {/* Header Row */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-[#E2E8F0]">
           <div className="flex items-center gap-3">
-            {/* VFP Icon Badge */}
-            <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-[#0F2926] rounded-[8px] sm:rounded-[10px] text-white font-bold text-[13px] sm:text-[15px] tracking-wide shrink-0 select-none shadow-sm">
-              VFP
+            {/* Sync Icon Badge */}
+            <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-[#0F2926] rounded-[8px] sm:rounded-[10px] text-white font-bold text-[11px] sm:text-[13px] tracking-wide shrink-0 select-none shadow-sm">
+              SYNC
             </div>
             <div>
               <h1 className="text-[18px] sm:text-[20px] font-bold text-[#0F172A] tracking-tight m-0">
-                VFP integration settings
+                Mabsol CRM Sync settings
               </h1>
               <p className="text-[12px] sm:text-[13px] text-[#64748B] leading-relaxed max-w-[550px] m-0">
-                Manage how Visual FoxPro connects, syncs, and audits with your modern stack
+                Manage how Mabsol CRM Sync connects, syncs, and audits with your modern stack
               </p>
             </div>
           </div>
@@ -302,7 +302,7 @@ export default function VfpSettingsPage() {
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-[6px] text-[13px] font-semibold px-4 py-2 cursor-pointer bg-white border border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8FAFC] transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 whitespace-nowrap"
             >
               {launchingConsole && <RefreshCw size={13} className="animate-spin text-[#64748B]" />}
-              {launchingConsole ? "Launching..." : "Open VFP console"}
+              {launchingConsole ? "Launching..." : "Open Sync console"}
             </button>
             <button
               onClick={handleSyncNow}
@@ -334,7 +334,7 @@ export default function VfpSettingsPage() {
               <h3 className="text-[14.5px] font-bold text-[#0F172A] m-0">
                 Stored configuration
               </h3>
-              <p className="text-[12px] text-[#64748B] m-0">Current VFP integration values and access rules</p>
+              <p className="text-[12px] text-[#64748B] m-0">Current Mabsol CRM Sync integration values and access rules</p>
             </div>
             
             {!isEditing ? (
@@ -399,10 +399,10 @@ export default function VfpSettingsPage() {
 
             <hr className="border-none border-t border-[#F1F5F9]" />
 
-            {/* Section 2: VFP Engine Integration */}
+            {/* Section 2: Mabsol CRM Sync Engine Integration */}
             <div className="space-y-4">
               <div className="text-[10px] font-bold tracking-wider uppercase text-[#94A3B8]">
-                VFP ENGINE INTEGRATION
+                MABSOL CRM SYNC ENGINE INTEGRATION
               </div>
               
               <div className="space-y-4">
@@ -422,7 +422,7 @@ export default function VfpSettingsPage() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[11.5px] font-medium text-[#64748B]">VFP executable path</span>
+                  <span className="text-[11.5px] font-medium text-[#64748B]">Sync executable path</span>
                   <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
                     <input
                       type="text"
@@ -436,7 +436,7 @@ export default function VfpSettingsPage() {
                     {isEditing && (
                       <button
                         type="button"
-                        onClick={() => openFileBrowser("vfpExePath", "exe", "Select Visual FoxPro Executable")}
+                        onClick={() => openFileBrowser("vfpExePath", "exe", "Select Executable")}
                         className="absolute right-3.5 text-[12px] font-medium text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
                       >
                         Browse_
@@ -451,7 +451,7 @@ export default function VfpSettingsPage() {
                     <input
                       type="text"
                       className={`w-full bg-transparent outline-none border-none pl-3.5 ${isEditing ? 'pr-20' : 'pr-3.5'} py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-mono`}
-                      placeholder="e.g. D:\VFP_Logs\sync_log.log"
+                      placeholder="e.g. D:\Sync_Logs\sync_log.log"
                       value={form.prgPath}
                       onChange={(e) => setForm({ ...form, prgPath: e.target.value })}
                       disabled={!isEditing}
@@ -460,7 +460,7 @@ export default function VfpSettingsPage() {
                     {isEditing && (
                       <button
                         type="button"
-                        onClick={() => openFileBrowser("prgPath", "prg", "Select FoxPro PRG File")}
+                        onClick={() => openFileBrowser("prgPath", "prg", "Select PRG File")}
                         className="absolute right-3.5 text-[12px] font-medium text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
                       >
                         Browse_
@@ -470,8 +470,6 @@ export default function VfpSettingsPage() {
                 </div>
               </div>
             </div>
-
-
 
             {/* Save Row (Only when editing) */}
             {isEditing && (
@@ -501,7 +499,7 @@ export default function VfpSettingsPage() {
           <div className="flex items-center justify-between p-[18px_20px] border-b border-[#E2E8F0] gap-4">
             <div>
               <h3 className="text-[14.5px] font-bold text-[#0F172A] m-0">
-                VFP console guidance
+                Console guidance
               </h3>
               <p className="text-[12px] text-[#64748B] m-0">Helpful reminders for safe sync operations and configuration changes</p>
             </div>

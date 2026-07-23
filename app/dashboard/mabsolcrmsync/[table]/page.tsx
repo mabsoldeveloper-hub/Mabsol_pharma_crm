@@ -49,14 +49,14 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
     return (
       <ProtectedPage permission="vfp.view">
         <div className="container-fluid p-0">
-          <Link className="btn btn-outline-secondary btn-sm mb-3 d-inline-flex align-items-center" href="/dashboard/vfp">
+          <Link className="btn btn-outline-secondary btn-sm mb-3 d-inline-flex align-items-center" href="/dashboard/mabsolcrmsync">
             <FaArrowLeft className="me-2" />
-            Back to VFP Sync
+            Back to Mabsol CRM Sync
           </Link>
           <div className="alert alert-warning d-flex align-items-center gap-3 border-0 shadow-sm">
             <FaArrowLeft className="fs-4 flex-shrink-0" />
             <div>
-              This VFP table is not available yet. Start the sync worker and run a rescan.
+              This table is not available yet. Start the sync worker and run a rescan.
             </div>
           </div>
         </div>
@@ -81,8 +81,8 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
         {/* Page Toolbar */}
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
           <div>
-            <Link className="btn btn-outline-secondary btn-sm mb-3 d-inline-flex align-items-center" href="/dashboard/vfp">
-              <FaArrowLeft className="me-2" /> Back to VFP Sync
+            <Link className="btn btn-outline-secondary btn-sm mb-3 d-inline-flex align-items-center" href="/dashboard/mabsolcrmsync">
+              <FaArrowLeft className="me-2" /> Back to Mabsol CRM Sync
             </Link>
             <div className="d-flex align-items-center text-primary fw-bold mb-2 text-uppercase tracking-wider" style={{ fontSize: "0.8rem" }}>
               <FaTable className="me-2" /> Synced DBF Data
@@ -189,7 +189,7 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
           <div className="btn-group">
             <Link
               className={`btn btn-outline-primary ${data.page <= 1 ? "disabled" : ""}`}
-              href={`/dashboard/vfp/${encodeURIComponent(
+              href={`/dashboard/mabsolcrmsync/${encodeURIComponent(
                 data.table.tableName
               )}?page=${previousPage}`}
             >
@@ -199,7 +199,7 @@ export default async function VfpTablePage({ params, searchParams }: PageProps) 
               className={`btn btn-outline-primary ${
                 data.page >= data.totalPages ? "disabled" : ""
               }`}
-              href={`/dashboard/vfp/${encodeURIComponent(
+              href={`/dashboard/mabsolcrmsync/${encodeURIComponent(
                 data.table.tableName
               )}?page=${nextPage}`}
             >

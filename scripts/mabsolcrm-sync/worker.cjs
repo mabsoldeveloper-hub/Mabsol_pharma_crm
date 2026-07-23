@@ -74,7 +74,7 @@ const WORKER_ID = `${require("node:os").hostname()}-${process.pid}`;
 const activeWatchers = new Map(); // path -> watcher
 
 main().catch((error) => {
-  console.error("[vfp-sync] Fatal error:", error);
+  console.error("[mabsolcrm-sync] Fatal error:", error);
   process.exitCode = 1;
 });
 

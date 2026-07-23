@@ -27,13 +27,13 @@ export async function POST() {
       email: user.email,
       action: "rescan",
       status: "queued",
-      message: "VFP metadata rescan queued for the local sync worker.",
+      message: "metadata rescan queued for the local sync worker.",
     });
 
     return NextResponse.json({
       success: true,
       commandId: command._id,
-      message: "Rescan queued. Keep the VFP sync worker running to process it.",
+      message: "Rescan queued. Keep the  sync worker running to process it.",
     });
   } catch (error: unknown) {
     return NextResponse.json(

@@ -102,7 +102,7 @@ export default function VfpSyncActions({
     const filesToSync = updatedScope === "single" && updatedFile ? [updatedFile] : [];
     
     try {
-      const response = await fetch("/api/vfp/config", {
+      const response = await fetch("/api/mabsolcrmsync/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -153,7 +153,7 @@ export default function VfpSyncActions({
     setMessage({ type: "info", text: "Queuing immediate sync..." });
 
     try {
-      const response = await fetch("/api/vfp/sync-now", {
+      const response = await fetch("/api/mabsolcrmsync/sync-now", {
         method: "POST",
       });
       const data = await response.json();

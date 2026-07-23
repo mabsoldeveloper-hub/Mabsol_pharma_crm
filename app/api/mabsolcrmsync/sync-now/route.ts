@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       action: "sync_now",
       status: "queued",
-      message: `Immediate VFP import queued by ${userName} (${companyName}).`,
+      message: `Immediate import queued by ${userName} (${companyName}).`,
     });
 
     // Create entry in VfpSettingLog to log who did the sync and when
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       commandId: command._id,
-      message: "Sync queued. Keep the VFP sync worker running to process it.",
+      message: "Sync queued. Keep the sync worker running to process it.",
     });
   } catch (error: unknown) {
     return NextResponse.json(
