@@ -491,7 +491,7 @@ export default function CustomerFullViewPage() {
                         <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-white/15 text-white">
                             <FaUsers size={14} />
                         </div>
-                        <h5 className="text-sm font-semibold text-white tracking-wide m-0">Customer Master — Full View</h5>
+                        <h5 className="text-sm font-semibold text-white tracking-wide m-0">Ledger/Customer Master — Full View</h5>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -700,7 +700,7 @@ export default function CustomerFullViewPage() {
                             {loading ? (
                                 <tr>
                                     <td colSpan={visibleCount + 1} className="text-center text-gray-400 py-10 text-sm">
-                                        Loading customers...
+                                        Loading ledger...
                                     </td>
                                 </tr>
                             ) : table.getRowModel().rows.length > 0 ? (
@@ -726,7 +726,7 @@ export default function CustomerFullViewPage() {
                             ) : (
                                 <tr>
                                     <td colSpan={visibleCount + 1} className="text-center text-gray-400 py-10 text-sm">
-                                        No customers found
+                                        No ledger found
                                     </td>
                                 </tr>
                             )}

@@ -60,7 +60,7 @@ export default function MasterPage() {
         },
         {
             title: "Ledger Master",
-            desc: "Manage ledger records",
+            desc: "Manage ledger/customer records",
             icon: <FaUsers size={16} />,
             link: "/dashboard/master/customer-master",
             color: "cyan",
