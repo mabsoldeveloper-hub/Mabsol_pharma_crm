@@ -277,10 +277,12 @@ export async function GET(req: Request) {
         // cleaned via cleanPartyName() to strip VFP fixed-width padding and
         // the duplicated trailing city text some rows have.
         const orderRows = await OrderParty.find(
-            orderFilter,
-            { PARNAM: 1, CITY: 1, GSTNO: 1, BALANCE: 1, SALCR: 1, SALDR: 1, PURCR: 1, PURDR: 1, PARADD: 1, PARADD1: 1, PARADD2: 1, PHONE1: 1, PHONE2: 1 }
+            {},
+            { PARNAM: 1, CITY: 1, GSTNO: 1, BALANCE: 1, SALCR: 1, SALDR: 1, PURCR: 1, PURDR: 1, PARADD: 1, PARADD1: 1, PARADD2: 1, PHONE1: 1, PHONE2: 1, ORDNO: 1, COMPANY: 1, GCODE: 1, SCODE: 1, DSM: 1 }
         ).lean();
-        const partyRows = orderRows.filter((r: any) => isRealParty(r.PARNAM, r));
+        const partyRows = orderRows
+            .filter((r: any) => isRealParty(r.PARNAM, r))
+            .filter((r: any) => !restriction.isMrRestricted || restriction.isPartyAllowed(r));
         let totalLedgerBalance = 0;
         let partyStateResolved = 0;
         let partiesWithPincode = 0;

@@ -137,8 +137,76 @@ async function sumField(model: any, match: Record<string, any>, field: string) {
   return row?.total ?? 0;
 }
 
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
 export async function GET() {
   await dbConnect();
+
+  const restriction = await getMrTerritoryRestriction();
+
+  const mdisSaleFilter = restriction.isMrRestricted
+    ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+      ? { ...MDIS_SALE_FILTER, COMPANY: { $in: restriction.allowedCompanyCodes } }
+      : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+      ? { ...MDIS_SALE_FILTER, CODEP: { $in: restriction.allowedOrdnos } }
+      : { ...MDIS_SALE_FILTER, CODEP: "NONE_MATCH" }
+    : MDIS_SALE_FILTER;
+
+  const pendFilter = restriction.isMrRestricted
+    ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+      ? { ORD: { $in: restriction.allowedOrdnos } }
+      : { ORD: "NONE_MATCH" }
+    : {};
+
+  const baseCustomerFilter: any = restriction.isMrRestricted
+    ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+      ? { ...CUSTOMER_FILTER, ORDNO: { $in: restriction.allowedOrdnos } }
+      : { ...CUSTOMER_FILTER, ORDNO: "NONE_MATCH" }
+    : { ...CUSTOMER_FILTER };
+
+  const productFilter = restriction.isMrRestricted
+    ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+      ? { GCODE: { $in: restriction.allowedCompanyCodes } }
+      : { GCODE: "NONE_MATCH" }
+    : {};
+
+  let allowedProductCodesNumber: number[] = [];
+  if (restriction.isMrRestricted) {
+    if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+      const allowedProducts = await Product.find(productFilter, { CODE: 1 }).lean();
+      allowedProductCodesNumber = allowedProducts.map((p: any) => Number(p.CODE)).filter((v: number) => !isNaN(v));
+    }
+  }
+
+  const batchFilter = restriction.isMrRestricted
+    ? { CODE: { $in: allowedProductCodesNumber } }
+    : {};
+
+  const companyFilter = restriction.isMrRestricted
+    ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+      ? { COMPANY: { $in: restriction.allowedCompanyCodes } }
+      : { COMPANY: "NONE_MATCH" }
+    : {};
+
+  const orderFilter = restriction.isMrRestricted
+    ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+      ? { ORDNO: { $in: restriction.allowedOrdnos } }
+      : { ORDNO: "NONE_MATCH" }
+    : {};
+
+  const activeCustomerFilter = restriction.isMrRestricted
+    ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+      ? { ...ACTIVE_CUSTOMER_FILTER, ORDNO: { $in: restriction.allowedOrdnos } }
+      : { ...ACTIVE_CUSTOMER_FILTER, ORDNO: "NONE_MATCH" }
+    : { ...ACTIVE_CUSTOMER_FILTER };
+
+  const salesDisFilter = restriction.isMrRestricted
+    ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+      ? { COMPANY: { $in: restriction.allowedCompanyCodes } }
+      : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+      ? { CODEP: { $in: restriction.allowedOrdnos } }
+      : { CODEP: "NONE_MATCH" }
+    : {};
 
   const today = todayStr();
   const monthStart = monthStartStr();
@@ -148,7 +216,7 @@ export async function GET() {
   // Customer codes fetched up front — needed to build the real GLEDGER
   // collections filter (BOOK:"R", CD:"C", CODE in this list), so it has
   // to run before the main Promise.all below.
-  const customerOrders = await Order.find({ ...CUSTOMER_FILTER }, { [ORDER_CUSTOMER_JOIN_FIELD]: 1 }).lean();
+  const customerOrders = await Order.find(baseCustomerFilter, { [ORDER_CUSTOMER_JOIN_FIELD]: 1 }).lean();
   const customerCodes = customerOrders
     .map((o: any) => o[ORDER_CUSTOMER_JOIN_FIELD])
     .filter(Boolean);
@@ -204,38 +272,34 @@ export async function GET() {
     nearExpiryStockValueRow,
     lastMonthSales,
   ] = await Promise.all([
-    sumField(SalesMdis, { ...MDIS_SALE_FILTER }, "FINAL"),
-    sumField(SalesMdis, { ...MDIS_SALE_FILTER, DATE: today }, "FINAL"),
-    sumField(SalesMdis, { ...MDIS_SALE_FILTER, DATE: { $gte: monthStart, $lte: today } }, "FINAL"),
-    sumField(SalesMdis, { ...MDIS_SALE_FILTER, DATE: { $gte: yearStart, $lte: today } }, "FINAL"),
-    sumField(Pend, {}, "FINAL"),
-    sumField(Pend, { DDATE: { $lt: today } }, "FINAL"),
+    sumField(SalesMdis, { ...mdisSaleFilter }, "FINAL"),
+    sumField(SalesMdis, { ...mdisSaleFilter, DATE: today }, "FINAL"),
+    sumField(SalesMdis, { ...mdisSaleFilter, DATE: { $gte: monthStart, $lte: today } }, "FINAL"),
+    sumField(SalesMdis, { ...mdisSaleFilter, DATE: { $gte: yearStart, $lte: today } }, "FINAL"),
+    sumField(Pend, pendFilter, "FINAL"),
+    sumField(Pend, { ...pendFilter, DDATE: { $lt: today } }, "FINAL"),
     sumField(GLedger, { ...GLEDGER_COLLECTION_FILTER }, "CREDIT"),
-    Order.countDocuments({}),
-    Product.countDocuments({}),
-    sumField(Product, {}, "BALANCE"),
-    ProductBatch.countDocuments({ EXP: { $ne: null, $gte: today, $lte: near90 } }),
-    ProductBatch.countDocuments({ EXP: { $ne: null, $lt: today } }),
+    Order.countDocuments(orderFilter),
+    Product.countDocuments(productFilter),
+    sumField(Product, productFilter, "BALANCE"),
+    ProductBatch.countDocuments({ ...batchFilter, EXP: { $ne: null, $gte: today, $lte: near90 } }),
+    ProductBatch.countDocuments({ ...batchFilter, EXP: { $ne: null, $lt: today } }),
 
     // ---- NEW: 5 new KPI queries ----
     // 1. Total Users
     User.countDocuments({}),
     // 2. Total Companies
-    Company.countDocuments({}),
+    Company.countDocuments(companyFilter),
     // 3. Credit — SUM(CREDIT) for customer transactions only
-    // (BOOK: Sales or Receipts, real customer codes only — see
-    // GLEDGER_CUSTOMER_TXN_FILTER above). NOT a whole-ledger sum,
-    // since whole-ledger CREDIT === whole-ledger DEBIT always (double
-    // entry), which makes that number meaningless as a KPI.
     sumField(GLedger, { ...GLEDGER_CUSTOMER_TXN_FILTER }, "CREDIT"),
     // 4. Debit — SUM(DEBIT) for the same customer-transaction filter
     sumField(GLedger, { ...GLEDGER_CUSTOMER_TXN_FILTER }, "DEBIT"),
     // 5. Active Customers — ORDER.SALDR === "Y" (see ACTIVE_CUSTOMER_FILTER note above)
-    Order.countDocuments({ ...ACTIVE_CUSTOMER_FILTER }),
+    Order.countDocuments({ ...activeCustomerFilter }),
 
     // Sales Trend — last 12 months
     SalesMdis.aggregate([
-      { $match: { ...MDIS_SALE_FILTER } },
+      { $match: { ...mdisSaleFilter } },
       { $group: { _id: { $substr: ["$DATE", 0, 7] }, total: { $sum: "$FINAL" } } },
       { $sort: { _id: 1 } },
       { $limit: 12 },
@@ -250,13 +314,11 @@ export async function GET() {
     ]),
 
     // Outstanding Aging — raw rows, bucketed in JS below (DUEDAYS varies per voucher)
-    Pend.find({}, { FINAL: 1, DDATE: 1 }).lean(),
+    Pend.find(pendFilter, { FINAL: 1, DDATE: 1 }).lean(),
 
     // Top 10 Products — DIS joined to PRO by CODE
-    // NOTE: $lookup "from" must be the actual Mongo collection name for
-    // Product (e.g. "vfp_new_folder_pro") — check your Product.ts schema's
-    // `collection` option and update the string below if it differs.
     SalesDis.aggregate([
+      { $match: salesDisFilter },
       { $group: { _id: "$CODE", qty: { $sum: "$QTY" }, amount: { $sum: "$AMMMOUNT" } } },
       { $sort: { amount: -1 } },
       { $limit: 10 },
@@ -280,23 +342,22 @@ export async function GET() {
     ]),
 
     // Stock Status — raw BALANCE/MINIMUM, bucketed in JS
-    Product.find({}, { BALANCE: 1, MINIMUM: 1 }).lean(),
+    Product.find(productFilter, { BALANCE: 1, MINIMUM: 1 }).lean(),
 
     // Expiry Status — raw EXP/BALANCE, bucketed in JS
-    ProductBatch.find({}, { EXP: 1, BALANCE: 1 }).lean(),
+    ProductBatch.find(batchFilter, { EXP: 1, BALANCE: 1 }).lean(),
 
     SalesMdis.aggregate([
-      { $match: { ...MDIS_SALE_FILTER, TYPE: { $ne: null } } },
+      { $match: { ...mdisSaleFilter, TYPE: { $ne: null } } },
       { $group: { _id: "$TYPE", amount: { $sum: "$FINAL" } } },
       { $match: { amount: { $ne: 0 } } },
       { $sort: { amount: -1 } },
       { $limit: 8 },
     ]),
 
-    // Top 10 Customers — MDIS.CODEP joins to ORDER.ORDNO (confirmed match,
-    // see MDIS_CUSTOMER_FIELD / ORDER_CUSTOMER_JOIN_FIELD notes above).
+    // Top 10 Customers — MDIS.CODEP joins to ORDER.ORDNO
     SalesMdis.aggregate([
-      { $match: { ...MDIS_SALE_FILTER, [MDIS_CUSTOMER_FIELD]: { $ne: null } } },
+      { $match: { ...mdisSaleFilter, [MDIS_CUSTOMER_FIELD]: { $ne: null } } },
       { $group: { _id: `$${MDIS_CUSTOMER_FIELD}`, amount: { $sum: "$FINAL" } } },
       { $sort: { amount: -1 } },
       { $limit: 10 },
@@ -319,13 +380,14 @@ export async function GET() {
 
     // Distinct invoice count for Avg Invoice Value
     SalesMdis.aggregate([
-      { $match: { ...MDIS_SALE_FILTER } },
+      { $match: { ...mdisSaleFilter } },
       { $group: { _id: "$VOUCHER" } },
       { $count: "count" },
     ]),
 
     // Gross margin approx: DIS.AMMMOUNT (sale value) - QTY*LPRATE (cost)
     SalesDis.aggregate([
+      { $match: salesDisFilter },
       {
         $group: {
           _id: null,
@@ -337,18 +399,19 @@ export async function GET() {
 
     // Stock Value = BALANCE * PRATE
     Product.aggregate([
+      { $match: productFilter },
       { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
     ]),
 
     // Expired Stock Value
     ProductBatch.aggregate([
-      { $match: { EXP: { $ne: null, $lt: today } } },
+      { $match: { ...batchFilter, EXP: { $ne: null, $lt: today } } },
       { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
     ]),
 
     // Near Expiry Stock Value
     ProductBatch.aggregate([
-      { $match: { EXP: { $ne: null, $gte: today, $lte: near90 } } },
+      { $match: { ...batchFilter, EXP: { $ne: null, $gte: today, $lte: near90 } } },
       { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
     ]),
 
@@ -358,7 +421,7 @@ export async function GET() {
       d.setMonth(d.getMonth() - 1);
       const lmStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
       const lmEnd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-31`;
-      return sumField(SalesMdis, { ...MDIS_SALE_FILTER, DATE: { $gte: lmStart, $lte: lmEnd } }, "FINAL");
+      return sumField(SalesMdis, { ...mdisSaleFilter, DATE: { $gte: lmStart, $lte: lmEnd } }, "FINAL");
     })(),
   ]);
 

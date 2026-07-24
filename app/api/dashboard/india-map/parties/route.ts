@@ -71,7 +71,7 @@ export async function GET(req: Request) {
         const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get("pageSize") || "25", 10) || 25));
 
         const rows = await OrderParty.find(
-            orderFilter,
+            {},
             {
                 PARNAM: 1,
                 CITY: 1,
@@ -88,13 +88,20 @@ export async function GET(req: Request) {
                 PHONE2: 1,
                 AREA: 1,
                 ORDNO: 1,
+                COMPANY: 1,
+                GCODE: 1,
+                SCODE: 1,
+                DSM: 1,
             }
         ).lean();
 
         const stateNameFilter = stateParam ? MAP_ID_TO_STATE_NAMES[stateParam.toLowerCase()] ?? [stateParam] : null;
         const stateFilterSet = stateNameFilter ? new Set(stateNameFilter) : null;
 
-        let parties = rows.filter((r: any) => isRealParty(r.PARNAM, r)).map((r: any) => {
+        let parties = rows
+            .filter((r: any) => isRealParty(r.PARNAM, r))
+            .filter((r: any) => !restriction.isMrRestricted || restriction.isPartyAllowed(r))
+            .map((r: any) => {
             const city = r.CITY ? r.CITY.trim() : null;
             const pincode = extractPincode(r.PARADD, r.PARADD1, r.PARADD2, city);
             const { district, source: districtSource } = extractDistrict(city, r.PARADD, r.PARADD1, r.PARADD2);

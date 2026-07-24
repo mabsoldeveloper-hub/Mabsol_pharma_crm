@@ -83,18 +83,9 @@ import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 export async function getEnrichedParties(): Promise<EnrichedParty[]> {
     const restriction = await getMrTerritoryRestriction();
 
-    const customerFilter: any = {};
-    if (restriction.isMrRestricted) {
-        if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
-            customerFilter.ORDNO = { $in: restriction.allowedOrdnos };
-        } else {
-            return [];
-        }
-    }
-
     // ---- Base customer records (added PARADD*/PHONE*/SALDR/PURCR vs before) --
     const customers: any[] = await Customer.find(
-        customerFilter,
+        {},
         {
             ORDNO: 1,
             PARNAM: 1,
@@ -116,6 +107,9 @@ export async function getEnrichedParties(): Promise<EnrichedParty[]> {
             PHONE4: 1,
             SALDR: 1,
             PURCR: 1,
+            COMPANY: 1,
+            GCODE: 1,
+            SCODE: 1,
         }
     ).lean();
 
@@ -170,7 +164,9 @@ export async function getEnrichedParties(): Promise<EnrichedParty[]> {
     });
 
     // ---- Drop ledger/accounting heads, keep only real trade parties --------
-    const realCustomers = customers.filter((c: any) => isRealParty(c.PARNAM, c));
+    const realCustomers = customers
+        .filter((c: any) => isRealParty(c.PARNAM, c))
+        .filter((c: any) => !restriction.isMrRestricted || restriction.isPartyAllowed(c));
 
     // ---- Enrich every real party --------------------------------------------
     return realCustomers.map((c: any) => {

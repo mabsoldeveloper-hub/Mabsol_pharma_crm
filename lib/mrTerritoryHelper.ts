@@ -8,26 +8,37 @@ export interface MrTerritoryRestriction {
     isMrRestricted: boolean;
     allowedCompanyCodes: string[] | null; // null means unrestricted (Admin or non-MR)
     allowedOrdnos: string[] | null;       // null means unrestricted
+    allowedCompanyCodesSet: Set<string>;
+    allowedOrdnosSet: Set<string>;
+    companyRegexes: RegExp[];
+    ordnoRegexes: RegExp[];
+    isPartyAllowed: (party: any) => boolean;
 }
 
 /**
  * Resolves MR Territory restrictions for the currently logged-in user.
- * - Admin users get unrestricted access (`isMrRestricted = false`).
- * - Non-admin users with active `MrTerritory` records get restricted access to their allowed company codes and matched customer party codes (`allowedOrdnos`).
+ * Handles VFP fixed-width whitespace padding gracefully with regex & trimmed set matching.
  */
 export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestriction> {
+    const emptyUnrestricted: MrTerritoryRestriction = {
+        isMrRestricted: false,
+        allowedCompanyCodes: null,
+        allowedOrdnos: null,
+        allowedCompanyCodesSet: new Set(),
+        allowedOrdnosSet: new Set(),
+        companyRegexes: [],
+        ordnoRegexes: [],
+        isPartyAllowed: () => true,
+    };
+
     try {
         const user = await getCurrentUser();
-        if (!user) {
-            return { isMrRestricted: false, allowedCompanyCodes: null, allowedOrdnos: null };
-        }
+        if (!user) return emptyUnrestricted;
 
         const roleName = String(user.roleId?.roleName || "").trim().toLowerCase();
 
         // Admin role users get FULL access to all data
-        if (roleName.includes("admin")) {
-            return { isMrRestricted: false, allowedCompanyCodes: null, allowedOrdnos: null };
-        }
+        if (roleName.includes("admin")) return emptyUnrestricted;
 
         // Non-admin: check active territories
         const territories = await MrTerritory.find(
@@ -35,13 +46,15 @@ export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestrictio
             { companyCode: 1 }
         );
 
-        if (!territories || territories.length === 0) {
-            return { isMrRestricted: false, allowedCompanyCodes: null, allowedOrdnos: null };
-        }
+        if (!territories || territories.length === 0) return emptyUnrestricted;
 
         const allowedCompanyCodes = Array.from(
             new Set(territories.map((t: any) => String(t.companyCode || "").trim()))
         ).filter(Boolean);
+
+        const companyRegexes = allowedCompanyCodes.map(
+            (c) => new RegExp("^" + c.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&") + "\\s*$", "i")
+        );
 
         const userName = String(user.name || "").trim();
         const empCode = String(user.employeeCode || "").trim();
@@ -50,14 +63,18 @@ export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestrictio
         if (userName) dsmConditions.push({ DSM: { $regex: userName, $options: "i" } });
         if (empCode) dsmConditions.push({ DSM: { $regex: empCode, $options: "i" } });
 
+        const companyMatchQuery = {
+            $in: [...allowedCompanyCodes, ...companyRegexes],
+        };
+
         const [disCodes, mdisCodes, directOrdnos] = await Promise.all([
-            SalesDis.distinct("CODEP", { COMPANY: { $in: allowedCompanyCodes } }),
-            SalesMdis.distinct("CODEP", { COMPANY: { $in: allowedCompanyCodes } }),
+            SalesDis.distinct("CODEP", { COMPANY: companyMatchQuery }),
+            SalesMdis.distinct("CODEP", { COMPANY: companyMatchQuery }),
             Customer.distinct("ORDNO", {
                 $or: [
-                    { COMPANY: { $in: allowedCompanyCodes } },
-                    { GCODE: { $in: allowedCompanyCodes } },
-                    { SCODE: { $in: allowedCompanyCodes } },
+                    { COMPANY: companyMatchQuery },
+                    { GCODE: companyMatchQuery },
+                    { SCODE: companyMatchQuery },
                     ...(dsmConditions.length > 0 ? dsmConditions : []),
                 ],
             }),
@@ -73,12 +90,41 @@ export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestrictio
             )
         );
 
+        const ordnoRegexes = allowedOrdnos.map(
+            (code) => new RegExp("^" + code.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&") + "\\s*$", "i")
+        );
+
+        const allowedCompanyCodesSet = new Set(allowedCompanyCodes.map((c) => c.toLowerCase()));
+        const allowedOrdnosSet = new Set(allowedOrdnos.map((c) => c.toLowerCase()));
+
+        const dsmTerms = [userName, empCode].filter(Boolean);
+        const userDsmRegex = dsmTerms.length > 0
+            ? new RegExp(dsmTerms.map((t) => t.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")).join("|"), "i")
+            : null;
+
+        const isPartyAllowed = (party: any) => {
+            if (!party) return false;
+            const ordno = String(party.ORDNO || party.ordno || party.CODEP || party.codep || party.ORD || party.ord || party.code || party.CODE || "").trim().toLowerCase();
+            const company = String(party.COMPANY || party.GCODE || party.SCODE || party.company || "").trim().toLowerCase();
+            const dsm = String(party.DSM || party.dsm || "").trim();
+
+            if (ordno && allowedOrdnosSet.has(ordno)) return true;
+            if (company && allowedCompanyCodesSet.has(company)) return true;
+            if (userDsmRegex && dsm && userDsmRegex.test(dsm)) return true;
+            return false;
+        };
+
         return {
             isMrRestricted: true,
             allowedCompanyCodes,
             allowedOrdnos,
+            allowedCompanyCodesSet,
+            allowedOrdnosSet,
+            companyRegexes,
+            ordnoRegexes,
+            isPartyAllowed,
         };
     } catch {
-        return { isMrRestricted: false, allowedCompanyCodes: null, allowedOrdnos: null };
+        return emptyUnrestricted;
     }
 }
