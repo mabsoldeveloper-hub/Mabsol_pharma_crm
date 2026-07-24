@@ -26,6 +26,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 import {
     BarChart,
     Bar,
@@ -41,6 +42,12 @@ import {
     Legend,
     ResponsiveContainer,
 } from "recharts";
+
+type MrTerritoryInfo = {
+    isMrRestricted: boolean;
+    territories: any[];
+    allowedCompanyCodes: string[];
+};
 
 const COLORS = [
     "#3B82F6", "#22C55E", "#F59E0B", "#EF4444", "#A855F7",
@@ -138,9 +145,34 @@ export default function ComparisonDashboardPage() {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
     const isMobile = useIsMobile();
+
+    useEffect(() => {
+        loadMrTerritoryInfo();
+        fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const loadMrTerritoryInfo = async () => {
+        try {
+            const res = await fetch("/api/mr-territory/my-territories");
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success) {
+                    setMrTerritoryInfo({
+                        isMrRestricted: json.isMrRestricted,
+                        territories: json.territories || [],
+                        allowedCompanyCodes: json.allowedCompanyCodes || [],
+                    });
+                }
+            }
+        } catch {
+            // Silently ignore
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -160,14 +192,68 @@ export default function ComparisonDashboardPage() {
         }
     };
 
-    useEffect(() => {
-        fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
     return (
         <div className="min-h-screen p-3 sm:p-6 space-y-4 sm:space-y-6 relative">
             <AmbientBackground />
+
+            {/* ==================== MR TERRITORY BANNER ==================== */}
+            {mrTerritoryInfo?.isMrRestricted && (
+                <div className="flex items-start gap-3 rounded-[24px] border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm relative overflow-hidden">
+                    <div className="flex-shrink-0 mt-0.5">
+                        <FaMapMarkerAlt size={16} className="text-amber-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-amber-800 mb-0.5">Territory Restricted View</p>
+                        <p className="text-[11px] text-amber-700 leading-relaxed">
+                            Aap sirf apni assigned territory ka comparison data dekh sakte hain.
+                            {mrTerritoryInfo.territories.length > 0 && (
+                                <>
+                                    {" "}Assigned:
+                                    {" "}
+                                    {Array.from(
+                                        new Set(
+                                            mrTerritoryInfo.territories.map(
+                                                (t) => t.companyName || t.companyCode
+                                            )
+                                        )
+                                    ).join(", ")}
+                                </>
+                            )}
+                        </p>
+                        {mrTerritoryInfo.territories.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {mrTerritoryInfo.territories.map((t, i) => (
+                                    <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium border border-amber-200"
+                                    >
+                                        <FaBuilding size={8} />
+                                        {t.companyName || t.companyCode}
+                                        {t.divisionName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.divisionName}
+                                            </>
+                                        ) : null}
+                                        {t.subDivisionName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.subDivisionName}
+                                            </>
+                                        ) : null}
+                                        {t.categoryName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.categoryName}
+                                            </>
+                                        ) : null}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end items-stretch justify-between gap-4 rounded-[24px] sm:rounded-[28px] border border-white/60 bg-white/40 backdrop-blur-2xl shadow-[0_8px_32px_rgba(31,41,55,0.08)] p-4 sm:p-6 relative overflow-hidden">

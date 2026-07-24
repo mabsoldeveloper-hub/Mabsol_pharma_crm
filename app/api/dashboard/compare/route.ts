@@ -26,6 +26,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import { SalesDis, SalesMdis, Product, GLedger, Pendings } from "@/models/dashboardModels";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 // Parses "YYYY-MM-DD" style strings safely inside an aggregation pipeline
 const parsedDateStage = (field: string) => ({
@@ -48,6 +49,36 @@ export async function GET(req: Request) {
     try {
         await connectDB();
 
+        const restriction = await getMrTerritoryRestriction();
+
+        const mdisMatch: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const disMatch: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const pendingsMatch: any = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { ORD: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { ORD: "NONE_MATCH" }
+            : {};
+
+        const gledgerMatch: any = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODE: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODE: "NONE_MATCH" }
+            : {};
+
         const { searchParams } = new URL(req.url);
         const from = searchParams.get("from");
         const to = searchParams.get("to");
@@ -57,7 +88,7 @@ export async function GET(req: Request) {
         // 1. SALES vs PURCHASE  (MDIS.TYPE: S / P, grouped by month)
         // ---------------------------------------------------------------------
         const salesVsPurchaseRaw = await SalesMdis.aggregate([
-            { $match: { DATE: { $ne: null }, TYPE: { $in: ["S", "P"] } } },
+            { $match: { ...mdisMatch, DATE: { $ne: null }, TYPE: { $in: ["S", "P"] } } },
             parsedDateStage("DATE"),
             { $match: { _dateParsed: { $ne: null } } },
             ...(rangeStage ? [rangeStage] : []),
@@ -92,7 +123,7 @@ export async function GET(req: Request) {
         // 2. COLLECTION vs OUTSTANDING
         // ---------------------------------------------------------------------
         const collectionsMonthly = await GLedger.aggregate([
-            { $match: { DATE: { $ne: null } } },
+            { $match: { ...gledgerMatch, DATE: { $ne: null } } },
             parsedDateStage("DATE"),
             { $match: { _dateParsed: { $ne: null } } },
             ...(rangeStage ? [rangeStage] : []),
@@ -108,6 +139,7 @@ export async function GET(req: Request) {
         ]);
 
         const outstandingSummary = await Pendings.aggregate([
+            { $match: pendingsMatch },
             {
                 $group: {
                     _id: null,
@@ -118,7 +150,7 @@ export async function GET(req: Request) {
         ]);
 
         const outstandingAging = await Pendings.aggregate([
-            { $match: { BALANCE: { $gt: 0 } } },
+            { $match: { ...pendingsMatch, BALANCE: { $gt: 0 } } },
             {
                 $bucket: {
                     groupBy: "$DUEDAYS",
@@ -153,6 +185,7 @@ export async function GET(req: Request) {
         // 3. PRODUCT COMPARISON  (DIS.CODE -> PRO.CODE)
         // ---------------------------------------------------------------------
         const productComparisonRaw = await SalesDis.aggregate([
+            { $match: disMatch },
             ...(from || to
                 ? [
                     { $match: { DATE: { $ne: null } } },
@@ -189,6 +222,7 @@ export async function GET(req: Request) {
         // 4. COMPANY COMPARISON  (DIS.COMPANY)
         // ---------------------------------------------------------------------
         const companyComparisonRaw = await SalesDis.aggregate([
+            { $match: disMatch },
             ...(from || to
                 ? [
                     { $match: { DATE: { $ne: null } } },
@@ -217,7 +251,7 @@ export async function GET(req: Request) {
         // 5. MONTHLY COMPARISON  (MDIS.FINAL, all TYPE combined)
         // ---------------------------------------------------------------------
         const monthlyComparison = await SalesMdis.aggregate([
-            { $match: { DATE: { $ne: null } } },
+            { $match: { ...mdisMatch, DATE: { $ne: null } } },
             parsedDateStage("DATE"),
             { $match: { _dateParsed: { $ne: null } } },
             ...(rangeStage ? [rangeStage] : []),
@@ -236,7 +270,7 @@ export async function GET(req: Request) {
         // 6. QUARTERLY COMPARISON  (Indian FY: Apr-Jun=Q1 ... Jan-Mar=Q4)
         // ---------------------------------------------------------------------
         const quarterlyRaw = await SalesMdis.aggregate([
-            { $match: { DATE: { $ne: null } } },
+            { $match: { ...mdisMatch, DATE: { $ne: null } } },
             parsedDateStage("DATE"),
             { $match: { _dateParsed: { $ne: null } } },
             ...(rangeStage ? [rangeStage] : []),
