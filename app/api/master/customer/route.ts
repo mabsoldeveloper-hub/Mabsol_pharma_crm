@@ -8,23 +8,61 @@ import SalesDis from "@/models/SalesDis";       // DIS collection
 import SalesMdis from "@/models/SalesMdis";     // MDIS collection
 import GLedger from "@/models/GLedger";         // GLEDGER collection
 import SaleType from "@/models/SaleType";       // SALETYPE collection
+import MrTerritory from "@/models/MrTerritory";
+import { getCurrentUser } from "@/lib/auth";
 
-// NOTE: Put this file at: src/app/api/customers/full/route.ts
-// (matching page.tsx at src/app/dashboard/customers/full/page.tsx)
-//
-// Join keys (confirmed from real exported data — same join used across the
-// pharma reporting suite):
-//   Customer.ORDNO  <-->  DIS.CODEP        (sales)
-//   Customer.ORDNO  <-->  MDIS.CODEP       (purchase)
-//   Customer.ORDNO  <-->  GLEDGER.CODE     (ledger)
-//   Customer.SCODE  <-->  AccountGroup.ORDNO   (customer's parent group)
-//   Customer.SCODE  <-->  SaleType.SCODE       (tax / sale-type name)
+export const dynamic = "force-dynamic";
 
 export async function GET() {
     await connectDB();
 
+    // ── Step 1: Determine MR territory restrictions ───────────────────────
+    let allowedSCODEs: string[] | null = null; // null = no restriction (admin/non-MR)
+
+    try {
+        const user = await getCurrentUser();
+
+        if (user) {
+            const roleName = String(user.roleId?.roleName || "").trim().toLowerCase();
+
+            // Admin role users get FULL access to all customers
+            if (roleName.includes("admin")) {
+                allowedSCODEs = null;
+            } else {
+                // Find all ACTIVE territories for this user
+                const territories = await MrTerritory.find(
+                    { userId: user._id, status: "Active" },
+                    { companyCode: 1 }
+                );
+
+                if (territories && territories.length > 0) {
+                    const allowedCompanyCodes = Array.from(
+                        new Set(
+                            territories.map((t: any) =>
+                                String(t.companyCode || "").trim()
+                            )
+                        )
+                    ).filter(Boolean);
+
+                    allowedSCODEs = allowedCompanyCodes;
+                }
+            }
+        }
+    } catch {
+        allowedSCODEs = null;
+    }
+
+    // ── Step 2: Build customer query with optional SCODE filter ────────────
+    const customerFilter: any = {};
+    if (allowedSCODEs !== null && allowedSCODEs.length > 0) {
+        customerFilter.SCODE = { $in: allowedSCODEs };
+    } else if (allowedSCODEs !== null && allowedSCODEs.length === 0) {
+        return NextResponse.json([]);
+    }
+
     // ---- Base customer records (every field on the Customer/Order table) ----
-    const customers: any[] = await Customer.find({}).sort({ PARNAM: 1 }).lean();
+    const customers: any[] = await Customer.find(customerFilter).sort({ PARNAM: 1 }).lean();
+
 
     // ---- Account group lookup: Customer.SCODE -> AccountGroup.ORDNO ----
     const groups = await AccountGroup.find(
