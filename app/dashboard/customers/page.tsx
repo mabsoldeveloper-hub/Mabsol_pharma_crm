@@ -17,6 +17,9 @@ import {
   FaSort,
   FaSortUp,
   FaSortDown,
+  FaBuilding,
+  FaMapMarkerAlt,
+  FaArrowRight,
 } from "react-icons/fa";
 import {
   useReactTable,
@@ -28,6 +31,12 @@ import {
   createColumnHelper,
   type SortingState,
 } from "@tanstack/react-table";
+
+type MrTerritoryInfo = {
+  isMrRestricted: boolean;
+  territories: any[];
+  allowedCompanyCodes: string[];
+};
 
 interface Customer {
   _id?: string;
@@ -108,10 +117,30 @@ export default function CustomerPage() {
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive" | "Outstanding">("All");
   const [groupFilter, setGroupFilter] = useState("All");
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
 
   useEffect(() => {
+    loadMrTerritoryInfo();
     loadCustomers();
   }, []);
+
+  const loadMrTerritoryInfo = async () => {
+    try {
+      const res = await fetch("/api/mr-territory/my-territories");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setMrTerritoryInfo({
+            isMrRestricted: json.isMrRestricted,
+            territories: json.territories || [],
+            allowedCompanyCodes: json.allowedCompanyCodes || [],
+          });
+        }
+      }
+    } catch {
+      // Silently ignore
+    }
+  };
 
   const loadCustomers = async () => {
     try {
@@ -258,6 +287,65 @@ export default function CustomerPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-6">
+      {/* ==================== MR TERRITORY BANNER ==================== */}
+      {mrTerritoryInfo?.isMrRestricted && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm mb-4">
+          <div className="flex-shrink-0 mt-0.5">
+            <FaMapMarkerAlt size={16} className="text-amber-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-800 mb-0.5">Territory Restricted View</p>
+            <p className="text-[11px] text-amber-700 leading-relaxed">
+              Aap sirf apni assigned territory ke customers dekh sakte hain.
+              {mrTerritoryInfo.territories.length > 0 && (
+                <>
+                  {" "}Assigned:
+                  {" "}
+                  {Array.from(
+                    new Set(
+                      mrTerritoryInfo.territories.map(
+                        (t) => t.companyName || t.companyCode
+                      )
+                    )
+                  ).join(", ")}
+                </>
+              )}
+            </p>
+            {mrTerritoryInfo.territories.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {mrTerritoryInfo.territories.map((t, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium border border-amber-200"
+                  >
+                    <FaBuilding size={8} />
+                    {t.companyName || t.companyCode}
+                    {t.divisionName ? (
+                      <>
+                        {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                        {t.divisionName}
+                      </>
+                    ) : null}
+                    {t.subDivisionName ? (
+                      <>
+                        {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                        {t.subDivisionName}
+                      </>
+                    ) : null}
+                    {t.categoryName ? (
+                      <>
+                        {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                        {t.categoryName}
+                      </>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>

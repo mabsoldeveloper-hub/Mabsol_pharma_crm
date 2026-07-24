@@ -11,90 +11,21 @@ import SaleType from "@/models/SaleType";       // SALETYPE collection
 import MrTerritory from "@/models/MrTerritory";
 import { getCurrentUser } from "@/lib/auth";
 
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
 export const dynamic = "force-dynamic";
 
 export async function GET() {
     await connectDB();
 
-    // ── Step 1: Determine MR territory restrictions ───────────────────────
-    let customerFilter: any = {};
-    let isMrRestricted = false;
-
-    try {
-        const user = await getCurrentUser();
-
-        if (user) {
-            const roleName = String(user.roleId?.roleName || "").trim().toLowerCase();
-
-            // Admin role users get FULL access to all customers
-            if (roleName.includes("admin")) {
-                customerFilter = {};
-                isMrRestricted = false;
-            } else {
-                // Find all ACTIVE territories for this user
-                const territories = await MrTerritory.find(
-                    { userId: user._id, status: "Active" },
-                    { companyCode: 1 }
-                );
-
-                if (territories && territories.length > 0) {
-                    isMrRestricted = true;
-                    const allowedCompanyCodes = Array.from(
-                        new Set(
-                            territories.map((t: any) =>
-                                String(t.companyCode || "").trim()
-                            )
-                        )
-                    ).filter(Boolean);
-
-                    const userName = String(user.name || "").trim();
-                    const empCode = String(user.employeeCode || "").trim();
-
-                    // Build regex for DSM matching if name/empCode exist
-                    const dsmConditions: any[] = [];
-                    if (userName) dsmConditions.push({ DSM: { $regex: userName, $options: "i" } });
-                    if (empCode) dsmConditions.push({ DSM: { $regex: empCode, $options: "i" } });
-
-                    // Resolve customer ORDNOs from sales (SalesDis, SalesMdis) and Customer master
-                    const [disCodes, mdisCodes, directOrdnos] = await Promise.all([
-                        SalesDis.distinct("CODEP", { COMPANY: { $in: allowedCompanyCodes } }),
-                        SalesMdis.distinct("CODEP", { COMPANY: { $in: allowedCompanyCodes } }),
-                        Customer.distinct("ORDNO", {
-                            $or: [
-                                { COMPANY: { $in: allowedCompanyCodes } },
-                                { GCODE: { $in: allowedCompanyCodes } },
-                                { SCODE: { $in: allowedCompanyCodes } },
-                                ...(dsmConditions.length > 0 ? dsmConditions : []),
-                            ],
-                        }),
-                    ]);
-
-                    const allMatchedOrdnos = Array.from(
-                        new Set(
-                            [
-                                ...disCodes.map((c: any) => String(c).trim()),
-                                ...mdisCodes.map((c: any) => String(c).trim()),
-                                ...directOrdnos.map((c: any) => String(c).trim()),
-                            ].filter(Boolean)
-                        )
-                    );
-
-                    if (allMatchedOrdnos.length > 0) {
-                        customerFilter.ORDNO = { $in: allMatchedOrdnos };
-                    } else {
-                        // Territory assigned, but no customers found for these companies/MR
-                        return NextResponse.json([]);
-                    }
-                }
-            }
-        }
-    } catch {
-        customerFilter = {};
-    }
-
+    const restriction = await getMrTerritoryRestriction();
 
     // ---- Base customer records (every field on the Customer/Order table) ----
-    const customers: any[] = await Customer.find(customerFilter).sort({ PARNAM: 1 }).lean();
+    const allCustomers: any[] = await Customer.find({}).sort({ PARNAM: 1 }).lean();
+
+    const customers = restriction.isMrRestricted
+        ? allCustomers.filter((c: any) => restriction.isPartyAllowed(c))
+        : allCustomers;
 
 
     // ---- Account group lookup: Customer.SCODE -> AccountGroup.ORDNO ----
