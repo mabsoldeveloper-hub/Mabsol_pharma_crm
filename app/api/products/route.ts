@@ -32,13 +32,50 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Product from "@/models/Product";
 import SaleType from "@/models/SaleType";
+import MrTerritory from "@/models/MrTerritory";
+import { getCurrentUser } from "@/lib/auth";
+
+// MR Territory Filtering:
+//   If user has ACTIVE MrTerritory records → only return their assigned company's products.
+//   Otherwise → return all products (admin / non-MR).
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
 
     await connectDB();
 
+    // ── Step 1: Determine MR restrictions ────────────────────────────────
+    let allowedGCODEs: string[] | null = null;
+
+    try {
+        const user = await getCurrentUser();
+        if (user) {
+            const territories = await MrTerritory.find(
+                { userId: user._id, status: "Active" },
+                { companyCode: 1 }
+            );
+
+            if (territories && territories.length > 0) {
+                allowedGCODEs = Array.from(
+                    new Set(territories.map((t: any) => String(t.companyCode || "").trim()))
+                ).filter(Boolean);
+            }
+        }
+    } catch {
+        allowedGCODEs = null;
+    }
+
+    // ── Step 2: Build filtered product query ─────────────────────────────
+    const productFilter: any = {};
+    if (allowedGCODEs !== null && allowedGCODEs.length > 0) {
+        productFilter.GCODE = { $in: allowedGCODEs };
+    } else if (allowedGCODEs !== null && allowedGCODEs.length === 0) {
+        return NextResponse.json([]);
+    }
+
     const products = await Product.find(
-        {},
+        productFilter,
         {
             PRODUCT: 1,
             NAME: 1,
@@ -89,4 +126,4 @@ export async function GET() {
     }));
 
     return NextResponse.json(result);
-}
+}

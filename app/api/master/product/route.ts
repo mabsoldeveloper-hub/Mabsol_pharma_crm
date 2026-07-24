@@ -2,30 +2,77 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Product from "@/models/Product";
 import SaleType from "@/models/SaleType";
+import MrTerritory from "@/models/MrTerritory";
+import { getCurrentUser } from "@/lib/auth";
 
-// NOTE: Put this file at: src/app/api/products/full/route.ts
-// (or src/app/api/master/product/route.ts, wherever the page.tsx fetches from)
+// GET /api/master/product
 //
-// HSN mapping logic:
-//   Product.GCODE6  -->  SaleType.SCODE   (only rows where SaleType.SGCODE === "COMMCD")
-//   That row's SaleType.SNAME is the actual HSN / SAC code.
+// MR Territory Filtering Logic:
+//   - If the logged-in user has ACTIVE MrTerritory records → they are an MR.
+//     Only products whose GCODE matches one of their allowed company codes are returned.
+//   - If no territory records exist → user is admin / non-MR → all products returned.
 //
-// Company name mapping logic (unchanged):
-//   Product.GCODE   -->  SaleType.SCODE   -> SaleType.SNAME
+// Product ↔ Company link:
+//   Product.GCODE  →  SaleType.SCODE  →  SaleType.SNAME (company name)
+//   So "allowed company codes" = MrTerritory.companyCode values for this user.
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
     await connectDB();
 
-    const products = await Product.find({}).sort({ PRODUCT: 1 });
+    // ── Step 1: Determine MR territory restrictions ───────────────────────
+    let allowedGCODEs: string[] | null = null; // null = no restriction (admin/non-MR)
 
-    // Pull every SaleType row we need in one query, then split them
-    // client-side by SGCODE so we don't need two separate DB round trips.
+    try {
+        const user = await getCurrentUser();
+
+        if (user) {
+            // Find all ACTIVE territories for this user
+            const territories = await MrTerritory.find(
+                { userId: user._id, status: "Active" },
+                { companyCode: 1 }
+            );
+
+            if (territories && territories.length > 0) {
+                // User IS an MR with territory assignments
+                const allowedCompanyCodes = Array.from(
+                    new Set(
+                        territories.map((t: any) =>
+                            String(t.companyCode || "").trim()
+                        )
+                    )
+                ).filter(Boolean);
+
+                // Product.GCODE corresponds to SaleType.SCODE (company code)
+                // So allowedGCODEs = allowedCompanyCodes (direct match)
+                allowedGCODEs = allowedCompanyCodes;
+            }
+            // else: user has no territories → not an MR → show all products
+        }
+    } catch {
+        // If session check fails, fall back to showing all products
+        allowedGCODEs = null;
+    }
+
+    // ── Step 2: Build product query with optional GCODE filter ────────────
+    const productFilter: any = {};
+    if (allowedGCODEs !== null && allowedGCODEs.length > 0) {
+        productFilter.GCODE = { $in: allowedGCODEs };
+    } else if (allowedGCODEs !== null && allowedGCODEs.length === 0) {
+        // MR is assigned but company codes couldn't be resolved → return nothing
+        return NextResponse.json([]);
+    }
+
+    const products = await Product.find(productFilter).sort({ PRODUCT: 1 });
+
+    // ── Step 3: Build enrichment maps from SaleType ───────────────────────
     const saleTypes = await SaleType.find(
         {},
         { SCODE: 1, SNAME: 1, SGCODE: 1 }
     );
 
-    // SCODE -> SNAME map, for company / category names (Product.GCODE join)
+    // SCODE -> SNAME map (company name lookup by Product.GCODE)
     const companyMap = new Map<string, string>();
 
     // SCODE -> SNAME map, ONLY for HSN rows (Product.GCODE6 join)
@@ -34,8 +81,6 @@ export async function GET() {
     saleTypes.forEach((item: any) => {
         if (!item.SCODE) return;
         const code = String(item.SCODE).trim();
-
-        // Every row can still be used for the generic company/category name
         companyMap.set(code, item.SNAME);
 
         // Only rows tagged as commodity codes hold an actual HSN value
@@ -44,27 +89,29 @@ export async function GET() {
         }
     });
 
+    // ── Step 4: Enrich products with derived fields ───────────────────────
     const result = products.map((p: any) => {
-        const gcode = p.GCODE ? String(p.GCODE).trim() : "";
+        const gcode  = p.GCODE  ? String(p.GCODE).trim()  : "";
         const gcode6 = p.GCODE6 ? String(p.GCODE6).trim() : "";
         const obj = p.toObject();
 
-        const ratef = Number(obj.RATEF || 0);
-        const prate = Number(obj.PRATE || 0);
-        const mrp = Number(obj.MRP || 0);
-        const bal = Number(obj.BALANCE || 0);
+        const ratef = Number(obj.RATEF   || 0);
+        const prate = Number(obj.PRATE   || 0);
+        const mrp   = Number(obj.MRP     || 0);
+        const bal   = Number(obj.BALANCE || 0);
 
-        const marginPct = ratef > 0 && prate > 0 ? Math.round(((ratef - prate) / ratef) * 100) : 0;
+        const marginPct  = ratef > 0 && prate > 0
+            ? Math.round(((ratef - prate) / ratef) * 100) : 0;
         const stockValue = bal > 0 ? Math.round(bal * (ratef || mrp)) : 0;
 
         return {
             ...obj,
-            companyName: companyMap.get(gcode) || "",
-            HSN: hsnMap.get(gcode6) || "",
+            companyName: companyMap.get(gcode)  || "",
+            HSN:         hsnMap.get(gcode6)     || "",
             marginPct,
             stockValue,
         };
     });
 
     return NextResponse.json(result);
-}
+}

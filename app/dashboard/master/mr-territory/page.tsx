@@ -9,6 +9,7 @@ import {
   FaEdit,
   FaTrashAlt,
   FaArrowLeft,
+  FaArrowRight,
   FaUndo,
   FaSave,
   FaBuilding,
@@ -877,6 +878,43 @@ export default function MrTerritoryPage() {
           </div>
         </div>
       )}
+
+      {/* ── Setup Complete Footer ── */}
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 shadow-sm p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500">
+            <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P1</span>
+            <span className="text-emerald-600 font-medium">Company</span>
+            <span className="text-slate-300">→</span>
+            <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P2</span>
+            <span className="text-emerald-600 font-medium">Division</span>
+            <span className="text-slate-300">→</span>
+            <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P3</span>
+            <span className="text-emerald-600 font-medium">Sub Division</span>
+            <span className="text-slate-300">→</span>
+            <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P4</span>
+            <span className="text-emerald-600 font-medium">Category</span>
+            <span className="text-slate-300">→</span>
+            <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P5</span>
+            <span className="text-emerald-600 font-medium">Product</span>
+            <span className="text-slate-300">→</span>
+            <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P6</span>
+            <span className="text-emerald-600 font-medium">Customer</span>
+            <span className="text-slate-300">→</span>
+            <span className="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">P7</span>
+            <span className="font-bold text-emerald-700">Salesman (MR)</span>
+            <span className="ml-1 text-[10px] font-bold text-emerald-600 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">✅ All Phases Done!</span>
+          </div>
+          <Link
+            href="/dashboard/master"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap"
+          >
+            <FaCheckCircle size={13} />
+            Setup Complete — Back to Masters
+          </Link>
+        </div>
+      </div>
+
     </div>
   );
 }

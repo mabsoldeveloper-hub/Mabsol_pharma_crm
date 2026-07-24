@@ -9,6 +9,7 @@ import {
   FaEdit,
   FaTrashAlt,
   FaArrowLeft,
+  FaArrowRight,
   FaUndo,
   FaSave,
   FaBuilding,
@@ -808,6 +809,32 @@ export default function DivisionMasterPage() {
           </div>
         </div>
       )}
+
+      {/* ── Next Step Footer ── */}
+      <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-200/80 shadow-sm p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500">
+            <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P1</span>
+            <span className="text-emerald-600 font-medium">Company</span>
+            <span className="text-slate-300">→</span>
+            <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px]">P2</span>
+            <span className="font-semibold text-slate-700">Division</span>
+            <span className="text-slate-300">→</span>
+            <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-[10px]">P3</span>
+            <span>Sub Division</span>
+            <span className="hidden sm:inline text-slate-300">→</span>
+            <span className="hidden sm:inline">Category → Product → Customer → Salesman</span>
+          </div>
+          <Link
+            href="/dashboard/master/sub-division-master"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/35 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap"
+          >
+            Next Step: Sub Division
+            <FaArrowRight size={12} />
+          </Link>
+        </div>
+      </div>
+
     </div>
   );
 }

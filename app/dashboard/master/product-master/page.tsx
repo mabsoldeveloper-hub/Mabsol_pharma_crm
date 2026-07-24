@@ -36,6 +36,7 @@ import {
     FaBuilding,
     FaArrowRight,
     FaCoins,
+    FaMapMarkerAlt,
 } from "react-icons/fa";
 
 type Product = Record<string, any>;
@@ -169,11 +170,10 @@ function StatChip({
         <button
             type="button"
             onClick={onClick}
-            className={`flex items-center gap-2.5 rounded-xl backdrop-blur-xl border px-3 py-2 text-left shadow-[0_2px_10px_rgba(0,0,0,0.05)] transition-all duration-200 ${
-                active
-                    ? "bg-white border-blue-600 ring-2 ring-blue-600/20 shadow-md scale-[1.02]"
-                    : "bg-white/60 border-white/40 hover:bg-white/80 hover:border-gray-300"
-            }`}
+            className={`flex items-center gap-2.5 rounded-xl backdrop-blur-xl border px-3 py-2 text-left shadow-[0_2px_10px_rgba(0,0,0,0.05)] transition-all duration-200 ${active
+                ? "bg-white border-blue-600 ring-2 ring-blue-600/20 shadow-md scale-[1.02]"
+                : "bg-white/60 border-white/40 hover:bg-white/80 hover:border-gray-300"
+                }`}
         >
             <span className={`h-2.5 w-2.5 rounded-full ${tone}`} />
             <div className="flex flex-col leading-tight">
@@ -184,11 +184,30 @@ function StatChip({
     );
 }
 
+// MR Territory restriction info
+type MrTerritoryInfo = {
+    isMrRestricted: boolean;
+    territories: {
+        companyCode: string;
+        companyName: string;
+        divisionCode: string;
+        divisionName: string;
+        subDivisionCode: string;
+        subDivisionName: string;
+        categoryCode: string;
+        categoryName: string;
+    }[];
+    allowedCompanyCodes: string[];
+};
+
 export default function ProductsFullViewPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [pageSize, setPageSize] = useState<number>(10);
+
+    // MR Territory state
+    const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
 
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
         const state: VisibilityState = {};
@@ -221,8 +240,28 @@ export default function ProductsFullViewPage() {
     const [maxStock, setMaxStock] = useState("");
 
     useEffect(() => {
+        loadMrTerritoryInfo();
         loadProducts();
     }, []);
+
+    // Fetch current user's territory info (for displaying restriction badge)
+    const loadMrTerritoryInfo = async () => {
+        try {
+            const res = await fetch("/api/mr-territory/my-territories");
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    setMrTerritoryInfo({
+                        isMrRestricted: data.isMrRestricted,
+                        territories: data.territories || [],
+                        allowedCompanyCodes: data.allowedCompanyCodes || [],
+                    });
+                }
+            }
+        } catch {
+            // Silently ignore — territory info is cosmetic only; actual filtering is server-side
+        }
+    };
 
     const loadProducts = async () => {
         setLoading(true);
@@ -354,13 +393,12 @@ export default function ProductsFullViewPage() {
                         const m = Number(val || 0);
                         return (
                             <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ring-1 ${
-                                    m >= 25
-                                        ? "bg-emerald-500/15 text-emerald-700 ring-emerald-500/30"
-                                        : m >= 10
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ring-1 ${m >= 25
+                                    ? "bg-emerald-500/15 text-emerald-700 ring-emerald-500/30"
+                                    : m >= 10
                                         ? "bg-blue-500/15 text-blue-700 ring-blue-500/30"
                                         : "bg-amber-500/15 text-amber-700 ring-amber-500/30"
-                                }`}
+                                    }`}
                             >
                                 {m}%
                             </span>
@@ -471,6 +509,66 @@ export default function ProductsFullViewPage() {
 
     return (
         <div className="space-y-4 p-2 sm:p-4">
+
+            {/* ==================== MR TERRITORY BANNER ==================== */}
+            {mrTerritoryInfo?.isMrRestricted && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm">
+                    <div className="flex-shrink-0 mt-0.5">
+                        <FaMapMarkerAlt size={16} className="text-amber-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-amber-800 mb-0.5">Territory Restricted View</p>
+                        <p className="text-[11px] text-amber-700 leading-relaxed">
+                            Aap sirf apni assigned territory ke products dekh sakte hain.
+                            {mrTerritoryInfo.territories.length > 0 && (
+                                <>
+                                    {" "}Assigned:
+                                    {" "}
+                                    {Array.from(
+                                        new Set(
+                                            mrTerritoryInfo.territories.map(
+                                                (t) => t.companyName || t.companyCode
+                                            )
+                                        )
+                                    ).join(", ")}
+                                </>
+                            )}
+                        </p>
+                        {mrTerritoryInfo.territories.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {mrTerritoryInfo.territories.map((t, i) => (
+                                    <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium border border-amber-200"
+                                    >
+                                        <FaBuilding size={8} />
+                                        {t.companyName || t.companyCode}
+                                        {t.divisionName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.divisionName}
+                                            </>
+                                        ) : null}
+                                        {t.subDivisionName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.subDivisionName}
+                                            </>
+                                        ) : null}
+                                        {t.categoryName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.categoryName}
+                                            </>
+                                        ) : null}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* ==================== TOP STAT STRIP ==================== */}
             <div className="flex flex-wrap gap-2.5 items-center">
                 <StatChip
@@ -531,40 +629,36 @@ export default function ProductsFullViewPage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab("all")}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                                    activeTab === "all" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
-                                }`}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${activeTab === "all" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
+                                    }`}
                             >
                                 All Products
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveTab("low_stock")}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                                    activeTab === "low_stock"
-                                        ? "bg-white text-indigo-900 shadow-sm font-semibold"
-                                        : "text-white/80 hover:text-white"
-                                }`}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${activeTab === "low_stock"
+                                    ? "bg-white text-indigo-900 shadow-sm font-semibold"
+                                    : "text-white/80 hover:text-white"
+                                    }`}
                             >
                                 <FaExclamationTriangle size={10} /> Low Stock
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveTab("high_margin")}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                                    activeTab === "high_margin"
-                                        ? "bg-white text-indigo-900 shadow-sm font-semibold"
-                                        : "text-white/80 hover:text-white"
-                                }`}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${activeTab === "high_margin"
+                                    ? "bg-white text-indigo-900 shadow-sm font-semibold"
+                                    : "text-white/80 hover:text-white"
+                                    }`}
                             >
                                 <FaChartLine size={10} /> High Margin
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveTab("active")}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                                    activeTab === "active" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
-                                }`}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${activeTab === "active" ? "bg-white text-indigo-900 shadow-sm font-semibold" : "text-white/80 hover:text-white"
+                                    }`}
                             >
                                 Active
                             </button>
@@ -585,9 +679,8 @@ export default function ProductsFullViewPage() {
                         <button
                             type="button"
                             onClick={() => setShowFilters((v) => !v)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                                showFilters ? "bg-white text-indigo-900" : "bg-white/15 text-white ring-1 ring-white/25 hover:bg-white/25"
-                            }`}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${showFilters ? "bg-white text-indigo-900" : "bg-white/15 text-white ring-1 ring-white/25 hover:bg-white/25"
+                                }`}
                         >
                             <FaFilter size={11} /> Filters
                         </button>
@@ -734,9 +827,8 @@ export default function ProductsFullViewPage() {
                                             <th
                                                 key={header.id}
                                                 onClick={header.column.getToggleSortingHandler()}
-                                                className={`select-none cursor-pointer whitespace-nowrap px-4 py-2.5 font-semibold text-gray-600 text-xs uppercase tracking-wider ${
-                                                    isNumeric ? "text-right" : "text-left"
-                                                } hover:text-blue-600 transition-colors`}
+                                                className={`select-none cursor-pointer whitespace-nowrap px-4 py-2.5 font-semibold text-gray-600 text-xs uppercase tracking-wider ${isNumeric ? "text-right" : "text-left"
+                                                    } hover:text-blue-600 transition-colors`}
                                             >
                                                 <span className={`inline-flex items-center gap-1 ${isNumeric ? "flex-row-reverse" : ""}`}>
                                                     {flexRender(header.column.columnDef.header, header.getContext())}
@@ -773,9 +865,8 @@ export default function ProductsFullViewPage() {
                                             return (
                                                 <td
                                                     key={cell.id}
-                                                    className={`px-4 py-2.5 whitespace-nowrap text-gray-700 tabular-nums ${
-                                                        isNumeric ? "text-right" : "text-left"
-                                                    }`}
+                                                    className={`px-4 py-2.5 whitespace-nowrap text-gray-700 tabular-nums ${isNumeric ? "text-right" : "text-left"
+                                                        }`}
                                                 >
                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                 </td>
@@ -930,8 +1021,8 @@ export default function ProductsFullViewPage() {
                                         {Number(selectedProductDrawer.BALANCE || 0) <= 0
                                             ? "Out of Stock"
                                             : Number(selectedProductDrawer.BALANCE || 0) <= 10
-                                            ? "Low Stock Alert"
-                                            : "In Stock"}
+                                                ? "Low Stock Alert"
+                                                : "In Stock"}
                                     </span>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs text-gray-600">
@@ -1154,6 +1245,40 @@ export default function ProductsFullViewPage() {
                     </div>
                 </div>
             )}
+
+            {/* ── Next Step Footer ── */}
+            <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-200/80 shadow-sm p-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500">
+                        <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P1</span>
+                        <span className="text-emerald-600 font-medium">Company</span>
+                        <span className="text-slate-300">→</span>
+                        <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P2</span>
+                        <span className="text-emerald-600 font-medium">Division</span>
+                        <span className="text-slate-300">→</span>
+                        <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P3</span>
+                        <span className="text-emerald-600 font-medium">Sub Division</span>
+                        <span className="text-slate-300">→</span>
+                        <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px]">P4</span>
+                        <span className="text-emerald-600 font-medium">Category</span>
+                        <span className="text-slate-300">→</span>
+                        <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px]">P5</span>
+                        <span className="font-semibold text-slate-700">Product</span>
+                        <span className="text-slate-300">→</span>
+                        <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-[10px]">P6</span>
+                        <span>Customer</span>
+                        <span className="hidden sm:inline text-slate-300">→</span>
+                        <span className="hidden sm:inline">Salesman (MR)</span>
+                    </div>
+                    <Link
+                        href="/dashboard/master/customer-master"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/35 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap"
+                    >
+                        Next Step: Customer
+                        <FaArrowRight size={12} />
+                    </Link>
+                </div>
+            </div>
         </div>
     );
 }
