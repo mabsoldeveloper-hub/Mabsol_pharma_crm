@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import Division from "@/models/Division";
+import SubDivision from "@/models/SubDivision";
 
-// ==========================
-// GET : Division List
-// ==========================
+// =======================
+// GET - List Sub Divisions
+// =======================
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
@@ -12,53 +12,60 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
     const search = searchParams.get("search") || "";
-    const companyCode = searchParams.get("companyCode") || "";
     const status = searchParams.get("status") || "";
+    const companyCode = searchParams.get("companyCode") || "";
+    const divisionCode = searchParams.get("divisionCode") || "";
 
     const filter: any = {};
-
-    if (companyCode) {
-      filter.companyCode = companyCode;
-    }
 
     if (status) {
       filter.status = status;
     }
 
+    if (companyCode) {
+      filter.companyCode = companyCode;
+    }
+
+    if (divisionCode) {
+      filter.divisionCode = divisionCode;
+    }
+
     if (search) {
       filter.$or = [
-        { divisionCode: { $regex: search, $options: "i" } },
+        { subDivisionCode: { $regex: search, $options: "i" } },
+        { subDivisionName: { $regex: search, $options: "i" } },
         { divisionName: { $regex: search, $options: "i" } },
-        { shortName: { $regex: search, $options: "i" } },
+        { divisionCode: { $regex: search, $options: "i" } },
         { companyName: { $regex: search, $options: "i" } },
-        { companyCode: { $regex: search, $options: "i" } },
+        { shortName: { $regex: search, $options: "i" } },
       ];
     }
 
-    const divisions = await Division.find(filter).sort({
+    const subDivisions = await SubDivision.find(filter).sort({
       companyName: 1,
       divisionName: 1,
+      subDivisionName: 1,
     });
 
     return NextResponse.json({
       success: true,
-      count: divisions.length,
-      data: divisions,
+      count: subDivisions.length,
+      data: subDivisions,
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message || "Failed to fetch divisions",
+        message: error.message || "Failed to fetch sub divisions",
       },
       { status: 500 }
     );
   }
 }
 
-// ==========================
-// POST : Create Division
-// ==========================
+// =======================
+// POST - Create Sub Division
+// =======================
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
@@ -70,16 +77,27 @@ export async function POST(req: NextRequest) {
       companyName,
       divisionCode,
       divisionName,
+      subDivisionCode,
+      subDivisionName,
       shortName,
       description,
       status,
     } = body;
 
-    if (!companyCode || !companyName || !divisionCode || !divisionName) {
+    // Validation
+    if (
+      !companyCode ||
+      !companyName ||
+      !divisionCode ||
+      !divisionName ||
+      !subDivisionCode ||
+      !subDivisionName
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Company Code, Company Name, Division Code, and Division Name are required.",
+          message:
+            "Company, Division, Sub Division Code, and Sub Division Name are required.",
         },
         { status: 400 }
       );
@@ -89,28 +107,32 @@ export async function POST(req: NextRequest) {
     const formattedCompanyName = companyName.trim();
     const formattedDivisionCode = divisionCode.trim().toUpperCase();
     const formattedDivisionName = divisionName.trim();
+    const formattedSubDivisionCode = subDivisionCode.trim().toUpperCase();
+    const formattedSubDivisionName = subDivisionName.trim();
 
-    // Duplicate Code
-    const codeExists = await Division.findOne({
+    // Duplicate Code check
+    const codeExists = await SubDivision.findOne({
       companyCode: formattedCompanyCode,
       divisionCode: formattedDivisionCode,
+      subDivisionCode: formattedSubDivisionCode,
     });
 
     if (codeExists) {
       return NextResponse.json(
         {
           success: false,
-          message: `Division Code '${formattedDivisionCode}' already exists for this Company.`,
+          message: `Sub Division Code '${formattedSubDivisionCode}' already exists for this Division.`,
         },
         { status: 400 }
       );
     }
 
-    // Duplicate Name
-    const nameExists = await Division.findOne({
+    // Duplicate Name check
+    const nameExists = await SubDivision.findOne({
       companyCode: formattedCompanyCode,
-      divisionName: {
-        $regex: `^${formattedDivisionName}$`,
+      divisionCode: formattedDivisionCode,
+      subDivisionName: {
+        $regex: `^${formattedSubDivisionName}$`,
         $options: "i",
       },
     });
@@ -119,17 +141,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: `Division Name '${formattedDivisionName}' already exists for this Company.`,
+          message: `Sub Division Name '${formattedSubDivisionName}' already exists for this Division.`,
         },
         { status: 400 }
       );
     }
 
-    const division = await Division.create({
+    const subDivision = await SubDivision.create({
       companyCode: formattedCompanyCode,
       companyName: formattedCompanyName,
       divisionCode: formattedDivisionCode,
       divisionName: formattedDivisionName,
+      subDivisionCode: formattedSubDivisionCode,
+      subDivisionName: formattedSubDivisionName,
       shortName: shortName?.trim() || "",
       description: description?.trim() || "",
       status: status || "Active",
@@ -138,8 +162,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: "Division created successfully.",
-        data: division,
+        message: "Sub Division created successfully.",
+        data: subDivision,
       },
       { status: 201 }
     );
@@ -147,7 +171,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message || "Failed to create division",
+        message: error.message || "Failed to create sub division",
       },
       { status: 500 }
     );

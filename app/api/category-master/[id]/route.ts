@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import Division from "@/models/Division";
+import Category from "@/models/Category";
 
 // ==============================
-// GET Division By ID
+// GET Category By ID
 // ==============================
 export async function GET(
   req: NextRequest,
@@ -13,13 +13,13 @@ export async function GET(
     await connectDB();
     const { id } = await params;
 
-    const division = await Division.findById(id);
+    const category = await Category.findById(id);
 
-    if (!division) {
+    if (!category) {
       return NextResponse.json(
         {
           success: false,
-          message: "Division not found.",
+          message: "Category not found.",
         },
         { status: 404 }
       );
@@ -27,13 +27,13 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: division,
+      data: category,
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message || "Error fetching division",
+        message: error.message || "Error fetching category",
       },
       { status: 500 }
     );
@@ -41,7 +41,7 @@ export async function GET(
 }
 
 // ==============================
-// UPDATE Division
+// UPDATE Category
 // ==============================
 export async function PUT(
   req: NextRequest,
@@ -58,16 +58,30 @@ export async function PUT(
       companyName,
       divisionCode,
       divisionName,
+      subDivisionCode,
+      subDivisionName,
+      categoryCode,
+      categoryName,
       shortName,
       description,
       status,
     } = body;
 
-    if (!companyCode || !companyName || !divisionCode || !divisionName) {
+    if (
+      !companyCode ||
+      !companyName ||
+      !divisionCode ||
+      !divisionName ||
+      !subDivisionCode ||
+      !subDivisionName ||
+      !categoryCode ||
+      !categoryName
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Company Code, Company Name, Division Code, and Division Name are required.",
+          message:
+            "Company, Division, Sub Division, Category Code, and Category Name are required.",
         },
         { status: 400 }
       );
@@ -77,30 +91,38 @@ export async function PUT(
     const formattedCompanyName = companyName.trim();
     const formattedDivisionCode = divisionCode.trim().toUpperCase();
     const formattedDivisionName = divisionName.trim();
+    const formattedSubDivisionCode = subDivisionCode.trim().toUpperCase();
+    const formattedSubDivisionName = subDivisionName.trim();
+    const formattedCategoryCode = categoryCode.trim().toUpperCase();
+    const formattedCategoryName = categoryName.trim();
 
     // Duplicate Code check excluding current id
-    const codeExists = await Division.findOne({
+    const codeExists = await Category.findOne({
       _id: { $ne: id },
       companyCode: formattedCompanyCode,
       divisionCode: formattedDivisionCode,
+      subDivisionCode: formattedSubDivisionCode,
+      categoryCode: formattedCategoryCode,
     });
 
     if (codeExists) {
       return NextResponse.json(
         {
           success: false,
-          message: `Division Code '${formattedDivisionCode}' already exists for this Company.`,
+          message: `Category Code '${formattedCategoryCode}' already exists for this Sub Division.`,
         },
         { status: 400 }
       );
     }
 
     // Duplicate Name check excluding current id
-    const nameExists = await Division.findOne({
+    const nameExists = await Category.findOne({
       _id: { $ne: id },
       companyCode: formattedCompanyCode,
-      divisionName: {
-        $regex: `^${formattedDivisionName}$`,
+      divisionCode: formattedDivisionCode,
+      subDivisionCode: formattedSubDivisionCode,
+      categoryName: {
+        $regex: `^${formattedCategoryName}$`,
         $options: "i",
       },
     });
@@ -109,19 +131,23 @@ export async function PUT(
       return NextResponse.json(
         {
           success: false,
-          message: `Division Name '${formattedDivisionName}' already exists for this Company.`,
+          message: `Category Name '${formattedCategoryName}' already exists for this Sub Division.`,
         },
         { status: 400 }
       );
     }
 
-    const division = await Division.findByIdAndUpdate(
+    const category = await Category.findByIdAndUpdate(
       id,
       {
         companyCode: formattedCompanyCode,
         companyName: formattedCompanyName,
         divisionCode: formattedDivisionCode,
         divisionName: formattedDivisionName,
+        subDivisionCode: formattedSubDivisionCode,
+        subDivisionName: formattedSubDivisionName,
+        categoryCode: formattedCategoryCode,
+        categoryName: formattedCategoryName,
         shortName: shortName?.trim() || "",
         description: description?.trim() || "",
         status: status || "Active",
@@ -132,11 +158,11 @@ export async function PUT(
       }
     );
 
-    if (!division) {
+    if (!category) {
       return NextResponse.json(
         {
           success: false,
-          message: "Division not found.",
+          message: "Category not found.",
         },
         { status: 404 }
       );
@@ -144,14 +170,14 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      message: "Division updated successfully.",
-      data: division,
+      message: "Category updated successfully.",
+      data: category,
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message || "Failed to update division",
+        message: error.message || "Failed to update category",
       },
       { status: 500 }
     );
@@ -159,7 +185,7 @@ export async function PUT(
 }
 
 // ==============================
-// DELETE Division
+// DELETE Category
 // ==============================
 export async function DELETE(
   req: NextRequest,
@@ -169,13 +195,13 @@ export async function DELETE(
     await connectDB();
     const { id } = await params;
 
-    const division = await Division.findByIdAndDelete(id);
+    const category = await Category.findByIdAndDelete(id);
 
-    if (!division) {
+    if (!category) {
       return NextResponse.json(
         {
           success: false,
-          message: "Division not found.",
+          message: "Category not found.",
         },
         { status: 404 }
       );
@@ -183,13 +209,13 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: "Division deleted successfully.",
+      message: "Category deleted successfully.",
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message || "Failed to delete division",
+        message: error.message || "Failed to delete category",
       },
       { status: 500 }
     );

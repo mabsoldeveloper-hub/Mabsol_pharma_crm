@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import Division from "@/models/Division";
+import SubDivision from "@/models/SubDivision";
 
 // ==============================
-// GET Division By ID
+// GET Sub Division By ID
 // ==============================
 export async function GET(
   req: NextRequest,
@@ -13,13 +13,13 @@ export async function GET(
     await connectDB();
     const { id } = await params;
 
-    const division = await Division.findById(id);
+    const subDivision = await SubDivision.findById(id);
 
-    if (!division) {
+    if (!subDivision) {
       return NextResponse.json(
         {
           success: false,
-          message: "Division not found.",
+          message: "Sub Division not found.",
         },
         { status: 404 }
       );
@@ -27,13 +27,13 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: division,
+      data: subDivision,
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message || "Error fetching division",
+        message: error.message || "Error fetching sub division",
       },
       { status: 500 }
     );
@@ -41,7 +41,7 @@ export async function GET(
 }
 
 // ==============================
-// UPDATE Division
+// UPDATE Sub Division
 // ==============================
 export async function PUT(
   req: NextRequest,
@@ -58,16 +58,26 @@ export async function PUT(
       companyName,
       divisionCode,
       divisionName,
+      subDivisionCode,
+      subDivisionName,
       shortName,
       description,
       status,
     } = body;
 
-    if (!companyCode || !companyName || !divisionCode || !divisionName) {
+    if (
+      !companyCode ||
+      !companyName ||
+      !divisionCode ||
+      !divisionName ||
+      !subDivisionCode ||
+      !subDivisionName
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Company Code, Company Name, Division Code, and Division Name are required.",
+          message:
+            "Company, Division, Sub Division Code, and Sub Division Name are required.",
         },
         { status: 400 }
       );
@@ -77,30 +87,34 @@ export async function PUT(
     const formattedCompanyName = companyName.trim();
     const formattedDivisionCode = divisionCode.trim().toUpperCase();
     const formattedDivisionName = divisionName.trim();
+    const formattedSubDivisionCode = subDivisionCode.trim().toUpperCase();
+    const formattedSubDivisionName = subDivisionName.trim();
 
     // Duplicate Code check excluding current id
-    const codeExists = await Division.findOne({
+    const codeExists = await SubDivision.findOne({
       _id: { $ne: id },
       companyCode: formattedCompanyCode,
       divisionCode: formattedDivisionCode,
+      subDivisionCode: formattedSubDivisionCode,
     });
 
     if (codeExists) {
       return NextResponse.json(
         {
           success: false,
-          message: `Division Code '${formattedDivisionCode}' already exists for this Company.`,
+          message: `Sub Division Code '${formattedSubDivisionCode}' already exists for this Division.`,
         },
         { status: 400 }
       );
     }
 
     // Duplicate Name check excluding current id
-    const nameExists = await Division.findOne({
+    const nameExists = await SubDivision.findOne({
       _id: { $ne: id },
       companyCode: formattedCompanyCode,
-      divisionName: {
-        $regex: `^${formattedDivisionName}$`,
+      divisionCode: formattedDivisionCode,
+      subDivisionName: {
+        $regex: `^${formattedSubDivisionName}$`,
         $options: "i",
       },
     });
@@ -109,19 +123,21 @@ export async function PUT(
       return NextResponse.json(
         {
           success: false,
-          message: `Division Name '${formattedDivisionName}' already exists for this Company.`,
+          message: `Sub Division Name '${formattedSubDivisionName}' already exists for this Division.`,
         },
         { status: 400 }
       );
     }
 
-    const division = await Division.findByIdAndUpdate(
+    const subDivision = await SubDivision.findByIdAndUpdate(
       id,
       {
         companyCode: formattedCompanyCode,
         companyName: formattedCompanyName,
         divisionCode: formattedDivisionCode,
         divisionName: formattedDivisionName,
+        subDivisionCode: formattedSubDivisionCode,
+        subDivisionName: formattedSubDivisionName,
         shortName: shortName?.trim() || "",
         description: description?.trim() || "",
         status: status || "Active",
@@ -132,11 +148,11 @@ export async function PUT(
       }
     );
 
-    if (!division) {
+    if (!subDivision) {
       return NextResponse.json(
         {
           success: false,
-          message: "Division not found.",
+          message: "Sub Division not found.",
         },
         { status: 404 }
       );
@@ -144,14 +160,14 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      message: "Division updated successfully.",
-      data: division,
+      message: "Sub Division updated successfully.",
+      data: subDivision,
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message || "Failed to update division",
+        message: error.message || "Failed to update sub division",
       },
       { status: 500 }
     );
@@ -159,7 +175,7 @@ export async function PUT(
 }
 
 // ==============================
-// DELETE Division
+// DELETE Sub Division
 // ==============================
 export async function DELETE(
   req: NextRequest,
@@ -169,13 +185,13 @@ export async function DELETE(
     await connectDB();
     const { id } = await params;
 
-    const division = await Division.findByIdAndDelete(id);
+    const subDivision = await SubDivision.findByIdAndDelete(id);
 
-    if (!division) {
+    if (!subDivision) {
       return NextResponse.json(
         {
           success: false,
-          message: "Division not found.",
+          message: "Sub Division not found.",
         },
         { status: 404 }
       );
@@ -183,13 +199,13 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: "Division deleted successfully.",
+      message: "Sub Division deleted successfully.",
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message || "Failed to delete division",
+        message: error.message || "Failed to delete sub division",
       },
       { status: 500 }
     );

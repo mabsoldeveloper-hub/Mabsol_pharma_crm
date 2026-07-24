@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Division from "@/models/Division";
-import Company from "@/models/Company";
-
 
 // =======================
 // GET - List Divisions
@@ -15,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
-    const companyId = searchParams.get("companyId") || "";
+    const companyCode = searchParams.get("companyCode") || searchParams.get("companyId") || "";
 
     const filter: any = {};
 
@@ -23,8 +21,8 @@ export async function GET(req: NextRequest) {
       filter.status = status;
     }
 
-    if (companyId) {
-      filter.companyId = companyId;
+    if (companyCode) {
+      filter.companyCode = companyCode;
     }
 
     if (search) {
@@ -32,12 +30,12 @@ export async function GET(req: NextRequest) {
         { divisionCode: { $regex: search, $options: "i" } },
         { divisionName: { $regex: search, $options: "i" } },
         { shortName: { $regex: search, $options: "i" } },
+        { companyName: { $regex: search, $options: "i" } },
+        { companyCode: { $regex: search, $options: "i" } },
       ];
     }
 
-    const divisions = await Division.find(filter)
-      .populate("companyId", "companyName companyCode")
-      .sort({ createdAt: -1 });
+    const divisions = await Division.find(filter).sort({ companyName: 1, divisionName: 1 });
 
     return NextResponse.json({
       success: true,
@@ -48,13 +46,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message,
+        message: error.message || "Failed to fetch divisions",
       },
       { status: 500 }
     );
   }
 }
-
 
 // =======================
 // POST - Create Division
@@ -66,7 +63,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const {
-      companyId,
+      companyCode,
+      companyName,
       divisionCode,
       divisionName,
       shortName,
@@ -75,50 +73,42 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // Validation
-    if (!companyId || !divisionCode || !divisionName) {
+    if (!companyCode || !companyName || !divisionCode || !divisionName) {
       return NextResponse.json(
         {
           success: false,
-          message: "Company, Division Code and Division Name are required.",
+          message: "Company Code, Company Name, Division Code, and Division Name are required.",
         },
         { status: 400 }
       );
     }
 
-    // Company Exists
-    const company = await Company.findById(companyId);
+    const formattedCompanyCode = companyCode.trim();
+    const formattedCompanyName = companyName.trim();
+    const formattedDivisionCode = divisionCode.trim().toUpperCase();
+    const formattedDivisionName = divisionName.trim();
 
-    if (!company) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Company not found.",
-        },
-        { status: 404 }
-      );
-    }
-
-    // Duplicate Code
+    // Duplicate Code under same company
     const codeExists = await Division.findOne({
-      companyId,
-      divisionCode: divisionCode.trim().toUpperCase(),
+      companyCode: formattedCompanyCode,
+      divisionCode: formattedDivisionCode,
     });
 
     if (codeExists) {
       return NextResponse.json(
         {
           success: false,
-          message: "Division Code already exists.",
+          message: `Division Code '${formattedDivisionCode}' already exists for this Company.`,
         },
         { status: 400 }
       );
     }
 
-    // Duplicate Name
+    // Duplicate Name under same company
     const nameExists = await Division.findOne({
-      companyId,
+      companyCode: formattedCompanyCode,
       divisionName: {
-        $regex: `^${divisionName.trim()}$`,
+        $regex: `^${formattedDivisionName}$`,
         $options: "i",
       },
     });
@@ -127,31 +117,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Division Name already exists.",
+          message: `Division Name '${formattedDivisionName}' already exists for this Company.`,
         },
         { status: 400 }
       );
     }
 
     const division = await Division.create({
-      companyId,
-      divisionCode: divisionCode.trim().toUpperCase(),
-      divisionName: divisionName.trim(),
+      companyCode: formattedCompanyCode,
+      companyName: formattedCompanyName,
+      divisionCode: formattedDivisionCode,
+      divisionName: formattedDivisionName,
       shortName: shortName?.trim() || "",
       description: description?.trim() || "",
       status: status || "Active",
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Division created successfully.",
-      data: division,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Division created successfully.",
+        data: division,
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message,
+        message: error.message || "Failed to create division",
       },
       { status: 500 }
     );

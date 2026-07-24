@@ -7,9 +7,17 @@ import {
     FaUsers,
     FaBarcode,
     FaMapMarkedAlt,
+    FaMapMarkerAlt,
     FaSitemap,
     FaArrowRight,
     FaLayerGroup,
+    FaCheckCircle,
+    FaBuilding,
+    FaNetworkWired,
+    FaTag,
+    FaBoxes,
+    FaUserCheck,
+    FaUserTie,
 } from "react-icons/fa";
 
 const colorMap = {
@@ -43,6 +51,11 @@ const colorMap = {
         glowFrom: "from-rose-400/40",
         ring: "ring-rose-300/40",
     },
+    teal: {
+        iconText: "text-teal-600",
+        glowFrom: "from-teal-400/40",
+        ring: "ring-teal-300/40",
+    },
 };
 
 type ColorKey = keyof typeof colorMap;
@@ -55,6 +68,16 @@ interface MasterItem {
     color: ColorKey;
 }
 
+const hierarchyPhases = [
+    { phase: 1, title: "Company", status: "Done", icon: <FaBuilding className="text-emerald-600" />, link: "/dashboard/master/fetch-company-master" },
+    { phase: 2, title: "Division", status: "Done", icon: <FaSitemap className="text-emerald-600" />, link: "/dashboard/master/division-master" },
+    { phase: 3, title: "Sub Division", status: "Active", icon: <FaNetworkWired className="text-indigo-600" />, link: "/dashboard/master/sub-division-master" },
+    { phase: 4, title: "Category", status: "Active", icon: <FaTag className="text-indigo-600" />, link: "/dashboard/master/category-master" },
+    { phase: 5, title: "Product", status: "Done", icon: <FaBoxes className="text-emerald-600" />, link: "/dashboard/master/product-master" },
+    { phase: 6, title: "Customer", status: "Done", icon: <FaUserCheck className="text-emerald-600" />, link: "/dashboard/master/customer-master" },
+    { phase: 7, title: "Salesman (MR)", status: "Done", icon: <FaUserTie className="text-teal-600" />, link: "/dashboard/master/mr-territory" },
+];
+
 export default function MasterPage() {
     const masters: MasterItem[] = [
         {
@@ -65,18 +88,60 @@ export default function MasterPage() {
             color: "rose",
         },
         {
+            title: "Company Master",
+            desc: "Manage companies (SALETYPE)",
+            icon: <FaBuilding size={16} />,
+            link: "/dashboard/master/fetch-company-master",
+            color: "emerald",
+        },
+        {
+            title: "Division Master",
+            desc: "Manage business divisions",
+            icon: <FaSitemap size={16} />,
+            link: "/dashboard/master/division-master",
+            color: "violet",
+        },
+        {
+            title: "Sub Division Master",
+            desc: "Manage sub divisions & groups",
+            icon: <FaNetworkWired size={16} />,
+            link: "/dashboard/master/sub-division-master",
+            color: "indigo",
+        },
+        {
+            title: "Category Master",
+            desc: "Manage product categories",
+            icon: <FaTag size={16} />,
+            link: "/dashboard/master/category-master",
+            color: "teal",
+        },
+        {
             title: "Product Master",
-            desc: "Manage products and inventory items",
+            desc: "Manage products & inventory",
             icon: <FaBoxOpen size={16} />,
             link: "/dashboard/master/product-master",
             color: "indigo",
         },
         {
-            title: "Ledger Master",
-            desc: "Manage ledger/customer records",
+            title: "Customer Master",
+            desc: "Manage customer ledgers",
             icon: <FaUsers size={16} />,
             link: "/dashboard/master/customer-master",
             color: "cyan",
+        },
+        {
+            title: "Salesman (MR) Master",
+            desc: "Manage sales force in Users",
+            icon: <FaUserTie size={16} />,
+            link: "/dashboard/users",
+            color: "emerald",
+        },
+        {
+            title: "MR Territory",
+            desc: "Assign product hierarchy scope to MRs",
+            icon: <FaMapMarkerAlt size={16} />,
+            link: "/dashboard/master/mr-territory",
+            color: "teal",
         },
         {
             title: "HSN Master",
@@ -87,117 +152,188 @@ export default function MasterPage() {
         },
         {
             title: "Area Master",
-            desc: "Manage area information",
+            desc: "Manage areas & regions",
             icon: <FaMapMarkedAlt size={16} />,
             link: "/dashboard/master/area-master",
             color: "amber",
         },
-
-        {
-            title: "Fetch Company  Master",
-            desc: "Manage Fetch Company",
-            icon: <FaSitemap size={16} />,
-            link: "/dashboard/master/fetch-company-master",
-            color: "violet",
-        },
-
-        {
-            title: "Division Master",
-            desc: "Manage divisions & regions",
-            icon: <FaSitemap size={16} />,
-            link: "/dashboard/master/division-master",
-            color: "violet",
-        },
     ];
 
     return (
-        <div className="p-4">
-            <h3 className="text-xl font-bold text-gray-800 mb-5 tracking-wide">
-                Masters
-            </h3>
+        <div className="p-4 space-y-6">
+            {/* Master Hierarchy Roadmap Banner - LIGHT THEME */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-50/80 via-white to-blue-50/80 p-6 text-slate-800 shadow-sm border border-indigo-100">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                Architecture Hierarchy
+                            </span>
+                            <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                Phase 1 to Phase 7 Configured
+                            </span>
+                        </div>
+                        <h2 className="text-2xl font-extrabold tracking-tight mt-1.5 text-slate-900">
+                            Master Hierarchy Roadmap
+                        </h2>
+                        <p className="text-sm text-slate-600 mt-0.5">
+                            Company → Division → Sub Division → Category → Product → Customer → Salesman (MR)
+                        </p>
+                    </div>
+                </div>
 
-            {/* 5 Cards in One Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-                {masters.map((master, index) => {
-                    const c = colorMap[master.color];
+                {/* Pipeline Steps Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-3 relative">
+                    {hierarchyPhases.map((item, idx) => {
+                        const isDone = item.status === "Done";
+                        const isActive = item.status === "Active";
 
-                    return (
-                        <Link
-                            key={index}
-                            href={master.link}
-                            style={{ animationDelay: `${index * 40}ms` }}
-                            className={`
-                                    group relative isolate overflow-hidden rounded-2xl block
-                                    bg-white/40 backdrop-blur-xl backdrop-saturate-150
-                                    border border-white/60
-                                    shadow-[0_8px_32px_rgba(31,38,135,0.12)]
-                                    ring-1 ${c.ring}
-                                    animate-[fadeSlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
-                                    transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                                    hover:-translate-y-1.5
-                                    hover:scale-[1.02]
-                                    hover:shadow-[0_16px_40px_rgba(31,38,135,0.18)]
-                                    active:scale-[0.98]
-                                    cursor-pointer
-                                    p-4
-                            `}
-                        >
-                            {/* Background Glass */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-white/10 to-transparent pointer-events-none" />
-
-                            {/* Glow Effect */}
+                        const cardContent = (
                             <div
                                 className={`
-                                    absolute -top-6 -right-6 w-20 h-20 rounded-full
-                                    bg-gradient-to-br ${c.glowFrom} to-transparent
-                                    blur-2xl opacity-60 scale-90
-                                    transition-all duration-700 ease-out
-                                    group-hover:opacity-100
-                                    group-hover:scale-125
-                                    pointer-events-none
+                                    relative p-3 rounded-xl transition-all duration-300 border text-center flex flex-col items-center justify-between h-full min-h-[110px]
+                                    ${isDone
+                                        ? "bg-white border-emerald-200 text-slate-800 hover:border-emerald-400 shadow-sm hover:shadow-md hover:scale-[1.02]"
+                                        : isActive
+                                            ? "bg-white border-indigo-300 text-indigo-900 ring-2 ring-indigo-400/40 shadow-md scale-[1.03]"
+                                            : "bg-slate-50/60 border-slate-200 text-slate-500 hover:border-slate-300"
+                                    }
                                 `}
-                            />
-
-                            {/* Shine Line */}
-                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent pointer-events-none" />
-
-                            <div className="relative flex flex-col items-center text-center gap-3">
-                                <div
-                                    className={`
-                                        w-10 h-10 rounded-xl
-                                        flex items-center justify-center
-                                        bg-white/60 backdrop-blur-md
-                                        border border-white/70
-                                        shadow-[0_2px_8px_rgba(0,0,0,0.06)]
-                                        ${c.iconText}
-                                        transition-all duration-500
-                                        group-hover:scale-110
-                                        group-hover:rotate-6
-                                    `}
-                                >
-                                    {master.icon}
+                            >
+                                <div className="flex items-center justify-between w-full text-[10px] uppercase font-bold text-slate-500 mb-1">
+                                    <span>P{item.phase}</span>
+                                    {isDone && <FaCheckCircle className="text-emerald-500 text-xs" />}
+                                    {isActive && (
+                                        <span className="flex h-2 w-2 relative">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                                        </span>
+                                    )}
                                 </div>
 
-                                <div>
-                                    <h3 className="text-sm font-semibold text-gray-800">
-                                        {master.title}
-                                    </h3>
+                                <div className="my-1 text-lg">
+                                    {item.icon}
+                                </div>
 
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        {master.desc}
-                                    </p>
+                                <div className="font-semibold text-xs leading-tight text-slate-800">
+                                    {item.title}
+                                </div>
 
-                                    <div
-                                        className={`inline-flex items-center gap-1 mt-3 text-xs font-medium ${c.iconText}`}
+                                <div className="mt-2">
+                                    <span
+                                        className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${
+                                            isDone
+                                                ? "bg-emerald-100 text-emerald-700"
+                                                : isActive
+                                                    ? "bg-indigo-100 text-indigo-700"
+                                                    : "bg-slate-100 text-slate-500"
+                                        }`}
                                     >
-                                        Open Master
-                                        <FaArrowRight size={8} />
-                                    </div>
+                                        {isDone ? "Active ✅" : "Configured 🚀"}
+                                    </span>
                                 </div>
                             </div>
-                        </Link>
-                    );
-                })}
+                        );
+
+                        return item.link ? (
+                            <Link key={idx} href={item.link} className="block">
+                                {cardContent}
+                            </Link>
+                        ) : (
+                            <div key={idx}>{cardContent}</div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Masters Management Cards */}
+            <div>
+                <h3 className="text-xl font-bold text-gray-800 mb-4 tracking-wide">
+                    Master Management
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+                    {masters.map((master, index) => {
+                        const c = colorMap[master.color];
+
+                        return (
+                            <Link
+                                key={index}
+                                href={master.link}
+                                style={{ animationDelay: `${index * 40}ms` }}
+                                className={`
+                                        group relative isolate overflow-hidden rounded-2xl block
+                                        bg-white/60 backdrop-blur-xl backdrop-saturate-150
+                                        border border-slate-200/80
+                                        shadow-[0_4px_20px_rgba(0,0,0,0.04)]
+                                        ring-1 ${c.ring}
+                                        animate-[fadeSlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
+                                        transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                        hover:-translate-y-1.5
+                                        hover:scale-[1.02]
+                                        hover:shadow-[0_12px_30px_rgba(0,0,0,0.08)]
+                                        active:scale-[0.98]
+                                        cursor-pointer
+                                        p-4
+                                `}
+                            >
+                                {/* Background Glass */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-white/40 to-slate-50/50 pointer-events-none" />
+
+                                {/* Glow Effect */}
+                                <div
+                                    className={`
+                                        absolute -top-6 -right-6 w-20 h-20 rounded-full
+                                        bg-gradient-to-br ${c.glowFrom} to-transparent
+                                        blur-2xl opacity-40 scale-90
+                                        transition-all duration-700 ease-out
+                                        group-hover:opacity-80
+                                        group-hover:scale-125
+                                        pointer-events-none
+                                    `}
+                                />
+
+                                {/* Shine Line */}
+                                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-200/50 to-transparent pointer-events-none" />
+
+                                <div className="relative flex flex-col items-center text-center gap-3">
+                                    <div
+                                        className={`
+                                            w-10 h-10 rounded-xl
+                                            flex items-center justify-center
+                                            bg-white
+                                            border border-slate-200
+                                            shadow-sm
+                                            ${c.iconText}
+                                            transition-all duration-500
+                                            group-hover:scale-110
+                                            group-hover:rotate-6
+                                        `}
+                                    >
+                                        {master.icon}
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-gray-800">
+                                            {master.title}
+                                        </h3>
+
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {master.desc}
+                                        </p>
+
+                                        <div
+                                            className={`inline-flex items-center gap-1 mt-3 text-xs font-medium ${c.iconText}`}
+                                        >
+                                            Open Master
+                                            <FaArrowRight size={8} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </div>
             </div>
 
             <style jsx global>{`
@@ -215,4 +351,3 @@ export default function MasterPage() {
         </div>
     );
 }
-

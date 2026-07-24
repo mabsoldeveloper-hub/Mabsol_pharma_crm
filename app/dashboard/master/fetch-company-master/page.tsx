@@ -64,7 +64,7 @@ export default function FetchCompanyMasterPage() {
         <h3>Fetch Company Master</h3>
 
         <Link
-          href="/dashboard/division-master"
+          href="/dashboard/master/division-master"
           className="btn btn-primary"
         >
           Next →
