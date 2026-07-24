@@ -17,7 +17,8 @@ export async function GET() {
     await connectDB();
 
     // ── Step 1: Determine MR territory restrictions ───────────────────────
-    let allowedSCODEs: string[] | null = null; // null = no restriction (admin/non-MR)
+    let customerFilter: any = {};
+    let isMrRestricted = false;
 
     try {
         const user = await getCurrentUser();
@@ -27,7 +28,8 @@ export async function GET() {
 
             // Admin role users get FULL access to all customers
             if (roleName.includes("admin")) {
-                allowedSCODEs = null;
+                customerFilter = {};
+                isMrRestricted = false;
             } else {
                 // Find all ACTIVE territories for this user
                 const territories = await MrTerritory.find(
@@ -36,6 +38,7 @@ export async function GET() {
                 );
 
                 if (territories && territories.length > 0) {
+                    isMrRestricted = true;
                     const allowedCompanyCodes = Array.from(
                         new Set(
                             territories.map((t: any) =>
@@ -44,21 +47,51 @@ export async function GET() {
                         )
                     ).filter(Boolean);
 
-                    allowedSCODEs = allowedCompanyCodes;
+                    const userName = String(user.name || "").trim();
+                    const empCode = String(user.employeeCode || "").trim();
+
+                    // Build regex for DSM matching if name/empCode exist
+                    const dsmConditions: any[] = [];
+                    if (userName) dsmConditions.push({ DSM: { $regex: userName, $options: "i" } });
+                    if (empCode) dsmConditions.push({ DSM: { $regex: empCode, $options: "i" } });
+
+                    // Resolve customer ORDNOs from sales (SalesDis, SalesMdis) and Customer master
+                    const [disCodes, mdisCodes, directOrdnos] = await Promise.all([
+                        SalesDis.distinct("CODEP", { COMPANY: { $in: allowedCompanyCodes } }),
+                        SalesMdis.distinct("CODEP", { COMPANY: { $in: allowedCompanyCodes } }),
+                        Customer.distinct("ORDNO", {
+                            $or: [
+                                { COMPANY: { $in: allowedCompanyCodes } },
+                                { GCODE: { $in: allowedCompanyCodes } },
+                                { SCODE: { $in: allowedCompanyCodes } },
+                                ...(dsmConditions.length > 0 ? dsmConditions : []),
+                            ],
+                        }),
+                    ]);
+
+                    const allMatchedOrdnos = Array.from(
+                        new Set(
+                            [
+                                ...disCodes.map((c: any) => String(c).trim()),
+                                ...mdisCodes.map((c: any) => String(c).trim()),
+                                ...directOrdnos.map((c: any) => String(c).trim()),
+                            ].filter(Boolean)
+                        )
+                    );
+
+                    if (allMatchedOrdnos.length > 0) {
+                        customerFilter.ORDNO = { $in: allMatchedOrdnos };
+                    } else {
+                        // Territory assigned, but no customers found for these companies/MR
+                        return NextResponse.json([]);
+                    }
                 }
             }
         }
     } catch {
-        allowedSCODEs = null;
+        customerFilter = {};
     }
 
-    // ── Step 2: Build customer query with optional SCODE filter ────────────
-    const customerFilter: any = {};
-    if (allowedSCODEs !== null && allowedSCODEs.length > 0) {
-        customerFilter.SCODE = { $in: allowedSCODEs };
-    } else if (allowedSCODEs !== null && allowedSCODEs.length === 0) {
-        return NextResponse.json([]);
-    }
 
     // ---- Base customer records (every field on the Customer/Order table) ----
     const customers: any[] = await Customer.find(customerFilter).sort({ PARNAM: 1 }).lean();
