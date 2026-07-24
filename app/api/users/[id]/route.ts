@@ -23,7 +23,7 @@ export async function GET(
 
     const { id } = await params;
 
-    const user =
+    const user: any =
       await User.findById(id)
         .populate(
           "companyId",
@@ -32,7 +32,8 @@ export async function GET(
         .populate(
           "roleId",
           "roleName"
-        );
+        )
+        .lean();
 
     if (!user) {
 
@@ -47,7 +48,14 @@ export async function GET(
 
     }
 
-    return NextResponse.json(user);
+    const SalesHierarchy = (await import("@/models/SalesHierarchy")).default;
+    const hierarchy = await SalesHierarchy.findOne({ userId: id, status: "Active" }).lean();
+
+    return NextResponse.json({
+      ...user,
+      salesHierarchy: hierarchy || null,
+    });
+
 
   } catch (error: any) {
 

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
+import SalesHierarchy from "@/models/SalesHierarchy";
 import bcrypt from "bcryptjs";
 
 
 import "@/models/Role";
 import "@/models/CompanyMaster";
 
-
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -16,14 +17,35 @@ export async function GET() {
     const users = await User.find()
       .populate("companyId", "companyName")
       .populate("roleId", "roleName")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Fetch all active Sales Hierarchy records
+    const hierarchies = await SalesHierarchy.find({ status: "Active" }).lean();
+    const hierarchyMap = new Map<string, any>();
+    hierarchies.forEach((h: any) => {
+      if (h.userId) {
+        hierarchyMap.set(String(h.userId).trim(), h);
+      }
+    });
+
+    // Enrich users with salesHierarchy details
+    const enrichedUsers = users.map((u: any) => {
+      const uid = String(u._id).trim();
+      const h = hierarchyMap.get(uid);
+      return {
+        ...u,
+        salesHierarchy: h || null,
+      };
+    });
 
     return NextResponse.json({
       success: true,
-      users,
+      users: enrichedUsers,
     });
 
   } catch (error: any) {
+
 
     return NextResponse.json(
       {

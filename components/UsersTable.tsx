@@ -17,6 +17,7 @@ export default function UsersTable({ users }: { users: any[] }) {
         if (!q) return users;
 
         return users.filter((user) => {
+            const h = user.salesHierarchy;
             return (
                 user.name?.toLowerCase().includes(q) ||
                 user.employeeCode?.toLowerCase().includes(q) ||
@@ -25,10 +26,15 @@ export default function UsersTable({ users }: { users: any[] }) {
                 user.roleId?.roleName?.toLowerCase().includes(q) ||
                 user.department?.toLowerCase().includes(q) ||
                 user.designation?.toLowerCase().includes(q) ||
-                user.mobile?.toLowerCase().includes(q)
+                user.mobile?.toLowerCase().includes(q) ||
+                h?.roleLevel?.toLowerCase().includes(q) ||
+                h?.reportsToName?.toLowerCase().includes(q) ||
+                h?.state?.toLowerCase().includes(q) ||
+                h?.region?.toLowerCase().includes(q)
             );
         });
     }, [users, search]);
+
 
     const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
     const currentPage = Math.min(page, totalPages);
@@ -105,6 +111,7 @@ export default function UsersTable({ users }: { users: any[] }) {
                             <th className="text-left font-medium text-gray-500 text-xs uppercase tracking-wide px-4 py-2.5">Email</th>
                             <th className="text-left font-medium text-gray-500 text-xs uppercase tracking-wide px-4 py-2.5">Company</th>
                             <th className="text-left font-medium text-gray-500 text-xs uppercase tracking-wide px-4 py-2.5">Role</th>
+                            <th className="text-left font-medium text-gray-500 text-xs uppercase tracking-wide px-4 py-2.5">Sales Hierarchy</th>
                             <th className="text-left font-medium text-gray-500 text-xs uppercase tracking-wide px-4 py-2.5">Department</th>
                             <th className="text-left font-medium text-gray-500 text-xs uppercase tracking-wide px-4 py-2.5">Designation</th>
                             <th className="text-left font-medium text-gray-500 text-xs uppercase tracking-wide px-4 py-2.5">Mobile</th>
@@ -116,12 +123,14 @@ export default function UsersTable({ users }: { users: any[] }) {
                     <tbody>
                         {paginatedUsers.length === 0 ? (
                             <tr>
-                                <td colSpan={11} className="text-center text-gray-400 py-8 text-sm">
+                                <td colSpan={12} className="text-center text-gray-400 py-8 text-sm">
                                     No users found
                                 </td>
                             </tr>
                         ) : (
-                            paginatedUsers.map((user: any) => (
+                            paginatedUsers.map((user: any) => {
+                                const h = user.salesHierarchy;
+                                return (
                                 <tr
                                     key={user._id}
                                     className="border-b border-gray-100/70 last:border-0 hover:bg-white/50 transition-colors duration-200"
@@ -141,9 +150,48 @@ export default function UsersTable({ users }: { users: any[] }) {
                                     <td className="px-4 py-2.5 text-gray-600">{user.email}</td>
                                     <td className="px-4 py-2.5 text-gray-600">{user.companyId?.companyName}</td>
                                     <td className="px-4 py-2.5 text-gray-600">{user.roleId?.roleName}</td>
+                                    
+                                    {/* Sales Hierarchy Column */}
+                                    <td className="px-4 py-2.5">
+                                        {h ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className={`inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                    h.roleLevel === "VP" ? "bg-purple-100 text-purple-800 border border-purple-200" :
+                                                    h.roleLevel === "NSM" ? "bg-indigo-100 text-indigo-800 border border-indigo-200" :
+                                                    h.roleLevel === "ZSM" ? "bg-blue-100 text-blue-800 border border-blue-200" :
+                                                    h.roleLevel === "ASM" ? "bg-teal-100 text-teal-800 border border-teal-200" :
+                                                    "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                                }`}>
+                                                    {h.roleLevel === "VP" ? "VP Sales" :
+                                                     h.roleLevel === "NSM" ? "NSM (National)" :
+                                                     h.roleLevel === "ZSM" ? "ZSM (Zonal)" :
+                                                     h.roleLevel === "ASM" ? "ASM (Area)" : "M.R. / S.R."}
+                                                </span>
+                                                {h.reportsToName && (
+                                                    <span className="text-[10px] text-gray-500 font-medium">
+                                                        Reports: <span className="font-semibold text-gray-700">{h.reportsToName}</span>
+                                                    </span>
+                                                )}
+                                                {(h.state || h.region) && (
+                                                    <span className="text-[10px] text-slate-400">
+                                                        {[h.state, h.region].filter(Boolean).join(" / ")}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <Link
+                                                href="/dashboard/master/sales-hierarchy"
+                                                className="text-[11px] text-indigo-600 hover:underline font-medium"
+                                            >
+                                                + Assign Hierarchy
+                                            </Link>
+                                        )}
+                                    </td>
+
                                     <td className="px-4 py-2.5 text-gray-600">{user.department}</td>
                                     <td className="px-4 py-2.5 text-gray-600">{user.designation}</td>
                                     <td className="px-4 py-2.5 text-gray-600">{user.mobile}</td>
+
 
                                     <td className="px-4 py-2.5 text-center">
                                         {user.status === "Active" ? (
@@ -181,8 +229,10 @@ export default function UsersTable({ users }: { users: any[] }) {
                                         </div>
                                     </td>
                                 </tr>
-                            ))
-                        )}
+                            );
+                        })
+                    )}
+
                     </tbody>
                 </table>
             </div>
