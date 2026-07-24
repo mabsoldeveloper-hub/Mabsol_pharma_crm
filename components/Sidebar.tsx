@@ -186,6 +186,21 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   const [vfpOpen, setVfpOpen] = useState(false);
   const pathname = usePathname();
 
+  useEffect(() => {
+    if (pathname.startsWith("/dashboard/master")) setMasterOpen(true);
+    if (
+      pathname.startsWith("/dashboard/users") ||
+      pathname.startsWith("/dashboard/permissions") ||
+      pathname.startsWith("/dashboard/roles")
+    ) setCrmOpen(true);
+    if (pathname.startsWith("/dashboard/inventory") || pathname.startsWith("/dashboard/stock")) setInventoryOpen(true);
+    if (pathname.startsWith("/dashboard/sales") || pathname.startsWith("/dashboard/orders")) setSalesOpen(true);
+    if (pathname.startsWith("/dashboard/customers")) setCustomerOpen(true);
+    if (pathname.startsWith("/dashboard/company")) setCompanyOpen(true);
+    if (pathname.startsWith("/dashboard/financial-year")) setFyOpen(true);
+    if (pathname.startsWith("/dashboard/mabsolcrmsync")) setVfpOpen(true);
+  }, [pathname]);
+
   const [user, setUser] = useState<any>(null);
 
   const [company, setCompany] = useState<any>(null);
@@ -771,17 +786,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   label="Migration"
                   open={vfpOpen}
                   onClick={() => setVfpOpen(!vfpOpen)}
-                  active={pathname.startsWith("/dashboard/vfp")}
+                  active={pathname.startsWith("/dashboard/mabsolcrmsync")}
                   color="rose"
                   items={
                     <>
                       {can("vfp.view") && (
                         <li>
                           <SubLink
-                            href="/dashboard/vfp"
+                            href="/dashboard/mabsolcrmsync"
                             icon={<FaSyncAlt />}
                             label="Sync Console"
-                            active={pathname === "/dashboard/vfp"}
+                            active={pathname === "/dashboard/mabsolcrmsync"}
                             color="rose"
                           />
                         </li>
@@ -789,10 +804,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                       {can("vfp.settings") && (
                         <li>
                           <SubLink
-                            href="/dashboard/vfp/settings"
+                            href="/dashboard/mabsolcrmsync/settings"
                             icon={<FaSlidersH />}
-                            label="VFP Settings"
-                            active={pathname.startsWith("/dashboard/vfp/settings")}
+                            label="Sync Settings"
+                            active={pathname.startsWith("/dashboard/mabsolcrmsync/settings")}
                             color="rose"
                           />
                         </li>

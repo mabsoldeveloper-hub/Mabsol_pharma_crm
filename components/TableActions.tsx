@@ -22,7 +22,7 @@ export default function TableActions({ tableName, status }: TableActionsProps) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/vfp/delete-table", {
+      const res = await fetch("/api/mabsolcrmsync/delete-table", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tableName }),
@@ -46,7 +46,7 @@ export default function TableActions({ tableName, status }: TableActionsProps) {
       {status === "success" ? (
         <Link
           className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 border border-indigo-200 text-indigo-700 bg-white hover:bg-slate-50 rounded-2xl transition-colors"
-          href={`/dashboard/vfp/${encodeURIComponent(tableName)}`}
+          href={`/dashboard/mabsolcrmsync/${encodeURIComponent(tableName)}`}
         >
           <Eye size={13} /> View Data
         </Link>

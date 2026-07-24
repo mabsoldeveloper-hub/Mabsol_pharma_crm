@@ -111,7 +111,7 @@ export default async function VfpDashboardPage({
 
   return (
     <ProtectedPage permission="vfp.view">
-      <div className="page vfp-page-body">
+      <div className="vfp-page-body">
         
         {/* Eyebrow & Page Header */}
         <div className="eyebrow">
@@ -122,7 +122,7 @@ export default async function VfpDashboardPage({
         <div className="header-row">
           <div>
             <h1 className="vfp-h1">Migrate Data Control</h1>
-            <p className="subtitle">Monitor local Visual FoxPro folder changes, DBF imports, file snapshots, and queued updates from one dashboard.</p>
+            <p className="subtitle">Monitor local folder changes, DBF imports, file snapshots, and queued updates from one dashboard.</p>
           </div>
           <span className="status-pill">
             <span className="dot-pulse"></span>
@@ -154,7 +154,7 @@ export default async function VfpDashboardPage({
               <Settings size={20} className="animate-spin" style={{ animationDuration: "12s" }} />
             </div>
             <div className="p-label">Sync Engine</div>
-            <div className="p-sub" id="engine-sub">Worker: {status.workerOnline ? "active" : "offline"}</div>
+            <div className="p-sub" id="engine-sub">Sync Engine: Ready</div>
           </div>
 
           {/* Flow track 2 */}
@@ -199,7 +199,7 @@ export default async function VfpDashboardPage({
                 Sync activity logs
               </div>
               <span style={{ fontSize: "12px", color: "var(--ink-faint)" }}>
-                Filter and review VFP to CRM data transfer logs
+                Filter and review CRM data transfer logs
               </span>
             </div>
             <RefreshButton />
@@ -207,34 +207,36 @@ export default async function VfpDashboardPage({
 
           {/* Filter Bar */}
           <div className="filter-bar">
-            {rangeOptions.map((option) => (
-              <Link
-                key={option}
-                className={`chip ${range === option && !startDate && !endDate ? "active" : ""}`}
-                href={`/dashboard/vfp?range=${option}`}
-              >
-                {formatRangeName(option)}
-              </Link>
-            ))}
+            <div className="flex items-center gap-2 flex-wrap">
+              {rangeOptions.map((option) => (
+                <Link
+                  key={option}
+                  className={`chip ${range === option && !startDate && !endDate ? "active" : ""}`}
+                  href={`/dashboard/mabsolcrmsync?range=${option}`}
+                >
+                  {formatRangeName(option)}
+                </Link>
+              ))}
+            </div>
             
-            <form className="flex items-center gap-1.5 flex-wrap ml-2" method="get">
+            <form className="flex items-center gap-2 flex-wrap" method="get">
               <input
                 className="date-input"
                 type="date"
                 name="startDate"
                 defaultValue={startDate || ""}
               />
-              <span style={{ fontSize: "11px", color: "var(--ink-faint)" }}>to</span>
+              <span style={{ fontSize: "11px", color: "var(--ink-faint)", whiteSpace: "nowrap" }}>to</span>
               <input
                 className="date-input"
                 type="date"
                 name="endDate"
                 defaultValue={endDate || ""}
               />
-              <button className="btn btn-primary ml-1" type="submit">
+              <button className="btn btn-primary" type="submit">
                 Apply
               </button>
-              <Link href="/dashboard/vfp" className="btn">
+              <Link href="/dashboard/mabsolcrmsync" className="btn">
                 Reset
               </Link>
             </form>
@@ -242,7 +244,7 @@ export default async function VfpDashboardPage({
             <div className="filter-spacer"></div>
             
             <div className="icon-btn" title="Search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
             </div>
           </div>
 

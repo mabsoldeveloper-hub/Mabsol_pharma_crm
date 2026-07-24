@@ -23,6 +23,9 @@
 }
 
 .vfp-page-body {
+  display: block;
+  width: 100%;
+  max-width: 100%;
   color: var(--ink);
   font-family: 'Inter', sans-serif;
 }
@@ -361,7 +364,7 @@
 .filter-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   padding: 16px 24px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
@@ -375,6 +378,10 @@
   background: var(--surface);
   color: var(--ink-soft);
   cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
 }
 .chip.active {
   background: var(--indigo);
@@ -384,12 +391,13 @@
 .date-input {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 7px;
-  color: var(--ink-soft);
+  color: var(--ink);
   background: var(--surface);
-  width: 120px;
+  min-width: 125px;
+  box-sizing: border-box;
 }
 .filter-spacer { flex: 1; }
 .icon-btn {

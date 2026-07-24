@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import Otp from "@/models/Otp";
+import { SESSION_DURATION_JWT, SESSION_DURATION_SECONDS } from "@/lib/constants/session.constant";
 
 const MAX_ATTEMPTS = 5;
 
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
                 companyId: user.companyId,
             },
             process.env.JWT_SECRET!,
-            { expiresIn: "7d" }
+            { expiresIn: SESSION_DURATION_JWT }
         );
 
         const userResponse = {
@@ -89,10 +90,10 @@ export async function POST(req: Request) {
 
         response.cookies.set("token", token, {
             httpOnly: true,
-            secure: false,
+            secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             path: "/",
-            maxAge: 60 * 60 * 24 * 7,
+            maxAge: SESSION_DURATION_SECONDS,
         });
 
         return response;
@@ -107,4 +108,4 @@ export async function POST(req: Request) {
             { status: 500 }
         );
     }
-} 
+}

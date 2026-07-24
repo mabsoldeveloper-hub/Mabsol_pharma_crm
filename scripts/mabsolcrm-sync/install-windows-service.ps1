@@ -1,12 +1,12 @@
 param(
-  [string]$ServiceName = "MabsolVfpSync",
-  [string]$DisplayName = "Mabsol VFP Sync Worker"
+  [string]$ServiceName = "MabsolCrmSync",
+  [string]$DisplayName = "Mabsol CRM Sync Worker"
 )
 
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$workerPath = Join-Path $projectRoot "scripts\vfp-sync\worker.cjs"
+$workerPath = Join-Path $projectRoot "scripts\mabsolcrm-sync\worker.cjs"
 $nodePath = (Get-Command node).Source
 
 if (-not (Test-Path $workerPath)) {
@@ -25,7 +25,7 @@ New-Service `
   -DisplayName $DisplayName `
   -BinaryPathName $binaryPath `
   -StartupType Automatic `
-  -Description "Watches Visual FoxPro DBF files and syncs them into Mabsol Pharma CRM MongoDB."
+  -Description "Watches DBF files and syncs them into Mabsol Pharma CRM MongoDB."
 
 Write-Host "Installed $ServiceName."
 Write-Host "Start it with: Start-Service $ServiceName"

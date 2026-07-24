@@ -1,5 +1,5 @@
 param(
-  [string]$ServiceName = "MabsolVfpSync"
+  [string]$ServiceName = "MabsolCrmSync"
 )
 
 $ErrorActionPreference = "Stop"
