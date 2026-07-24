@@ -138,7 +138,15 @@ const accountMasters: MasterItem[] = [
         link:  "/dashboard/master/sales-hierarchy",
         color: "violet",
     },
+    {
+        title: "MR Daily Reporting (DCR)",
+        desc:  "Doctor visits, chemist calls, POB & approvals",
+        icon:  <FaUserTie size={16} />,
+        link:  "/dashboard/mr-reporting",
+        color: "emerald",
+    },
 ];
+
 
 
 /* ──────────────────────── reusable card renderer ───────────────────── */
