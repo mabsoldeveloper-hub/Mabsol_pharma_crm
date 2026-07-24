@@ -51,17 +51,23 @@ export async function GET() {
     try {
         const user = await getCurrentUser();
         if (user) {
-            const territories = await MrTerritory.find(
-                { userId: user._id, status: "Active" },
-                { companyCode: 1 }
-            );
+            const roleName = String(user.roleId?.roleName || "").trim().toLowerCase();
+            if (roleName.includes("admin")) {
+                allowedGCODEs = null;
+            } else {
+                const territories = await MrTerritory.find(
+                    { userId: user._id, status: "Active" },
+                    { companyCode: 1 }
+                );
 
-            if (territories && territories.length > 0) {
-                allowedGCODEs = Array.from(
-                    new Set(territories.map((t: any) => String(t.companyCode || "").trim()))
-                ).filter(Boolean);
+                if (territories && territories.length > 0) {
+                    allowedGCODEs = Array.from(
+                        new Set(territories.map((t: any) => String(t.companyCode || "").trim()))
+                    ).filter(Boolean);
+                }
             }
         }
+
     } catch {
         allowedGCODEs = null;
     }

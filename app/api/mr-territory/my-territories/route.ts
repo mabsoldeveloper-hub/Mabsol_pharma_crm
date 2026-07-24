@@ -30,7 +30,19 @@ export async function GET() {
       );
     }
 
-    // Fetch all ACTIVE territories for this user
+    // Admin role users are NEVER restricted by territory
+    const roleName = String(user.roleId?.roleName || "").trim().toLowerCase();
+    if (roleName.includes("admin")) {
+      return NextResponse.json({
+        success: true,
+        isMrRestricted: false,
+        isAdmin: true,
+        territories: [],
+        allowedCompanyCodes: [],
+      });
+    }
+
+    // Fetch all ACTIVE territories for non-admin users
     const territories = await MrTerritory.find({
       userId: user._id,
       status: "Active",
@@ -38,15 +50,17 @@ export async function GET() {
       "companyCode companyName divisionCode divisionName subDivisionCode subDivisionName categoryCode categoryName"
     );
 
-    // If no territory records exist → user is NOT restricted (admin / non-MR)
+    // If no territory records exist → user is NOT restricted
     if (!territories || territories.length === 0) {
       return NextResponse.json({
         success: true,
         isMrRestricted: false,
+        isAdmin: false,
         territories: [],
         allowedCompanyCodes: [],
       });
     }
+
 
     // Collect unique company codes from territory assignments
     const allowedCompanyCodes: string[] = Array.from(

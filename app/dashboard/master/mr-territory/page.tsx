@@ -38,7 +38,9 @@ interface UserItem {
   employeeCode?: string;
   mobile?: string;
   designation?: string;
+  roleId?: { _id: string; roleName: string } | string;
 }
+
 interface CompanyItem { _id: string; companyCode: string; companyName: string; }
 interface DivisionItem { _id: string; companyCode: string; divisionCode: string; divisionName: string; }
 interface SubDivisionItem { _id: string; companyCode: string; divisionCode: string; subDivisionCode: string; subDivisionName: string; }
@@ -144,10 +146,17 @@ export default function MrTerritoryPage() {
       const res = await fetch("/api/users");
       const json = await res.json();
       if (json.success || Array.isArray(json)) {
-        setUsers(Array.isArray(json) ? json : json.data || json.users || []);
+        const rawList = Array.isArray(json) ? json : json.data || json.users || [];
+        // Filter out Admin role users (territories are for MR / Salesman roles only)
+        const nonAdminUsers = rawList.filter((u: any) => {
+          const rName = typeof u.roleId === "object" ? u.roleId?.roleName : "";
+          return !String(rName || "").toLowerCase().includes("admin");
+        });
+        setUsers(nonAdminUsers);
       }
     } catch (e) { console.error("users", e); }
   }
+
 
   async function fetchCompanies() {
     try {

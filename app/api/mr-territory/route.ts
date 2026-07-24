@@ -86,14 +86,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate MR exists
-    const user = await User.findById(userId);
+    // Validate MR exists and is not an Admin
+    const user = await User.findById(userId).populate("roleId", "roleName");
     if (!user) {
       return NextResponse.json(
         { success: false, message: "Selected MR/User not found." },
         { status: 404 }
       );
     }
+
+    const targetRoleName = String((user.roleId as any)?.roleName || "").trim().toLowerCase();
+    if (targetRoleName.includes("admin")) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Territories cannot be assigned to Admin users. Admin users have full access to all products and territories by default.",
+        },
+        { status: 400 }
+      );
+    }
+
 
     const formattedSubDivCode = (subDivisionCode || "").trim().toUpperCase();
     const formattedCategoryCode = (categoryCode || "").trim().toUpperCase();
