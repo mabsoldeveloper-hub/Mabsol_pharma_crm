@@ -5,7 +5,10 @@ import connectDB from "@/lib/mongodb";
 import Customer from "@/models/Customer";
 import AccountGroup from "@/models/AccountGroup";
 import MrTerritory from "@/models/MrTerritory";
+import SalesDis from "@/models/SalesDis";
+import SalesMdis from "@/models/SalesMdis";
 import { getCurrentUser } from "@/lib/auth";
+
 
 export const dynamic = "force-dynamic";
 
