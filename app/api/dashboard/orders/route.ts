@@ -10,6 +10,8 @@ import GlLedger from "@/models/GlLedger";
 import Pend from "@/models/Pend";
 import SubDis from "@/models/SubDis";
 
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
 /**
  * NOTE ON DATA MODEL (verified against real exported DB records)
  * -----------------------------------------------------------------
@@ -121,6 +123,44 @@ export async function GET(request: Request) {
     try {
         await dbConnect();
 
+        const restriction = await getMrTerritoryRestriction();
+
+        const mrMdisMatch: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const mrDisMatch: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const mrSubdisMatch: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const mrGledgerMatch: any = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODE: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODE: "NONE_MATCH" }
+            : {};
+
+        const mrPendMatch: any = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { ORD: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { ORD: "NONE_MATCH" }
+            : {};
+
         const { searchParams } = new URL(request.url);
 
         const filters: FilterParams = {
@@ -134,50 +174,65 @@ export async function GET(request: Request) {
         };
 
         // Per-table filter objects (field names differ table to table)
-        const mdisFilter = buildFilter(filters, {
-            customer: "CODEP",
-            invoice: "VCN",
-            date: "DATE",
-            area: "AREA",
-            route: "ROUT",
-            dsm: "DSM", // NULL in every MDIS row today — see note above
-        });
+        const mdisFilter = {
+            ...buildFilter(filters, {
+                customer: "CODEP",
+                invoice: "VCN",
+                date: "DATE",
+                area: "AREA",
+                route: "ROUT",
+                dsm: "DSM", // NULL in every MDIS row today — see note above
+            }),
+            ...mrMdisMatch,
+        };
 
         // "Real order" version of mdisFilter — excludes TYPE:"V" void rows.
         const mdisRealOrderFilter = { ...mdisFilter, ...REAL_ORDER_FILTER };
 
-        const disFilter = buildFilter(filters, {
-            customer: "CODEP",
-            invoice: "VCN",
-            date: "DATE",
-            area: "AREA",
-            route: "ROUT",
-            dsm: "DSM", // has real values on DIS
-        });
+        const disFilter = {
+            ...buildFilter(filters, {
+                customer: "CODEP",
+                invoice: "VCN",
+                date: "DATE",
+                area: "AREA",
+                route: "ROUT",
+                dsm: "DSM", // has real values on DIS
+            }),
+            ...mrDisMatch,
+        };
 
-        const subdisFilter = buildFilter(filters, {
-            customer: "CODEP",
-            invoice: "VCN",
-            date: "DATE",
-            area: "AREA",
-            route: "ROUT",
-            dsm: "DSM", // has real values on SUBDIS
-        });
+        const subdisFilter = {
+            ...buildFilter(filters, {
+                customer: "CODEP",
+                invoice: "VCN",
+                date: "DATE",
+                area: "AREA",
+                route: "ROUT",
+                dsm: "DSM", // has real values on SUBDIS
+            }),
+            ...mrSubdisMatch,
+        };
 
-        const gledgerFilter = buildFilter(filters, {
-            customer: "CODE", // GLEDGER uses CODE, not CODEP
-            date: "DATE",
-            // no invoice/area/route/dsm fields on GLEDGER
-        });
+        const gledgerFilter = {
+            ...buildFilter(filters, {
+                customer: "CODE", // GLEDGER uses CODE, not CODEP
+                date: "DATE",
+                // no invoice/area/route/dsm fields on GLEDGER
+            }),
+            ...mrGledgerMatch,
+        };
 
-        const pendFilter = buildFilter(filters, {
-            customer: "ORD", // PEND uses ORD, not CODEP
-            invoice: "VCN",
-            date: "DDATE",
-            area: "AREA",
-            route: "ROUT",
-            dsm: "DSM",
-        });
+        const pendFilter = {
+            ...buildFilter(filters, {
+                customer: "ORD", // PEND uses ORD, not CODEP
+                invoice: "VCN",
+                date: "DDATE",
+                area: "AREA",
+                route: "ROUT",
+                dsm: "DSM",
+            }),
+            ...mrPendMatch,
+        };
 
         const now = new Date();
         const today = now.toISOString().slice(0, 10);

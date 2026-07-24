@@ -3,31 +3,48 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-    FaFileInvoiceDollar,
+    FaFileInvoice,
+    FaRupeeSign,
     FaSearch,
+    FaUndo,
+    FaShoppingBag,
+    FaTruck,
     FaChevronLeft,
     FaChevronRight,
+    FaBuilding,
+    FaMapMarkerAlt,
+    FaArrowRight,
+    FaFileInvoiceDollar,
     FaReceipt,
-    FaRupeeSign,
     FaPercentage,
     FaCheckCircle,
-    FaTruck,
-    FaUndo,
 } from "react-icons/fa";
 
+type MrTerritoryInfo = {
+    isMrRestricted: boolean;
+    territories: any[];
+    allowedCompanyCodes: string[];
+};
+
 type InvoiceRow = {
+    _id: string;
     vcn: string;
     date: string;
-    type: "S" | "P" | "R" | string;
+    type: string;
+    code: string;
     customer: string;
     city: string;
-    gstHeading?: string;
+    gst: string;
+    state: string;
+    gstHeading: string;
     taxable: number;
     cgst: number;
     sgst: number;
     igst: number;
-    total: number;
+    round: number;
+    finalAmount: number;
     tax: number;
+    total: number;
 };
 
 export default function InvoicePage() {
@@ -35,11 +52,31 @@ export default function InvoicePage() {
     const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
     const [search, setSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
+    const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
     const pageSize = 10;
 
     useEffect(() => {
+        loadMrTerritoryInfo();
         loadInvoices();
     }, []);
+
+    const loadMrTerritoryInfo = async () => {
+        try {
+            const res = await fetch("/api/mr-territory/my-territories");
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success) {
+                    setMrTerritoryInfo({
+                        isMrRestricted: json.isMrRestricted,
+                        territories: json.territories || [],
+                        allowedCompanyCodes: json.allowedCompanyCodes || [],
+                    });
+                }
+            }
+        } catch {
+            // Silently ignore
+        }
+    };
 
     const loadInvoices = async () => {
 
@@ -50,6 +87,8 @@ export default function InvoicePage() {
 
             if (Array.isArray(data)) {
                 setInvoices(data);
+            } else if (data.invoices && Array.isArray(data.invoices)) {
+                setInvoices(data.invoices);
             } else {
                 console.error("Invalid API Response", data);
                 setInvoices([]);
@@ -218,6 +257,64 @@ export default function InvoicePage() {
 
     return (
         <div className="space-y-4">
+            {/* ==================== MR TERRITORY BANNER ==================== */}
+            {mrTerritoryInfo?.isMrRestricted && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm">
+                    <div className="flex-shrink-0 mt-0.5">
+                        <FaMapMarkerAlt size={16} className="text-amber-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-amber-800 mb-0.5">Territory Restricted View</p>
+                        <p className="text-[11px] text-amber-700 leading-relaxed">
+                            Aap sirf apni assigned territory ke sales invoices dekh sakte hain.
+                            {mrTerritoryInfo.territories.length > 0 && (
+                                <>
+                                    {" "}Assigned:
+                                    {" "}
+                                    {Array.from(
+                                        new Set(
+                                            mrTerritoryInfo.territories.map(
+                                                (t) => t.companyName || t.companyCode
+                                            )
+                                        )
+                                    ).join(", ")}
+                                </>
+                            )}
+                        </p>
+                        {mrTerritoryInfo.territories.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {mrTerritoryInfo.territories.map((t, i) => (
+                                    <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium border border-amber-200"
+                                    >
+                                        <FaBuilding size={8} />
+                                        {t.companyName || t.companyCode}
+                                        {t.divisionName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.divisionName}
+                                            </>
+                                        ) : null}
+                                        {t.subDivisionName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.subDivisionName}
+                                            </>
+                                        ) : null}
+                                        {t.categoryName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.categoryName}
+                                            </>
+                                        ) : null}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
