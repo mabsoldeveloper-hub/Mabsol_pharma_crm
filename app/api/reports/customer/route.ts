@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-
 import CustomerReport from "@/models/CustomerReport";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export async function GET(req: NextRequest) {
     try {
@@ -21,75 +21,70 @@ export async function GET(req: NextRequest) {
             limit: Number(searchParams.get("limit") || 20),
         };
 
-        let data;
+        const restriction = await getMrTerritoryRestriction();
+
+        let data: any;
 
         switch (report) {
             case "master":
                 data = await CustomerReport.customerMaster(filter);
                 break;
-
             case "ledger":
                 data = await CustomerReport.customerLedger(filter);
                 break;
-
             case "outstanding":
                 data = await CustomerReport.customerOutstanding(filter);
                 break;
-
             case "balance":
                 data = await CustomerReport.customerBalance(filter);
                 break;
-
             case "opening":
                 data = await CustomerReport.customerOpening(filter);
                 break;
-
             case "credit":
                 data = await CustomerReport.customerCreditLimit(filter);
                 break;
-
             case "duedays":
                 data = await CustomerReport.customerDueDays(filter);
                 break;
-
             case "aging":
                 data = await CustomerReport.customerAging(filter);
                 break;
-
             case "area":
                 data = await CustomerReport.areaWiseCustomer(filter);
                 break;
-
             case "route":
                 data = await CustomerReport.routeWiseCustomer(filter);
                 break;
-
             case "dsm":
                 data = await CustomerReport.dsmWiseCustomer(filter);
                 break;
-
             case "active":
                 data = await CustomerReport.activeCustomers(filter);
                 break;
-
             case "inactive":
                 data = await CustomerReport.inactiveCustomers(filter);
                 break;
-
             case "new":
                 data = await CustomerReport.newCustomers(filter);
                 break;
-
             case "summary":
                 data = await CustomerReport.partySummary(filter);
                 break;
-
             case "collection":
                 data = await CustomerReport.collectionPending(filter);
                 break;
-
             default:
                 data = await CustomerReport.customerMaster(filter);
+        }
+
+        if (restriction.isMrRestricted && data) {
+            if (Array.isArray(data.rows)) {
+                data.rows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
+                data.total = data.rows.length;
+            } else if (Array.isArray(data)) {
+                data = data.filter((item: any) => restriction.isPartyAllowed(item));
+            }
         }
 
         return NextResponse.json({
@@ -98,7 +93,6 @@ export async function GET(req: NextRequest) {
         });
     } catch (error: any) {
         console.error("Customer Report API Error:", error);
-
         return NextResponse.json(
             {
                 success: false,

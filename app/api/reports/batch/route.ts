@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-
 import BatchReport from "@/models/BatchReport";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export async function GET(req: NextRequest) {
     try {
@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
             sortOrder: (Number(searchParams.get("sortOrder") || -1) === 1 ? 1 : -1) as 1 | -1,
         };
 
-        let data;
+        const restriction = await getMrTerritoryRestriction();
+
+        let data: any;
 
         switch (report) {
             case "master":
@@ -47,6 +49,15 @@ export async function GET(req: NextRequest) {
 
             default:
                 data = await BatchReport.batchMaster(filter);
+        }
+
+        if (restriction.isMrRestricted && data) {
+            if (Array.isArray(data.rows)) {
+                data.rows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
+                data.total = data.rows.length;
+            } else if (Array.isArray(data)) {
+                data = data.filter((item: any) => restriction.isPartyAllowed(item));
+            }
         }
 
         return NextResponse.json({
