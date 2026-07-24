@@ -25,72 +25,72 @@ import {
 
 /* ─────────────────────────── colour tokens ─────────────────────────── */
 const colorMap = {
-    indigo: { iconText: "text-indigo-600",  glowFrom: "from-indigo-400/40",  ring: "ring-indigo-300/40"  },
-    cyan:   { iconText: "text-cyan-600",    glowFrom: "from-cyan-400/40",    ring: "ring-cyan-300/40"    },
-    emerald:{ iconText: "text-emerald-600", glowFrom: "from-emerald-400/40", ring: "ring-emerald-300/40" },
-    amber:  { iconText: "text-amber-600",   glowFrom: "from-amber-400/40",   ring: "ring-amber-300/40"   },
-    violet: { iconText: "text-violet-600",  glowFrom: "from-violet-400/40",  ring: "ring-violet-300/40"  },
-    rose:   { iconText: "text-rose-600",    glowFrom: "from-rose-400/40",    ring: "ring-rose-300/40"    },
-    teal:   { iconText: "text-teal-600",    glowFrom: "from-teal-400/40",    ring: "ring-teal-300/40"    },
-    orange: { iconText: "text-orange-600",  glowFrom: "from-orange-400/40",  ring: "ring-orange-300/40"  },
+    indigo: { iconText: "text-indigo-600", glowFrom: "from-indigo-400/40", ring: "ring-indigo-300/40" },
+    cyan: { iconText: "text-cyan-600", glowFrom: "from-cyan-400/40", ring: "ring-cyan-300/40" },
+    emerald: { iconText: "text-emerald-600", glowFrom: "from-emerald-400/40", ring: "ring-emerald-300/40" },
+    amber: { iconText: "text-amber-600", glowFrom: "from-amber-400/40", ring: "ring-amber-300/40" },
+    violet: { iconText: "text-violet-600", glowFrom: "from-violet-400/40", ring: "ring-violet-300/40" },
+    rose: { iconText: "text-rose-600", glowFrom: "from-rose-400/40", ring: "ring-rose-300/40" },
+    teal: { iconText: "text-teal-600", glowFrom: "from-teal-400/40", ring: "ring-teal-300/40" },
+    orange: { iconText: "text-orange-600", glowFrom: "from-orange-400/40", ring: "ring-orange-300/40" },
 };
 
 type ColorKey = keyof typeof colorMap;
 
 interface MasterItem {
     title: string;
-    desc:  string;
-    icon:  React.ReactNode;
-    link:  string;
+    desc: string;
+    icon: React.ReactNode;
+    link: string;
     color: ColorKey;
 }
 
 /* ─────────────────────── hierarchy roadmap data ───────────────────── */
 const hierarchyPhases = [
-    { phase: 1, title: "Company",       status: "Done",   icon: <FaBuilding     className="text-emerald-600" />, link: "/dashboard/master/fetch-company-master"  },
-    { phase: 2, title: "Division",      status: "Done",   icon: <FaSitemap      className="text-emerald-600" />, link: "/dashboard/master/division-master"        },
-    { phase: 3, title: "Sub Division",  status: "Active", icon: <FaNetworkWired className="text-indigo-600"  />, link: "/dashboard/master/sub-division-master"    },
-    { phase: 4, title: "Category",      status: "Active", icon: <FaTag          className="text-indigo-600"  />, link: "/dashboard/master/category-master"        },
-    { phase: 5, title: "Product",       status: "Done",   icon: <FaBoxes        className="text-emerald-600" />, link: "/dashboard/master/product-master"         },
-    { phase: 6, title: "Customer",      status: "Done",   icon: <FaUserCheck    className="text-emerald-600" />, link: "/dashboard/master/customer-master"        },
-    { phase: 7, title: "Salesman (MR)", status: "Done",   icon: <FaUserTie      className="text-teal-600"    />, link: "/dashboard/master/mr-territory"           },
+    { phase: 1, title: "Company", status: "Done", icon: <FaBuilding className="text-emerald-600" />, link: "/dashboard/master/fetch-company-master" },
+    { phase: 2, title: "Division", status: "Done", icon: <FaSitemap className="text-emerald-600" />, link: "/dashboard/master/division-master" },
+    { phase: 3, title: "Sub Division", status: "Active", icon: <FaNetworkWired className="text-indigo-600" />, link: "/dashboard/master/sub-division-master" },
+    { phase: 4, title: "Category", status: "Active", icon: <FaTag className="text-indigo-600" />, link: "/dashboard/master/category-master" },
+    { phase: 5, title: "Product", status: "Done", icon: <FaBoxes className="text-emerald-600" />, link: "/dashboard/master/product-master" },
+    { phase: 6, title: "Customer", status: "Done", icon: <FaUserCheck className="text-emerald-600" />, link: "/dashboard/master/customer-master" },
+    { phase: 7, title: "Salesman (MR)", status: "Done", icon: <FaUserTie className="text-teal-600" />, link: "/dashboard/master/mr-territory" },
 ];
 
 /* ─────────────────────────── master groups ─────────────────────────── */
 const inventoryMasters: MasterItem[] = [
     {
         title: "Product Master",
-        desc:  "Manage products & inventory catalog",
-        icon:  <FaBoxOpen size={16} />,
-        link:  "/dashboard/master/product-master",
+        desc: "Manage products & inventory catalog",
+        icon: <FaBoxOpen size={16} />,
+        link: "/dashboard/master/product-master",
         color: "indigo",
     },
     {
         title: "Category Master",
-        desc:  "Manage product categories & sub-groups",
-        icon:  <FaTag size={16} />,
-        link:  "/dashboard/master/category-master",
+        desc: "Manage product categories & sub-groups",
+        icon: <FaTag size={16} />,
+        link: "/dashboard/master/category-master",
         color: "teal",
     },
     {
         title: "HSN Master",
-        desc:  "Manage HSN / SAC codes & tax slabs",
-        icon:  <FaBarcode size={16} />,
-        link:  "/dashboard/master/hsn-master",
+        desc: "Manage HSN / SAC codes & tax slabs",
+        icon: <FaBarcode size={16} />,
+        link: "/dashboard/master/hsn-master",
         color: "orange",
     },
     {
         title: "Division Master",
-        desc:  "Manage business divisions & business units",
-        icon:  <FaSitemap size={16} />,
-        link:  "/dashboard/master/division-master",
+        desc: "Manage business divisions & business units",
+        icon: <FaSitemap size={16} />,
+        link: "/dashboard/master/division-master",
         color: "violet",
     },
     {
         title: "Sub Division Master",
-        desc:  "Manage sub divisions & specialized groups",
-        icon:  <FaNetworkWired size={16} />,
-        link:  "/dashboard/master/sub-division-master",
+        desc: "Manage sub divisions & specialized groups",
+        icon: <FaNetworkWired size={16} />,
+        link: "/dashboard/master/sub-division-master",
         color: "indigo",
     },
 ];
@@ -98,53 +98,53 @@ const inventoryMasters: MasterItem[] = [
 const accountMasters: MasterItem[] = [
     {
         title: "Accounting Group",
-        desc:  "Manage accounting groups & ledger heads",
-        icon:  <FaLayerGroup size={16} />,
-        link:  "/dashboard/master/accounting-group-master",
+        desc: "Manage accounting groups & ledger heads",
+        icon: <FaLayerGroup size={16} />,
+        link: "/dashboard/master/accounting-group-master",
         color: "rose",
     },
     {
         title: "Customer Master",
-        desc:  "Manage customer ledgers, chemists & stockists",
-        icon:  <FaUsers size={16} />,
-        link:  "/dashboard/master/customer-master",
+        desc: "Manage customer ledgers, chemists & stockists",
+        icon: <FaUsers size={16} />,
+        link: "/dashboard/master/customer-master",
         color: "cyan",
     },
     {
         title: "Sales Person (M.R./S.R.)",
-        desc:  "Manage sales representatives & users",
-        icon:  <FaUserTie size={16} />,
-        link:  "/dashboard/users",
+        desc: "Manage sales representatives & users",
+        icon: <FaUserTie size={16} />,
+        link: "/dashboard/users",
         color: "emerald",
     },
     {
         title: "Area Master",
-        desc:  "Manage beats, areas & territories",
-        icon:  <FaMapMarkedAlt size={16} />,
-        link:  "/dashboard/master/area-master",
+        desc: "Manage beats, areas & territories",
+        icon: <FaMapMarkedAlt size={16} />,
+        link: "/dashboard/master/area-master",
         color: "amber",
     },
     {
         title: "MR Territory Master",
-        desc:  "Assign product & territory scope to MRs",
-        icon:  <FaMapMarkerAlt size={16} />,
-        link:  "/dashboard/master/mr-territory",
+        desc: "Assign product & territory scope to MRs",
+        icon: <FaMapMarkerAlt size={16} />,
+        link: "/dashboard/master/mr-territory",
         color: "teal",
     },
     {
         title: "Sales Hierarchy Master",
-        desc:  "VP → NSM → ZSM → ASM → MR reporting chain",
-        icon:  <FaSitemap size={16} />,
-        link:  "/dashboard/master/sales-hierarchy",
+        desc: "VP → NSM → ZSM → ASM → MR reporting chain",
+        icon: <FaSitemap size={16} />,
+        link: "/dashboard/master/sales-hierarchy",
         color: "violet",
     },
-    {
-        title: "MR Daily Reporting (DCR)",
-        desc:  "Doctor visits, chemist calls, POB & approvals",
-        icon:  <FaUserTie size={16} />,
-        link:  "/dashboard/mr-reporting",
-        color: "emerald",
-    },
+    // {
+    //     title: "MR Daily Reporting (DCR)",
+    //     desc:  "Doctor visits, chemist calls, POB & approvals",
+    //     icon:  <FaUserTie size={16} />,
+    //     link:  "/dashboard/mr-reporting",
+    //     color: "emerald",
+    // },
 ];
 
 
@@ -218,13 +218,13 @@ function MasterCardGrid({ items }: { items: MasterItem[] }) {
 
 /* ──────────────────────── section header helper ────────────────────── */
 interface SectionHeaderProps {
-    icon:      React.ReactNode;
-    title:     string;
-    subtitle:  string;
-    badge:     string;
-    badgeCls:  string;
+    icon: React.ReactNode;
+    title: string;
+    subtitle: string;
+    badge: string;
+    badgeCls: string;
     borderCls: string;
-    count:     number;
+    count: number;
 }
 
 function SectionHeader({ icon, title, subtitle, badge, badgeCls, borderCls, count }: SectionHeaderProps) {
@@ -271,7 +271,7 @@ export default function MasterPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-3">
                     {hierarchyPhases.map((item, idx) => {
-                        const isDone   = item.status === "Done";
+                        const isDone = item.status === "Done";
                         const isActive = item.status === "Active";
 
                         const cardContent = (
@@ -289,7 +289,7 @@ export default function MasterPage() {
                             >
                                 <div className="flex items-center justify-between w-full text-[10px] uppercase font-bold text-slate-500 mb-1">
                                     <span>P{item.phase}</span>
-                                    {isDone   && <FaCheckCircle className="text-emerald-500 text-xs" />}
+                                    {isDone && <FaCheckCircle className="text-emerald-500 text-xs" />}
                                     {isActive && (
                                         <span className="flex h-2 w-2 relative">
                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
@@ -300,11 +300,10 @@ export default function MasterPage() {
                                 <div className="my-1 text-lg">{item.icon}</div>
                                 <div className="font-semibold text-xs leading-tight text-slate-800">{item.title}</div>
                                 <div className="mt-2">
-                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${
-                                        isDone   ? "bg-emerald-100 text-emerald-700"
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${isDone ? "bg-emerald-100 text-emerald-700"
                                         : isActive ? "bg-indigo-100 text-indigo-700"
-                                                   : "bg-slate-100 text-slate-500"
-                                    }`}>
+                                            : "bg-slate-100 text-slate-500"
+                                        }`}>
                                         {isDone ? "Active ✅" : "Configured 🚀"}
                                     </span>
                                 </div>
