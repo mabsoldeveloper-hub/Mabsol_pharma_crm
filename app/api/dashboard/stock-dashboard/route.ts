@@ -36,6 +36,7 @@ import {
     Pend,
     SubDis,
 } from "@/models/StockModels";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 // ---- date helpers (data is stored as "YYYY-MM-DD" strings) ----------
 function todayStr() {
@@ -60,6 +61,56 @@ export async function GET() {
     try {
         await dbConnect();
 
+        const restriction = await getMrTerritoryRestriction();
+
+        const productFilter: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : { GCODE: "NONE_MATCH" }
+            : {};
+
+        const batchFilter: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const disFilter: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const mdisFilter: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const orderFilter: any = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const gledgerFilter: any = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODE: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODE: "NONE_MATCH" }
+            : {};
+
+        const pendFilter: any = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { ORD: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { ORD: "NONE_MATCH" }
+            : {};
+
         const today = todayStr();
         const nearExpiryLimit = addDaysStr(NEAR_EXPIRY_WINDOW_DAYS);
         const slowMovingCutoff = addDaysStr(-SLOW_MOVING_DAYS);
@@ -77,9 +128,10 @@ export async function GET() {
             todaySalesAgg,
             companyCodes,
         ] = await Promise.all([
-            Product.countDocuments({}),
-            ProductBatch.countDocuments({}),
+            Product.countDocuments(productFilter),
+            ProductBatch.countDocuments(batchFilter),
             ProductBatch.aggregate([
+                { $match: batchFilter },
                 {
                     $group: {
                         _id: null,
@@ -96,6 +148,7 @@ export async function GET() {
                 },
             ]),
             Product.countDocuments({
+                ...productFilter,
                 $expr: {
                     $and: [
                         { $gt: ["$MINIMUM", 0] },
@@ -103,18 +156,20 @@ export async function GET() {
                     ],
                 },
             }),
-            Product.countDocuments({ BALANCE: { $lte: 0 } }),
+            Product.countDocuments({ ...productFilter, BALANCE: { $lte: 0 } }),
             ProductBatch.countDocuments({
+                ...batchFilter,
                 BALANCE: { $gt: 0 },
                 EXP: { $gte: today, $lte: nearExpiryLimit },
             }),
             ProductBatch.countDocuments({
+                ...batchFilter,
                 BALANCE: { $gt: 0 },
                 EXP: { $lt: today, $ne: null },
             }),
-            SubDis.countDocuments({ DATE: today }),
+            SubDis.countDocuments({ ...disFilter, DATE: today }),
             SalesDis.aggregate([
-                { $match: { DATE: today } },
+                { $match: { ...disFilter, DATE: today } },
                 {
                     $group: {
                         _id: null,
@@ -123,7 +178,7 @@ export async function GET() {
                     },
                 },
             ]),
-            Product.distinct("GCODE"),
+            Product.distinct("GCODE", productFilter),
         ]);
 
         const kpis = {
@@ -144,9 +199,11 @@ export async function GET() {
         /* ================= 2. STOCK SUMMARY ================= */
         const [openingAgg, salesAgg] = await Promise.all([
             Product.aggregate([
+                { $match: productFilter },
                 { $group: { _id: null, opening: { $sum: { $ifNull: ["$OPENING", 0] } } } },
             ]),
             SalesDis.aggregate([
+                { $match: disFilter },
                 { $group: { _id: null, sold: { $sum: { $ifNull: ["$ISSUEQTY", 0] } } } },
             ]),
         ]);
@@ -164,6 +221,7 @@ export async function GET() {
 
         /* ================= 3. LOW STOCK ================= */
         const lowStockRaw = await Product.find({
+            ...productFilter,
             $expr: {
                 $and: [
                     { $gt: ["$MINIMUM", 0] },
@@ -177,7 +235,7 @@ export async function GET() {
 
         const lowStockCodes = lowStockRaw.map((p) => p.CODE);
         const lastSaleByCode = await SalesDis.aggregate([
-            { $match: { CODE: { $in: lowStockCodes } } },
+            { $match: { ...disFilter, CODE: { $in: lowStockCodes } } },
             { $sort: { DATE: -1 } },
             { $group: { _id: "$CODE", lastSaleDate: { $first: "$DATE" } } },
         ]);
@@ -195,7 +253,7 @@ export async function GET() {
         }));
 
         /* ================= 4. OUT OF STOCK ================= */
-        const outOfStockRaw = await Product.find({ BALANCE: { $lte: 0 } })
+        const outOfStockRaw = await Product.find({ ...productFilter, BALANCE: { $lte: 0 } })
             .select("CODE PRODUCT GCODE MRP")
             .limit(50)
             .lean();
@@ -203,12 +261,12 @@ export async function GET() {
 
         const [lastSaleOos, lastBatchOos] = await Promise.all([
             SalesDis.aggregate([
-                { $match: { CODE: { $in: oosCodes } } },
+                { $match: { ...disFilter, CODE: { $in: oosCodes } } },
                 { $sort: { DATE: -1 } },
                 { $group: { _id: "$CODE", lastSaleDate: { $first: "$DATE" } } },
             ]),
             ProductBatch.aggregate([
-                { $match: { CODE: { $in: oosCodes } } },
+                { $match: { ...batchFilter, CODE: { $in: oosCodes } } },
                 { $sort: { DATE: -1 } },
                 { $group: { _id: "$CODE", lastBatch: { $first: "$BATCHNO" } } },
             ]),
@@ -226,6 +284,7 @@ export async function GET() {
 
         /* ================= 5. NEAR EXPIRY ================= */
         const nearExpiryRaw = await ProductBatch.find({
+            ...batchFilter,
             BALANCE: { $gt: 0 },
             EXP: { $gte: today, $lte: nearExpiryLimit },
         })
@@ -245,6 +304,7 @@ export async function GET() {
 
         /* ================= 6. EXPIRED STOCK ================= */
         const expiredRaw = await ProductBatch.find({
+            ...batchFilter,
             BALANCE: { $gt: 0 },
             EXP: { $lt: today, $ne: null },
         })
@@ -264,6 +324,7 @@ export async function GET() {
 
         /* ================= 7. TOP SELLING PRODUCTS ================= */
         const topSellingAgg = await SalesDis.aggregate([
+            { $match: disFilter },
             {
                 $group: {
                     _id: "$CODE",
@@ -277,6 +338,7 @@ export async function GET() {
         ]);
         const topSellingCodes = topSellingAgg.map((d) => d._id);
         const topSellingProducts = await Product.find({
+            ...productFilter,
             CODE: { $in: topSellingCodes },
         })
             .select("CODE PRODUCT")
@@ -294,12 +356,13 @@ export async function GET() {
 
         /* ================= 8. SLOW MOVING PRODUCTS ================= */
         const lastSaleAll = await SalesDis.aggregate([
+            { $match: disFilter },
             { $sort: { DATE: -1 } },
             { $group: { _id: "$CODE", lastSaleDate: { $first: "$DATE" } } },
         ]);
         const lastSaleAllMap = new Map(lastSaleAll.map((d) => [d._id, d.lastSaleDate]));
 
-        const slowMovingCandidates = await Product.find({ BALANCE: { $gt: 0 } })
+        const slowMovingCandidates = await Product.find({ ...productFilter, BALANCE: { $gt: 0 } })
             .select("CODE PRODUCT BALANCE MRP")
             .lean();
 
@@ -318,6 +381,7 @@ export async function GET() {
 
         /* ================= 9. STOCK VALUE BY COMPANY ================= */
         const stockValueByCompanyAgg = await Product.aggregate([
+            { $match: productFilter },
             {
                 $lookup: {
                     from: "probat",
@@ -377,13 +441,14 @@ export async function GET() {
         }));
 
         /* ================= 10. LATEST DISPATCH ================= */
-        const latestDispatchRaw = await SubDis.find({})
+        const latestDispatchRaw = await SubDis.find(disFilter)
             .select("VCN DATE CODEP GODWON")
             .sort({ DATE: -1 })
             .limit(10)
             .lean();
         const dispatchCustCodes = latestDispatchRaw.map((d: any) => d.CODEP);
         const dispatchCustomers = await Order.find({
+            ...orderFilter,
             CODEP: { $in: dispatchCustCodes },
         })
             .select("CODEP PARNAM")
@@ -400,13 +465,13 @@ export async function GET() {
         }));
 
         /* ================= 11. LATEST SALES INVOICES ================= */
-        const latestSalesRaw = await SalesMdis.find({})
+        const latestSalesRaw = await SalesMdis.find(mdisFilter)
             .select("VCN DATE CODEP FINAL")
             .sort({ DATE: -1 })
             .limit(10)
             .lean();
         const salesCustCodes = latestSalesRaw.map((m: any) => m.CODEP);
-        const salesCustomers = await Order.find({ CODEP: { $in: salesCustCodes } })
+        const salesCustomers = await Order.find({ ...orderFilter, CODEP: { $in: salesCustCodes } })
             .select("CODEP PARNAM")
             .lean();
         const salesCustNameMap = new Map(
@@ -422,9 +487,9 @@ export async function GET() {
 
         /* ================= 12. RECENT ACTIVITY (basic feed) ================= */
         const [recentBatches, recentDispatch, recentSales] = await Promise.all([
-            ProductBatch.find({}).select("PRODUCT BATCHNO DATE").sort({ DATE: -1 }).limit(5).lean(),
-            SubDis.find({}).select("VCN DATE").sort({ DATE: -1 }).limit(5).lean(),
-            SalesMdis.find({}).select("VCN DATE FINAL").sort({ DATE: -1 }).limit(5).lean(),
+            ProductBatch.find(batchFilter).select("PRODUCT BATCHNO DATE").sort({ DATE: -1 }).limit(5).lean(),
+            SubDis.find(disFilter).select("VCN DATE").sort({ DATE: -1 }).limit(5).lean(),
+            SalesMdis.find(mdisFilter).select("VCN DATE FINAL").sort({ DATE: -1 }).limit(5).lean(),
         ]);
 
         const recentActivity = [
@@ -450,6 +515,7 @@ export async function GET() {
         /* ================= 13. FINANCIAL LEDGER SUMMARY (GLEDGER) ================= */
         const [ledgerTotalsAgg, recentLedgerRaw] = await Promise.all([
             GLedger.aggregate([
+                { $match: gledgerFilter },
                 {
                     $group: {
                         _id: null,
@@ -459,7 +525,7 @@ export async function GET() {
                     },
                 },
             ]),
-            GLedger.find({})
+            GLedger.find(gledgerFilter)
                 .select("CODE CODE1 DATE DEBIT CREDIT TYPE BOOK REMARK1 VOUCHER")
                 .sort({ DATE: -1 })
                 .limit(10)
@@ -488,6 +554,7 @@ export async function GET() {
         /* ================= 14. PENDING VOUCHERS / ADJUSTMENTS (PEND) ================= */
         const [pendTotalsAgg, recentPendRaw] = await Promise.all([
             Pend.aggregate([
+                { $match: pendFilter },
                 {
                     $group: {
                         _id: null,
@@ -496,7 +563,7 @@ export async function GET() {
                     },
                 },
             ]),
-            Pend.find({})
+            Pend.find(pendFilter)
                 .select("VOUCHER SVOUCHER ADJVOUCHER DDATE FINAL ORD TYPE VCN")
                 .sort({ DDATE: -1 })
                 .limit(10)
