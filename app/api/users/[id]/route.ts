@@ -121,6 +121,34 @@ export async function PUT(
 
       );
 
+    // Sales Hierarchy Sync
+    const SalesHierarchy = (await import("@/models/SalesHierarchy")).default;
+    if (body.salesHierarchyRole && body.salesHierarchyRole !== "None" && body.salesHierarchyRole !== "") {
+      let reportsToName = "";
+      if (body.salesHierarchyReportsTo) {
+        const parentUser = await User.findById(body.salesHierarchyReportsTo);
+        if (parentUser) reportsToName = parentUser.name;
+      }
+
+      await SalesHierarchy.findOneAndUpdate(
+        { userId: id },
+        {
+          userId: id,
+          userName: user.name,
+          employeeCode: user.employeeCode || "",
+          roleLevel: body.salesHierarchyRole,
+          state: (body.salesHierarchyState || "").trim(),
+          region: (body.salesHierarchyRegion || "").trim(),
+          reportsTo: body.salesHierarchyReportsTo || null,
+          reportsToName,
+          status: "Active",
+        },
+        { upsert: true, new: true }
+      );
+    } else if (body.salesHierarchyRole === "None") {
+      await SalesHierarchy.findOneAndDelete({ userId: id });
+    }
+
     return NextResponse.json({
 
       success: true,
@@ -128,6 +156,7 @@ export async function PUT(
       user,
 
     });
+
 
   } catch (error: any) {
 

@@ -189,6 +189,27 @@ export async function POST(
 
       });
 
+    // Automatically create SalesHierarchy record if salesHierarchyRole is provided
+    if (body.salesHierarchyRole) {
+      let reportsToName = "";
+      if (body.salesHierarchyReportsTo) {
+        const parentUser = await User.findById(body.salesHierarchyReportsTo);
+        if (parentUser) reportsToName = parentUser.name;
+      }
+
+      await SalesHierarchy.create({
+        userId: user._id,
+        userName: user.name,
+        employeeCode: user.employeeCode || "",
+        roleLevel: body.salesHierarchyRole,
+        state: (body.salesHierarchyState || "").trim(),
+        region: (body.salesHierarchyRegion || "").trim(),
+        reportsTo: body.salesHierarchyReportsTo || null,
+        reportsToName,
+        status: "Active",
+      });
+    }
+
     return NextResponse.json({
       success: true,
       user,

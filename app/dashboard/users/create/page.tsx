@@ -11,6 +11,7 @@ export default function CreateUserPage() {
 
   const [companies, setCompanies] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<any[]>([]);
 
   const [photoPreview, setPhotoPreview] = useState("/avatar.png");
 
@@ -34,12 +35,30 @@ export default function CreateUserPage() {
     pincode: "",
     status: "Active",
     profilePhoto: "",
+    // Sales Hierarchy fields
+    salesHierarchyRole: "",
+    salesHierarchyReportsTo: "",
+    salesHierarchyState: "",
+    salesHierarchyRegion: "",
   });
 
   useEffect(() => {
     loadCompanies();
     loadRoles();
+    loadUsers();
   }, []);
+
+  const loadUsers = async () => {
+    try {
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      if (data.success || Array.isArray(data)) {
+        setUsersList(Array.isArray(data) ? data : data.users || []);
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   const loadCompanies = async () => {
     try {
@@ -60,6 +79,7 @@ export default function CreateUserPage() {
       console.log(error);
     }
   };
+
 
   const saveUser = async () => {
     try {
@@ -359,7 +379,74 @@ export default function CreateUserPage() {
               onChange={(e) => setForm({ ...form, pincode: e.target.value })}
             />
           </div>
+
+          {/* ── SALES HIERARCHY SECTION ── */}
+          <div className="md:col-span-12 mt-4 pt-4 border-t border-indigo-200/80">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-700 font-bold text-xs">
+                🌲 Sales Hierarchy Setup
+              </span>
+              <span className="text-xs text-gray-400">
+                (VP Sales → NSM → ZSM → ASM → M.R. / S.R.)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-6">
+                <label className={labelClass}>Sales Hierarchy Role</label>
+                <select
+                  className={inputClass}
+                  value={form.salesHierarchyRole}
+                  onChange={(e) => setForm({ ...form, salesHierarchyRole: e.target.value })}
+                >
+                  <option value="">None / Not Assigned</option>
+                  <option value="VP">VP Sales (National Head)</option>
+                  <option value="NSM">NSM (National Sales Manager)</option>
+                  <option value="ZSM">ZSM (Zonal Sales Manager)</option>
+                  <option value="ASM">ASM (Area Sales Manager)</option>
+                  <option value="MR">M.R. / S.R. (Sales Representative)</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-6">
+                <label className={labelClass}>Reports To (Parent Manager)</label>
+                <select
+                  className={inputClass}
+                  value={form.salesHierarchyReportsTo}
+                  onChange={(e) => setForm({ ...form, salesHierarchyReportsTo: e.target.value })}
+                >
+                  <option value="">None (Top Executive)</option>
+                  {usersList.map((u) => (
+                    <option key={u._id} value={u._id}>
+                      {u.name} {u.employeeCode ? `(${u.employeeCode})` : ""} - {u.designation || "Executive"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-6">
+                <label className={labelClass}>State / Zone</label>
+                <input
+                  className={inputClass}
+                  value={form.salesHierarchyState}
+                  onChange={(e) => setForm({ ...form, salesHierarchyState: e.target.value })}
+                  placeholder="e.g. Uttar Pradesh"
+                />
+              </div>
+
+              <div className="md:col-span-6">
+                <label className={labelClass}>Region / Territory</label>
+                <input
+                  className={inputClass}
+                  value={form.salesHierarchyRegion}
+                  onChange={(e) => setForm({ ...form, salesHierarchyRegion: e.target.value })}
+                  placeholder="e.g. Lucknow Region"
+                />
+              </div>
+            </div>
+          </div>
         </div>
+
 
         {/* Actions */}
         <div className="mt-6 flex items-center gap-3 border-t border-gray-200/70 pt-4">
