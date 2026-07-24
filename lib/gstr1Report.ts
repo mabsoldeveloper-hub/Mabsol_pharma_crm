@@ -118,6 +118,8 @@ function round2Total(t: ReturnType<typeof emptyTotal>) {
     return { count: t.count, taxableValue: round2(t.taxableValue), cgst: round2(t.cgst), sgst: round2(t.sgst), igst: round2(t.igst), cess: round2(t.cess), invoiceValue: round2(t.invoiceValue) };
 }
 
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
 export default class Gstr1Report {
     static async build(filter: Gstr1Filter) {
         await dbConnect();
@@ -136,8 +138,18 @@ export default class Gstr1Report {
 
         const companyStateCode = stateCodeFromGstin((company as any).gstNo) || "00";
 
+        const restriction = await getMrTerritoryRestriction();
+
+        const mrMdisMatch: any = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
         const mdisRows = await (Mdis as any).aggregate([
-            { $match: { DATE: { $gte: dateFrom, $lte: dateTo }, TYPE: { $in: ["S", "B"] } } },
+            { $match: { DATE: { $gte: dateFrom, $lte: dateTo }, TYPE: { $in: ["S", "B"] }, ...mrMdisMatch } },
             { $sort: { _vfpSyncedAt: -1 } },
             { $group: { _id: "$VOUCHER", doc: { $first: "$$ROOT" } } },
             { $replaceRoot: { newRoot: "$doc" } },

@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+
+type MrTerritoryInfo = {
+    isMrRestricted: boolean;
+    territories: any[];
+    allowedCompanyCodes: string[];
+};
 
 const MONTHS = [
     "January","February","March","April","May","June",
@@ -45,7 +52,7 @@ const TAB_META: TabMeta[] = [
     { id: "b2ba",         label: "B2B Amended (9A)",                  shortLabel: "b2ba.csv",       csvName: "b2ba.csv",     category: "invoices", color: "#059669" },
     { id: "b2b_sez_de",   label: "B2B SEZ & Deemed Exports",          shortLabel: "b2b_sez_de.csv", csvName: "b2b_sez_de.csv",category: "invoices", color: "#047857" },
     { id: "b2cl",         label: "B2C Large > ₹2.5L (5A)",            shortLabel: "b2cl.csv",       csvName: "b2cl.csv",     category: "invoices", color: "#f59e0b" },
-    { id: "b2cla",        label: "B2C Large Amended (9A)",            shortLabel: "b2cla.csv",      csvName: "b2cla.csv",    category: "invoices", color: "#d97706" },
+    { id: "b2cla",        label: "B2C Large Amended (9A)",            shortLabel: "b2cla.csv",       csvName: "b2cla.csv",    category: "invoices", color: "#d97706" },
     { id: "b2cs",         label: "B2C Small (7)",                     shortLabel: "b2cs.csv",       csvName: "b2cs.csv",     category: "invoices", color: "#8b5cf6" },
     { id: "b2csa",        label: "B2C Small Amended (10)",            shortLabel: "b2csa.csv",      csvName: "b2csa.csv",    category: "invoices", color: "#7c3aed" },
 
@@ -228,6 +235,29 @@ export default function Gstr1Page() {
     const [selectedCat, setSelectedCat] = useState<TabCategory>("all");
     const [activeTab, setActiveTab] = useState<Tab>("summary");
     const [search, setSearch] = useState("");
+    const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
+
+    useEffect(() => {
+        loadMrTerritoryInfo();
+    }, []);
+
+    const loadMrTerritoryInfo = async () => {
+        try {
+            const res = await fetch("/api/mr-territory/my-territories");
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success) {
+                    setMrTerritoryInfo({
+                        isMrRestricted: json.isMrRestricted,
+                        territories: json.territories || [],
+                        allowedCompanyCodes: json.allowedCompanyCodes || [],
+                    });
+                }
+            }
+        } catch {
+            // Silently ignore
+        }
+    };
 
     const buildParams = () => new URLSearchParams({ month: String(month), year: String(year) });
 
@@ -378,6 +408,65 @@ export default function Gstr1Page() {
         <>
             <style>{STYLES}</style>
             <div className="gstr1-page">
+                {/* ==================== MR TERRITORY BANNER ==================== */}
+                {mrTerritoryInfo?.isMrRestricted && (
+                    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm mb-4 mx-3 sm:mx-0">
+                        <div className="flex-shrink-0 mt-0.5">
+                            <FaMapMarkerAlt size={16} className="text-amber-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-amber-800 mb-0.5">Territory Restricted View</p>
+                            <p className="text-[11px] text-amber-700 leading-relaxed">
+                                Aap sirf apni assigned territory ki GSTR-1 reports dekh sakte hain.
+                                {mrTerritoryInfo.territories.length > 0 && (
+                                    <>
+                                        {" "}Assigned:
+                                        {" "}
+                                        {Array.from(
+                                            new Set(
+                                                mrTerritoryInfo.territories.map(
+                                                    (t) => t.companyName || t.companyCode
+                                                )
+                                            )
+                                        ).join(", ")}
+                                    </>
+                                )}
+                            </p>
+                            {mrTerritoryInfo.territories.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                    {mrTerritoryInfo.territories.map((t, i) => (
+                                        <span
+                                            key={i}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium border border-amber-200"
+                                        >
+                                            <FaBuilding size={8} />
+                                            {t.companyName || t.companyCode}
+                                            {t.divisionName ? (
+                                                <>
+                                                    {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                    {t.divisionName}
+                                                </>
+                                            ) : null}
+                                            {t.subDivisionName ? (
+                                                <>
+                                                    {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                    {t.subDivisionName}
+                                                </>
+                                            ) : null}
+                                            {t.categoryName ? (
+                                                <>
+                                                    {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                    {t.categoryName}
+                                                </>
+                                            ) : null}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* ── Header ── */}
                 <div className="gstr1-header">
                     <div className="gstr1-header-inner">
