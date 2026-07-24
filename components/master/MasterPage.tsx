@@ -57,83 +57,45 @@ const hierarchyPhases = [
 ];
 
 /* ─────────────────────────── master groups ─────────────────────────── */
-const coreOperationsMasters: MasterItem[] = [
-    {
-        title: "Company Master",
-        desc:  "Manage companies (SALETYPE)",
-        icon:  <FaBuilding size={16} />,
-        link:  "/dashboard/master/fetch-company-master",
-        color: "emerald",
-    },
-    {
-        title: "Division Master",
-        desc:  "Manage business divisions",
-        icon:  <FaSitemap size={16} />,
-        link:  "/dashboard/master/division-master",
-        color: "violet",
-    },
-    {
-        title: "Sub Division Master",
-        desc:  "Manage sub divisions & groups",
-        icon:  <FaNetworkWired size={16} />,
-        link:  "/dashboard/master/sub-division-master",
-        color: "indigo",
-    },
-    {
-        title: "Customer Master",
-        desc:  "Manage customer ledgers",
-        icon:  <FaUsers size={16} />,
-        link:  "/dashboard/master/customer-master",
-        color: "cyan",
-    },
-    {
-        title: "Salesman (MR) Master",
-        desc:  "Manage sales force in Users",
-        icon:  <FaUserTie size={16} />,
-        link:  "/dashboard/users",
-        color: "emerald",
-    },
-    {
-        title: "MR Territory",
-        desc:  "Assign product hierarchy scope to MRs",
-        icon:  <FaMapMarkerAlt size={16} />,
-        link:  "/dashboard/master/mr-territory",
-        color: "teal",
-    },
-    {
-        title: "Area Master",
-        desc:  "Manage areas & regions",
-        icon:  <FaMapMarkedAlt size={16} />,
-        link:  "/dashboard/master/area-master",
-        color: "amber",
-    },
-];
-
 const inventoryMasters: MasterItem[] = [
     {
         title: "Product Master",
-        desc:  "Manage products & inventory items",
+        desc:  "Manage products & inventory catalog",
         icon:  <FaBoxOpen size={16} />,
         link:  "/dashboard/master/product-master",
         color: "indigo",
     },
     {
         title: "Category Master",
-        desc:  "Manage product categories",
+        desc:  "Manage product categories & sub-groups",
         icon:  <FaTag size={16} />,
         link:  "/dashboard/master/category-master",
         color: "teal",
     },
     {
         title: "HSN Master",
-        desc:  "Manage HSN / SAC codes for products",
+        desc:  "Manage HSN / SAC codes & tax slabs",
         icon:  <FaBarcode size={16} />,
         link:  "/dashboard/master/hsn-master",
         color: "orange",
     },
+    {
+        title: "Division Master",
+        desc:  "Manage business divisions & business units",
+        icon:  <FaSitemap size={16} />,
+        link:  "/dashboard/master/division-master",
+        color: "violet",
+    },
+    {
+        title: "Sub Division Master",
+        desc:  "Manage sub divisions & specialized groups",
+        icon:  <FaNetworkWired size={16} />,
+        link:  "/dashboard/master/sub-division-master",
+        color: "indigo",
+    },
 ];
 
-const accountingMasters: MasterItem[] = [
+const accountMasters: MasterItem[] = [
     {
         title: "Accounting Group",
         desc:  "Manage accounting groups & ledger heads",
@@ -141,7 +103,43 @@ const accountingMasters: MasterItem[] = [
         link:  "/dashboard/master/accounting-group-master",
         color: "rose",
     },
+    {
+        title: "Customer Master",
+        desc:  "Manage customer ledgers, chemists & stockists",
+        icon:  <FaUsers size={16} />,
+        link:  "/dashboard/master/customer-master",
+        color: "cyan",
+    },
+    {
+        title: "Sales Person (M.R./S.R.)",
+        desc:  "Manage sales representatives & users",
+        icon:  <FaUserTie size={16} />,
+        link:  "/dashboard/users",
+        color: "emerald",
+    },
+    {
+        title: "Area Master",
+        desc:  "Manage beats, areas & territories",
+        icon:  <FaMapMarkedAlt size={16} />,
+        link:  "/dashboard/master/area-master",
+        color: "amber",
+    },
+    {
+        title: "MR Territory Master",
+        desc:  "Assign product & territory scope to MRs",
+        icon:  <FaMapMarkerAlt size={16} />,
+        link:  "/dashboard/master/mr-territory",
+        color: "teal",
+    },
+    {
+        title: "Sales Hierarchy Master",
+        desc:  "VP → NSM → ZSM → ASM → MR reporting chain",
+        icon:  <FaSitemap size={16} />,
+        link:  "/dashboard/master/sales-hierarchy",
+        color: "violet",
+    },
 ];
+
 
 /* ──────────────────────── reusable card renderer ───────────────────── */
 function MasterCardGrid({ items }: { items: MasterItem[] }) {
@@ -314,26 +312,12 @@ export default function MasterPage() {
                 </div>
             </div>
 
-            {/* ══ SECTION 1 · CORE / OPERATIONS ══ */}
-            <div>
-                <SectionHeader
-                    icon={<FaCubes />}
-                    title="Core & Operations Masters"
-                    subtitle="Company hierarchy, customer, sales force & territory management"
-                    badge="Core"
-                    badgeCls="bg-blue-100 text-blue-700 border-blue-200"
-                    borderCls="border-blue-200"
-                    count={coreOperationsMasters.length}
-                />
-                <MasterCardGrid items={coreOperationsMasters} />
-            </div>
-
-            {/* ══ SECTION 2 · INVENTORY ══ */}
+            {/* ══ SECTION 1 · INVENTORY MASTER (INVENTORY RELATED MASTERS) ══ */}
             <div>
                 <SectionHeader
                     icon={<FaWarehouse />}
-                    title="Inventory Masters"
-                    subtitle="Products, categories and HSN / SAC code management"
+                    title="Inventory Master (Inventory Related Masters)"
+                    subtitle="Products, Categories, HSN Codes, GST Slabs, Divisions & Sub Divisions"
                     badge="Inventory"
                     badgeCls="bg-teal-100 text-teal-700 border-teal-200"
                     borderCls="border-teal-200"
@@ -342,19 +326,20 @@ export default function MasterPage() {
                 <MasterCardGrid items={inventoryMasters} />
             </div>
 
-            {/* ══ SECTION 3 · ACCOUNTING ══ */}
+            {/* ══ SECTION 2 · ACCOUNT MASTER (ACCOUNT RELATED MASTERS) ══ */}
             <div>
                 <SectionHeader
                     icon={<FaCalculator />}
-                    title="Accounting Masters"
-                    subtitle="Ledger groups and financial classification setup"
-                    badge="Accounting"
-                    badgeCls="bg-rose-100 text-rose-700 border-rose-200"
-                    borderCls="border-rose-200"
-                    count={accountingMasters.length}
+                    title="Account Master (Account Related Masters)"
+                    subtitle="Accounting Groups, Customers, Sales Force (MR/SR), Areas, Territory Scope & Hierarchy Chain"
+                    badge="Account"
+                    badgeCls="bg-indigo-100 text-indigo-700 border-indigo-200"
+                    borderCls="border-indigo-200"
+                    count={accountMasters.length}
                 />
-                <MasterCardGrid items={accountingMasters} />
+                <MasterCardGrid items={accountMasters} />
             </div>
+
 
             <style>{`
                 @keyframes fadeSlideIn {
