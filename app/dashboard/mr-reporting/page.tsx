@@ -705,45 +705,104 @@ export default function FullMrReportingPage() {
         </div>
       )}
 
-      {/* DCR QUICK DETAILS DRAWER */}
+      {/* DCR QUICK DETAILS MODAL POPUP */}
       {selectedDcrDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-white h-full shadow-2xl overflow-y-auto p-6 space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]"
+          onClick={() => setSelectedDcrDrawer(null)}
+        >
+          <div
+            className="w-full max-w-2xl bg-white rounded-2xl max-h-[85vh] shadow-2xl overflow-hidden flex flex-col animate-[scaleUp_0.2s_ease-out]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/80">
               <div>
-                <h3 className="text-base font-bold text-slate-900">DCR Call Details</h3>
-                <p className="text-xs text-slate-500">MR: {selectedDcrDrawer.userName}</p>
+                <h3 className="text-base font-bold text-slate-900">DCR Call Details & Activity Log</h3>
+                <p className="text-xs text-slate-500">M.R.: <span className="font-semibold text-slate-700">{selectedDcrDrawer.userName}</span> {selectedDcrDrawer.employeeCode ? `(${selectedDcrDrawer.employeeCode})` : ""}</p>
               </div>
-              <button onClick={() => setSelectedDcrDrawer(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+              <button
+                type="button"
+                onClick={() => setSelectedDcrDrawer(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+              >
                 <FaTimes size={16} />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <p><span className="text-slate-400">Date:</span> {new Date(selectedDcrDrawer.dcrDate).toLocaleDateString()}</p>
-                <p><span className="text-slate-400">Work Type:</span> {selectedDcrDrawer.workType}</p>
-                <p><span className="text-slate-400">Area:</span> {selectedDcrDrawer.areaVisited}</p>
-                <p><span className="text-slate-400">Station:</span> {selectedDcrDrawer.stationType}</p>
+            {/* Modal Content */}
+            <div className="p-6 space-y-4 overflow-y-auto text-xs flex-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 font-medium">
+                <div>
+                  <span className="block text-[10px] text-slate-400 uppercase font-bold">DCR Date</span>
+                  <span className="text-slate-800 font-bold">{new Date(selectedDcrDrawer.dcrDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-400 uppercase font-bold">Work Type</span>
+                  <span className="text-slate-800 font-bold">{selectedDcrDrawer.workType}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-400 uppercase font-bold">Station</span>
+                  <span className="text-slate-800 font-bold">{selectedDcrDrawer.stationType}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-400 uppercase font-bold">Area Visited</span>
+                  <span className="text-slate-800 font-bold">{selectedDcrDrawer.areaVisited}</span>
+                </div>
               </div>
 
-              <h4 className="font-bold text-slate-800 pt-2">Doctor / Chemist Visit Logs ({selectedDcrDrawer.calls?.length || 0})</h4>
+              <div className="flex items-center justify-between pt-2">
+                <h4 className="font-extrabold text-slate-800 text-xs tracking-tight">
+                  Doctor & Chemist Visit Logs ({selectedDcrDrawer.calls?.length || 0})
+                </h4>
+                {selectedDcrDrawer.totalPobAmount > 0 && (
+                  <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-200">
+                    Total POB: {moneyFormat(selectedDcrDrawer.totalPobAmount)}
+                  </span>
+                )}
+              </div>
 
-              {selectedDcrDrawer.calls?.map((c: any, i: number) => (
-                <div key={i} className="p-3 rounded-xl border border-slate-200 space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-indigo-950 text-xs">{c.partyName} ({c.callType})</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">{c.speciality || "GP"}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600">Shift: {c.visitShift} | With: {c.visitedWith}</p>
-                  {c.pobAmount > 0 && <p className="text-xs font-bold text-purple-700">POB Amount: {moneyFormat(c.pobAmount)}</p>}
-                  {c.remarks && <p className="text-[11px] text-slate-500 italic">"{c.remarks}"</p>}
-                </div>
-              ))}
+              <div className="space-y-2.5">
+                {selectedDcrDrawer.calls?.length === 0 ? (
+                  <p className="text-slate-400 text-center py-4">No detailed call logs attached to this DCR.</p>
+                ) : (
+                  selectedDcrDrawer.calls?.map((c: any, i: number) => (
+                    <div key={i} className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-1.5 shadow-2xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-indigo-950 text-xs">{c.partyName} ({c.callType})</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {c.speciality || "GP"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600">Shift: <span className="font-semibold">{c.visitShift}</span> | Visited With: <span className="font-semibold">{c.visitedWith}</span></p>
+                      {c.productsPromoted?.length > 0 && (
+                        <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg">
+                          <span className="font-bold text-slate-700">Promoted: </span>
+                          {c.productsPromoted.map((p: any) => `${p.productName} (Qty: ${p.sampleQty || 0})`).join(", ")}
+                        </div>
+                      )}
+                      {c.pobAmount > 0 && <p className="text-xs font-bold text-purple-700">POB Amount: {moneyFormat(c.pobAmount)}</p>}
+                      {c.remarks && <p className="text-[11px] text-slate-500 italic">"{c.remarks}"</p>}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedDcrDrawer(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 text-white hover:bg-slate-900 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
+
 
       {/* APPROVAL MODAL */}
       {approvingDcrId && (
