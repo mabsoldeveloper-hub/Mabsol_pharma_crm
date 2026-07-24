@@ -339,9 +339,9 @@ export interface StateResolution {
     mdisRows: any[];
 }
 
-export async function buildStateResolution(): Promise<StateResolution> {
+export async function buildStateResolution(filter: any = {}): Promise<StateResolution> {
     const mdisRows = await SalesMdis.find(
-        {},
+        filter,
         { VOUCHER: 1, CODEP: 1, FINAL: 1, DATE: 1, MISC1: 1, TYPE: 1, VCN: 1 }
     ).lean();
 

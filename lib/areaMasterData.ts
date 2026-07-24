@@ -78,10 +78,23 @@ export interface EnrichedParty {
     lastLedgerDate: any;
 }
 
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
 export async function getEnrichedParties(): Promise<EnrichedParty[]> {
+    const restriction = await getMrTerritoryRestriction();
+
+    const customerFilter: any = {};
+    if (restriction.isMrRestricted) {
+        if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+            customerFilter.ORDNO = { $in: restriction.allowedOrdnos };
+        } else {
+            return [];
+        }
+    }
+
     // ---- Base customer records (added PARADD*/PHONE*/SALDR/PURCR vs before) --
     const customers: any[] = await Customer.find(
-        {},
+        customerFilter,
         {
             ORDNO: 1,
             PARNAM: 1,

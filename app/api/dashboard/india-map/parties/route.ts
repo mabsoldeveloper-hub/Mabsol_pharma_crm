@@ -50,9 +50,18 @@ import {
  *   pageSize  - rows per page (default 25, max 200)
  * -----------------------------------------------------------------------------
  */
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
 export async function GET(req: Request) {
     try {
         await connectDB();
+
+        const restriction = await getMrTerritoryRestriction();
+        const orderFilter = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { ORDNO: { $in: restriction.allowedOrdnos } }
+                : { ORDNO: "NONE_MATCH" }
+            : {};
 
         const { searchParams } = new URL(req.url);
         const q = (searchParams.get("q") || "").trim().toUpperCase();
@@ -62,7 +71,7 @@ export async function GET(req: Request) {
         const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get("pageSize") || "25", 10) || 25));
 
         const rows = await OrderParty.find(
-            {},
+            orderFilter,
             {
                 PARNAM: 1,
                 CITY: 1,

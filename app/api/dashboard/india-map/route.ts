@@ -68,9 +68,43 @@ interface StateAccumulator {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
 export async function GET(req: Request) {
     try {
         await connectDB();
+
+        const restriction = await getMrTerritoryRestriction();
+
+        const codepFilter = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: restriction.allowedOrdnos } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const pendFilter = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { ORD: { $in: restriction.allowedOrdnos } }
+                : { ORD: "NONE_MATCH" }
+            : {};
+
+        const glFilter = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { BOOK: { $in: ["R", "P"] }, CODE: { $in: restriction.allowedOrdnos } }
+                : { BOOK: { $in: ["R", "P"] }, CODE: "NONE_MATCH" }
+            : { BOOK: { $in: ["R", "P"] } };
+
+        const productFilter = restriction.isMrRestricted
+            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                ? { GCODE: { $in: restriction.allowedCompanyCodes } }
+                : { GCODE: "NONE_MATCH" }
+            : {};
+
+        const orderFilter = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { ORDNO: { $in: restriction.allowedOrdnos } }
+                : { ORDNO: "NONE_MATCH" }
+            : {};
 
         const { searchParams } = new URL(req.url);
         const fy = searchParams.get("fy");
@@ -99,7 +133,7 @@ export async function GET(req: Request) {
 
         // ---- 1. MDIS: resolves state (anchor table) AND supplies Sales /
         //         Purchase / Returns / Provisional in one pass. ----
-        const resolution = await buildStateResolution();
+        const resolution = await buildStateResolution(codepFilter);
 
         let provisionalCount = 0;
         let provisionalValue = 0;
@@ -130,7 +164,7 @@ export async function GET(req: Request) {
         });
 
         // ---- 2. DIS: item detail -> Top Product per state. ----
-        const disRows = await SalesDis.find({}, { VOUCHER: 1, CODEP: 1, CODE: 1, QTY: 1, DATE: 1 }).lean();
+        const disRows = await SalesDis.find(codepFilter, { VOUCHER: 1, CODEP: 1, CODE: 1, QTY: 1, DATE: 1 }).lean();
         disRows.forEach((r: any) => {
             if (!monthFilter(r.DATE, fy, month)) return;
             const state = resolveState(resolution, r.CODEP, r.VOUCHER);
@@ -141,7 +175,7 @@ export async function GET(req: Request) {
         });
 
         // ---- 3. SUBDIS: dispatch count per state. ----
-        const subdisRows = await SubDis.find({}, { VOUCHER: 1, CODEP: 1, DATE: 1 }).lean();
+        const subdisRows = await SubDis.find(codepFilter, { VOUCHER: 1, CODEP: 1, DATE: 1 }).lean();
         subdisRows.forEach((r: any) => {
             if (!monthFilter(r.DATE, fy, month)) return;
             const state = resolveState(resolution, r.CODEP, r.VOUCHER);
@@ -150,7 +184,7 @@ export async function GET(req: Request) {
         });
 
         // ---- 4. PEND: outstanding, as-of-today (not date-filtered). ----
-        const pendRows = await Pend.find({}, { VOUCHER: 1, SVOUCHER: 1, ORD: 1, FINAL: 1 }).lean();
+        const pendRows = await Pend.find(pendFilter, { VOUCHER: 1, SVOUCHER: 1, ORD: 1, FINAL: 1 }).lean();
         pendRows.forEach((r: any) => {
             const state =
                 resolveState(resolution, r.ORD, r.VOUCHER) ??
@@ -161,7 +195,7 @@ export async function GET(req: Request) {
 
         // ---- 5. GLEDGER: Collection (BOOK=R, CREDIT side) and Payment
         //         (BOOK=P, DEBIT side). ----
-        const glRows = await GLedger.find({ BOOK: { $in: ["R", "P"] } }, { VOUCHER: 1, CODE: 1, BOOK: 1, CREDIT: 1, DEBIT: 1, DATE: 1 }).lean();
+        const glRows = await GLedger.find(glFilter, { VOUCHER: 1, CODE: 1, BOOK: 1, CREDIT: 1, DEBIT: 1, DATE: 1 }).lean();
         glRows.forEach((r: any) => {
             if (!monthFilter(r.DATE, fy, month)) return;
             const state = resolveState(resolution, r.CODE, r.VOUCHER);
@@ -183,7 +217,7 @@ export async function GET(req: Request) {
 
         // ---- 7. Stock valuation + low-stock alerts, from PRO (national, no state dimension). ----
         const allProducts = await Product.find(
-            {},
+            productFilter,
             { CODE: 1, BILLNAME: 1, PRODUCT: 1, BALANCE: 1, MRP: 1, LPRATE: 1, MINIMUM: 1, MAXIMUM: 1 }
         ).lean();
         let stockValueAtMRP = 0;
@@ -243,7 +277,7 @@ export async function GET(req: Request) {
         // cleaned via cleanPartyName() to strip VFP fixed-width padding and
         // the duplicated trailing city text some rows have.
         const orderRows = await OrderParty.find(
-            {},
+            orderFilter,
             { PARNAM: 1, CITY: 1, GSTNO: 1, BALANCE: 1, SALCR: 1, SALDR: 1, PURCR: 1, PURDR: 1, PARADD: 1, PARADD1: 1, PARADD2: 1, PHONE1: 1, PHONE2: 1 }
         ).lean();
         const partyRows = orderRows.filter((r: any) => isRealParty(r.PARNAM, r));

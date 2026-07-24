@@ -42,9 +42,25 @@ import {
  * -----------------------------------------------------------------------------
  */
 
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
 export async function GET(req: Request, { params }: { params: Promise<{ state: string }> }) {
     try {
         await connectDB();
+
+        const restriction = await getMrTerritoryRestriction();
+
+        const codepFilter = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { CODEP: { $in: restriction.allowedOrdnos } }
+                : { CODEP: "NONE_MATCH" }
+            : {};
+
+        const pendFilter = restriction.isMrRestricted
+            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                ? { ORD: { $in: restriction.allowedOrdnos } }
+                : { ORD: "NONE_MATCH" }
+            : {};
 
         const { state: stateParam } = await params;
         const stateId = stateParam?.toLowerCase();
@@ -58,7 +74,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
         const fy = searchParams.get("fy");
         const month = searchParams.get("month");
 
-        const resolution = await buildStateResolution();
+        const resolution = await buildStateResolution(codepFilter);
         const ordnoMap = await buildOrdnoToPartyMap();
         const inState = (codep?: string | null, voucher?: number | null) => {
             const state = resolveState(resolution, codep, voucher);
@@ -84,7 +100,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
         recentSales.sort((a, b) => (a.date < b.date ? 1 : -1));
 
         // ---- Outstanding by party (PEND, not date-filtered — as-of balance) ----
-        const pendRows = await Pend.find({}, { VOUCHER: 1, SVOUCHER: 1, ORD: 1, FINAL: 1 }).lean();
+        const pendRows = await Pend.find(pendFilter, { VOUCHER: 1, SVOUCHER: 1, ORD: 1, FINAL: 1 }).lean();
         const outstandingByParty = new Map<string, number>();
         pendRows.forEach((r: any) => {
             if (!inState(r.ORD, r.VOUCHER) && !(r.SVOUCHER && inState(null, r.SVOUCHER))) return;
