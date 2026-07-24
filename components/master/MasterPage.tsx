@@ -92,6 +92,15 @@ export default function MasterPage() {
             link: "/dashboard/master/area-master",
             color: "amber",
         },
+
+        {
+            title: "Fetch Company  Master",
+            desc: "Manage Fetch Company",
+            icon: <FaSitemap size={16} />,
+            link: "/dashboard/master/fetch-company-master",
+            color: "violet",
+        },
+
         {
             title: "Division Master",
             desc: "Manage divisions & regions",
@@ -118,20 +127,20 @@ export default function MasterPage() {
                             href={master.link}
                             style={{ animationDelay: `${index * 40}ms` }}
                             className={`
-                group relative isolate overflow-hidden rounded-2xl block
-                bg-white/40 backdrop-blur-xl backdrop-saturate-150
-                border border-white/60
-                shadow-[0_8px_32px_rgba(31,38,135,0.12)]
-                ring-1 ${c.ring}
-                animate-[fadeSlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
-                transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                hover:-translate-y-1.5
-                hover:scale-[1.02]
-                hover:shadow-[0_16px_40px_rgba(31,38,135,0.18)]
-                active:scale-[0.98]
-                cursor-pointer
-                p-4
-              `}
+                                    group relative isolate overflow-hidden rounded-2xl block
+                                    bg-white/40 backdrop-blur-xl backdrop-saturate-150
+                                    border border-white/60
+                                    shadow-[0_8px_32px_rgba(31,38,135,0.12)]
+                                    ring-1 ${c.ring}
+                                    animate-[fadeSlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
+                                    transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                    hover:-translate-y-1.5
+                                    hover:scale-[1.02]
+                                    hover:shadow-[0_16px_40px_rgba(31,38,135,0.18)]
+                                    active:scale-[0.98]
+                                    cursor-pointer
+                                    p-4
+                            `}
                         >
                             {/* Background Glass */}
                             <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-white/10 to-transparent pointer-events-none" />
@@ -139,14 +148,14 @@ export default function MasterPage() {
                             {/* Glow Effect */}
                             <div
                                 className={`
-                  absolute -top-6 -right-6 w-20 h-20 rounded-full
-                  bg-gradient-to-br ${c.glowFrom} to-transparent
-                  blur-2xl opacity-60 scale-90
-                  transition-all duration-700 ease-out
-                  group-hover:opacity-100
-                  group-hover:scale-125
-                  pointer-events-none
-                `}
+                                    absolute -top-6 -right-6 w-20 h-20 rounded-full
+                                    bg-gradient-to-br ${c.glowFrom} to-transparent
+                                    blur-2xl opacity-60 scale-90
+                                    transition-all duration-700 ease-out
+                                    group-hover:opacity-100
+                                    group-hover:scale-125
+                                    pointer-events-none
+                                `}
                             />
 
                             {/* Shine Line */}
@@ -155,16 +164,16 @@ export default function MasterPage() {
                             <div className="relative flex flex-col items-center text-center gap-3">
                                 <div
                                     className={`
-                    w-10 h-10 rounded-xl
-                    flex items-center justify-center
-                    bg-white/60 backdrop-blur-md
-                    border border-white/70
-                    shadow-[0_2px_8px_rgba(0,0,0,0.06)]
-                    ${c.iconText}
-                    transition-all duration-500
-                    group-hover:scale-110
-                    group-hover:rotate-6
-                  `}
+                                        w-10 h-10 rounded-xl
+                                        flex items-center justify-center
+                                        bg-white/60 backdrop-blur-md
+                                        border border-white/70
+                                        shadow-[0_2px_8px_rgba(0,0,0,0.06)]
+                                        ${c.iconText}
+                                        transition-all duration-500
+                                        group-hover:scale-110
+                                        group-hover:rotate-6
+                                    `}
                                 >
                                     {master.icon}
                                 </div>
