@@ -2,6 +2,7 @@ import dbConnect from "@/lib/mongodb";
 import Notification from "@/models/Notification";
 import TargetMaster from "@/models/TargetMaster";
 import Product from "@/models/Product";
+import MrCustomerAssignment from "@/models/MrCustomerAssignment";
 import mongoose from "mongoose";
 
 export interface ScanAlertsResult {
@@ -43,10 +44,23 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
         const name = targetDoc.targetType === "MR" ? targetDoc.mrName : targetDoc.customerName;
         const month = targetDoc.periodMonth;
         const salesTarget = targetDoc.targetAmount || 0;
-        const targetUserId = typeof targetDoc.mrUserId === "object"
+        let targetUserId = typeof targetDoc.mrUserId === "object"
           ? targetDoc.mrUserId?._id?.toString() || ""
           : String(targetDoc.mrUserId || "");
-        const targetMrName = (targetDoc.mrName || "").trim();
+        let targetMrName = (targetDoc.mrName || "").trim();
+
+        // If target is for a customer, resolve assigned MR from MrCustomerAssignment master
+        if (targetDoc.customerCode) {
+          const directAssignment = await MrCustomerAssignment.findOne({
+            customerCode: targetDoc.customerCode,
+            status: "Active",
+          }).lean();
+
+          if (directAssignment) {
+            targetUserId = targetUserId || String(directAssignment.userId || "");
+            targetMrName = targetMrName || directAssignment.userName || "";
+          }
+        }
 
         if (name && salesTarget > 0) {
           const title = `🎯 Target Active: ${name} (${month})`;

@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import { getCurrentUser } from "@/lib/auth";
 import Notification from "@/models/Notification";
+import MrCustomerAssignment from "@/models/MrCustomerAssignment";
 import { runNotificationAlertScan } from "@/lib/notificationEngine";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export const dynamic = "force-dynamic";
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 // GET notifications for current user
 export async function GET(request: NextRequest) {
@@ -15,34 +21,58 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const roleType = (user.roleType || user.role || "Admin").toString();
-    const isAdminOrManager = ["Admin", "SuperAdmin", "Manager", "RSM", "ZSM"].includes(roleType);
-    const userIdStr = String(user._id);
-    const userNameStr = (user.name || "").trim().toLowerCase();
-    const empCodeStr = (user.employeeCode || "").trim().toLowerCase();
+    const roleName = String(user.roleId?.roleName || user.role || "").trim().toLowerCase();
+    const isAdminOrManager =
+      roleName.includes("admin") ||
+      roleName.includes("super") ||
+      roleName.includes("manager") ||
+      user.isAdmin === true;
+
+    // Run quick background alert scan to populate new alerts
+    await runNotificationAlertScan().catch(() => {});
 
     let query: any = {};
 
     if (!isAdminOrManager) {
-      // MR Executive: Show general stock/system alerts PLUS targets strictly assigned to this MR
-      const mrTargetConditions: any[] = [
-        { userId: userIdStr },
-        { "metadata.mrUserId": userIdStr },
+      // Fetch MR territory restrictions & direct MR-Customer assignments
+      const [restriction, directAssignments] = await Promise.all([
+        getMrTerritoryRestriction(),
+        MrCustomerAssignment.find(
+          { userId: user._id, status: "Active" },
+          { customerCode: 1 }
+        ).lean(),
+      ]);
+
+      const currentUserIdStr = String(user._id);
+      const currentUserNameStr = (user.name || "").trim().toLowerCase();
+      const currentEmpCodeStr = (user.employeeCode || "").trim().toLowerCase();
+
+      // Collect all assigned Customer Codes for this MR from both sources
+      const allowedCustomerCodes = Array.from(restriction.allowedOrdnosSet || []);
+      const directCustomerCodes = directAssignments.map((a: any) => String(a.customerCode || "").trim()).filter(Boolean);
+      const allCustomerCodes = Array.from(new Set([...allowedCustomerCodes, ...directCustomerCodes]));
+
+      const mrConditions: any[] = [
+        { userId: currentUserIdStr },
+        { "metadata.mrUserId": currentUserIdStr },
       ];
 
-      if (userNameStr) {
-        mrTargetConditions.push({ "metadata.mrName": { $regex: userNameStr, $options: "i" } });
+      if (currentUserNameStr) {
+        mrConditions.push({ "metadata.mrName": { $regex: escapeRegex(currentUserNameStr), $options: "i" } });
       }
-      if (empCodeStr) {
-        mrTargetConditions.push({ "metadata.mrName": { $regex: empCodeStr, $options: "i" } });
+      if (currentEmpCodeStr) {
+        mrConditions.push({ "metadata.mrName": { $regex: escapeRegex(currentEmpCodeStr), $options: "i" } });
+      }
+      if (allCustomerCodes.length > 0) {
+        mrConditions.push({ "metadata.customerCode": { $in: allCustomerCodes } });
       }
 
       query = {
         $or: [
-          // Non-target alerts (Stock & System)
-          { category: { $ne: "TARGETS" }, targetRole: { $in: ["All", "MR"] } },
-          // Target alerts strictly assigned to this MR
-          { category: "TARGETS", $or: mrTargetConditions },
+          // Non-target alerts (Stock & System) for all MRs
+          { category: { $ne: "TARGETS" } },
+          // Target alerts assigned to MR OR assigned to MR's assigned Customers
+          { category: "TARGETS", $or: mrConditions },
         ],
       };
     }
