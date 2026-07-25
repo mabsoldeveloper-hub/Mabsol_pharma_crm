@@ -127,3 +127,35 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+// DELETE to remove single notification or clear all notifications
+export async function DELETE(request: NextRequest) {
+  try {
+    await dbConnect();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const notificationId = searchParams.get("id");
+    const clearAll = searchParams.get("clearAll") === "true";
+
+    if (clearAll) {
+      await Notification.deleteMany({});
+      return NextResponse.json({ success: true, message: "All notifications cleared" });
+    }
+
+    if (notificationId) {
+      await Notification.findByIdAndDelete(notificationId);
+      return NextResponse.json({ success: true, message: "Notification deleted" });
+    }
+
+    return NextResponse.json({ success: false, error: "id or clearAll parameter required" }, { status: 400 });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to delete notification" },
+      { status: 500 }
+    );
+  }
+}

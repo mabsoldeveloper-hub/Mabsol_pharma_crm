@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, List, PersonCircle } from "react-bootstrap-icons";
+import { Bell, List, PersonCircle, Trash } from "react-bootstrap-icons";
 
 import { useUser } from "@/context/UserContext";
 import LogoutButton from "./LogoutButton";
@@ -73,25 +73,25 @@ export default function Topbar({
   }, []);
 
   const [liveNotifications, setLiveNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchNotifications = () => {
     fetch("/api/notifications")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) {
-          setLiveNotifications(data.notifications || []);
-          setUnreadCount(data.unreadCount || 0);
+        if (data.success && Array.isArray(data.notifications)) {
+          setLiveNotifications(data.notifications);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("Notifications fetch error:", err));
   };
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 20000); // Poll notifications every 20 seconds
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const unreadCount = liveNotifications.filter((n) => !n.isRead).length;
 
   const markAllRead = () => {
     fetch("/api/notifications", {
@@ -99,6 +99,25 @@ export default function Topbar({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ markAllRead: true }),
     }).then(() => fetchNotifications());
+  };
+
+  const deleteNotification = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/api/notifications?id=${id}`, { method: "DELETE" });
+      setLiveNotifications((prev) => prev.filter((n) => n._id !== id));
+    } catch (err) {
+      console.error("Failed to delete notification", err);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    try {
+      await fetch("/api/notifications?clearAll=true", { method: "DELETE" });
+      setLiveNotifications([]);
+    } catch (err) {
+      console.error("Failed to clear notifications", err);
+    }
   };
 
   const [activeCat, setActiveCat] = useState<string>("ALL");
@@ -185,14 +204,24 @@ export default function Topbar({
                     </span>
                   )}
                 </div>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllRead}
-                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
-                  >
-                    Mark all read
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllRead}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                    >
+                      Mark read
+                    </button>
+                  )}
+                  {liveNotifications.length > 0 && (
+                    <button
+                      onClick={clearAllNotifications}
+                      className="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Category Filter Chips: Targets & Stock only */}
@@ -232,7 +261,7 @@ export default function Topbar({
                       <div
                         key={n._id || i}
                         onClick={() => handleNotifClick(n)}
-                        className={`px-3.5 py-3 text-[13px] cursor-pointer transition-all duration-150 flex gap-2.5 items-start ${
+                        className={`group px-3.5 py-3 text-[13px] cursor-pointer transition-all duration-150 flex gap-2.5 items-start ${
                           !n.isRead ? "bg-indigo-50/30 hover:bg-indigo-50/60 font-medium" : "hover:bg-slate-50"
                         }`}
                       >
@@ -264,6 +293,15 @@ export default function Topbar({
                             {n.message}
                           </p>
                         </div>
+
+                        {/* Individual Remove Button */}
+                        <button
+                          onClick={(e) => deleteNotification(n._id, e)}
+                          title="Remove notification"
+                          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-1"
+                        >
+                          <Trash size={12} />
+                        </button>
                       </div>
                     );
                   })
