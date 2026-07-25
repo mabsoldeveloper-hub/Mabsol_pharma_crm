@@ -24,6 +24,7 @@ import {
   FaCheckCircle,
   FaExclamationTriangle,
   FaRegCalendarCheck,
+  FaWhatsapp,
 } from "react-icons/fa";
 
 interface WeeklyItem {
@@ -67,6 +68,7 @@ interface TargetVsActualRow {
   mrName: string;
   customerCode: string;
   customerName: string;
+  phoneNumber?: string;
   notes: string;
   status: string;
   // Sales Metrics
@@ -174,6 +176,53 @@ export default function TargetVsActualReportPage() {
     return (val || 0).toLocaleString("en-IN", {
       maximumFractionDigits: 0,
     });
+  };
+
+  const formatWhatsAppPhone = (phone?: string): string => {
+    if (!phone) return "";
+    const cleaned = phone.replace(/\D/g, "");
+    if (!cleaned) return "";
+    if (cleaned.length === 10) return `91${cleaned}`;
+    if (cleaned.length === 12 && cleaned.startsWith("91")) return cleaned;
+    if (cleaned.length > 10 && cleaned.startsWith("0")) return `91${cleaned.slice(1)}`;
+    return cleaned;
+  };
+
+  const getDirectWhatsAppUrl = (row: TargetVsActualRow): string => {
+    const name = row.targetType === "MR" ? row.mrName : row.customerName;
+    const month = row.periodMonth;
+    const salesTarget = row.salesTarget;
+    const actualSales = row.monthlyActualSales;
+    const shortfall = row.salesShortfall;
+    const ach = row.salesAchPercent;
+
+    let text = `*Target & Performance Update*\n\n`;
+    text += `Dear *${name}*,\n`;
+    text += `Sales Target for *${month}*: *₹${salesTarget.toLocaleString("en-IN")}*\n`;
+    text += `Current Achieved Sales: *₹${actualSales.toLocaleString("en-IN")}* (${ach}%)\n`;
+    text += `Remaining Shortfall: *₹${shortfall.toLocaleString("en-IN")}*\n\n`;
+
+    if (row.collectionTarget > 0) {
+      text += `Collection Target: *₹${row.collectionTarget.toLocaleString("en-IN")}* | Achieved: *₹${row.monthlyActualCollection.toLocaleString("en-IN")}*\n\n`;
+    }
+
+    if (row.hasGiftScheme && row.giftSlabs && row.giftSlabs.length > 0) {
+      const nextSlab = [...row.giftSlabs]
+        .sort((a, b) => a.minAchievementPercent - b.minAchievementPercent)
+        .find((s) => ach < s.minAchievementPercent);
+
+      if (nextSlab) {
+        text += `🎁 *Reward Scheme:* Achieve *₹${shortfall.toLocaleString("en-IN")}* more sales to unlock *${nextSlab.giftName}*!\n\n`;
+      } else if (row.activeGiftSlab) {
+        text += `🎉 *Congratulations!* Unlocked Reward: *${row.activeGiftSlab.giftName}*!\n\n`;
+      }
+    } else {
+      text += `Please complete your target before month end to maximize your growth!\n\n`;
+    }
+
+    const cleanPhone = formatWhatsAppPhone(row.phoneNumber);
+    const baseUrl = cleanPhone ? `https://wa.me/${cleanPhone}` : `https://wa.me/`;
+    return `${baseUrl}?text=${encodeURIComponent(text)}`;
   };
 
   const exportCSV = () => {
@@ -519,6 +568,7 @@ export default function TargetVsActualReportPage() {
                   <th className="p-3.5 text-right bg-indigo-950/60 text-indigo-300">Actual Collection</th>
                   <th className="p-3.5 text-center bg-indigo-950/60 text-indigo-300">Coll Ach %</th>
                   <th className="p-3.5 text-center">Reward Scheme</th>
+                  <th className="p-3.5 text-center">WhatsApp Chat</th>
                 </tr>
               </thead>
 
@@ -528,7 +578,7 @@ export default function TargetVsActualReportPage() {
 
                   return (
                     <tr key={row._id} className="hover:bg-slate-50/80 transition-colors group">
-                      <td colSpan={10} className="p-0">
+                      <td colSpan={11} className="p-0">
                         {/* Parent Master Row */}
                         <div className="flex items-center w-full p-3.5 border-b border-slate-100">
                           {/* Accordion Toggle */}
@@ -611,7 +661,7 @@ export default function TargetVsActualReportPage() {
                           </div>
 
                           {/* Gift / Scheme Status */}
-                          <div className="w-40 text-center flex-shrink-0">
+                          <div className="w-36 text-center flex-shrink-0">
                             {row.hasGiftScheme ? (
                               row.activeGiftSlab ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
@@ -625,6 +675,25 @@ export default function TargetVsActualReportPage() {
                             ) : (
                               <span className="text-[10px] text-slate-400 font-normal">-</span>
                             )}
+                          </div>
+
+                          {/* Direct WhatsApp Action Button */}
+                          <div className="w-36 text-center flex-shrink-0 pl-2">
+                            {(() => {
+                              const cleanPhone = formatWhatsAppPhone(row.phoneNumber);
+                              return (
+                                <a
+                                  href={getDirectWhatsAppUrl(row)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[10px] shadow hover:scale-105 transition-all"
+                                  title={cleanPhone ? `Direct WhatsApp chat with +${cleanPhone}` : "Share offer message on WhatsApp"}
+                                >
+                                  <FaWhatsapp size={13} />
+                                  {cleanPhone ? `+${cleanPhone}` : `Send MSG`}
+                                </a>
+                              );
+                            })()}
                           </div>
                         </div>
 

@@ -31,12 +31,14 @@ interface TargetItem {
   _id: string;
   targetType: "MR" | "Customer";
   periodMonth: string;
-  mrUserId?: string | { _id: string; name: string; email: string; employeeCode?: string };
+  mrUserId?: string | { _id: string; name: string; email: string; employeeCode?: string; mobile?: string; phone?: string };
   mrName?: string;
   customerId?: string;
   customerName?: string;
   customerCode?: string;
+  phoneNumber?: string;
   targetAmount: number;
+  collectionTargetAmount?: number;
   achievedAmount?: number;
   shortfall?: number;
   achievementPercent?: number;
@@ -46,6 +48,16 @@ interface TargetItem {
   notes?: string;
   status: "Active" | "Closed";
   createdAt?: string;
+}
+
+function formatWhatsAppPhone(phone?: string): string {
+  if (!phone) return "";
+  const cleaned = phone.replace(/\D/g, "");
+  if (!cleaned) return "";
+  if (cleaned.length === 10) return `91${cleaned}`;
+  if (cleaned.length === 12 && cleaned.startsWith("91")) return cleaned;
+  if (cleaned.length > 10 && cleaned.startsWith("0")) return `91${cleaned.slice(1)}`;
+  return cleaned;
 }
 
 export default function GeneralTargetsPage() {
@@ -181,7 +193,10 @@ export default function GeneralTargetsPage() {
       text += `Please complete your target before month end to maximize your business growth!`;
     }
 
-    return `https://wa.me/?text=${encodeURIComponent(text)}`;
+    const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
+    const cleanPhone = formatWhatsAppPhone(rawPhone);
+    const baseUrl = cleanPhone ? `https://wa.me/${cleanPhone}` : `https://wa.me/`;
+    return `${baseUrl}?text=${encodeURIComponent(text)}`;
   };
 
   return (
@@ -397,9 +412,14 @@ export default function GeneralTargetsPage() {
                         <h4 className="text-sm font-bold text-slate-900">
                           {item.targetType === "MR" ? item.mrName || "MR Executive" : item.customerName || "Customer"}
                         </h4>
-                        {item.customerCode && (
-                          <span className="text-[10px] font-semibold text-slate-400">Code: {item.customerCode}</span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-400">
+                          {item.customerCode && <span>Code: {item.customerCode}</span>}
+                          {(() => {
+                            const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
+                            const cleanPhone = formatWhatsAppPhone(rawPhone);
+                            return cleanPhone ? <span className="text-emerald-700 font-extrabold">📞 +{cleanPhone}</span> : null;
+                          })()}
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -461,14 +481,21 @@ export default function GeneralTargetsPage() {
 
                 {/* Footer Action */}
                 <div className="mt-4 border-t border-slate-100 pt-3 flex items-center justify-between">
-                  <a
-                    href={generateWhatsAppShareUrl(item)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow hover:bg-emerald-700 transition-all"
-                  >
-                    <FaWhatsapp size={14} /> Share Shortfall Offer Alert
-                  </a>
+                  {(() => {
+                    const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
+                    const cleanPhone = formatWhatsAppPhone(rawPhone);
+                    return (
+                      <a
+                        href={generateWhatsAppShareUrl(item)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow hover:bg-emerald-700 transition-all"
+                      >
+                        <FaWhatsapp size={14} />
+                        {cleanPhone ? `Send Direct WhatsApp (+${cleanPhone})` : "Share Shortfall Offer Alert"}
+                      </a>
+                    );
+                  })()}
                 </div>
               </div>
             );

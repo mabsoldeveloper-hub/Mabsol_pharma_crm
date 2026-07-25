@@ -48,11 +48,12 @@ interface TargetItem {
   _id: string;
   targetType: "MR" | "Customer";
   periodMonth: string;
-  mrUserId?: string | { _id: string; name: string; email: string; employeeCode?: string };
+  mrUserId?: string | { _id: string; name: string; email: string; employeeCode?: string; mobile?: string; phone?: string };
   mrName?: string;
   customerId?: string;
   customerName?: string;
   customerCode?: string;
+  phoneNumber?: string;
   targetAmount: number;
   collectionTargetAmount?: number;
   achievedAmount?: number;
@@ -338,6 +339,16 @@ export default function TargetMasterPage() {
     }
   };
 
+  const formatWhatsAppPhone = (phone?: string): string => {
+    if (!phone) return "";
+    const cleaned = phone.replace(/\D/g, "");
+    if (!cleaned) return "";
+    if (cleaned.length === 10) return `91${cleaned}`;
+    if (cleaned.length === 12 && cleaned.startsWith("91")) return cleaned;
+    if (cleaned.length > 10 && cleaned.startsWith("0")) return `91${cleaned.slice(1)}`;
+    return cleaned;
+  };
+
   const generateWhatsAppShareUrl = (item: TargetItem) => {
     const targetAmt = item.targetAmount || 0;
     const achieved = item.achievedAmount || 0;
@@ -365,7 +376,10 @@ export default function TargetMasterPage() {
       text += `Please complete your target before month end to maximize your business growth!`;
     }
 
-    return `https://wa.me/?text=${encodeURIComponent(text)}`;
+    const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
+    const cleanPhone = formatWhatsAppPhone(rawPhone);
+    const baseUrl = cleanPhone ? `https://wa.me/${cleanPhone}` : `https://wa.me/`;
+    return `${baseUrl}?text=${encodeURIComponent(text)}`;
   };
 
   return (

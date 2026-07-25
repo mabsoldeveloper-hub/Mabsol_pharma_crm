@@ -339,6 +339,42 @@ export async function GET(req: NextRequest) {
           }
         }
 
+        // Lookup phone number for direct WhatsApp messaging: MR target -> MR phone, Customer target -> Customer phone
+        let phoneNumber = "";
+        try {
+          if (item.targetType === "MR") {
+            // MR Target: Get MR Executive's phone number
+            if (item.mrUserId && typeof item.mrUserId === "object") {
+              phoneNumber = item.mrUserId.mobile || item.mrUserId.phone || "";
+            }
+            if (!phoneNumber && item.mrName) {
+              const userDoc = await User.findOne(
+                { $or: [{ name: { $regex: escapeRegex(item.mrName), $options: "i" } }, { employeeCode: { $regex: escapeRegex(item.mrName), $options: "i" } }] },
+                { mobile: 1, phone: 1 }
+              ).lean();
+              if (userDoc) phoneNumber = (userDoc as any).mobile || (userDoc as any).phone || "";
+            }
+          } else if (item.targetType === "Customer") {
+            // Customer Target: Get Customer/Party's phone number
+            const code = (item.customerCode || "").trim();
+            const name = (item.customerName || "").trim();
+            if (code || name) {
+              const custMatch = code
+                ? { $or: [{ ORDNO: code }, { CODEP: code }, { CODE: code }, { SCODE: code }] }
+                : { $or: [{ PARNAM: { $regex: escapeRegex(name), $options: "i" } }, { MAILNAM: { $regex: escapeRegex(name), $options: "i" } }] };
+              const custDoc = await Customer.findOne(
+                custMatch,
+                { PHONE1: 1, PHONE2: 1, MOBILE: 1, TEL: 1, REF: 1 }
+              ).lean();
+              if (custDoc) {
+                phoneNumber = (custDoc as any).PHONE1 || (custDoc as any).MOBILE || (custDoc as any).PHONE2 || (custDoc as any).TEL || (custDoc as any).REF || "";
+              }
+            }
+          }
+        } catch (phoneErr) {
+          console.error("Report phone lookup error:", phoneErr);
+        }
+
         return {
           _id: item._id,
           targetType: item.targetType,
@@ -347,6 +383,7 @@ export async function GET(req: NextRequest) {
           mrName: item.mrName || item.mrUserId?.name || "N/A",
           customerCode: item.customerCode || "N/A",
           customerName: item.customerName || "N/A",
+          phoneNumber,
           notes: item.notes || "",
           status: item.status || "Active",
           // Sales Metrics
