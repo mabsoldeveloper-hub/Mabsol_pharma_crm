@@ -31,7 +31,7 @@ export async function GET() {
 
     const config = await VfpConfig.findOne({ email: user.email }).lean() || await VfpConfig.findOne({ key: "vfp_sync_config" }).lean();
     if (config) {
-      if ((config as any).dataDir) {
+      if ((config as any).dataDir !== undefined) {
         dataDir = (config as any).dataDir;
         isFromDb = true;
       }
@@ -139,28 +139,25 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    if (dataDir) {
-      // Validate that path exists and is a directory on the server
-      if (!checkPathExists(dataDir)) {
-        return NextResponse.json(
-          { success: false, error: `Folder path does not exist on local disk: ${dataDir}` },
-          { status: 400 }
-        );
-      }
+    if (dataDir !== undefined) {
+      if (dataDir) {
+        // Validate that path exists and is a directory on the server
+        if (!checkPathExists(dataDir)) {
+          return NextResponse.json(
+            { success: false, error: `Folder path does not exist on local disk: ${dataDir}` },
+            { status: 400 }
+          );
+        }
 
-      if (!checkIsDir(dataDir)) {
-        return NextResponse.json(
-          { success: false, error: `Path is not a directory: ${dataDir}` },
-          { status: 400 }
-        );
-      }
-      updateFields.dataDir = dataDir;
-    } else {
-      if (!existingConfig?.dataDir && !process.env.VFP_DATA_DIR) {
-        return NextResponse.json(
-          { success: false, error: "dataDir is required" },
-          { status: 400 }
-        );
+        if (!checkIsDir(dataDir)) {
+          return NextResponse.json(
+            { success: false, error: `Path is not a directory: ${dataDir}` },
+            { status: 400 }
+          );
+        }
+        updateFields.dataDir = dataDir;
+      } else {
+        updateFields.dataDir = "";
       }
     }
 
@@ -246,6 +243,11 @@ export async function POST(request: NextRequest) {
     await VfpConfig.updateOne(
       { key: "vfp_sync_config_" + user.email },
       { $set: { ...updateFields, email: user.email } },
+      { upsert: true }
+    );
+    await VfpConfig.updateOne(
+      { key: "vfp_sync_config" },
+      { $set: updateFields },
       { upsert: true }
     );
 
