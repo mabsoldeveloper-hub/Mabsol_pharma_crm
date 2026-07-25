@@ -147,7 +147,7 @@ type MrTerritoryInfo = {
     allowedCompanyCodes: string[];
 };
 
-const LIMIT = 20;
+const LIMIT = 500;
 
 const formatCurrency = (value?: number) =>
     (value ?? 0).toLocaleString("en-IN", {

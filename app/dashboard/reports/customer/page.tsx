@@ -75,7 +75,7 @@ const DEFAULT_FILTERS = {
     status: "",
 };
 
-const LIMIT = 20;
+const LIMIT = 500;
 
 const formatCurrency = (value?: number) =>
     (value ?? 0).toLocaleString("en-IN", {

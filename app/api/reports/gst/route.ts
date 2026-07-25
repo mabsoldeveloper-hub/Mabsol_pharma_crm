@@ -9,6 +9,16 @@ export async function GET(req: NextRequest) {
 
         const report = searchParams.get("report") || "register";
 
+        const pageParam = Number(searchParams.get("page") || 1);
+        const limitParam = Number(searchParams.get("limit") || 500);
+
+        const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+        const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(2000, Math.floor(limitParam)) : 500;
+
+        const restriction = await getMrTerritoryRestriction();
+
+        const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
+
         const filter = {
             search: searchParams.get("search") || "",
             customerCode: searchParams.get("customerCode") || "",
@@ -19,11 +29,11 @@ export async function GET(req: NextRequest) {
             type: searchParams.get("type") || "",
             dateFrom: searchParams.get("dateFrom") || "",
             dateTo: searchParams.get("dateTo") || "",
-            page: Number(searchParams.get("page") || 1),
-            limit: Number(searchParams.get("limit") || 20),
+            page: restriction.isMrRestricted ? 1 : page,
+            limit: fetchLimit,
         };
 
-        let data;
+        let data: any;
 
         switch (report) {
             case "register":
@@ -42,27 +52,24 @@ export async function GET(req: NextRequest) {
                 data = await GstReport.gstRegister(filter);
         }
 
-        const restriction = await getMrTerritoryRestriction();
-
         if (restriction.isMrRestricted && data && Array.isArray(data.rows)) {
+            let filteredRows = data.rows;
             if (report === "register") {
-                // Register rows have CODEP — isPartyAllowed checks it correctly
-                data.rows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
-                data.total = data.rows.length;
+                filteredRows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
             } else if (report === "ledger") {
-                // Ledger rows have CODE1 (customer code) — isPartyAllowed doesn't check CODE1,
-                // so we manually match against allowedOrdnosSet
-                data.rows = data.rows.filter((item: any) => {
+                filteredRows = data.rows.filter((item: any) => {
                     const code1 = String(item.CODE1 || "").trim().toLowerCase();
                     if (code1 && restriction.allowedOrdnosSet.has(code1)) return true;
                     if (code1 && restriction.ordnoRegexes.some((rx) => rx.test(code1))) return true;
                     return false;
                 });
-                data.total = data.rows.length;
             }
-            // HSN Summary is product-level data (no party fields) — the underlying
-            // voucher list is already scoped by party filters in buildMdisMatch,
-            // so no additional MR restriction is needed here.
+
+            data.total = filteredRows.length;
+            data.limit = limit;
+            data.page = page;
+            data.totalPages = Math.ceil(filteredRows.length / limit) || 1;
+            data.rows = filteredRows.slice((page - 1) * limit, page * limit);
         }
 
         return NextResponse.json({ success: true, data });

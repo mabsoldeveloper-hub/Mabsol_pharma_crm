@@ -176,7 +176,7 @@ const DEFAULT_FILTERS = {
     toDate: "",
 };
 
-const LIMIT = 20;
+const LIMIT = 500;
 
 const formatNumber = (value?: number) =>
     (value ?? 0).toLocaleString("en-IN", {

@@ -7,6 +7,16 @@ export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
 
+        const pageParam = Number(searchParams.get("page") || 1);
+        const limitParam = Number(searchParams.get("limit") || 500);
+
+        const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+        const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(2000, Math.floor(limitParam)) : 500;
+
+        const restriction = await getMrTerritoryRestriction();
+
+        const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
+
         const filter = {
             search: searchParams.get("search") || "",
             customerCode: searchParams.get("customerCode") || "",
@@ -42,8 +52,8 @@ export async function GET(req: NextRequest) {
             batch: searchParams.get("batch") || "",
             company: searchParams.get("company") || "",
 
-            page: Number(searchParams.get("page") || 1),
-            limit: Number(searchParams.get("limit") || 20),
+            page: restriction.isMrRestricted ? 1 : page,
+            limit: fetchLimit,
 
             sortField: searchParams.get("sortField") || "DDATE",
             sortOrder: (Number(searchParams.get("sortOrder")) === 1 ? 1 : -1) as 1 | -1,
@@ -51,14 +61,17 @@ export async function GET(req: NextRequest) {
 
         const data = await OutstandingReport.get(filter);
 
-        const restriction = await getMrTerritoryRestriction();
-
         if (restriction.isMrRestricted && data) {
             if (Array.isArray(data.rows)) {
-                data.rows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
-                data.total = data.rows.length;
-            } else if (Array.isArray(data)) {
-                // fallback if data is a plain array
+                const filteredRows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
+                data.total = filteredRows.length;
+                data.limit = limit;
+                data.page = page;
+                data.totalPages = Math.ceil(filteredRows.length / limit) || 1;
+                data.rows = filteredRows.slice((page - 1) * limit, page * limit);
+
+                // recalculate total outstanding for filtered rows
+                data.totalOutstanding = filteredRows.reduce((sum: number, r: any) => sum + (r.FINAL || 0), 0);
             }
         }
 

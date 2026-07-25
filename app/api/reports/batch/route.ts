@@ -8,6 +8,18 @@ export async function GET(req: NextRequest) {
 
         const report = searchParams.get("report") || "master";
 
+        const pageParam = Number(searchParams.get("page") || 1);
+        const limitParam = Number(searchParams.get("limit") || 500);
+
+        const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+        const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(2000, Math.floor(limitParam)) : 500;
+
+        const restriction = await getMrTerritoryRestriction();
+
+        // If user is restricted, fetch larger candidate pool so territory filtering
+        // doesn't produce empty / 1-2 item fragmented pages
+        const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
+
         const filter = {
             search: searchParams.get("search") || "",
             batchNo: searchParams.get("batchNo") || "",
@@ -21,13 +33,11 @@ export async function GET(req: NextRequest) {
             status: searchParams.get("status") || "",
             fromDate: searchParams.get("fromDate") || "",
             toDate: searchParams.get("toDate") || "",
-            page: Number(searchParams.get("page") || 1),
-            limit: Number(searchParams.get("limit") || 20),
+            page: restriction.isMrRestricted ? 1 : page,
+            limit: fetchLimit,
             sortField: searchParams.get("sortField") || "DATE",
             sortOrder: (Number(searchParams.get("sortOrder") || -1) === 1 ? 1 : -1) as 1 | -1,
         };
-
-        const restriction = await getMrTerritoryRestriction();
 
         let data: any;
 
@@ -51,28 +61,26 @@ export async function GET(req: NextRequest) {
                 data = await BatchReport.batchMaster(filter);
         }
 
-        if (restriction.isMrRestricted && data) {
-            if (Array.isArray(data.rows)) {
-                // Batch rows have `CODE` (product code, NOT party code) and
-                // `productInfo.GCODE` (company group code). isPartyAllowed would
-                // incorrectly match product CODE against party ordnos.
-                // Instead, check company code from productInfo.GCODE, and also
-                // check if any disRecords (sales) belong to allowed parties (via CODEP/DSM).
-                data.rows = data.rows.filter((item: any) => {
-                    // Check company code (productInfo.GCODE)
-                    const gcode = String(item.productInfo?.GCODE || "").trim().toLowerCase();
-                    if (gcode && restriction.allowedCompanyCodesSet.has(gcode)) return true;
-                    if (gcode && restriction.companyRegexes.some((rx) => rx.test(gcode))) return true;
+        if (restriction.isMrRestricted && data && Array.isArray(data.rows)) {
+            const filteredRows = data.rows.filter((item: any) => {
+                // Check company code (productInfo.GCODE or item.GCODE or item.COMPANY)
+                const gcode = String(item.productInfo?.GCODE || item.GCODE || item.COMPANY || "").trim().toLowerCase();
+                if (gcode && restriction.allowedCompanyCodesSet.has(gcode)) return true;
+                if (gcode && restriction.companyRegexes.some((rx) => rx.test(gcode))) return true;
 
-                    // Check if any sales record (disRecords) belongs to an allowed party
-                    if (Array.isArray(item.disRecords) && item.disRecords.length > 0) {
-                        return item.disRecords.some((dis: any) => restriction.isPartyAllowed(dis));
-                    }
+                // Check if any sales record (disRecords) belongs to an allowed party
+                if (Array.isArray(item.disRecords) && item.disRecords.length > 0) {
+                    return item.disRecords.some((dis: any) => restriction.isPartyAllowed(dis));
+                }
 
-                    return false;
-                });
-                data.total = data.rows.length;
-            }
+                return false;
+            });
+
+            data.total = filteredRows.length;
+            data.limit = limit;
+            data.page = page;
+            data.totalPages = Math.ceil(filteredRows.length / limit) || 1;
+            data.rows = filteredRows.slice((page - 1) * limit, page * limit);
         }
 
         return NextResponse.json({

@@ -8,6 +8,16 @@ export async function GET(req: NextRequest) {
 
         const report = searchParams.get("report") || "master";
 
+        const pageParam = Number(searchParams.get("page") || 1);
+        const limitParam = Number(searchParams.get("limit") || 500);
+
+        const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+        const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(2000, Math.floor(limitParam)) : 500;
+
+        const restriction = await getMrTerritoryRestriction();
+
+        const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
+
         const filter = {
             search: searchParams.get("search") || "",
             customer: searchParams.get("customer") || "",
@@ -17,11 +27,9 @@ export async function GET(req: NextRequest) {
             dsm: searchParams.get("dsm") || "",
             city: searchParams.get("city") || "",
             status: searchParams.get("status") || "",
-            page: Number(searchParams.get("page") || 1),
-            limit: Number(searchParams.get("limit") || 20),
+            page: restriction.isMrRestricted ? 1 : page,
+            limit: fetchLimit,
         };
-
-        const restriction = await getMrTerritoryRestriction();
 
         let data: any;
 
@@ -80,8 +88,12 @@ export async function GET(req: NextRequest) {
 
         if (restriction.isMrRestricted && data) {
             if (Array.isArray(data.rows)) {
-                data.rows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
-                data.total = data.rows.length;
+                const filteredRows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
+                data.total = filteredRows.length;
+                data.limit = limit;
+                data.page = page;
+                data.totalPages = Math.ceil(filteredRows.length / limit) || 1;
+                data.rows = filteredRows.slice((page - 1) * limit, page * limit);
             } else if (Array.isArray(data)) {
                 data = data.filter((item: any) => restriction.isPartyAllowed(item));
             }

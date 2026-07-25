@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import ProductReport from "@/models/ProductReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
-const MAX_LIMIT = 200;
+const MAX_LIMIT = 2000;
 
 export async function GET(req: NextRequest) {
     try {
@@ -11,16 +11,18 @@ export async function GET(req: NextRequest) {
 
         const report = searchParams.get("report") || "master";
 
-        // Clamp page/limit so a bad or malicious query string can't force a
-        // huge, slow aggregation (e.g. ?limit=999999).
         const pageParam = Number(searchParams.get("page") || 1);
-        const limitParam = Number(searchParams.get("limit") || 20);
+        const limitParam = Number(searchParams.get("limit") || 500);
 
         const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
         const limit =
             Number.isFinite(limitParam) && limitParam > 0
                 ? Math.min(MAX_LIMIT, Math.floor(limitParam))
-                : 20;
+                : 500;
+
+        const restriction = await getMrTerritoryRestriction();
+
+        const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
 
         const filter = {
             search: searchParams.get("search") || "",
@@ -31,11 +33,11 @@ export async function GET(req: NextRequest) {
             nearExpiryDays: searchParams.get("nearExpiryDays")
                 ? Number(searchParams.get("nearExpiryDays"))
                 : undefined,
-            page,
-            limit,
+            page: restriction.isMrRestricted ? 1 : page,
+            limit: fetchLimit,
         };
 
-        let data;
+        let data: any;
 
         switch (report) {
             case "master":
@@ -70,22 +72,20 @@ export async function GET(req: NextRequest) {
                 data = await ProductReport.productMaster(filter);
         }
 
-        const restriction = await getMrTerritoryRestriction();
-
         if (restriction.isMrRestricted && data) {
             if (Array.isArray(data.rows)) {
-                // Product rows have `company` (from DIS.COMPANY) and `category` (from PRO.GCODE).
-                // They do NOT have party fields (ORDNO/CODEP/ORD), so isPartyAllowed would
-                // incorrectly match product CODE against party ordnos. Instead, filter by
-                // allowed company codes directly.
-                data.rows = data.rows.filter((item: any) => {
+                const filteredRows = data.rows.filter((item: any) => {
                     const comp = String(item.company || item.category || "").trim().toLowerCase();
                     if (!comp) return false;
                     if (restriction.allowedCompanyCodesSet.has(comp)) return true;
-                    // Also check with regex (handles VFP whitespace padding)
                     return restriction.companyRegexes.some((rx) => rx.test(comp));
                 });
-                data.total = data.rows.length;
+
+                data.total = filteredRows.length;
+                data.limit = limit;
+                data.page = page;
+                data.totalPages = Math.ceil(filteredRows.length / limit) || 1;
+                data.rows = filteredRows.slice((page - 1) * limit, page * limit);
             }
         }
 
