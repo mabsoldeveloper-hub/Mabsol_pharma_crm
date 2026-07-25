@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import ProductReport from "@/models/ProductReport";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 const MAX_LIMIT = 200;
 
@@ -67,6 +68,25 @@ export async function GET(req: NextRequest) {
 
             default:
                 data = await ProductReport.productMaster(filter);
+        }
+
+        const restriction = await getMrTerritoryRestriction();
+
+        if (restriction.isMrRestricted && data) {
+            if (Array.isArray(data.rows)) {
+                // Product rows have `company` (from DIS.COMPANY) and `category` (from PRO.GCODE).
+                // They do NOT have party fields (ORDNO/CODEP/ORD), so isPartyAllowed would
+                // incorrectly match product CODE against party ordnos. Instead, filter by
+                // allowed company codes directly.
+                data.rows = data.rows.filter((item: any) => {
+                    const comp = String(item.company || item.category || "").trim().toLowerCase();
+                    if (!comp) return false;
+                    if (restriction.allowedCompanyCodesSet.has(comp)) return true;
+                    // Also check with regex (handles VFP whitespace padding)
+                    return restriction.companyRegexes.some((rx) => rx.test(comp));
+                });
+                data.total = data.rows.length;
+            }
         }
 
         return NextResponse.json({

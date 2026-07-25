@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import OutstandingReport from "@/models/OutstandingReport";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export async function GET(req: NextRequest) {
     try {
@@ -49,6 +50,17 @@ export async function GET(req: NextRequest) {
         };
 
         const data = await OutstandingReport.get(filter);
+
+        const restriction = await getMrTerritoryRestriction();
+
+        if (restriction.isMrRestricted && data) {
+            if (Array.isArray(data.rows)) {
+                data.rows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
+                data.total = data.rows.length;
+            } else if (Array.isArray(data)) {
+                // fallback if data is a plain array
+            }
+        }
 
         return NextResponse.json({
             success: true,

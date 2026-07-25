@@ -53,10 +53,25 @@ export async function GET(req: NextRequest) {
 
         if (restriction.isMrRestricted && data) {
             if (Array.isArray(data.rows)) {
-                data.rows = data.rows.filter((item: any) => restriction.isPartyAllowed(item));
+                // Batch rows have `CODE` (product code, NOT party code) and
+                // `productInfo.GCODE` (company group code). isPartyAllowed would
+                // incorrectly match product CODE against party ordnos.
+                // Instead, check company code from productInfo.GCODE, and also
+                // check if any disRecords (sales) belong to allowed parties (via CODEP/DSM).
+                data.rows = data.rows.filter((item: any) => {
+                    // Check company code (productInfo.GCODE)
+                    const gcode = String(item.productInfo?.GCODE || "").trim().toLowerCase();
+                    if (gcode && restriction.allowedCompanyCodesSet.has(gcode)) return true;
+                    if (gcode && restriction.companyRegexes.some((rx) => rx.test(gcode))) return true;
+
+                    // Check if any sales record (disRecords) belongs to an allowed party
+                    if (Array.isArray(item.disRecords) && item.disRecords.length > 0) {
+                        return item.disRecords.some((dis: any) => restriction.isPartyAllowed(dis));
+                    }
+
+                    return false;
+                });
                 data.total = data.rows.length;
-            } else if (Array.isArray(data)) {
-                data = data.filter((item: any) => restriction.isPartyAllowed(item));
             }
         }
 

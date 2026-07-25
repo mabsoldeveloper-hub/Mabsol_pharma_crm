@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 
 interface RegisterRow {
     VOUCHER: number;
@@ -74,6 +75,21 @@ const DEFAULT_FILTERS = {
     dateTo: "",
 };
 
+type MrTerritoryInfo = {
+    isMrRestricted: boolean;
+    territories: {
+        companyCode: string;
+        companyName: string;
+        divisionCode: string;
+        divisionName: string;
+        subDivisionCode: string;
+        subDivisionName: string;
+        categoryCode: string;
+        categoryName: string;
+    }[];
+    allowedCompanyCodes: string[];
+};
+
 const LIMIT = 20;
 
 const formatCurrency = (value?: number | null) =>
@@ -101,6 +117,31 @@ export default function GstReportPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+    // MR Territory state
+    const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
+
+    useEffect(() => {
+        loadMrTerritoryInfo();
+    }, []);
+
+    const loadMrTerritoryInfo = async () => {
+        try {
+            const res = await fetch("/api/mr-territory/my-territories");
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    setMrTerritoryInfo({
+                        isMrRestricted: data.isMrRestricted,
+                        territories: data.territories || [],
+                        allowedCompanyCodes: data.allowedCompanyCodes || [],
+                    });
+                }
+            }
+        } catch {
+            // Silently ignore — territory info is cosmetic only; actual filtering is server-side
+        }
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFilters((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -180,6 +221,65 @@ export default function GstReportPage() {
 
     return (
         <div className="container-fluid py-3">
+            {/* ==================== MR TERRITORY BANNER ==================== */}
+            {mrTerritoryInfo?.isMrRestricted && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm mb-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                        <FaMapMarkerAlt size={16} className="text-amber-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-amber-800 mb-0.5">Territory Restricted View</p>
+                        <p className="text-[11px] text-amber-700 leading-relaxed">
+                            Aap sirf apni assigned territory ka GST data dekh sakte hain.
+                            {mrTerritoryInfo.territories.length > 0 && (
+                                <>
+                                    {" "}Assigned:
+                                    {" "}
+                                    {Array.from(
+                                        new Set(
+                                            mrTerritoryInfo.territories.map(
+                                                (t) => t.companyName || t.companyCode
+                                            )
+                                        )
+                                    ).join(", ")}
+                                </>
+                            )}
+                        </p>
+                        {mrTerritoryInfo.territories.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {mrTerritoryInfo.territories.map((t, i) => (
+                                    <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium border border-amber-200"
+                                    >
+                                        <FaBuilding size={8} />
+                                        {t.companyName || t.companyCode}
+                                        {t.divisionName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.divisionName}
+                                            </>
+                                        ) : null}
+                                        {t.subDivisionName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.subDivisionName}
+                                            </>
+                                        ) : null}
+                                        {t.categoryName ? (
+                                            <>
+                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
+                                                {t.categoryName}
+                                            </>
+                                        ) : null}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <div className="card shadow-sm">
                 <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h4 className="mb-0">GST Report</h4>
