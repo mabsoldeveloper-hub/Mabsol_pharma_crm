@@ -20,8 +20,24 @@ const NotificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["OUTSTANDING_OVERDUE", "NEAR_EXPIRY", "LOW_STOCK", "NEW_ORDER", "SYNC_ALERT", "GENERAL"],
+      enum: [
+        "OUTSTANDING_OVERDUE",
+        "CREDIT_LIMIT_EXCEEDED",
+        "TARGET_MILESTONE",
+        "GIFT_UNLOCKED",
+        "LOW_STOCK",
+        "NEAR_EXPIRY",
+        "NEW_ORDER",
+        "ORDER_APPROVAL",
+        "SYNC_ALERT",
+        "GENERAL",
+      ],
       default: "GENERAL",
+    },
+    category: {
+      type: String,
+      enum: ["FINANCIAL", "TARGETS", "INVENTORY", "ORDERS", "SYSTEM"],
+      default: "SYSTEM",
     },
     severity: {
       type: String,
@@ -34,6 +50,10 @@ const NotificationSchema = new mongoose.Schema(
       default: "All",
     },
     entityId: {
+      type: String,
+      default: "",
+    },
+    actionUrl: {
       type: String,
       default: "",
     },

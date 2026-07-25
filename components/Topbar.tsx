@@ -101,6 +101,27 @@ export default function Topbar({
     }).then(() => fetchNotifications());
   };
 
+  const [activeCat, setActiveCat] = useState<string>("ALL");
+
+  const filteredNotifications = liveNotifications.filter((n) => {
+    if (activeCat === "ALL") return true;
+    return (n.category || "SYSTEM").toUpperCase() === activeCat;
+  });
+
+  const handleNotifClick = (n: any) => {
+    if (!n.isRead && n._id) {
+      fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId: n._id }),
+      }).then(() => fetchNotifications());
+    }
+    setNotifOpen(false);
+    if (n.actionUrl) {
+      window.location.href = n.actionUrl;
+    }
+  };
+
   return (
     <div
       className="flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-gray-200 shadow-sm sticky top-0"
@@ -146,52 +167,110 @@ export default function Topbar({
             <Bell size={18} />
 
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1 animate-pulse">
                 {unreadCount}
               </span>
             )}
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white border border-gray-200 shadow-xl py-2 z-[1100] max-h-96 overflow-y-auto">
-              <div className="flex items-center justify-between px-3 pb-2 mb-1 text-[12px] font-semibold text-gray-500 border-b border-gray-100">
-                <span>Notifications ({unreadCount} new)</span>
+            <div className="absolute right-0 mt-2 w-84 sm:w-96 rounded-2xl bg-white border border-gray-200/90 shadow-2xl py-2 z-[1100] overflow-hidden backdrop-blur-xl">
+              {/* Header */}
+              <div className="flex items-center justify-between px-3.5 pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-slate-800 text-xs">Notifications</span>
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] font-black">
+                      {unreadCount} new
+                    </span>
+                  )}
+                </div>
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
-                    className="text-xs text-indigo-600 hover:underline font-normal"
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
                   >
-                    Mark read
+                    Mark all read
                   </button>
                 )}
               </div>
 
-              {liveNotifications.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-gray-400">
-                  No notifications available
-                </div>
-              ) : (
-                liveNotifications.map((n, i) => (
-                  <div
-                    key={n._id || i}
-                    className={`px-3 py-2.5 text-[13px] border-b border-gray-50 hover:bg-orange-50 transition-colors duration-150 ${
-                      !n.isRead ? "bg-orange-50/40 font-medium" : ""
+              {/* Category Filter Chips */}
+              <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100 overflow-x-auto text-[11px] font-extrabold bg-slate-50/60 no-scrollbar">
+                {[
+                  { id: "ALL", label: "All" },
+                  { id: "FINANCIAL", label: "Payments 💰" },
+                  { id: "TARGETS", label: "Targets 🎯" },
+                  { id: "INVENTORY", label: "Stock 📦" },
+                  { id: "ORDERS", label: "Orders 🛒" },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCat(cat.id)}
+                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition-all ${
+                      activeCat === cat.id
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-semibold text-gray-800 text-xs truncate">
-                        {n.title}
-                      </span>
-                      <span className="text-[10px] text-gray-400 shrink-0">
-                        {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <p className="text-[12px] text-gray-600 mt-0.5 line-clamp-2">
-                      {n.message}
-                    </p>
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* List */}
+              <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                {filteredNotifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-xs text-gray-400 font-semibold">
+                    No notifications in this category
                   </div>
-                ))
-              )}
+                ) : (
+                  filteredNotifications.map((n, i) => {
+                    const isErr = n.severity === "error";
+                    const isWarn = n.severity === "warning";
+                    const isSucc = n.severity === "success";
+
+                    return (
+                      <div
+                        key={n._id || i}
+                        onClick={() => handleNotifClick(n)}
+                        className={`px-3.5 py-3 text-[13px] cursor-pointer transition-all duration-150 flex gap-2.5 items-start ${
+                          !n.isRead ? "bg-indigo-50/30 hover:bg-indigo-50/60 font-medium" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        {/* Status Icon */}
+                        <div
+                          className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                            isErr
+                              ? "bg-rose-500 ring-4 ring-rose-100"
+                              : isWarn
+                              ? "bg-amber-500 ring-4 ring-amber-100"
+                              : isSucc
+                              ? "bg-emerald-500 ring-4 ring-emerald-100"
+                              : "bg-indigo-500 ring-4 ring-indigo-100"
+                          }`}
+                        />
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-extrabold text-slate-800 text-xs truncate">
+                              {n.title}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-semibold shrink-0">
+                              {n.createdAt
+                                ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                : ""}
+                            </span>
+                          </div>
+                          <p className="text-[11.5px] text-slate-600 mt-0.5 line-clamp-2 leading-relaxed">
+                            {n.message}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           )}
         </div>

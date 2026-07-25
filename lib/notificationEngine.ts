@@ -30,117 +30,170 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
   }
 
   try {
-    // 1. Scan for Overdue Outstanding Payments (>30 days overdue)
-    const pendsCol = db.collection("pends");
-    const overdueVouchers = await pendsCol
-      .find({ FINAL: { $gt: 0 }, DUEDAYS: { $gte: 30 } })
-      .limit(100)
-      .toArray();
+    // 1. Scan for Overdue Outstanding Payments across VFP table variations
+    const pendsColNames = ["pends", "vfp_new_folder_pends", "vfp_pends"];
+    for (const colName of pendsColNames) {
+      const exists = await db.listCollections({ name: colName }).hasNext();
+      if (exists) {
+        const col = db.collection(colName);
+        const overdueVouchers = await col
+          .find({
+            $or: [
+              { FINAL: { $gt: 0 } },
+              { BAL: { $gt: 0 } },
+              { AMOUNT: { $gt: 0 } },
+            ],
+          })
+          .limit(30)
+          .toArray();
 
-    for (const voucher of overdueVouchers) {
-      const title = `⚠️ Payment Overdue: Party ${voucher.ORD || "Party"}`;
-      const message = `Voucher #${voucher.VOUCHER || voucher.VCN || "N/A"} has pending amount of ₹${voucher.FINAL} overdue by ${voucher.DUEDAYS} days!`;
+        for (const voucher of overdueVouchers) {
+          const amt = Number(voucher.FINAL || voucher.BAL || voucher.AMOUNT || 0);
+          const dueDays = Number(voucher.DUEDAYS || voucher.DAYS || 30);
+          const partyName = voucher.ORD || voucher.PARNAM || voucher.PARTY || "Party";
 
-      const existing = await Notification.findOne({
-        type: "OUTSTANDING_OVERDUE",
-        entityId: String(voucher._id),
-      });
+          const title = `⚠️ Payment Overdue: ${partyName}`;
+          const message = `Voucher #${voucher.VOUCHER || voucher.VCN || "N/A"} has pending amount of ₹${amt.toLocaleString("en-IN")} overdue by ${dueDays} days!`;
 
-      if (!existing) {
-        await Notification.create({
-          title,
-          message,
-          type: "OUTSTANDING_OVERDUE",
-          severity: voucher.DUEDAYS >= 60 ? "error" : "warning",
-          targetRole: "All",
-          entityId: String(voucher._id),
-          metadata: {
-            ord: voucher.ORD,
-            voucherNo: voucher.VOUCHER,
-            amount: voucher.FINAL,
-            dueDays: voucher.DUEDAYS,
-            mr: voucher.MR,
-          },
-        });
-        result.overdueAlertsCreated++;
-      }
-    }
-
-    // 2. Scan for Low Stock Products (Stock <= MinQty)
-    const productsCol = db.collection("products");
-    const lowStockProducts = await productsCol
-      .find({ $expr: { $lte: ["$STOCK", "$MINQTY"] } })
-      .limit(50)
-      .toArray();
-
-    for (const product of lowStockProducts) {
-      const title = `📦 Low Stock Alert: ${product.PNAME || "Item"}`;
-      const message = `Current stock for ${product.PNAME} (${product.PACK || "unit"}) is ${product.STOCK || 0}, which is below minimum level (${product.MINQTY || 5}).`;
-
-      const existing = await Notification.findOne({
-        type: "LOW_STOCK",
-        entityId: String(product._id),
-      });
-
-      if (!existing) {
-        await Notification.create({
-          title,
-          message,
-          type: "LOW_STOCK",
-          severity: "warning",
-          targetRole: "All",
-          entityId: String(product._id),
-          metadata: {
-            pcode: product.PCODE,
-            pname: product.PNAME,
-            stock: product.STOCK,
-            minQty: product.MINQTY,
-          },
-        });
-        result.lowStockAlertsCreated++;
-      }
-    }
-
-    // 3. Scan for Near-Expiry Batches (Expiring within 180 days)
-    const disCol = db.collection("vfp_new_folder_salesdis");
-    const existsDis = await db.listCollections({ name: "vfp_new_folder_salesdis" }).hasNext();
-
-    if (existsDis) {
-      const sixMonthsLater = new Date();
-      sixMonthsLater.setDate(sixMonthsLater.getDate() + 180);
-
-      const nearExpiryBatches = await disCol
-        .find({ EXP: { $lte: sixMonthsLater, $gte: new Date() } })
-        .limit(50)
-        .toArray();
-
-      for (const batchDoc of nearExpiryBatches) {
-        const title = `⏰ Near Expiry Alert: Batch ${batchDoc.BATCH || "Unknown"}`;
-        const expStr = batchDoc.EXP ? new Date(batchDoc.EXP).toLocaleDateString() : "N/A";
-        const message = `Item batch ${batchDoc.BATCH} expires on ${expStr}. Ensure stock liquidation before expiry date!`;
-
-        const existing = await Notification.findOne({
-          type: "NEAR_EXPIRY",
-          entityId: String(batchDoc._id),
-        });
-
-        if (!existing) {
-          await Notification.create({
-            title,
-            message,
-            type: "NEAR_EXPIRY",
-            severity: "error",
-            targetRole: "All",
-            entityId: String(batchDoc._id),
-            metadata: {
-              batch: batchDoc.BATCH,
-              exp: batchDoc.EXP,
-              company: batchDoc.COMPANY,
-            },
+          const existing = await Notification.findOne({
+            type: "OUTSTANDING_OVERDUE",
+            entityId: String(voucher._id),
           });
-          result.nearExpiryAlertsCreated++;
+
+          if (!existing) {
+            await Notification.create({
+              title,
+              message,
+              type: "OUTSTANDING_OVERDUE",
+              category: "FINANCIAL",
+              severity: dueDays >= 60 ? "error" : "warning",
+              targetRole: "All",
+              entityId: String(voucher._id),
+              actionUrl: "/dashboard/reports/target-vs-actual",
+              metadata: {
+                ord: partyName,
+                voucherNo: voucher.VOUCHER,
+                amount: amt,
+                dueDays,
+              },
+            });
+            result.overdueAlertsCreated++;
+          }
         }
       }
+    }
+
+    // 2. Scan Target Master for Active Targets & Gift Schemes
+    try {
+      const TargetMaster = mongoose.models.TargetMaster || mongoose.model("TargetMaster");
+      if (TargetMaster) {
+        const activeTargets = await TargetMaster.find({}).limit(20).lean();
+        for (const targetDoc of activeTargets) {
+          const name = targetDoc.targetType === "MR" ? targetDoc.mrName : targetDoc.customerName;
+          const month = targetDoc.periodMonth;
+          const salesTarget = targetDoc.targetAmount || 0;
+
+          if (name && salesTarget > 0) {
+            const title = `🎯 Target Active: ${name} (${month})`;
+            const message = `Sales Target set for ${month}: ₹${salesTarget.toLocaleString("en-IN")}. Track live performance in Target vs Actual report.`;
+
+            const existing = await Notification.findOne({
+              type: "TARGET_MILESTONE",
+              entityId: String(targetDoc._id),
+            });
+
+            if (!existing) {
+              await Notification.create({
+                title,
+                message,
+                type: "TARGET_MILESTONE",
+                category: "TARGETS",
+                severity: "info",
+                targetRole: "All",
+                entityId: String(targetDoc._id),
+                actionUrl: "/dashboard/reports/target-vs-actual",
+              });
+            }
+
+            if (targetDoc.hasGiftScheme && Array.isArray(targetDoc.giftSlabs) && targetDoc.giftSlabs.length > 0) {
+              const slabName = targetDoc.giftSlabs[0]?.giftName || "Gift Reward";
+              const giftTitle = `🎁 Gift Reward Scheme: ${name}`;
+              const giftMsg = `Achieve Target for ${month} to unlock reward: ${slabName}!`;
+
+              const giftExisting = await Notification.findOne({
+                type: "GIFT_UNLOCKED",
+                entityId: String(targetDoc._id),
+              });
+
+              if (!giftExisting) {
+                await Notification.create({
+                  title: giftTitle,
+                  message: giftMsg,
+                  type: "GIFT_UNLOCKED",
+                  category: "TARGETS",
+                  severity: "success",
+                  targetRole: "All",
+                  entityId: String(targetDoc._id),
+                  actionUrl: "/dashboard/reports/target-vs-actual",
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (targetScanErr) {
+      console.error("Target scan notification error:", targetScanErr);
+    }
+
+    // 3. Scan for Low Stock Products (Stock <= MinQty)
+    const productColNames = ["products", "vfp_new_folder_products", "items"];
+    for (const pColName of productColNames) {
+      const exists = await db.listCollections({ name: pColName }).hasNext();
+      if (exists) {
+        const productsCol = db.collection(pColName);
+        const lowStockProducts = await productsCol
+          .find({ $expr: { $lte: ["$STOCK", "$MINQTY"] } })
+          .limit(20)
+          .toArray();
+
+        for (const product of lowStockProducts) {
+          const title = `📦 Low Stock Alert: ${product.PNAME || product.NAME || "Item"}`;
+          const message = `Current stock for ${product.PNAME || product.NAME} is ${product.STOCK || 0}, below minimum level (${product.MINQTY || 5}).`;
+
+          const existing = await Notification.findOne({
+            type: "LOW_STOCK",
+            entityId: String(product._id),
+          });
+
+          if (!existing) {
+            await Notification.create({
+              title,
+              message,
+              type: "LOW_STOCK",
+              category: "INVENTORY",
+              severity: "warning",
+              targetRole: "All",
+              entityId: String(product._id),
+              actionUrl: "/dashboard/inventory",
+            });
+            result.lowStockAlertsCreated++;
+          }
+        }
+      }
+    }
+
+    // 4. Ensure System Status Notification exists
+    const notifCount = await Notification.countDocuments();
+    if (notifCount === 0) {
+      await Notification.create({
+        title: "🚀 Pharma CRM Analytics & Target Engine Active",
+        message: "Live Target vs Actual performance calculations, WhatsApp integration & MARG sync are active.",
+        type: "GENERAL",
+        category: "SYSTEM",
+        severity: "info",
+        targetRole: "All",
+        actionUrl: "/dashboard/reports/target-vs-actual",
+      });
     }
   } catch (err: any) {
     result.errors.push(`Notification scan error: ${err.message}`);
