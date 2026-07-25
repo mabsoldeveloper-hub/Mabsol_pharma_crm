@@ -3,6 +3,7 @@ import connectDB from "@/lib/mongodb";
 import TargetMaster from "@/models/TargetMaster";
 import User from "@/models/User";
 import SalesMdis from "@/models/SalesMdis";
+import Customer from "@/models/Customer";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -50,47 +51,86 @@ export async function GET(req: NextRequest) {
       .populate("mrUserId", "name email employeeCode mobile designation")
       .sort({ periodMonth: -1, createdAt: -1 });
 
+    let allowedRecords = records;
+
     // Apply MR Territory Restriction if user is an MR / non-Admin
-    const allowedRecords = records.filter((doc) => {
-      if (!restriction.isMrRestricted) return true;
+    if (restriction.isMrRestricted && currentUser) {
+      const currentUserIdStr = currentUser._id?.toString() || "";
+      const currentUserNameStr = (currentUser.name || "").trim().toLowerCase();
+      const currentEmpCodeStr = (currentUser.employeeCode || "").trim().toLowerCase();
 
-      const item = doc.toObject ? doc.toObject() : doc;
-      const itemMrId = typeof item.mrUserId === "string"
-        ? item.mrUserId
-        : item.mrUserId?._id?.toString() || "";
-      const currentUserIdStr = currentUser?._id?.toString() || "";
+      // Collect allowed customer codes and customer names for this MR
+      const allowedCustomerCodesSet = new Set<string>(
+        (restriction.allowedOrdnos || []).map((c) => c.trim().toLowerCase())
+      );
+      const allowedCustomerNamesSet = new Set<string>();
 
-      // 1. If MR target, allow if assigned to this MR
-      if (item.targetType === "MR") {
+      // Query Customer collection for all customers assigned to MR's DSM or territory companies
+      const mrCustomerConditions: any[] = [];
+      if (currentUserNameStr) {
+        mrCustomerConditions.push({ DSM: { $regex: escapeRegex(currentUserNameStr), $options: "i" } });
+      }
+      if (currentEmpCodeStr) {
+        mrCustomerConditions.push({ DSM: { $regex: escapeRegex(currentEmpCodeStr), $options: "i" } });
+      }
+      if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+        mrCustomerConditions.push({ COMPANY: { $in: restriction.allowedCompanyCodes } });
+      }
+
+      if (mrCustomerConditions.length > 0) {
+        const matchingCustomers = await Customer.find(
+          { $or: mrCustomerConditions },
+          { ORDNO: 1, CODEP: 1, PARNAM: 1 }
+        ).lean();
+
+        matchingCustomers.forEach((c: any) => {
+          if (c.ORDNO) allowedCustomerCodesSet.add(String(c.ORDNO).trim().toLowerCase());
+          if (c.CODEP) allowedCustomerCodesSet.add(String(c.CODEP).trim().toLowerCase());
+          if (c.PARNAM) allowedCustomerNamesSet.add(String(c.PARNAM).trim().toLowerCase());
+        });
+      }
+
+      allowedRecords = records.filter((doc) => {
+        const item = doc.toObject ? doc.toObject() : doc;
+        const itemMrId = typeof item.mrUserId === "string"
+          ? item.mrUserId
+          : item.mrUserId?._id?.toString() || "";
+        const itemMrNameStr = (item.mrName || "").trim().toLowerCase();
+
+        // 1. Direct MR assignment match on target
         if (itemMrId && itemMrId === currentUserIdStr) return true;
-        const mrNameStr = (item.mrName || "").toLowerCase();
-        if (currentUser?.name && mrNameStr.includes(currentUser.name.toLowerCase())) return true;
-        if (currentUser?.employeeCode && mrNameStr.includes(currentUser.employeeCode.toLowerCase())) return true;
-        return false;
-      }
+        if (currentUserNameStr && itemMrNameStr && itemMrNameStr.includes(currentUserNameStr)) return true;
+        if (currentEmpCodeStr && itemMrNameStr && itemMrNameStr.includes(currentEmpCodeStr)) return true;
 
-      // 2. If Customer target, allow if customer belongs to MR's assigned territory / customer list
-      if (item.targetType === "Customer") {
-        const cCode = (item.customerCode || "").trim().toLowerCase();
-        if (cCode && restriction.allowedOrdnosSet && restriction.allowedOrdnosSet.has(cCode)) {
-          return true;
+        // 2. If MR target type but not assigned to this MR, hide it
+        if (item.targetType === "MR") {
+          return false;
         }
-        if (
-          restriction.isPartyAllowed &&
-          restriction.isPartyAllowed({
-            CODEP: item.customerCode,
-            PARNAM: item.customerName,
-            CODE: item.customerCode,
-            ORDNO: item.customerCode,
-          })
-        ) {
-          return true;
-        }
-        return false;
-      }
 
-      return false;
-    });
+        // 3. If Customer target, check if customer belongs to MR's assigned territory / DSM / customer list
+        if (item.targetType === "Customer") {
+          const cCode = (item.customerCode || "").trim().toLowerCase();
+          const cName = (item.customerName || "").trim().toLowerCase();
+
+          if (cCode && allowedCustomerCodesSet.has(cCode)) return true;
+          if (cName && allowedCustomerNamesSet.has(cName)) return true;
+
+          if (
+            restriction.isPartyAllowed &&
+            restriction.isPartyAllowed({
+              CODEP: item.customerCode,
+              PARNAM: item.customerName,
+              CODE: item.customerCode,
+              ORDNO: item.customerCode,
+            })
+          ) {
+            return true;
+          }
+        }
+
+        return false;
+      });
+    }
 
     // Calculate dynamic live sales achievement for each allowed target record
     const processedRecords = await Promise.all(
@@ -114,7 +154,7 @@ export async function GET(req: NextRequest) {
               } else {
                 mdisFilter.PARTY = { $regex: escapeRegex(item.customerName), $options: "i" };
               }
-            } else if (item.targetType === "MR" && item.mrUserId) {
+            } else if (item.targetType === "MR" && (item.mrUserId || item.mrName)) {
               // MR target
               const empCode = item.mrUserId?.employeeCode || item.mrName;
               if (empCode) {

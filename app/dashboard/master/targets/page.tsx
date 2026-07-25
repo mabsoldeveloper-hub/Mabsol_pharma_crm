@@ -32,6 +32,7 @@ interface UserItem {
 }
 
 interface CustomerOption {
+  uniqueId: string;
   code: string;
   name: string;
   city?: string;
@@ -126,11 +127,17 @@ export default function TargetMasterPage() {
       const res = await fetch("/api/reports/customer?report=master&limit=2000");
       const json = await res.json();
       if (json.success && json.data?.rows) {
-        const list = json.data.rows.map((c: any) => ({
-          code: c.CODEP || c.CODE || c.ORDNO || "",
-          name: c.PARNAM || c.customerName || "Unknown Customer",
-          city: c.CITY || "",
-        }));
+        const list = json.data.rows.map((c: any, index: number) => {
+          const code = (c.CODEP || c.CODE || c.ORDNO || "").toString().trim();
+          const name = (c.PARNAM || c.customerName || "Unknown Customer").toString().trim();
+          const city = (c.CITY || "").toString().trim();
+          return {
+            uniqueId: `${code || "nocode"}_${index}`,
+            code,
+            name,
+            city,
+          };
+        });
         setCustomers(list);
       }
     } catch (e) {
@@ -168,6 +175,17 @@ export default function TargetMasterPage() {
     });
   }, [targets, search, typeFilter, monthFilter]);
 
+  // Derive unique identifier for currently selected customer in form
+  const selectedCustomerUniqueId = useMemo(() => {
+    if (!formData.customerName && !formData.customerCode) return "";
+    const match = customers.find(
+      (c) =>
+        (formData.customerCode && c.code === formData.customerCode && c.name === formData.customerName) ||
+        (formData.customerName && c.name === formData.customerName)
+    );
+    return match ? match.uniqueId : "";
+  }, [customers, formData.customerName, formData.customerCode]);
+
   const filteredCustomerOptions = useMemo(() => {
     if (!customerSearch) return customers;
     const q = customerSearch.toLowerCase();
@@ -175,9 +193,10 @@ export default function TargetMasterPage() {
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.code.toLowerCase().includes(q) ||
-        (c.city && c.city.toLowerCase().includes(q))
+        (c.city && c.city.toLowerCase().includes(q)) ||
+        c.uniqueId === selectedCustomerUniqueId
     );
-  }, [customers, customerSearch]);
+  }, [customers, customerSearch, selectedCustomerUniqueId]);
 
   const handleOpenAdd = () => {
     setCustomerSearch("");
@@ -474,6 +493,9 @@ export default function TargetMasterPage() {
                           {item.customerCode && (
                             <span className="text-[10px] font-semibold text-slate-400">Code: {item.customerCode}</span>
                           )}
+                          {item.mrName && item.targetType === "Customer" && (
+                            <span className="text-[10px] font-semibold text-indigo-600 block">MR: {item.mrName}</span>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
@@ -623,47 +645,80 @@ export default function TargetMasterPage() {
                 </select>
               </div>
             ) : (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Select Customer / Party *</label>
-                <div className="space-y-1.5">
-                  <input
-                    type="text"
-                    placeholder="🔍 Type to filter customer list..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Select Customer / Party *</label>
+                  <div className="space-y-1.5">
+                    <input
+                      type="text"
+                      placeholder="🔍 Type to filter customer list..."
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                    />
+                    <select
+                      value={selectedCustomerUniqueId}
+                      onChange={(e) => {
+                        const targetId = e.target.value;
+                        const found = customers.find((c) => c.uniqueId === targetId);
+                        if (found) {
+                          setFormData({
+                            ...formData,
+                            customerCode: found.code,
+                            customerName: found.name,
+                            customerId: found.code || found.name,
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            customerName: "",
+                            customerCode: "",
+                            customerId: "",
+                          });
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 font-semibold"
+                      required
+                    >
+                      <option value="">-- Choose Customer --</option>
+                      {filteredCustomerOptions.map((c) => (
+                        <option key={c.uniqueId} value={c.uniqueId}>
+                          {c.name} {c.code ? `(${c.code})` : ""} {c.city ? `- ${c.city}` : ""}
+                        </option>
+                      ))}
+                    </select>
+
+                    {formData.customerName && (
+                      <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center justify-between">
+                        <span>✓ Selected: {formData.customerName} {formData.customerCode ? `(${formData.customerCode})` : ""}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Assigned MR Executive (Optional)</label>
                   <select
-                    value={formData.customerCode || formData.customerName}
+                    value={formData.mrUserId}
                     onChange={(e) => {
-                      const val = e.target.value;
-                      const found = customers.find((c) => c.code === val || c.name === val);
-                      if (found) {
-                        setFormData({
-                          ...formData,
-                          customerCode: found.code,
-                          customerName: found.name,
-                          customerId: found.code,
-                        });
-                      } else {
-                        setFormData({
-                          ...formData,
-                          customerName: val,
-                          customerCode: "",
-                          customerId: "",
-                        });
-                      }
+                      const uid = e.target.value;
+                      const matchedUser = users.find((u) => u._id === uid);
+                      setFormData({
+                        ...formData,
+                        mrUserId: uid,
+                        mrName: matchedUser ? matchedUser.name : "",
+                      });
                     }}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 font-semibold"
-                    required
                   >
-                    <option value="">-- Choose Customer --</option>
-                    {filteredCustomerOptions.map((c, idx) => (
-                      <option key={`${c.code}-${idx}`} value={c.code || c.name}>
-                        {c.name} {c.code ? `(${c.code})` : ""} {c.city ? `- ${c.city}` : ""}
+                    <option value="">-- Optional (Auto-mapped via Territory) --</option>
+                    {users.map((u) => (
+                      <option key={u._id} value={u._id}>
+                        {u.name} {u.employeeCode ? `(${u.employeeCode})` : ""}
                       </option>
                     ))}
                   </select>
+                  <p className="text-[10px] text-slate-400 mt-1">Leave empty to auto-map via MR Territory Assignment</p>
                 </div>
               </div>
             )}
