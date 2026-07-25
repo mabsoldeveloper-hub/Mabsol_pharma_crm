@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import { getCurrentUser } from "@/lib/auth";
 import Notification from "@/models/Notification";
 import MrCustomerAssignment from "@/models/MrCustomerAssignment";
+import DismissedAlert from "@/models/DismissedAlert";
 import { runNotificationAlertScan } from "@/lib/notificationEngine";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
@@ -128,7 +129,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// DELETE to remove single notification or clear all notifications
+// DELETE to remove single notification or clear all notifications permanently
 export async function DELETE(request: NextRequest) {
   try {
     await dbConnect();
@@ -142,11 +143,32 @@ export async function DELETE(request: NextRequest) {
     const clearAll = searchParams.get("clearAll") === "true";
 
     if (clearAll) {
+      const allNotifs = await Notification.find({}, { entityId: 1, type: 1 }).lean();
+      const dismissedDocs = allNotifs
+        .filter((n: any) => n.entityId)
+        .map((n: any) => ({
+          userId: String(user._id),
+          entityId: String(n.entityId),
+          type: n.type || "",
+        }));
+
+      if (dismissedDocs.length > 0) {
+        await DismissedAlert.insertMany(dismissedDocs, { ordered: false }).catch(() => {});
+      }
+
       await Notification.deleteMany({});
-      return NextResponse.json({ success: true, message: "All notifications cleared" });
+      return NextResponse.json({ success: true, message: "All notifications cleared permanently" });
     }
 
     if (notificationId) {
+      const targetNotif = await Notification.findById(notificationId).lean();
+      if (targetNotif && (targetNotif as any).entityId) {
+        await DismissedAlert.create({
+          userId: String(user._id),
+          entityId: String((targetNotif as any).entityId),
+          type: (targetNotif as any).type || "",
+        }).catch(() => {});
+      }
       await Notification.findByIdAndDelete(notificationId);
       return NextResponse.json({ success: true, message: "Notification deleted" });
     }

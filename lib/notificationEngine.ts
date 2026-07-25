@@ -3,6 +3,7 @@ import Notification from "@/models/Notification";
 import TargetMaster from "@/models/TargetMaster";
 import Product from "@/models/Product";
 import MrCustomerAssignment from "@/models/MrCustomerAssignment";
+import DismissedAlert from "@/models/DismissedAlert";
 import mongoose from "mongoose";
 
 export interface ScanAlertsResult {
@@ -41,6 +42,10 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
         .lean();
 
       for (const targetDoc of activeTargets) {
+        const entityIdStr = String(targetDoc._id);
+        const isDismissed = await DismissedAlert.exists({ entityId: entityIdStr });
+        if (isDismissed) continue;
+
         const name = targetDoc.targetType === "MR" ? targetDoc.mrName : targetDoc.customerName;
         const month = targetDoc.periodMonth;
         const salesTarget = targetDoc.targetAmount || 0;
@@ -68,7 +73,7 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
 
           const existing = await Notification.findOne({
             type: "TARGET_MILESTONE",
-            entityId: String(targetDoc._id),
+            entityId: entityIdStr,
           });
 
           if (!existing) {
@@ -80,7 +85,7 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
               category: "TARGETS",
               severity: "info",
               targetRole: targetDoc.targetType === "MR" ? "MR" : "All",
-              entityId: String(targetDoc._id),
+              entityId: entityIdStr,
               actionUrl: "/dashboard/reports/target-vs-actual",
               metadata: {
                 mrUserId: targetUserId,
@@ -99,7 +104,7 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
 
             const giftExisting = await Notification.findOne({
               type: "GIFT_UNLOCKED",
-              entityId: String(targetDoc._id),
+              entityId: entityIdStr,
             });
 
             if (!giftExisting) {
@@ -111,7 +116,7 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
                 category: "TARGETS",
                 severity: "success",
                 targetRole: targetDoc.targetType === "MR" ? "MR" : "All",
-                entityId: String(targetDoc._id),
+                entityId: entityIdStr,
                 actionUrl: "/dashboard/reports/target-vs-actual",
                 metadata: {
                   mrUserId: targetUserId,
@@ -137,13 +142,17 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
         .lean();
 
       for (const item of outOfStockItems) {
+        const itemEntityId = String(item._id);
+        const isDismissed = await DismissedAlert.exists({ entityId: itemEntityId });
+        if (isDismissed) continue;
+
         const pName = (item as any).PRODUCT || (item as any).PNAME || "Medicine Item";
         const title = `❌ Out of Stock Alert: ${pName}`;
         const message = `Product ${pName} (${(item as any).GCODE || "General"}) is completely OUT OF STOCK (Balance: 0)! Please reorder immediately.`;
 
         const existing = await Notification.findOne({
           type: "LOW_STOCK",
-          entityId: String(item._id),
+          entityId: itemEntityId,
         });
 
         if (!existing) {
@@ -154,7 +163,7 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
             category: "INVENTORY",
             severity: "error",
             targetRole: "All",
-            entityId: String(item._id),
+            entityId: itemEntityId,
             actionUrl: "/dashboard/inventory/dashboard",
           });
           result.lowStockAlertsCreated++;
@@ -175,6 +184,10 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
         .lean();
 
       for (const item of lowStockItems) {
+        const itemEntityId = String(item._id);
+        const isDismissed = await DismissedAlert.exists({ entityId: itemEntityId });
+        if (isDismissed) continue;
+
         const pName = (item as any).PRODUCT || (item as any).PNAME || "Medicine Item";
         const bal = (item as any).BALANCE ?? 0;
         const min = (item as any).MINIMUM ?? 10;
@@ -183,7 +196,7 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
 
         const existing = await Notification.findOne({
           type: "LOW_STOCK",
-          entityId: String(item._id),
+          entityId: itemEntityId,
         });
 
         if (!existing) {
@@ -194,7 +207,7 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
             category: "INVENTORY",
             severity: "warning",
             targetRole: "All",
-            entityId: String(item._id),
+            entityId: itemEntityId,
             actionUrl: "/dashboard/inventory/dashboard",
           });
           result.lowStockAlertsCreated++;
