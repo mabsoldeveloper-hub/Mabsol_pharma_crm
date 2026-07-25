@@ -164,6 +164,8 @@ export default function VfpSettingsPage() {
           license: form.license,
           vfpExePath: form.vfpExePath,
           prgPath: form.prgPath,
+          sourceDir: form.sourceDir,
+          dataDir: form.dataDir,
         }),
       });
 
@@ -367,12 +369,12 @@ export default function VfpSettingsPage() {
               
               <div className="space-y-4">
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[11.5px] font-medium text-[#64748B]">Company / organization name</span>
+                  <span className="text-[11.5px] font-medium text-[#64748B]">Company / organization name (e.g. A01 to Z01)</span>
                   <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
                     <input
                       type="text"
                       className="w-full bg-transparent outline-none border-none px-3.5 py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-sans"
-                      placeholder="e.g. Ivy Company"
+                      placeholder="e.g. A01"
                       value={form.companyName}
                       onChange={(e) => setForm({ ...form, companyName: e.target.value })}
                       disabled={!isEditing}
@@ -406,7 +408,7 @@ export default function VfpSettingsPage() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[11.5px] font-medium text-[#64748B]">Log output path</span>
+                  <span className="text-[11.5px] font-medium text-[#64748B]">Log output / PRG path</span>
                   <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
                     <input
                       type="text"
@@ -427,6 +429,56 @@ export default function VfpSettingsPage() {
                       </button>
                     )}
                   </div>
+                </div>
+
+                {/* Source Data Folder (Where to select data) */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11.5px] font-medium text-[#64748B]">Source data folder path (Where to select data)</span>
+                  <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
+                    <input
+                      type="text"
+                      className={`w-full bg-transparent outline-none border-none pl-3.5 ${isEditing ? 'pr-20' : 'pr-3.5'} py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-mono`}
+                      placeholder="e.g. C:\MargWin\DATA"
+                      value={form.sourceDir}
+                      onChange={(e) => setForm({ ...form, sourceDir: e.target.value })}
+                      disabled={!isEditing}
+                    />
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => openFileBrowser("sourceDir", "dir", "Select Source Data Folder")}
+                        className="absolute right-3.5 text-[12px] font-medium text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+                      >
+                        Browse_
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-[#94A3B8]">Directory path to select/read original VFP data files from.</span>
+                </div>
+
+                {/* Destination Data Folder (Where to copy data) */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11.5px] font-medium text-[#64748B]">Destination data folder path (Where to copy data)</span>
+                  <div className="relative flex items-center w-full bg-white border border-[#E2E8F0] rounded-[6px] focus-within:border-[#94A3B8] transition-all">
+                    <input
+                      type="text"
+                      className={`w-full bg-transparent outline-none border-none pl-3.5 ${isEditing ? 'pr-20' : 'pr-3.5'} py-2 text-[13.5px] text-[#0F172A] disabled:bg-[#F8FAFC] disabled:text-[#64748B] disabled:cursor-not-allowed font-mono`}
+                      placeholder="e.g. C:\MabsolCRM_Data"
+                      value={form.dataDir}
+                      onChange={(e) => setForm({ ...form, dataDir: e.target.value })}
+                      disabled={!isEditing}
+                    />
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => openFileBrowser("dataDir", "dir", "Select Destination Data Folder")}
+                        className="absolute right-3.5 text-[12px] font-medium text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+                      >
+                        Browse_
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-[#94A3B8]">Directory path where VFP data should be copied / stored for CRM sync.</span>
                 </div>
               </div>
             </div>

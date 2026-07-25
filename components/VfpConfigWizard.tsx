@@ -27,13 +27,15 @@ export default function VfpConfigWizard({
   currentDataDir = "",
 }: VfpConfigWizardProps) {
   const [dataDir, setDataDir] = useState("");
+  const [sourceDir, setSourceDir] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [enabledFiles, setEnabledFiles] = useState<string[]>([]);
   const [availableFiles, setAvailableFiles] = useState<string[]>([]);
   const [useVfpEngine, setUseVfpEngine] = useState(false);
   const [vfpExePath, setVfpExePath] = useState("C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe");
   
   // Folder browsing state
-  const [browsingField, setBrowsingField] = useState<"dest" | null>(null);
+  const [browsingField, setBrowsingField] = useState<"source" | "dest" | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
 
   // Search filter for tables
@@ -54,6 +56,8 @@ export default function VfpConfigWizard({
         .then((data) => {
           if (data.success) {
             setDataDir(data.dataDir || currentDataDir || "");
+            setSourceDir(data.sourceDir || "");
+            setCompanyName(data.companyName || "");
             setEnabledFiles(data.enabledFiles || []);
             setUseVfpEngine(data.useVfpEngine || false);
             setVfpExePath(data.vfpExePath || "C:\\Program Files (x86)\\Microsoft Visual FoxPro 9\\vfp9.exe");
@@ -67,18 +71,23 @@ export default function VfpConfigWizard({
   if (!isOpen) return null;
 
   // Folder picking handlers
-  function handleBrowseFolder() {
+  function handleBrowseFolder(field: "source" | "dest") {
+    setBrowsingField(field);
     setIsFolderPickerOpen(true);
   }
 
   function handleFolderSelected(path: string) {
-    setDataDir(path);
+    if (browsingField === "source") {
+      setSourceDir(path);
+    } else {
+      setDataDir(path);
+    }
   }
 
   // Action: Scan directory and list DBF files
   async function handleTransferData() {
     if (!dataDir.trim()) {
-      setError("Sync folder directory path is required.");
+      setError("Destination sync folder directory path is required.");
       return;
     }
 
@@ -88,12 +97,12 @@ export default function VfpConfigWizard({
       const response = await fetch("/api/mabsolcrmsync/transfer-data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataDir }),
+        body: JSON.stringify({ companyName, sourceDir, dataDir }),
       });
       const data = await response.json();
 
       if (data.success) {
-        setCopiedCount(data.dbfFiles?.length || 0);
+        setCopiedCount(data.copiedCount || data.dbfFiles?.length || 0);
         setAvailableFiles(data.dbfFiles || []);
         setStep(2); // Proceed to selecting files
       } else {
@@ -130,11 +139,11 @@ export default function VfpConfigWizard({
     setLoading(true);
     setError("");
     try {
-      // 1. Save config (enabledFiles, dataDir, useVfpEngine, vfpExePath)
+      // 1. Save config (enabledFiles, dataDir, sourceDir, companyName, useVfpEngine, vfpExePath)
       const configRes = await fetch("/api/mabsolcrmsync/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataDir, enabledFiles, useVfpEngine, vfpExePath }),
+        body: JSON.stringify({ dataDir, sourceDir, companyName, enabledFiles, useVfpEngine, vfpExePath }),
       });
       const configData = await configRes.json();
 
@@ -217,20 +226,64 @@ export default function VfpConfigWizard({
             {step === 1 && (
               <div>
                 <p className="text-secondary small mb-4">
-                  Select the local directory on this system containing the database (.dbf) files that you wish to sync.
+                  Select the source VFP data folder (where to select data) and destination folder (where to copy data).
                 </p>
 
-                {/* Destination Path */}
-                <div className="mb-4">
+                {/* Company Name / Code */}
+                <div className="mb-3">
+                  <label className="form-label fw-semibold text-secondary small">
+                    Company / Organization Name (e.g. A01 to Z01)
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm text-dark bg-light"
+                    placeholder="e.g. A01"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+
+                {/* Source Data Directory */}
+                <div className="mb-3">
                   <label className="form-label fw-semibold text-secondary small d-flex align-items-center gap-2">
                     <FaFolder className="text-primary" />
-                    Database Sync Directory
+                    Source Data Directory (Where to select data folder)
                   </label>
                   <div className="input-group input-group-sm">
                     <input
                       type="text"
                       className="form-control font-monospace text-secondary bg-light"
-                      placeholder="e.g. C:\Data_Files"
+                      placeholder="e.g. C:\MargWin\DATA"
+                      value={sourceDir}
+                      onChange={(e) => setSourceDir(e.target.value)}
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => handleBrowseFolder("source")}
+                      disabled={loading}
+                    >
+                      Browse...
+                    </button>
+                  </div>
+                  <div className="form-text text-muted" style={{ fontSize: "0.75rem" }}>
+                    Select the directory containing original VFP database (.dbf) files.
+                  </div>
+                </div>
+
+                {/* Destination Data Directory */}
+                <div className="mb-4">
+                  <label className="form-label fw-semibold text-secondary small d-flex align-items-center gap-2">
+                    <FaFolder className="text-primary" />
+                    Destination Sync Directory (Where to copy data)
+                  </label>
+                  <div className="input-group input-group-sm">
+                    <input
+                      type="text"
+                      className="form-control font-monospace text-secondary bg-light"
+                      placeholder="e.g. C:\MabsolCRM_Data"
                       value={dataDir}
                       onChange={(e) => setDataDir(e.target.value)}
                       disabled={loading}
@@ -238,14 +291,14 @@ export default function VfpConfigWizard({
                     <button
                       type="button"
                       className="btn btn-outline-secondary"
-                      onClick={handleBrowseFolder}
+                      onClick={() => handleBrowseFolder("dest")}
                       disabled={loading}
                     >
                       Browse...
                     </button>
                   </div>
                   <div className="form-text text-muted" style={{ fontSize: "0.75rem" }}>
-                    Select the directory where your database files are saved.
+                    Select the directory where data files should be copied and synchronized.
                   </div>
                 </div>
               </div>
@@ -421,10 +474,10 @@ export default function VfpConfigWizard({
       <FolderSelectorModal
         isOpen={isFolderPickerOpen}
         onClose={() => setIsFolderPickerOpen(false)}
-        currentPath={dataDir}
+        currentPath={browsingField === "source" ? sourceDir : dataDir}
         onFolderSelected={handleFolderSelected}
         selectOnly={true}
-        title="Select VFP Database Folder"
+        title={browsingField === "source" ? "Select Source VFP Data Folder" : "Select Destination Sync Folder"}
       />
     </div>
   );
