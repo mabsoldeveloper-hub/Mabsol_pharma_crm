@@ -17,7 +17,8 @@ import {
   FaExclamationTriangle,
   FaArrowRight,
   FaFilter,
-  FaShieldAlt,
+  FaLock,
+  FaMapMarkerAlt,
 } from "react-icons/fa";
 
 interface GiftSlab {
@@ -50,6 +51,7 @@ interface TargetItem {
 export default function GeneralTargetsPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [targets, setTargets] = useState<TargetItem[]>([]);
+  const [isMrRestricted, setIsMrRestricted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +84,7 @@ export default function GeneralTargetsPage() {
       const json = await res.json();
       if (json.success) {
         setTargets(json.data || []);
+        setIsMrRestricted(Boolean(json.isMrRestricted));
       }
     } catch (e) {
       setError("Failed to load targets data.");
@@ -92,10 +95,11 @@ export default function GeneralTargetsPage() {
 
   // Check if current user is Admin / Manager
   const isAdmin = useMemo(() => {
+    if (isMrRestricted) return false;
     if (!currentUser) return true; // Default to admin view while loading
     const roleName = (currentUser.roleId?.roleName || currentUser.role || "").toString().toLowerCase();
     return roleName.includes("admin") || roleName.includes("super") || roleName.includes("manager") || currentUser.isAdmin === true;
-  }, [currentUser]);
+  }, [currentUser, isMrRestricted]);
 
   // Logged-in MR's user ID / name
   const loggedInMrId = currentUser?._id;
@@ -115,26 +119,17 @@ export default function GeneralTargetsPage() {
       const matchType = !typeFilter || item.targetType === typeFilter;
       const matchMonth = !monthFilter || item.periodMonth === monthFilter;
 
-      // If MR view, show MR's own target or customer targets
-      if (!isAdmin && loggedInMrId) {
-        const itemMrId = typeof item.mrUserId === "string" ? item.mrUserId : item.mrUserId?._id || "";
-        const isMrTargetForMe = item.targetType === "MR" && (itemMrId === loggedInMrId || item.mrName === loggedInMrName);
-        const isCustomerTarget = item.targetType === "Customer";
-        return matchSearch && matchType && matchMonth && (isMrTargetForMe || isCustomerTarget);
-      }
-
       return matchSearch && matchType && matchMonth;
     });
-  }, [targets, search, typeFilter, monthFilter, isAdmin, loggedInMrId, loggedInMrName]);
+  }, [targets, search, typeFilter, monthFilter]);
 
   // MR's personal target
   const myPersonalTarget = useMemo(() => {
-    if (isAdmin) return null;
     return targets.find((item) => {
       const itemMrId = typeof item.mrUserId === "string" ? item.mrUserId : item.mrUserId?._id || "";
       return item.targetType === "MR" && (itemMrId === loggedInMrId || item.mrName === loggedInMrName);
     });
-  }, [targets, isAdmin, loggedInMrId, loggedInMrName]);
+  }, [targets, loggedInMrId, loggedInMrName]);
 
   // Overall Financial Stats
   const stats = useMemo(() => {
@@ -195,21 +190,26 @@ export default function GeneralTargetsPage() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-700 via-pink-700 to-purple-800 p-6 text-white shadow-xl">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="px-3 py-1 text-xs font-semibold rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center gap-1.5">
-                <FaBullseye /> {isAdmin ? "Admin Sales Target & Achievement Center" : "MR & Customer Target Portal"}
+                <FaBullseye /> {isAdmin ? "Admin Sales Target & Achievement Center" : "MR Territory Target Portal"}
               </span>
               <span className="px-2.5 py-0.5 text-xs font-bold rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
                 <FaGift /> Incentive & Gift Tracker
               </span>
+              {isMrRestricted && (
+                <span className="px-2.5 py-0.5 text-xs font-bold rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                  <FaLock size={10} /> Territory Scope Filter Active
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight">
-              {isAdmin ? "Global Target & Performance Dashboard" : `Welcome, ${currentUser?.name || "Field Executive"}`}
+              {isAdmin ? "Global Target & Performance Dashboard" : `My Territory Targets - ${currentUser?.name || "Field Executive"}`}
             </h1>
             <p className="text-xs text-white/80 mt-1">
               {isAdmin
                 ? "Track sales achievements, target shortfalls, and reward schemes across all MRs and Customers."
-                : "View your personal sales targets, track customer achievements, and send 1-click WhatsApp shortfall offer alerts!"}
+                : "Showing targets exclusively for your assigned territory & assigned customers."}
             </p>
           </div>
 
@@ -267,13 +267,13 @@ export default function GeneralTargetsPage() {
         </div>
       </div>
 
-      {/* MR Personal Target Showcase (If Logged-in user is MR) */}
-      {!isAdmin && myPersonalTarget && (
+      {/* MR Personal Target Showcase (If Logged-in user has personal MR Target) */}
+      {myPersonalTarget && (
         <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 p-6 rounded-2xl text-white shadow-lg space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white/20 text-white flex items-center gap-1.5">
-                <FaUser /> My Personal Executive Target
+                <FaUser /> My Personal Executive Sales Target
               </span>
               <span className="text-xs font-semibold text-indigo-200">Month: {myPersonalTarget.periodMonth}</span>
             </div>
@@ -351,7 +351,7 @@ export default function GeneralTargetsPage() {
         <div className="p-12 text-center text-xs font-semibold text-slate-500">Loading live target achievements...</div>
       ) : filteredTargets.length === 0 ? (
         <div className="p-12 text-center bg-white/50 backdrop-blur-md rounded-2xl border border-dashed border-slate-300">
-          <p className="text-xs font-semibold text-slate-600">No target records found for selected period.</p>
+          <p className="text-xs font-semibold text-slate-600">No target records found for your assigned territory/period.</p>
           {isAdmin && (
             <Link
               href="/dashboard/master/targets"

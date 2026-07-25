@@ -3,15 +3,25 @@ import connectDB from "@/lib/mongodb";
 import TargetMaster from "@/models/TargetMaster";
 import User from "@/models/User";
 import SalesMdis from "@/models/SalesMdis";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+// Helper regex escape
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // =======================
-// GET - List Targets with Live Sales Achievement Calculation
+// GET - List Targets with Live Sales Achievement Calculation & MR Territory Restriction
 // =======================
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
+
+    const currentUser = await getCurrentUser();
+    const restriction = await getMrTerritoryRestriction();
 
     const { searchParams } = new URL(req.url);
     const targetType = searchParams.get("targetType") || "";
@@ -40,36 +50,78 @@ export async function GET(req: NextRequest) {
       .populate("mrUserId", "name email employeeCode mobile designation")
       .sort({ periodMonth: -1, createdAt: -1 });
 
-    // Calculate dynamic live sales achievement for each target record
+    // Apply MR Territory Restriction if user is an MR / non-Admin
+    const allowedRecords = records.filter((doc) => {
+      if (!restriction.isMrRestricted) return true;
+
+      const item = doc.toObject ? doc.toObject() : doc;
+      const itemMrId = typeof item.mrUserId === "string"
+        ? item.mrUserId
+        : item.mrUserId?._id?.toString() || "";
+      const currentUserIdStr = currentUser?._id?.toString() || "";
+
+      // 1. If MR target, allow if assigned to this MR
+      if (item.targetType === "MR") {
+        if (itemMrId && itemMrId === currentUserIdStr) return true;
+        const mrNameStr = (item.mrName || "").toLowerCase();
+        if (currentUser?.name && mrNameStr.includes(currentUser.name.toLowerCase())) return true;
+        if (currentUser?.employeeCode && mrNameStr.includes(currentUser.employeeCode.toLowerCase())) return true;
+        return false;
+      }
+
+      // 2. If Customer target, allow if customer belongs to MR's assigned territory / customer list
+      if (item.targetType === "Customer") {
+        const cCode = (item.customerCode || "").trim().toLowerCase();
+        if (cCode && restriction.allowedOrdnosSet && restriction.allowedOrdnosSet.has(cCode)) {
+          return true;
+        }
+        if (
+          restriction.isPartyAllowed &&
+          restriction.isPartyAllowed({
+            CODEP: item.customerCode,
+            PARNAM: item.customerName,
+            CODE: item.customerCode,
+            ORDNO: item.customerCode,
+          })
+        ) {
+          return true;
+        }
+        return false;
+      }
+
+      return false;
+    });
+
+    // Calculate dynamic live sales achievement for each allowed target record
     const processedRecords = await Promise.all(
-      records.map(async (doc) => {
-        const item = doc.toObject();
+      allowedRecords.map(async (doc) => {
+        const item = doc.toObject ? doc.toObject() : doc;
         let achievedAmount = 0;
 
         try {
           const monthStr = item.periodMonth; // e.g. "2026-07"
           if (monthStr && monthStr.length === 7) {
-            const startDate = new Date(`${monthStr}-01T00:00:00.000Z`);
-            const endYear = Number(monthStr.split("-")[0]);
-            const endMonth = Number(monthStr.split("-")[1]);
-            const endDate = new Date(Date.UTC(endYear, endMonth, 0, 23, 59, 59));
-
             const mdisFilter: any = {};
 
             // If Customer target
-            if (item.targetType === "Customer" && item.customerCode) {
-              mdisFilter.$or = [
-                { CODE: item.customerCode },
-                { PARTY: { $regex: item.customerName || item.customerCode, $options: "i" } },
-              ];
+            if (item.targetType === "Customer" && (item.customerCode || item.customerName)) {
+              if (item.customerCode) {
+                mdisFilter.$or = [
+                  { CODEP: item.customerCode },
+                  { CODE: item.customerCode },
+                  { PARTY: { $regex: escapeRegex(item.customerName || item.customerCode), $options: "i" } },
+                ];
+              } else {
+                mdisFilter.PARTY = { $regex: escapeRegex(item.customerName), $options: "i" };
+              }
             } else if (item.targetType === "MR" && item.mrUserId) {
               // MR target
               const empCode = item.mrUserId?.employeeCode || item.mrName;
               if (empCode) {
                 mdisFilter.$or = [
-                  { DSM: { $regex: empCode, $options: "i" } },
-                  { ASM: { $regex: empCode, $options: "i" } },
-                  { RSM: { $regex: empCode, $options: "i" } },
+                  { DSM: { $regex: escapeRegex(empCode), $options: "i" } },
+                  { ASM: { $regex: escapeRegex(empCode), $options: "i" } },
+                  { RSM: { $regex: escapeRegex(empCode), $options: "i" } },
                 ];
               }
             }
@@ -135,6 +187,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       count: processedRecords.length,
+      isMrRestricted: restriction.isMrRestricted,
       data: processedRecords,
     });
   } catch (error: any) {
