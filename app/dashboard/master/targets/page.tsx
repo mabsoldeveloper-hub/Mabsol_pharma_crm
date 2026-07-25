@@ -378,8 +378,11 @@ export default function TargetMasterPage() {
 
     const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
     const cleanPhone = formatWhatsAppPhone(rawPhone);
-    const baseUrl = cleanPhone ? `https://wa.me/${cleanPhone}` : `https://wa.me/`;
-    return `${baseUrl}?text=${encodeURIComponent(text)}`;
+    if (cleanPhone) {
+      return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    } else {
+      return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    }
   };
 
   return (

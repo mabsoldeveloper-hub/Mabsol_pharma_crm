@@ -59,21 +59,21 @@ export default function DashboardLayout({
 
         <div
         style={{
-            marginLeft: mobile
+          marginLeft: mobile
             ? "0"
             : collapsed
-            ? "80px"
+            ? "76px"
             : "260px",
 
-            width: mobile
+          width: mobile
             ? "100%"
             : collapsed
-            ? "calc(100% - 80px)"
+            ? "calc(100% - 76px)"
             : "calc(100% - 260px)",
 
-            transition: "all .3s ease",
-            minHeight: "100vh",
-            overflowX: "hidden",
+          transition: "margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          minHeight: "100vh",
+          overflowX: "hidden",
         }}
         >
 

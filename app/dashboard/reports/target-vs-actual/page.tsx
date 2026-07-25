@@ -221,8 +221,11 @@ export default function TargetVsActualReportPage() {
     }
 
     const cleanPhone = formatWhatsAppPhone(row.phoneNumber);
-    const baseUrl = cleanPhone ? `https://wa.me/${cleanPhone}` : `https://wa.me/`;
-    return `${baseUrl}?text=${encodeURIComponent(text)}`;
+    if (cleanPhone) {
+      return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    } else {
+      return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    }
   };
 
   const exportCSV = () => {
@@ -681,16 +684,25 @@ export default function TargetVsActualReportPage() {
                           <div className="w-36 text-center flex-shrink-0 pl-2">
                             {(() => {
                               const cleanPhone = formatWhatsAppPhone(row.phoneNumber);
-                              return (
+                              return cleanPhone ? (
                                 <a
                                   href={getDirectWhatsAppUrl(row)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[10px] shadow hover:scale-105 transition-all"
-                                  title={cleanPhone ? `Direct WhatsApp chat with +${cleanPhone}` : "Share offer message on WhatsApp"}
+                                  title={`Direct WhatsApp chat with +${cleanPhone}`}
                                 >
-                                  <FaWhatsapp size={13} />
-                                  {cleanPhone ? `+${cleanPhone}` : `Send MSG`}
+                                  <FaWhatsapp size={13} /> +{cleanPhone}
+                                </a>
+                              ) : (
+                                <a
+                                  href={getDirectWhatsAppUrl(row)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[10px] shadow hover:scale-105 transition-all"
+                                  title="Number not saved. Opens WhatsApp with message pre-typed so you can select contact manually."
+                                >
+                                  <FaWhatsapp size={13} /> Share Msg
                                 </a>
                               );
                             })()}
