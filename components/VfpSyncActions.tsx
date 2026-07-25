@@ -87,8 +87,6 @@ export default function VfpSyncActions({
     prevProps.current = { currentPath, enabledFiles };
   }, [currentPath, enabledFiles, initialAutoSync, initialAutoSyncInterval]);
 
-
-
   // Unified save config function
   async function saveConfiguration(
     updatedDir: string, 
@@ -368,8 +366,36 @@ export default function VfpSyncActions({
                 <Play size={14} fill="currentColor" className={busyAction === "sync" ? "animate-spin" : ""} />
                 {busyAction === "sync" ? "Syncing..." : "Sync now"}
               </button>
+
+              <button 
+                className="btn border-indigo-200 text-indigo-700 hover:bg-indigo-50 w-full justify-center py-2.5 text-[13px] font-semibold mt-2" 
+                onClick={async () => {
+                  setBusyAction("transform");
+                  setMessage({ type: "info", text: "Mapping raw MARG DBF data to CRM Models..." });
+                  try {
+                    const res = await fetch("/api/mabsolcrmsync/transform", { method: "POST" });
+                    const data = await res.json();
+                    if (data.success) {
+                      setMessage({ type: "success", text: data.message });
+                      router.refresh();
+                    } else {
+                      setMessage({ type: "error", text: data.error || "Failed to transform data." });
+                    }
+                  } catch (e: any) {
+                    setMessage({ type: "error", text: "Error transforming MARG data." });
+                  } finally {
+                    setBusyAction(null);
+                  }
+                }}
+                disabled={Boolean(busyAction)}
+                type="button"
+              >
+                <RefreshCw size={14} className={busyAction === "transform" ? "animate-spin" : ""} />
+                {busyAction === "transform" ? "Mapping Data..." : "Run MARG Data Mapping"}
+              </button>
+
               <div className="cta-note">
-                Pushes local DBF changes to the CRM table immediately, outside the regular schedule.
+                Pushes local DBF changes to the CRM table immediately and transforms them into Customer, Product & Dues records.
               </div>
             </div>
           </div>

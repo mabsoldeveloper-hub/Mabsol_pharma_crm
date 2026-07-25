@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -73,11 +72,34 @@ export default function Topbar({
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const notifications = [
-    { label: "New Lead Assigned", time: "2m ago" },
-    { label: "New Customer Added", time: "1h ago" },
-    { label: "Payment Received", time: "3h ago" },
-  ];
+  const [liveNotifications, setLiveNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchNotifications = () => {
+    fetch("/api/notifications")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setLiveNotifications(data.notifications || []);
+          setUnreadCount(data.unreadCount || 0);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 20000); // Poll notifications every 20 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const markAllRead = () => {
+    fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAllRead: true }),
+    }).then(() => fetchNotifications());
+  };
 
   return (
     <div
@@ -123,31 +145,53 @@ export default function Topbar({
           >
             <Bell size={18} />
 
-            {notifications.length > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-                {notifications.length}
+                {unreadCount}
               </span>
             )}
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-2 z-[1100]">
-              <div className="px-3 pb-2 mb-1 text-[12px] font-semibold text-gray-400 border-b border-gray-100">
-                Notifications
+            <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white border border-gray-200 shadow-xl py-2 z-[1100] max-h-96 overflow-y-auto">
+              <div className="flex items-center justify-between px-3 pb-2 mb-1 text-[12px] font-semibold text-gray-500 border-b border-gray-100">
+                <span>Notifications ({unreadCount} new)</span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="text-xs text-indigo-600 hover:underline font-normal"
+                  >
+                    Mark read
+                  </button>
+                )}
               </div>
 
-              {notifications.map((n, i) => (
-                <a
-                  key={i}
-                  href="#"
-                  className="flex items-center justify-between px-3 py-2 text-[13px] text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors duration-150"
-                >
-                  <span className="truncate">{n.label}</span>
-                  <span className="text-[11px] text-gray-400 shrink-0 ml-2">
-                    {n.time}
-                  </span>
-                </a>
-              ))}
+              {liveNotifications.length === 0 ? (
+                <div className="px-3 py-4 text-center text-xs text-gray-400">
+                  No notifications available
+                </div>
+              ) : (
+                liveNotifications.map((n, i) => (
+                  <div
+                    key={n._id || i}
+                    className={`px-3 py-2.5 text-[13px] border-b border-gray-50 hover:bg-orange-50 transition-colors duration-150 ${
+                      !n.isRead ? "bg-orange-50/40 font-medium" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-semibold text-gray-800 text-xs truncate">
+                        {n.title}
+                      </span>
+                      <span className="text-[10px] text-gray-400 shrink-0">
+                        {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-gray-600 mt-0.5 line-clamp-2">
+                      {n.message}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -162,12 +206,12 @@ export default function Topbar({
             className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white pl-2 pr-3 h-10 text-gray-700 hover:bg-gray-50 transition-colors duration-200"
           >
             <span className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border border-gray-200 shadow-sm shrink-0 bg-white">
-  <img
-    src={user?.profilePhoto || "/avatar.png"}
-    alt={user?.name || "User"}
-    className="w-full h-full object-cover"
-  />
-</span>
+              <img
+                src={user?.profilePhoto || "/avatar.png"}
+                alt={user?.name || "User"}
+                className="w-full h-full object-cover"
+              />
+            </span>
 
             {!mobile && (
               <span className="flex flex-col items-start leading-tight text-left">
@@ -209,4 +253,3 @@ export default function Topbar({
     </div>
   );
 }
-
