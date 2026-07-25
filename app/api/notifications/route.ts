@@ -15,18 +15,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const roleType = user.roleType || "Admin";
+    const roleType = (user.roleType || user.role || "Admin").toString();
+    const isAdminOrManager = ["Admin", "SuperAdmin", "Manager", "RSM", "ZSM"].includes(roleType);
+    const userIdStr = String(user._id);
+    const userNameStr = (user.name || "").trim().toLowerCase();
+    const empCodeStr = (user.employeeCode || "").trim().toLowerCase();
 
-    // Run quick background scan to populate new alerts
-    await runNotificationAlertScan().catch(() => {});
+    let query: any = {};
 
-    const notifications = await Notification.find({
-      $or: [
-        { userId: String(user._id) },
-        { targetRole: "All" },
-        { targetRole: roleType },
-      ],
-    })
+    if (!isAdminOrManager) {
+      // MR Executive: Show general stock/system alerts PLUS targets strictly assigned to this MR
+      const mrTargetConditions: any[] = [
+        { userId: userIdStr },
+        { "metadata.mrUserId": userIdStr },
+      ];
+
+      if (userNameStr) {
+        mrTargetConditions.push({ "metadata.mrName": { $regex: userNameStr, $options: "i" } });
+      }
+      if (empCodeStr) {
+        mrTargetConditions.push({ "metadata.mrName": { $regex: empCodeStr, $options: "i" } });
+      }
+
+      query = {
+        $or: [
+          // Non-target alerts (Stock & System)
+          { category: { $ne: "TARGETS" }, targetRole: { $in: ["All", "MR"] } },
+          // Target alerts strictly assigned to this MR
+          { category: "TARGETS", $or: mrTargetConditions },
+        ],
+      };
+    }
+
+    const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
