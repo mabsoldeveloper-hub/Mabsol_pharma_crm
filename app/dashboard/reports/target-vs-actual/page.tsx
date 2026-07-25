@@ -25,7 +25,23 @@ import {
   FaExclamationTriangle,
   FaRegCalendarCheck,
   FaWhatsapp,
+  FaChartPie,
+  FaEye,
+  FaEyeSlash,
 } from "react-icons/fa";
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 interface WeeklyItem {
   weekNo: number;
@@ -117,9 +133,14 @@ export default function TargetVsActualReportPage() {
   // Accordion expanded rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const params = new URLSearchParams({
@@ -129,30 +150,149 @@ export default function TargetVsActualReportPage() {
         search,
       });
 
-      const res = await fetch(`/api/reports/target-vs-actual?${params.toString()}`);
+      const res = await fetch(`/api/reports/target-vs-actual?${params.toString()}`, {
+        signal: controller.signal,
+      });
       const json = await res.json();
 
       if (json.success) {
         setRows(json.data || []);
         setSummary(json.summary || null);
         setIsMrRestricted(Boolean(json.isMrRestricted));
+        if (Array.isArray(json.availableMonths) && json.availableMonths.length > 0) {
+          setAvailableMonths(json.availableMonths);
+        }
       } else {
         setError(json.message || "Failed to load report data");
         setRows([]);
         setSummary(null);
       }
     } catch (err: any) {
-      setError("An unexpected error occurred while fetching report data.");
+      if (err.name === "AbortError") {
+        setError("Report generation timed out. Please retry.");
+      } else {
+        setError("An unexpected error occurred while fetching report data.");
+      }
       setRows([]);
       setSummary(null);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   }, [periodMonth, targetType, frequency, search]);
 
+  const [mounted, setMounted] = useState(false);
+  const [showCharts, setShowCharts] = useState(true);
+
   useEffect(() => {
+    setMounted(true);
     fetchReportData();
   }, [fetchReportData]);
+
+  // Computed data for Recharts Visual Analytics
+  const chartData = useMemo(() => {
+    if (!rows || rows.length === 0) {
+      return { mainData: [], salesPie: [], collectionPie: [], entityPie: [] };
+    }
+
+    let mainData: any[] = [];
+
+    if (frequency === "weekly") {
+      // 5-Week Trend aggregation across all rows
+      const weekMap: Record<number, { name: string; salesTarget: number; actualSales: number; collectionTarget: number; actualCollection: number }> = {};
+      for (let i = 1; i <= 5; i++) {
+        weekMap[i] = { name: `Week ${i}`, salesTarget: 0, actualSales: 0, collectionTarget: 0, actualCollection: 0 };
+      }
+      rows.forEach((r) => {
+        (r.weeklyBreakdown || []).forEach((w) => {
+          if (weekMap[w.weekNo]) {
+            weekMap[w.weekNo].salesTarget += w.weeklySalesTarget || 0;
+            weekMap[w.weekNo].actualSales += w.weekActualSales || 0;
+            weekMap[w.weekNo].collectionTarget += w.weeklyCollectionTarget || 0;
+            weekMap[w.weekNo].actualCollection += w.weekActualCollection || 0;
+          }
+        });
+      });
+      mainData = Object.values(weekMap);
+    } else if (frequency === "daily") {
+      // 31-Day Trend aggregation across all rows
+      const dayMap: Record<number, { name: string; salesTarget: number; actualSales: number; collectionTarget: number; actualCollection: number }> = {};
+      for (let i = 1; i <= 31; i++) {
+        dayMap[i] = { name: `Day ${i}`, salesTarget: 0, actualSales: 0, collectionTarget: 0, actualCollection: 0 };
+      }
+      rows.forEach((r) => {
+        (r.dailyBreakdown || []).forEach((d) => {
+          if (dayMap[d.day]) {
+            dayMap[d.day].salesTarget += d.dailySalesTarget || 0;
+            dayMap[d.day].actualSales += d.dayActualSales || 0;
+            dayMap[d.day].collectionTarget += d.dailyCollectionTarget || 0;
+            dayMap[d.day].actualCollection += d.dayActualCollection || 0;
+          }
+        });
+      });
+      mainData = Object.values(dayMap).filter(
+        (d) => d.salesTarget > 0 || d.actualSales > 0 || d.collectionTarget > 0 || d.actualCollection > 0
+      );
+    } else {
+      // Top 10 Entities for Monthly View
+      mainData = rows.slice(0, 10).map((r) => {
+        const rawName = r.targetType === "MR" ? r.mrName : r.customerName;
+        return {
+          name: rawName.length > 14 ? rawName.slice(0, 12) + ".." : rawName,
+          salesTarget: r.salesTarget,
+          actualSales: r.monthlyActualSales,
+          collectionTarget: r.collectionTarget,
+          actualCollection: r.monthlyActualCollection,
+        };
+      });
+    }
+
+    // Pie Chart 1: Sales Achievement Breakdown
+    let salesAchieved = 0;
+    let salesOnTrack = 0;
+    let salesAtRisk = 0;
+
+    // Pie Chart 2: Collection Recovery Breakdown
+    let collAchieved = 0;
+    let collOnTrack = 0;
+    let collAtRisk = 0;
+
+    // Entity Share
+    let mrSalesTarget = 0;
+    let partySalesTarget = 0;
+
+    rows.forEach((r) => {
+      if (r.salesAchPercent >= 100) salesAchieved++;
+      else if (r.salesAchPercent >= 80) salesOnTrack++;
+      else salesAtRisk++;
+
+      if (r.collectionAchPercent >= 100) collAchieved++;
+      else if (r.collectionAchPercent >= 80) collOnTrack++;
+      else collAtRisk++;
+
+      if (r.targetType === "MR") mrSalesTarget += r.salesTarget;
+      else partySalesTarget += r.salesTarget;
+    });
+
+    const salesPie = [
+      { name: "Achieved (100%+)", value: salesAchieved, color: "#059669" },
+      { name: "On Track (80-99%)", value: salesOnTrack, color: "#4f46e5" },
+      { name: "At Risk (<80%)", value: salesAtRisk, color: "#e11d48" },
+    ].filter((x) => x.value > 0);
+
+    const collectionPie = [
+      { name: "Full Recovery (100%+)", value: collAchieved, color: "#4338ca" },
+      { name: "Partial (80-99%)", value: collOnTrack, color: "#0284c7" },
+      { name: "Pending (<80%)", value: collAtRisk, color: "#d97706" },
+    ].filter((x) => x.value > 0);
+
+    const entityPie = [
+      { name: "MR Targets", value: mrSalesTarget, color: "#4f46e5" },
+      { name: "Party Targets", value: partySalesTarget, color: "#059669" },
+    ].filter((x) => x.value > 0);
+
+    return { mainData, salesPie, collectionPie, entityPie };
+  }, [rows, frequency]);
 
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => {
@@ -535,6 +675,197 @@ export default function TargetVsActualReportPage() {
               <p className="text-[10px] text-slate-400 font-semibold text-right">Shortfall: ₹{formatINR(summary.totalCollectionShortfall)}</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Visual Analytics Graphs Section */}
+      {summary && rows.length > 0 && mounted && (
+        <div className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
+                <FaChartLine size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">
+                  Visual Analytics: Sales vs Collection Performance
+                </h3>
+                <p className="text-[11px] text-slate-500 font-semibold">
+                  {frequency === "weekly"
+                    ? "5-Week Aggregate Sales & Collection Target vs Actual Trends"
+                    : frequency === "daily"
+                    ? "Day-Wise Sales & Collection Target vs Actual Trends"
+                    : "Top Parties & MR Executives Sales vs Collection Comparison"}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowCharts(!showCharts)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-all"
+            >
+              {showCharts ? <FaEyeSlash size={12} /> : <FaEye size={12} />}
+              {showCharts ? "Hide Analytics Graphs" : "Show Analytics Graphs"}
+            </button>
+          </div>
+
+          {showCharts && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+              {/* Main Bar Chart: Sales vs Collection Target & Actual */}
+              <div className="lg:col-span-2 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Sales Target & Actual vs Collection Target & Actual
+                  </h4>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    {frequency === "weekly" ? "Weekly View" : frequency === "daily" ? "Daily View" : "Top Entities"}
+                  </span>
+                </div>
+
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={chartData.mainData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748b", fontWeight: 700 }} />
+                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-slate-900/90 backdrop-blur-md text-white p-3 rounded-xl shadow-xl text-xs space-y-1.5 border border-slate-700">
+                                <p className="font-extrabold text-indigo-300 border-b border-slate-700 pb-1">{label}</p>
+                                {payload.map((entry: any, index: number) => (
+                                  <div key={index} className="flex items-center justify-between gap-4">
+                                    <span className="flex items-center gap-1.5 font-semibold" style={{ color: entry.color }}>
+                                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                                      {entry.name}:
+                                    </span>
+                                    <span className="font-extrabold">₹{entry.value?.toLocaleString("en-IN")}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: "11px", fontWeight: 700, paddingTop: "8px" }} />
+                      <Bar dataKey="salesTarget" name="Sales Target" fill="#a7f3d0" radius={[4, 4, 0, 0]} barSize={12} />
+                      <Bar dataKey="actualSales" name="Actual Sales" fill="#059669" radius={[4, 4, 0, 0]} barSize={12} />
+                      <Bar dataKey="collectionTarget" name="Collection Target" fill="#c7d2fe" radius={[4, 4, 0, 0]} barSize={12} />
+                      <Bar dataKey="actualCollection" name="Actual Collection" fill="#4338ca" radius={[4, 4, 0, 0]} barSize={12} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Pie Charts Side Column: Target Status & Entity Share */}
+              <div className="space-y-4 flex flex-col justify-between">
+                {/* Sales & Collection Achievement Status Pie */}
+                <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 flex-1">
+                  <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <FaChartPie className="text-indigo-600" size={12} />
+                      Sales Target Status
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold">{rows.length} Total Targets</span>
+                  </h4>
+                  <div className="h-[120px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData.salesPie}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={30}
+                          outerRadius={50}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {chartData.salesPie.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const d = payload[0];
+                              return (
+                                <div className="bg-slate-900 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-lg">
+                                  {d.name}: {d.value} ({((Number(d.value) / rows.length) * 100).toFixed(0)}%)
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-3 mt-1">
+                    {chartData.salesPie.map((p, i) => (
+                      <span key={i} className="flex items-center gap-1 text-[10px] font-bold text-slate-600">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                        {p.name}: {p.value}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Entity Share Pie: MR vs Party Targets */}
+                <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 flex-1">
+                  <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <FaLayerGroup className="text-emerald-600" size={12} />
+                      Target Entity Share
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold">MR vs Party</span>
+                  </h4>
+                  <div className="h-[120px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData.entityPie}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={30}
+                          outerRadius={50}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {chartData.entityPie.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const d = payload[0];
+                              return (
+                                <div className="bg-slate-900 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-lg">
+                                  {d.name}: ₹{Number(d.value).toLocaleString("en-IN")}
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-3 mt-1">
+                    {chartData.entityPie.map((p, i) => (
+                      <span key={i} className="flex items-center gap-1 text-[10px] font-bold text-slate-600">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                        {p.name}: ₹{(p.value / 100000).toFixed(1)}L
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
