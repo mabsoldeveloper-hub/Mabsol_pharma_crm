@@ -174,7 +174,7 @@ export default function Topbar({
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-84 sm:w-96 rounded-2xl bg-white border border-gray-200/90 shadow-2xl py-2 z-[1100] overflow-hidden backdrop-blur-xl">
+            <div className="absolute right-[-48px] sm:right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-[380px] rounded-2xl bg-white border border-gray-200/90 shadow-2xl py-2 z-[1100] overflow-hidden backdrop-blur-xl transition-all">
               {/* Header */}
               <div className="flex items-center justify-between px-3.5 pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-1.5">
@@ -195,19 +195,17 @@ export default function Topbar({
                 )}
               </div>
 
-              {/* Category Filter Chips */}
-              <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100 overflow-x-auto text-[11px] font-extrabold bg-slate-50/60 no-scrollbar">
+              {/* Category Filter Chips: Targets & Stock only */}
+              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-100 overflow-x-auto text-[11px] font-extrabold bg-slate-50/60 no-scrollbar">
                 {[
-                  { id: "ALL", label: "All" },
-                  { id: "FINANCIAL", label: "Payments 💰" },
+                  { id: "ALL", label: "All Alerts" },
                   { id: "TARGETS", label: "Targets 🎯" },
-                  { id: "INVENTORY", label: "Stock 📦" },
-                  { id: "ORDERS", label: "Orders 🛒" },
+                  { id: "INVENTORY", label: "Stock & Expiry 📦" },
                 ].map((cat) => (
                   <button
                     key={cat.id}
                     onClick={() => setActiveCat(cat.id)}
-                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition-all ${
+                    className={`px-3 py-1 rounded-lg whitespace-nowrap transition-all ${
                       activeCat === cat.id
                         ? "bg-indigo-600 text-white shadow-sm"
                         : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60"

@@ -30,60 +30,7 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
   }
 
   try {
-    // 1. Scan for Overdue Outstanding Payments across VFP table variations
-    const pendsColNames = ["pends", "vfp_new_folder_pends", "vfp_pends"];
-    for (const colName of pendsColNames) {
-      const exists = await db.listCollections({ name: colName }).hasNext();
-      if (exists) {
-        const col = db.collection(colName);
-        const overdueVouchers = await col
-          .find({
-            $or: [
-              { FINAL: { $gt: 0 } },
-              { BAL: { $gt: 0 } },
-              { AMOUNT: { $gt: 0 } },
-            ],
-          })
-          .limit(30)
-          .toArray();
-
-        for (const voucher of overdueVouchers) {
-          const amt = Number(voucher.FINAL || voucher.BAL || voucher.AMOUNT || 0);
-          const dueDays = Number(voucher.DUEDAYS || voucher.DAYS || 30);
-          const partyName = voucher.ORD || voucher.PARNAM || voucher.PARTY || "Party";
-
-          const title = `⚠️ Payment Overdue: ${partyName}`;
-          const message = `Voucher #${voucher.VOUCHER || voucher.VCN || "N/A"} has pending amount of ₹${amt.toLocaleString("en-IN")} overdue by ${dueDays} days!`;
-
-          const existing = await Notification.findOne({
-            type: "OUTSTANDING_OVERDUE",
-            entityId: String(voucher._id),
-          });
-
-          if (!existing) {
-            await Notification.create({
-              title,
-              message,
-              type: "OUTSTANDING_OVERDUE",
-              category: "FINANCIAL",
-              severity: dueDays >= 60 ? "error" : "warning",
-              targetRole: "All",
-              entityId: String(voucher._id),
-              actionUrl: "/dashboard/reports/target-vs-actual",
-              metadata: {
-                ord: partyName,
-                voucherNo: voucher.VOUCHER,
-                amount: amt,
-                dueDays,
-              },
-            });
-            result.overdueAlertsCreated++;
-          }
-        }
-      }
-    }
-
-    // 2. Scan Target Master for Active Targets & Gift Schemes
+    // 1. Scan Target Master for Active Targets & Gift Schemes (category: TARGETS)
     try {
       const TargetMaster = mongoose.models.TargetMaster || mongoose.model("TargetMaster");
       if (TargetMaster) {
