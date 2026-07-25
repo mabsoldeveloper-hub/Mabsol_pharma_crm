@@ -195,8 +195,14 @@ export default function GeneralTargetsPage() {
 
     const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
     const cleanPhone = formatWhatsAppPhone(rawPhone);
-    const baseUrl = cleanPhone ? `https://wa.me/${cleanPhone}` : `https://wa.me/`;
-    return `${baseUrl}?text=${encodeURIComponent(text)}`;
+
+    if (cleanPhone) {
+      // Customer/MR Phone exists -> Open direct WhatsApp chat profile with pre-filled message
+      return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    } else {
+      // Phone missing -> Open WhatsApp with pre-filled message so user can pick contact manually
+      return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    }
   };
 
   return (
@@ -417,7 +423,15 @@ export default function GeneralTargetsPage() {
                           {(() => {
                             const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
                             const cleanPhone = formatWhatsAppPhone(rawPhone);
-                            return cleanPhone ? <span className="text-emerald-700 font-extrabold">📞 +{cleanPhone}</span> : null;
+                            return cleanPhone ? (
+                              <span className="text-emerald-700 font-extrabold flex items-center gap-1">
+                                📞 +{cleanPhone}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 font-normal">
+                                ⚠️ No Phone Saved
+                              </span>
+                            );
                           })()}
                         </div>
                       </div>
@@ -484,15 +498,24 @@ export default function GeneralTargetsPage() {
                   {(() => {
                     const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
                     const cleanPhone = formatWhatsAppPhone(rawPhone);
-                    return (
+                    return cleanPhone ? (
                       <a
                         href={generateWhatsAppShareUrl(item)}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow hover:bg-emerald-700 transition-all"
+                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow hover:bg-emerald-700 transition-all hover:scale-[1.02]"
                       >
-                        <FaWhatsapp size={14} />
-                        {cleanPhone ? `Send Direct WhatsApp (+${cleanPhone})` : "Share Shortfall Offer Alert"}
+                        <FaWhatsapp size={14} /> Send Direct WhatsApp (+{cleanPhone})
+                      </a>
+                    ) : (
+                      <a
+                        href={generateWhatsAppShareUrl(item)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow hover:bg-indigo-700 transition-all hover:scale-[1.02]"
+                        title="Number not saved. Opens WhatsApp with message ready so you can pick contact manually."
+                      >
+                        <FaWhatsapp size={14} /> Share Message via WhatsApp
                       </a>
                     );
                   })()}

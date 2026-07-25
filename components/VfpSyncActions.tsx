@@ -218,6 +218,20 @@ export default function VfpSyncActions({
                   <FolderOpen className="text-amber-500" />
                   Browse
                 </button>
+                {dataDir && (
+                  <button 
+                    className="btn" 
+                    onClick={() => {
+                      setDataDir("");
+                      saveConfiguration("", syncScope, selectedFile, autoSync, autoSyncInterval);
+                    }} 
+                    type="button"
+                    title="Remove selected path"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 text-red-500"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    Clear
+                  </button>
+                )}
               </div>
             </div>
 

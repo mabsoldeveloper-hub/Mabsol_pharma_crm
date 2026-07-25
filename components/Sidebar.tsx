@@ -227,7 +227,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       .catch(console.error);
   }, []);
 
-  // Sidebar is "iconOnly" when collapsed on desktop. On mobile, collapsed just hides it entirely.
+  // Sidebar is "iconOnly" when collapsed on desktop. On mobile, collapsed hides it off-screen.
   const iconOnly = collapsed && !mobile;
 
   // ---------------- Single link (no submenu) ----------------
@@ -245,14 +245,42 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     color: ColorKey;
   }) => {
     const c = colorMap[color];
+
+    if (iconOnly) {
+      return (
+        <Link
+          href={href}
+          title={label}
+          className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out group shrink-0 ${active
+            ? "text-white scale-105 shadow-md"
+            : `glass-icon-chip ${c.iconText} hover:scale-110 hover:-rotate-3`
+            }`}
+          style={
+            active
+              ? {
+                background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
+                boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
+              }
+              : undefined
+          }
+        >
+          {active && (
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/50 to-transparent" />
+          )}
+          {active && (
+            <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full ${c.bar}`} />
+          )}
+          <span className="text-[17px]">{icon}</span>
+        </Link>
+      );
+    }
+
     return (
       <Link
         href={href}
-        title={iconOnly ? label : ""}
-        className={`glass-nav-item relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] transition-all duration-300 ease-out group ${iconOnly ? "justify-center px-0" : ""
-          } ${active
-            ? `glass-nav-item-active font-semibold ${c.activeText}`
-            : `text-gray-600 dark:text-gray-400 hover:text-gray-800 ${c.hoverText}`
+        className={`glass-nav-item relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] transition-all duration-300 ease-out group ${active
+          ? `glass-nav-item-active font-semibold ${c.activeText}`
+          : `text-gray-600 dark:text-gray-400 hover:text-gray-800 ${c.hoverText}`
           }`}
       >
         {active && (
@@ -261,7 +289,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           />
         )}
         <span
-          className={`relative flex items-center justify-center w-8 h-8 shrink-0 rounded-xl text-[14px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
+          className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
             ? "icon-chip-active text-white scale-105"
             : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
             }`}
@@ -279,7 +307,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           )}
           <span className="relative">{icon}</span>
         </span>
-        {!iconOnly && <span className="truncate transition-opacity duration-200">{label}</span>}
+        <span className="truncate transition-opacity duration-200">{label}</span>
       </Link>
     );
   };
@@ -302,8 +330,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     return (
       <Link
         href={href}
-        className={`group/sub flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all duration-200 ease-out ${active
-          ? `bg-white/50 dark:bg-white/5 font-medium ${c.activeText}`
+        className={`group/sub flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all duration-200 ease-out ${active
+          ? `bg-white/60 dark:bg-white/10 font-semibold ${c.activeText} shadow-sm`
           : `text-gray-500 dark:text-gray-400 hover:bg-white/40 dark:hover:bg-white/5 ${c.hoverText}`
           }`}
       >
@@ -319,7 +347,6 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   };
 
   // ---------------- Collapsible group ----------------
-
   const Group = ({
     icon,
     label,
@@ -338,66 +365,103 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     color: ColorKey;
   }) => {
     const c = colorMap[color];
+    const [isHovered, setIsHovered] = useState(false);
+
     return (
-      <li className={`group/nav relative ${iconOnly ? "flex justify-center" : ""}`}>
-        <button
-          title={iconOnly ? label : ""}
-          onClick={onClick}
-          className={`glass-nav-item w-full flex items-center justify-between rounded-2xl text-[13.5px] transition-all duration-300 ease-out group ${iconOnly ? "justify-center px-0 py-2.5 w-11" : "px-3 py-2.5"
-            } ${active
+      <li
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`relative ${iconOnly ? "flex justify-center" : ""}`}
+      >
+        {iconOnly ? (
+          <button
+            title={label}
+            onClick={onClick}
+            className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out shrink-0 ${active
+              ? "text-white scale-105 shadow-md"
+              : `glass-icon-chip ${c.iconText} hover:scale-110 hover:-rotate-3`
+              }`}
+            style={
+              active
+                ? {
+                  background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
+                  boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
+                }
+                : undefined
+            }
+          >
+            {active && (
+              <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/50 to-transparent" />
+            )}
+            <span className="text-[17px]">{icon}</span>
+          </button>
+        ) : (
+          <button
+            onClick={onClick}
+            className={`glass-nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-[13.5px] transition-all duration-300 ease-out group ${active
               ? `glass-nav-item-active font-semibold ${c.activeText}`
               : `text-gray-600 dark:text-gray-400 hover:text-gray-800 ${c.hoverText}`
-            }`}
-        >
-          <span className="flex items-center gap-3">
-            <span
-              className={`relative flex items-center justify-center w-8 h-8 shrink-0 rounded-xl text-[14px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
-                ? "icon-chip-active text-white scale-105"
-                : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
-                }`}
-              style={
-                active
-                  ? {
-                    background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
-                    boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
-                  }
-                  : undefined
-              }
-            >
-              {active && (
-                <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-xl bg-gradient-to-b from-white/50 to-transparent" />
-              )}
-              <span className="relative">{icon}</span>
+              }`}
+          >
+            <span className="flex items-center gap-3">
+              <span
+                className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
+                  ? "icon-chip-active text-white scale-105"
+                  : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
+                  }`}
+                style={
+                  active
+                    ? {
+                      background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
+                      boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
+                    }
+                    : undefined
+                }
+              >
+                {active && (
+                  <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-xl bg-gradient-to-b from-white/50 to-transparent" />
+                )}
+                <span className="relative">{icon}</span>
+              </span>
+              <span>{label}</span>
             </span>
-            {!iconOnly && <span>{label}</span>}
-          </span>
-          {!iconOnly && (
             <FaChevronDown
               size={11}
               className={`text-gray-400 transition-transform duration-300 ease-out ${c.hoverText} ${open ? "rotate-180" : ""
                 }`}
             />
-          )}
-        </button>
+          </button>
+        )}
 
-        {/* Inline accordion (expanded sidebar) — smooth height/opacity reveal */}
-        <ul
-          className={`flex flex-col gap-0.5 ml-[18px] pl-4 border-l border-white/50 dark:border-white/10 overflow-hidden transition-all duration-300 ease-out ${open && !iconOnly ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
-            }`}
-        >
-          {items}
-        </ul>
+        {/* Inline accordion (expanded sidebar) */}
+        {!iconOnly && (
+          <ul
+            className={`flex flex-col gap-0.5 ml-[18px] pl-3 border-l-2 border-slate-200/60 dark:border-white/10 overflow-hidden transition-all duration-300 ease-out ${open ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
+              }`}
+          >
+            {items}
+          </ul>
+        )}
 
-        {/* Hover flyout (icon-only sidebar) — keeps submenu functionality when collapsed */}
-        {iconOnly && (
-          <div className="glass-flyout invisible opacity-0 translate-x-1 scale-95 group-hover/nav:visible group-hover/nav:opacity-100 group-hover/nav:translate-x-0 group-hover/nav:scale-100 absolute left-full top-0 ml-2 min-w-[200px] rounded-2xl py-2 px-2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-[1100]">
+        {/* Hover flyout (collapsed icon-only sidebar) */}
+        {iconOnly && isHovered && (
+          <div
+            className="glass-flyout absolute left-full top-0 ml-3 min-w-[220px] rounded-2xl p-3 shadow-2xl transition-all duration-200 ease-out z-[9999]"
+            style={{
+              background: "rgba(255, 255, 255, 0.96)",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+              border: "1px solid rgba(255, 255, 255, 0.8)",
+              boxShadow: "0 20px 45px -10px rgba(31, 38, 135, 0.25), 0 0 0 1px rgba(0,0,0,0.06)"
+            }}
+          >
             <div
-              className={`px-2 pb-1.5 mb-1 text-[12px] font-semibold border-b border-white/50 dark:border-white/10 flex items-center gap-1 ${c.activeText}`}
+              className={`px-3 pb-2 mb-2 text-[12px] font-bold border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between ${c.activeText}`}
             >
-              {label}
-              <FaChevronRight size={8} />
+              <span>{label}</span>
+              <FaChevronRight size={9} />
             </div>
-            <ul className="flex flex-col gap-0.5">{items}</ul>
+            <ul className="flex flex-col gap-1.5">{items}</ul>
           </div>
         )}
       </li>
@@ -406,56 +470,57 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
   return (
     <>
-      {/* Mobile backdrop — tap to close */}
+      {/* Mobile backdrop */}
       {mobile && !collapsed && (
         <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[1040] lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[1040] lg:hidden transition-opacity duration-300"
           onClick={() => setCollapsed && setCollapsed(true)}
         />
       )}
 
       <div
-        className="glass-sidebar flex flex-col overflow-visible"
+        className={`glass-sidebar flex flex-col ${iconOnly ? "overflow-visible" : ""}`}
         style={{
-          width: mobile ? (collapsed ? "0px" : "268px") : collapsed ? "84px" : "268px",
+          width: mobile ? "260px" : collapsed ? "76px" : "260px",
           height: "100vh",
           position: "fixed",
           left: 0,
           top: 0,
-          transition: "width .3s cubic-bezier(0.4, 0, 0.2, 1), background-color .2s ease",
+          transform: mobile && collapsed ? "translateX(-100%)" : "translateX(0)",
+          transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           zIndex: 1050,
         }}
       >
-        {/* specular highlight sweeping down the glass panel */}
+        {/* Specular highlight sweeping down panel */}
         <div className="pointer-events-none absolute inset-0 glass-sidebar-specular" />
 
-        <div className="relative flex flex-col h-full overflow-hidden">
+        <div className={`relative flex flex-col h-full ${iconOnly ? "overflow-visible" : ""}`}>
           {/* Logo */}
           <div
-            className={`flex items-center shrink-0 ${iconOnly ? "justify-center" : "px-5"
+            className={`flex items-center justify-center shrink-0 ${iconOnly ? "px-0" : "px-5"
               } h-[76px] border-b border-white/40 dark:border-white/10`}
           >
             {iconOnly ? (
               <img
                 src={company?.logo || "/m-logo.jpg"}
                 alt="logo"
-                width={38}
-                height={38}
-                className="rounded-full object-cover transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.08)]"
+                className="w-11 h-11 rounded-full object-cover shadow-sm mx-auto transition-transform hover:scale-105"
               />
             ) : (
               <img
                 src={company?.logo || "/m-logo.jpg"}
                 alt="logo"
-                className="max-h-20 w-auto object-contain"
+                className="max-h-16 w-auto object-contain"
               />
-
             )}
           </div>
 
-          {/* Nav */}
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-visible px-3 py-4 sidebar-scroll">
-            <ul className="flex flex-col gap-1">
+          {/* Nav List */}
+          <div
+            className={`flex-1 min-h-0 py-4 sidebar-scroll ${iconOnly ? "px-0 overflow-visible" : "px-3 overflow-y-auto"
+              }`}
+          >
+            <ul className={`flex flex-col ${iconOnly ? "items-center gap-2" : "gap-1.5"}`}>
               <PermissionGate permission="dashboard.view">
                 <li>
                   <NavLink
@@ -781,7 +846,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               <PermissionGate permission="financialyear.view">
                 <Group
                   icon={<FaCalendarAlt />}
-                  label="Financial Year"
+                  label="F.Year"
                   open={fyOpen}
                   onClick={() => setFyOpen(!fyOpen)}
                   active={pathname.startsWith("/dashboard/financial-year")}
@@ -884,21 +949,20 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           </div>
 
           {/* Profile footer */}
-          <div
-            className={`border-t border-white/40 dark:border-white/10 p-3 shrink-0 transition-all duration-300 ${iconOnly ? "flex justify-center" : ""
-              }`}
-          >
-            <div
-              className={`glass-profile-chip flex items-center gap-3 rounded-2xl px-2 py-2 transition-all duration-300 ${iconOnly ? "!bg-transparent !shadow-none !border-transparent px-0" : ""
-                }`}
-            >
-              <span className="flex items-center justify-center w-9 h-9 rounded-full bg-[#343872] text-white flex-shrink-0 shadow-[0_4px_12px_-2px_rgba(52,56,114,0.4)]">
-                <FaUserCircle size={18} />
+          <div className="border-t border-white/40 dark:border-white/10 p-3 shrink-0 flex items-center justify-center">
+            {iconOnly ? (
+              <span
+                className="flex items-center justify-center w-11 h-11 rounded-full bg-[#343872] text-white flex-shrink-0 shadow-md mx-auto"
+                title={user?.name || "User"}
+              >
+                <FaUserCircle size={22} />
               </span>
-              {!iconOnly && (
+            ) : (
+              <div className="glass-profile-chip flex items-center gap-3 rounded-2xl px-3 py-2 w-full">
+                <span className="flex items-center justify-center w-9 h-9 rounded-full bg-[#343872] text-white flex-shrink-0 shadow-[0_4px_12px_-2px_rgba(52,56,114,0.4)]">
+                  <FaUserCircle size={18} />
+                </span>
                 <div className="min-w-0">
-
-
                   <div className="text-[13px] font-semibold text-[#343872] dark:text-white truncate">
                     {user?.name || "User"}
                   </div>
@@ -907,11 +971,11 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     {user?.roleId?.roleName || "Logged in"}
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
-      </div >
+      </div>
 
       <style>{`
         .glass-sidebar {
@@ -992,8 +1056,19 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           border-color: rgba(255,255,255,0.08);
         }
 
+        .sidebar-scroll {
+          scrollbar-width: thin;
+        }
+        .glass-sidebar:has(.px-2) .sidebar-scroll {
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        .glass-sidebar:has(.px-2) .sidebar-scroll::-webkit-scrollbar {
+          display: none !important;
+          width: 0px !important;
+        }
         .sidebar-scroll::-webkit-scrollbar {
-          width: 5px;
+          width: 4px;
         }
         .sidebar-scroll::-webkit-scrollbar-thumb {
           background-color: rgba(52, 56, 114, 0.18);

@@ -221,7 +221,7 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     await VfpConfig.findOne({ key: "vfp_sync_config" }).lean()
   ) as any;
   if (config) {
-    if (config.dataDir) dataDir = config.dataDir;
+    if (config.dataDir !== undefined) dataDir = config.dataDir;
     if (config.sourceDir) sourceDir = config.sourceDir;
     if (config.enabledFiles) enabledFiles = config.enabledFiles;
     if (config.autoSync !== undefined) autoSync = config.autoSync;
