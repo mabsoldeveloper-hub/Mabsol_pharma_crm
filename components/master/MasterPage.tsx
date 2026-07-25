@@ -21,6 +21,8 @@ import {
     FaWarehouse,
     FaCalculator,
     FaCubes,
+    FaBullseye,
+    FaGift,
 } from "react-icons/fa";
 
 /* ─────────────────────────── colour tokens ─────────────────────────── */
@@ -137,6 +139,13 @@ const accountMasters: MasterItem[] = [
         icon: <FaSitemap size={16} />,
         link: "/dashboard/master/sales-hierarchy",
         color: "violet",
+    },
+    {
+        title: "Target & Gift Master",
+        desc: "MR & Customer sales targets, achievements & gift schemes",
+        icon: <FaBullseye size={16} />,
+        link: "/dashboard/master/targets",
+        color: "rose",
     },
     // {
     //     title: "MR Daily Reporting (DCR)",

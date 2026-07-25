@@ -30,6 +30,9 @@ import {
   FaWarehouse,
   FaUserCircle,
   FaLayerGroup,
+  FaBullseye,
+  FaGift,
+  FaTrophy,
 } from "react-icons/fa";
 
 
@@ -462,6 +465,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     color="indigo"
                   />
                 </li>
+                <li>
+                  <NavLink
+                    href="/dashboard/targets"
+                    icon={<FaBullseye />}
+                    label="Targets & Achievements"
+                    active={pathname === "/dashboard/targets" || pathname.startsWith("/dashboard/targets")}
+                    color="rose"
+                  />
+                </li>
               </PermissionGate>
               {/* ################ master Start here ##################### */}
               <PermissionGate permission="master.view">
@@ -538,6 +550,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           icon={<FaListUl />}
                           label="Division Master"
                           active={pathname.startsWith("/dashboard/master/division-master")}
+                          color="cyan"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/targets"
+                          icon={<FaBullseye />}
+                          label="Target & Gift Master"
+                          active={pathname.startsWith("/dashboard/master/targets")}
                           color="cyan"
                         />
                       </li>
