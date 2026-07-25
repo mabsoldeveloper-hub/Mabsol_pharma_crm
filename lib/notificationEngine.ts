@@ -203,20 +203,6 @@ export async function runNotificationAlertScan(): Promise<ScanAlertsResult> {
     } catch (stockScanErr) {
       console.error("Stock scan notification error:", stockScanErr);
     }
-
-    // 4. Ensure System Status Notification exists
-    const notifCount = await Notification.countDocuments();
-    if (notifCount === 0) {
-      await Notification.create({
-        title: "🚀 Pharma CRM Analytics & Target Engine Active",
-        message: "Live Target vs Actual performance calculations, WhatsApp integration & MARG sync are active.",
-        type: "GENERAL",
-        category: "SYSTEM",
-        severity: "info",
-        targetRole: "All",
-        actionUrl: "/dashboard/reports/target-vs-actual",
-      });
-    }
   } catch (err: any) {
     result.errors.push(`Notification scan error: ${err.message}`);
   }

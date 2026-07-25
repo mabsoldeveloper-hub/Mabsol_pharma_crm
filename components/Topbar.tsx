@@ -103,18 +103,19 @@ export default function Topbar({
 
   const deleteNotification = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!id) return;
+    setLiveNotifications((prev) => prev.filter((n) => n._id !== id));
     try {
       await fetch(`/api/notifications?id=${id}`, { method: "DELETE" });
-      setLiveNotifications((prev) => prev.filter((n) => n._id !== id));
     } catch (err) {
       console.error("Failed to delete notification", err);
     }
   };
 
   const clearAllNotifications = async () => {
+    setLiveNotifications([]);
     try {
       await fetch("/api/notifications?clearAll=true", { method: "DELETE" });
-      setLiveNotifications([]);
     } catch (err) {
       console.error("Failed to clear notifications", err);
     }
@@ -297,10 +298,10 @@ export default function Topbar({
                         {/* Individual Remove Button */}
                         <button
                           onClick={(e) => deleteNotification(n._id, e)}
-                          title="Remove notification"
-                          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-1"
+                          title="Delete notification"
+                          className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 transition-all shrink-0 ml-1.5 shadow-2xs flex items-center justify-center"
                         >
-                          <Trash size={12} />
+                          <Trash size={13} />
                         </button>
                       </div>
                     );
