@@ -52,7 +52,7 @@ export default function MrCustomerAssignmentPage() {
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
   const [selectedMrId, setSelectedMrId] = useState<string>("");
-  const [selectedCustomerCodes, setSelectedCustomerCodes] = useState<Set<string>>(new Set());
+  const [selectedCustomerKeys, setSelectedCustomerKeys] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,7 +94,7 @@ export default function MrCustomerAssignmentPage() {
           const city = (c.CITY || "").toString().trim();
           const area = (c.AREA || "").toString().trim();
           return {
-            uniqueId: `${code || "nocode"}_${index}`,
+            uniqueId: `${code || "nocode"}_${name}_${index}`,
             code,
             name,
             city,
@@ -123,10 +123,10 @@ export default function MrCustomerAssignmentPage() {
     }
   }
 
-  // When selected MR changes, load their current customer assignments into checkbox set
+  // When selected MR changes, match existing MR assignments by uniqueId
   useEffect(() => {
-    if (!selectedMrId) {
-      setSelectedCustomerCodes(new Set());
+    if (!selectedMrId || customers.length === 0) {
+      setSelectedCustomerKeys(new Set());
       return;
     }
 
@@ -135,9 +135,20 @@ export default function MrCustomerAssignmentPage() {
       return uid === selectedMrId;
     });
 
-    const activeCodes = new Set(mrAssignments.map((a) => a.customerCode.toLowerCase()));
-    setSelectedCustomerCodes(activeCodes);
-  }, [selectedMrId, assignments]);
+    const activeCodes = new Set(mrAssignments.map((a) => (a.customerCode || "").trim().toLowerCase()));
+    const activeNames = new Set(mrAssignments.map((a) => (a.customerName || "").trim().toLowerCase()));
+
+    const activeKeys = new Set<string>();
+    customers.forEach((c) => {
+      const codeKey = c.code ? c.code.toLowerCase() : "";
+      const nameKey = c.name ? c.name.toLowerCase() : "";
+      if ((codeKey && activeCodes.has(codeKey)) || (nameKey && activeNames.has(nameKey))) {
+        activeKeys.add(c.uniqueId);
+      }
+    });
+
+    setSelectedCustomerKeys(activeKeys);
+  }, [selectedMrId, assignments, customers]);
 
   const filteredCustomerList = useMemo(() => {
     if (!customerSearch) return customers;
@@ -168,34 +179,33 @@ export default function MrCustomerAssignmentPage() {
     });
   }, [assignments, overviewSearch, mrFilter]);
 
-  const toggleSelectCustomer = (code: string) => {
-    const key = code.toLowerCase();
-    setSelectedCustomerCodes((prev) => {
+  const toggleSelectCustomer = (uniqueId: string) => {
+    setSelectedCustomerKeys((prev) => {
       const updated = new Set(prev);
-      if (updated.has(key)) {
-        updated.delete(key);
+      if (updated.has(uniqueId)) {
+        updated.delete(uniqueId);
       } else {
-        updated.add(key);
+        updated.add(uniqueId);
       }
       return updated;
     });
   };
 
   const handleSelectAllVisible = () => {
-    setSelectedCustomerCodes((prev) => {
+    setSelectedCustomerKeys((prev) => {
       const updated = new Set(prev);
       filteredCustomerList.forEach((c) => {
-        if (c.code) updated.add(c.code.toLowerCase());
+        updated.add(c.uniqueId);
       });
       return updated;
     });
   };
 
   const handleDeselectAllVisible = () => {
-    setSelectedCustomerCodes((prev) => {
+    setSelectedCustomerKeys((prev) => {
       const updated = new Set(prev);
       filteredCustomerList.forEach((c) => {
-        if (c.code) updated.delete(c.code.toLowerCase());
+        updated.delete(c.uniqueId);
       });
       return updated;
     });
@@ -212,9 +222,9 @@ export default function MrCustomerAssignmentPage() {
     setSuccess(null);
 
     const assignedCustomers = customers
-      .filter((c) => c.code && selectedCustomerCodes.has(c.code.toLowerCase()))
+      .filter((c) => selectedCustomerKeys.has(c.uniqueId))
       .map((c) => ({
-        customerCode: c.code,
+        customerCode: c.code || c.name,
         customerName: c.name,
         city: c.city,
         area: c.area,
@@ -259,10 +269,6 @@ export default function MrCustomerAssignmentPage() {
       setError("Failed to delete record.");
     }
   };
-
-  const selectedMrObject = useMemo(() => {
-    return users.find((u) => u._id === selectedMrId);
-  }, [users, selectedMrId]);
 
   return (
     <div className="space-y-6 p-4">
@@ -318,7 +324,7 @@ export default function MrCustomerAssignmentPage() {
               disabled={saving}
               className="px-5 py-2.5 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 shadow-md flex items-center gap-2 transition-all hover:scale-105"
             >
-              <FaSave /> {saving ? "Saving..." : `Save ${selectedCustomerCodes.size} Customers`}
+              <FaSave /> {saving ? "Saving..." : `Save ${selectedCustomerKeys.size} Customers`}
             </button>
           )}
         </div>
@@ -357,7 +363,7 @@ export default function MrCustomerAssignmentPage() {
 
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl">
-                  Assigned: <span className="text-teal-700">{selectedCustomerCodes.size}</span>
+                  Assigned: <span className="text-teal-700">{selectedCustomerKeys.size}</span>
                 </span>
                 <button
                   type="button"
@@ -382,11 +388,11 @@ export default function MrCustomerAssignmentPage() {
                 <div className="p-8 text-center text-xs font-semibold text-slate-500">No customers found.</div>
               ) : (
                 filteredCustomerList.map((c) => {
-                  const isChecked = c.code ? selectedCustomerCodes.has(c.code.toLowerCase()) : false;
+                  const isChecked = selectedCustomerKeys.has(c.uniqueId);
                   return (
                     <div
                       key={c.uniqueId}
-                      onClick={() => c.code && toggleSelectCustomer(c.code)}
+                      onClick={() => toggleSelectCustomer(c.uniqueId)}
                       className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isChecked ? "bg-teal-50/80 border-teal-300 text-teal-950 font-bold" : "bg-white border-slate-200/80 text-slate-700 hover:bg-slate-100/60"}`}
                     >
                       <div className="flex items-center gap-3">

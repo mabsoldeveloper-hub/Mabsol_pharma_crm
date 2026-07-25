@@ -109,6 +109,17 @@ export async function GET(req: NextRequest) {
           : item.mrUserId?._id?.toString() || "";
         const itemMrNameStr = (item.mrName || "").trim().toLowerCase();
 
+        // Check if target is explicitly assigned to another MR
+        const isExplicitlyAssignedToOtherMr =
+          (itemMrId && itemMrId !== currentUserIdStr) ||
+          (itemMrNameStr &&
+            !itemMrNameStr.includes(currentUserNameStr) &&
+            (!currentEmpCodeStr || !itemMrNameStr.includes(currentEmpCodeStr)));
+
+        if (isExplicitlyAssignedToOtherMr) {
+          return false;
+        }
+
         // 1. Direct MR assignment match on target
         if (itemMrId && itemMrId === currentUserIdStr) return true;
         if (currentUserNameStr && itemMrNameStr && itemMrNameStr.includes(currentUserNameStr)) return true;
@@ -119,7 +130,7 @@ export async function GET(req: NextRequest) {
           return false;
         }
 
-        // 3. If Customer target, check if customer belongs to MR's assigned territory / DSM / direct customer list
+        // 3. If Customer target with no explicit MR assignment, check if customer belongs to this MR's assigned customer list
         if (item.targetType === "Customer") {
           const cCode = (item.customerCode || "").trim().toLowerCase();
           const cName = (item.customerName || "").trim().toLowerCase();

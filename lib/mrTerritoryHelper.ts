@@ -36,10 +36,12 @@ export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestrictio
         const user = await getCurrentUser();
         if (!user) return emptyUnrestricted;
 
-        const roleName = String(user.roleId?.roleName || "").trim().toLowerCase();
+        const roleName = String(user.roleId?.roleName || user.role || "").trim().toLowerCase();
 
-        // Admin role users get FULL access to all data
-        if (roleName.includes("admin")) return emptyUnrestricted;
+        // Admin / Super / Manager users get FULL access to all data
+        if (roleName.includes("admin") || roleName.includes("super") || roleName.includes("manager") || user.isAdmin === true) {
+            return emptyUnrestricted;
+        }
 
         // Fetch active territories and active direct customer assignments
         const [territories, directCustomerAssignments] = await Promise.all([
@@ -51,7 +53,10 @@ export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestrictio
         const hasDirectAssignments = directCustomerAssignments && directCustomerAssignments.length > 0;
 
         if (!hasTerritories && !hasDirectAssignments) {
-            return emptyUnrestricted;
+            return {
+                ...emptyUnrestricted,
+                isMrRestricted: true, // Restricted to empty set if no territory/customer assigned yet
+            };
         }
 
         const allowedCompanyCodes = Array.from(
