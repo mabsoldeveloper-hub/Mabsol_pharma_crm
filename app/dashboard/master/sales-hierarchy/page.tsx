@@ -37,7 +37,7 @@ interface HierarchyItem {
   userId: string | { _id: string; name: string; email: string; employeeCode?: string };
   userName: string;
   employeeCode: string;
-  roleLevel: "VP" | "NSM" | "ZSM" | "ASM" | "MR";
+  roleLevel: "RSM" | "MR" | "ASM" | "VP" | "NSM" | "ZSM";
   state: string;
   zone: string;
   region: string;
@@ -50,11 +50,13 @@ interface HierarchyItem {
 }
 
 const roleBadges: Record<string, { label: string; bg: string; icon: any }> = {
-  VP: { label: "VP Sales", bg: "bg-purple-500/15 text-purple-700 border-purple-300", icon: FaCrown },
-  NSM: { label: "National Sales Mgr (NSM)", bg: "bg-indigo-500/15 text-indigo-700 border-indigo-300", icon: FaUserShield },
   ZSM: { label: "Zonal Sales Mgr (ZSM)", bg: "bg-blue-500/15 text-blue-700 border-blue-300", icon: FaUserCog },
-  ASM: { label: "Area Sales Mgr (ASM)", bg: "bg-teal-500/15 text-teal-700 border-teal-300", icon: FaUserTie },
+  RSM: { label: "Regional Sales Mgr (RSM)", bg: "bg-teal-500/15 text-teal-700 border-teal-300", icon: FaUserTie },
   MR: { label: "Sales Rep (M.R.)", bg: "bg-emerald-500/15 text-emerald-700 border-emerald-300", icon: FaUser },
+  // Legacy support for previously created records:
+  ASM: { label: "Area Sales Mgr (ASM)", bg: "bg-amber-500/15 text-amber-700 border-amber-300", icon: FaUserTie },
+  NSM: { label: "National Sales Mgr (NSM)", bg: "bg-indigo-500/15 text-indigo-700 border-indigo-300", icon: FaUserShield },
+  VP: { label: "VP Sales", bg: "bg-purple-500/15 text-purple-700 border-purple-300", icon: FaCrown },
 };
 
 export default function SalesHierarchyMasterPage() {
@@ -71,7 +73,7 @@ export default function SalesHierarchyMasterPage() {
 
   const [formData, setFormData] = useState({
     userId: "",
-    roleLevel: "MR" as "VP" | "NSM" | "ZSM" | "ASM" | "MR",
+    roleLevel: "MR" as "RSM" | "MR" | "ASM" | "VP" | "NSM" | "ZSM",
     state: "",
     zone: "",
     region: "",
@@ -229,12 +231,12 @@ export default function SalesHierarchyMasterPage() {
                 Sales Operations Hierarchy
               </span>
               <span className="px-2.5 py-0.5 text-xs font-bold rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
-                VP → NSM → ZSM → ASM → MR → Customer
+                ZSM → RSM → MR → Customer
               </span>
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight">Sales Hierarchy Master Hub</h1>
             <p className="text-xs text-white/80 mt-1">
-              Maintain multi-tier reporting chain from Vice President Sales down to Medical Representatives and Customers.
+              Maintain reporting hierarchy from Zonal Sales Managers (ZSM) and Regional Sales Managers (RSM) down to Medical Representatives (MR) and Customers.
             </p>
           </div>
           {viewState === "list" && (
@@ -283,11 +285,9 @@ export default function SalesHierarchyMasterPage() {
                 onChange={(e) => setRoleFilter(e.target.value)}
                 className="px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 font-semibold focus:outline-none"
               >
-                <option value="">All Roles (VP / NSM / ZSM / ASM / MR)</option>
-                <option value="VP">VP Sales</option>
-                <option value="NSM">NSM (National)</option>
-                <option value="ZSM">ZSM (Zonal)</option>
-                <option value="ASM">ASM (Area)</option>
+                <option value="">All Roles (ZSM / RSM / MR)</option>
+                <option value="ZSM">ZSM (Zonal Sales Manager)</option>
+                <option value="RSM">RSM (Regional Sales Manager)</option>
                 <option value="MR">M.R. / S.R.</option>
               </select>
             </div>
@@ -420,10 +420,8 @@ export default function SalesHierarchyMasterPage() {
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   required
                 >
-                  <option value="VP">VP Sales (National Head)</option>
-                  <option value="NSM">NSM (National Sales Manager)</option>
                   <option value="ZSM">ZSM (Zonal Sales Manager)</option>
-                  <option value="ASM">ASM (Area Sales Manager)</option>
+                  <option value="RSM">RSM (Regional Sales Manager)</option>
                   <option value="MR">M.R. / S.R. (Sales Rep)</option>
                 </select>
               </div>

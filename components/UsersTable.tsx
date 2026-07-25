@@ -156,13 +156,15 @@ export default function UsersTable({ users }: { users: any[] }) {
                                         {h ? (
                                             <div className="flex flex-col gap-0.5">
                                                 <span className={`inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                    h.roleLevel === "RSM" ? "bg-teal-100 text-teal-800 border border-teal-200" :
                                                     h.roleLevel === "VP" ? "bg-purple-100 text-purple-800 border border-purple-200" :
                                                     h.roleLevel === "NSM" ? "bg-indigo-100 text-indigo-800 border border-indigo-200" :
                                                     h.roleLevel === "ZSM" ? "bg-blue-100 text-blue-800 border border-blue-200" :
-                                                    h.roleLevel === "ASM" ? "bg-teal-100 text-teal-800 border border-teal-200" :
+                                                    h.roleLevel === "ASM" ? "bg-amber-100 text-amber-800 border border-amber-200" :
                                                     "bg-emerald-100 text-emerald-800 border border-emerald-200"
                                                 }`}>
-                                                    {h.roleLevel === "VP" ? "VP Sales" :
+                                                    {h.roleLevel === "RSM" ? "RSM (Regional)" :
+                                                     h.roleLevel === "VP" ? "VP Sales" :
                                                      h.roleLevel === "NSM" ? "NSM (National)" :
                                                      h.roleLevel === "ZSM" ? "ZSM (Zonal)" :
                                                      h.roleLevel === "ASM" ? "ASM (Area)" : "M.R. / S.R."}

@@ -133,7 +133,7 @@ const accountMasters: MasterItem[] = [
     },
     {
         title: "Sales Hierarchy Master",
-        desc: "VP → NSM → ZSM → ASM → MR reporting chain",
+        desc: "ZSM → RSM → MR reporting chain",
         icon: <FaSitemap size={16} />,
         link: "/dashboard/master/sales-hierarchy",
         color: "violet",

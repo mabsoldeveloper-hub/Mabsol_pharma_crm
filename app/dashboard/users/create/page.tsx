@@ -387,7 +387,7 @@ export default function CreateUserPage() {
                 🌲 Sales Hierarchy Setup
               </span>
               <span className="text-xs text-gray-400">
-                (VP Sales → NSM → ZSM → ASM → M.R. / S.R.)
+                (ZSM → RSM → M.R. / S.R.)
               </span>
             </div>
 
@@ -400,10 +400,8 @@ export default function CreateUserPage() {
                   onChange={(e) => setForm({ ...form, salesHierarchyRole: e.target.value })}
                 >
                   <option value="">None / Not Assigned</option>
-                  <option value="VP">VP Sales (National Head)</option>
-                  <option value="NSM">NSM (National Sales Manager)</option>
                   <option value="ZSM">ZSM (Zonal Sales Manager)</option>
-                  <option value="ASM">ASM (Area Sales Manager)</option>
+                  <option value="RSM">RSM (Regional Sales Manager)</option>
                   <option value="MR">M.R. / S.R. (Sales Representative)</option>
                 </select>
               </div>

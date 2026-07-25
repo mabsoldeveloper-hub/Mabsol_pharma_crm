@@ -22,7 +22,7 @@ const SalesHierarchySchema = new Schema(
     // Hierarchy Role Level
     roleLevel: {
       type: String,
-      enum: ["VP", "NSM", "ZSM", "ASM", "MR"],
+      enum: ["RSM", "MR", "ASM", "VP", "NSM", "ZSM"],
       required: true,
     },
 

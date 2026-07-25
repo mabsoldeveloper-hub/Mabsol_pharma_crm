@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "User and Role Level (VP/NSM/ZSM/ASM/MR) are required.",
+          message: "User and Role Level (ZSM/RSM/MR) are required.",
         },
         { status: 400 }
       );
