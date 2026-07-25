@@ -134,6 +134,13 @@ const accountMasters: MasterItem[] = [
         color: "teal",
     },
     {
+        title: "MR Customer Master",
+        desc: "Directly assign specific customers & parties to MRs",
+        icon: <FaUserCheck size={16} />,
+        link: "/dashboard/master/mr-customer",
+        color: "emerald",
+    },
+    {
         title: "Sales Hierarchy Master",
         desc: "ZSM → RSM → MR reporting chain",
         icon: <FaSitemap size={16} />,

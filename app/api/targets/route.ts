@@ -4,6 +4,7 @@ import TargetMaster from "@/models/TargetMaster";
 import User from "@/models/User";
 import SalesMdis from "@/models/SalesMdis";
 import Customer from "@/models/Customer";
+import MrCustomerAssignment from "@/models/MrCustomerAssignment";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     let allowedRecords = records;
 
-    // Apply MR Territory Restriction if user is an MR / non-Admin
+    // Apply MR Territory & Direct Assignment Restriction if user is an MR / non-Admin
     if (restriction.isMrRestricted && currentUser) {
       const currentUserIdStr = currentUser._id?.toString() || "";
       const currentUserNameStr = (currentUser.name || "").trim().toLowerCase();
@@ -64,6 +65,17 @@ export async function GET(req: NextRequest) {
         (restriction.allowedOrdnos || []).map((c) => c.trim().toLowerCase())
       );
       const allowedCustomerNamesSet = new Set<string>();
+
+      // Fetch direct MR Customer Assignments
+      const directMrAssignments = await MrCustomerAssignment.find(
+        { userId: currentUser._id, status: "Active" },
+        { customerCode: 1, customerName: 1 }
+      ).lean();
+
+      directMrAssignments.forEach((a: any) => {
+        if (a.customerCode) allowedCustomerCodesSet.add(String(a.customerCode).trim().toLowerCase());
+        if (a.customerName) allowedCustomerNamesSet.add(String(a.customerName).trim().toLowerCase());
+      });
 
       // Query Customer collection for all customers assigned to MR's DSM or territory companies
       const mrCustomerConditions: any[] = [];
@@ -107,7 +119,7 @@ export async function GET(req: NextRequest) {
           return false;
         }
 
-        // 3. If Customer target, check if customer belongs to MR's assigned territory / DSM / customer list
+        // 3. If Customer target, check if customer belongs to MR's assigned territory / DSM / direct customer list
         if (item.targetType === "Customer") {
           const cCode = (item.customerCode || "").trim().toLowerCase();
           const cName = (item.customerName || "").trim().toLowerCase();

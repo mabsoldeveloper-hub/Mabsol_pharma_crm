@@ -33,6 +33,7 @@ import {
   FaBullseye,
   FaGift,
   FaTrophy,
+  FaUserCheck,
 } from "react-icons/fa";
 
 
@@ -559,6 +560,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           icon={<FaBullseye />}
                           label="Target & Gift Master"
                           active={pathname.startsWith("/dashboard/master/targets")}
+                          color="cyan"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/mr-customer"
+                          icon={<FaUserCheck />}
+                          label="MR Customer Master"
+                          active={pathname.startsWith("/dashboard/master/mr-customer")}
                           color="cyan"
                         />
                       </li>

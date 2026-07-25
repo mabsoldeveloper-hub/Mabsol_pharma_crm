@@ -1,4 +1,5 @@
 import MrTerritory from "@/models/MrTerritory";
+import MrCustomerAssignment from "@/models/MrCustomerAssignment";
 import Customer from "@/models/Customer";
 import SalesDis from "@/models/SalesDis";
 import SalesMdis from "@/models/SalesMdis";
@@ -16,8 +17,8 @@ export interface MrTerritoryRestriction {
 }
 
 /**
- * Resolves MR Territory restrictions for the currently logged-in user.
- * Handles VFP fixed-width whitespace padding gracefully with regex & trimmed set matching.
+ * Resolves MR Territory & Direct Customer restrictions for the currently logged-in user.
+ * Combines both VFP territory company mapping and direct MR Customer assignments.
  */
 export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestriction> {
     const emptyUnrestricted: MrTerritoryRestriction = {
@@ -40,16 +41,21 @@ export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestrictio
         // Admin role users get FULL access to all data
         if (roleName.includes("admin")) return emptyUnrestricted;
 
-        // Non-admin: check active territories
-        const territories = await MrTerritory.find(
-            { userId: user._id, status: "Active" },
-            { companyCode: 1 }
-        );
+        // Fetch active territories and active direct customer assignments
+        const [territories, directCustomerAssignments] = await Promise.all([
+            MrTerritory.find({ userId: user._id, status: "Active" }, { companyCode: 1 }),
+            MrCustomerAssignment.find({ userId: user._id, status: "Active" }, { customerCode: 1, customerName: 1 }),
+        ]);
 
-        if (!territories || territories.length === 0) return emptyUnrestricted;
+        const hasTerritories = territories && territories.length > 0;
+        const hasDirectAssignments = directCustomerAssignments && directCustomerAssignments.length > 0;
+
+        if (!hasTerritories && !hasDirectAssignments) {
+            return emptyUnrestricted;
+        }
 
         const allowedCompanyCodes = Array.from(
-            new Set(territories.map((t: any) => String(t.companyCode || "").trim()))
+            new Set((territories || []).map((t: any) => String(t.companyCode || "").trim()))
         ).filter(Boolean);
 
         const companyRegexes = allowedCompanyCodes.map(
@@ -67,22 +73,31 @@ export async function getMrTerritoryRestriction(): Promise<MrTerritoryRestrictio
             $in: [...allowedCompanyCodes, ...companyRegexes],
         };
 
-        const [disCodes, mdisCodes, directOrdnos] = await Promise.all([
-            SalesDis.distinct("CODEP", { COMPANY: companyMatchQuery }),
-            SalesMdis.distinct("CODEP", { COMPANY: companyMatchQuery }),
-            Customer.distinct("ORDNO", {
-                $or: [
-                    { COMPANY: companyMatchQuery },
-                    { GCODE: companyMatchQuery },
-                    { SCODE: companyMatchQuery },
-                    ...(dsmConditions.length > 0 ? dsmConditions : []),
-                ],
-            }),
-        ]);
+        const directCodes = (directCustomerAssignments || []).map((a: any) => String(a.customerCode || "").trim()).filter(Boolean);
+
+        let disCodes: any[] = [];
+        let mdisCodes: any[] = [];
+        let directOrdnos: any[] = [];
+
+        if (allowedCompanyCodes.length > 0) {
+            [disCodes, mdisCodes, directOrdnos] = await Promise.all([
+                SalesDis.distinct("CODEP", { COMPANY: companyMatchQuery }),
+                SalesMdis.distinct("CODEP", { COMPANY: companyMatchQuery }),
+                Customer.distinct("ORDNO", {
+                    $or: [
+                        { COMPANY: companyMatchQuery },
+                        { GCODE: companyMatchQuery },
+                        { SCODE: companyMatchQuery },
+                        ...(dsmConditions.length > 0 ? dsmConditions : []),
+                    ],
+                }),
+            ]);
+        }
 
         const allowedOrdnos = Array.from(
             new Set(
                 [
+                    ...directCodes,
                     ...disCodes.map((c: any) => String(c).trim()),
                     ...mdisCodes.map((c: any) => String(c).trim()),
                     ...directOrdnos.map((c: any) => String(c).trim()),
