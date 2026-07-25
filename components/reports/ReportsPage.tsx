@@ -8,11 +8,19 @@ import {
     FaFileInvoiceDollar,
     FaReceipt,
     FaArrowRight,
+    FaBullseye,
 } from "react-icons/fa";
 
 export default function ReportsPage() {
     // Har card ka apna alag color — KPICards jaisa pattern
     const reports = [
+        {
+            title: "Party vs MR Target Report",
+            desc: "Sales vs Collection targets (Monthly, Weekly, Day-Wise)",
+            icon: <FaBullseye size={16} />,
+            link: "/dashboard/reports/target-vs-actual",
+            color: "rose",
+        },
         {
             title: "Customer Report",
             desc: "Customer-wise sales & ledger summary",
@@ -55,6 +63,7 @@ export default function ReportsPage() {
         string,
         { iconText: string; glowFrom: string; ring: string }
     > = {
+        rose: { iconText: "text-rose-600", glowFrom: "from-rose-400/40", ring: "ring-rose-300/40" },
         indigo: { iconText: "text-indigo-600", glowFrom: "from-indigo-400/40", ring: "ring-indigo-300/40" },
         cyan: { iconText: "text-cyan-600", glowFrom: "from-cyan-400/40", ring: "ring-cyan-300/40" },
         emerald: { iconText: "text-emerald-600", glowFrom: "from-emerald-400/40", ring: "ring-emerald-300/40" },

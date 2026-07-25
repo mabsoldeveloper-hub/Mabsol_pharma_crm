@@ -51,10 +51,17 @@ const TargetMasterSchema = new Schema(
       trim: true,
     },
 
-    // Target Financial Amount
+    // Target Financial Amount (Sales Target)
     targetAmount: {
       type: Number,
       required: true,
+      min: 0,
+    },
+
+    // Target Collection Amount
+    collectionTargetAmount: {
+      type: Number,
+      default: 0,
       min: 0,
     },
 

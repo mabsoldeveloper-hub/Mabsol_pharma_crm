@@ -76,6 +76,7 @@ export async function PUT(
         customerName: body.customerName !== undefined ? body.customerName.trim() : existing.customerName,
         customerCode: body.customerCode !== undefined ? body.customerCode.trim() : existing.customerCode,
         targetAmount: body.targetAmount !== undefined ? Number(body.targetAmount) : existing.targetAmount,
+        collectionTargetAmount: body.collectionTargetAmount !== undefined ? Number(body.collectionTargetAmount) : (existing.collectionTargetAmount || 0),
         hasGiftScheme: body.hasGiftScheme !== undefined ? Boolean(body.hasGiftScheme) : existing.hasGiftScheme,
         giftSlabs: Array.isArray(body.giftSlabs) ? body.giftSlabs : existing.giftSlabs,
         notes: body.notes !== undefined ? body.notes.trim() : existing.notes,

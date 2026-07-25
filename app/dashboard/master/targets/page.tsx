@@ -54,6 +54,7 @@ interface TargetItem {
   customerName?: string;
   customerCode?: string;
   targetAmount: number;
+  collectionTargetAmount?: number;
   achievedAmount?: number;
   shortfall?: number;
   achievementPercent?: number;
@@ -94,6 +95,7 @@ export default function TargetMasterPage() {
     customerName: "",
     customerCode: "",
     targetAmount: 1000000,
+    collectionTargetAmount: 800000,
     hasGiftScheme: true,
     giftSlabs: [
       { minAchievementPercent: 100, giftName: "Smartwatch", giftDescription: "Premium Smartwatch / 5% Extra Cashback" },
@@ -209,6 +211,7 @@ export default function TargetMasterPage() {
       customerName: "",
       customerCode: "",
       targetAmount: 1000000,
+      collectionTargetAmount: 800000,
       hasGiftScheme: true,
       giftSlabs: [
         { minAchievementPercent: 100, giftName: "Smartwatch", giftDescription: "Premium Smartwatch or 5% Extra Cashback" },
@@ -236,6 +239,7 @@ export default function TargetMasterPage() {
       customerName: item.customerName || "",
       customerCode: item.customerCode || "",
       targetAmount: item.targetAmount || 0,
+      collectionTargetAmount: item.collectionTargetAmount || 0,
       hasGiftScheme: Boolean(item.hasGiftScheme),
       giftSlabs: Array.isArray(item.giftSlabs) && item.giftSlabs.length > 0 ? item.giftSlabs : [],
       notes: item.notes || "",
@@ -723,18 +727,32 @@ export default function TargetMasterPage() {
               </div>
             )}
 
-            {/* Target Amount */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Target Financial Amount (₹) *</label>
-              <input
-                type="number"
-                value={formData.targetAmount}
-                onChange={(e) => setFormData({ ...formData, targetAmount: Number(e.target.value) || 0 })}
-                placeholder="1000000"
-                min={0}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 font-bold"
-                required
-              />
+            {/* Target Financial Amounts: Sales & Collection */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Sales Target Amount (₹) *</label>
+                <input
+                  type="number"
+                  value={formData.targetAmount}
+                  onChange={(e) => setFormData({ ...formData, targetAmount: Number(e.target.value) || 0 })}
+                  placeholder="1000000"
+                  min={0}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 font-bold text-slate-800"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Collection Target Amount (₹)</label>
+                <input
+                  type="number"
+                  value={formData.collectionTargetAmount}
+                  onChange={(e) => setFormData({ ...formData, collectionTargetAmount: Number(e.target.value) || 0 })}
+                  placeholder="800000"
+                  min={0}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold text-indigo-900"
+                />
+              </div>
             </div>
 
             {/* Optional Gift / Reward Scheme Toggle */}

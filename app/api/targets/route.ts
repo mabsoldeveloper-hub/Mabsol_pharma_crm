@@ -275,15 +275,16 @@ export async function POST(req: NextRequest) {
       customerName,
       customerCode,
       targetAmount,
+      collectionTargetAmount,
       hasGiftScheme,
       giftSlabs,
       notes,
       status,
     } = body;
 
-    if (!targetType || !periodMonth || !targetAmount) {
+    if (!targetType || !periodMonth || (targetAmount === undefined && collectionTargetAmount === undefined)) {
       return NextResponse.json(
-        { success: false, message: "Target Type, Period Month, and Target Amount are required." },
+        { success: false, message: "Target Type, Period Month, and Target Amount or Collection Target are required." },
         { status: 400 }
       );
     }
@@ -305,6 +306,7 @@ export async function POST(req: NextRequest) {
       customerName: (customerName || "").trim(),
       customerCode: (customerCode || "").trim(),
       targetAmount: Number(targetAmount) || 0,
+      collectionTargetAmount: Number(collectionTargetAmount) || 0,
       hasGiftScheme: Boolean(hasGiftScheme),
       giftSlabs: Array.isArray(giftSlabs) ? giftSlabs : [],
       notes: (notes || "").trim(),

@@ -213,14 +213,22 @@ export default function GeneralTargetsPage() {
             </p>
           </div>
 
-          {isAdmin && (
+          <div className="flex flex-wrap gap-2">
             <Link
-              href="/dashboard/master/targets"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-rose-950 font-bold text-xs shadow-lg hover:bg-rose-50 transition-all hover:scale-105"
+              href="/dashboard/reports/target-vs-actual"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-bold text-xs shadow-lg hover:brightness-110 transition-all hover:scale-105"
             >
-              <FaCog /> Target Master Setup
+              <FaChartLine /> Party vs MR Target Report
             </Link>
-          )}
+            {isAdmin && (
+              <Link
+                href="/dashboard/master/targets"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-rose-950 font-bold text-xs shadow-lg hover:bg-rose-50 transition-all hover:scale-105"
+              >
+                <FaCog /> Target Master Setup
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
