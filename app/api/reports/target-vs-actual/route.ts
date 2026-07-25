@@ -46,6 +46,12 @@ export async function GET(req: NextRequest) {
       targetFilter.targetType = targetType;
     }
 
+    // Fetch available target months for auto-fallback
+    const availableMonths = await TargetMaster.distinct("periodMonth");
+    if (availableMonths && availableMonths.length > 0) {
+      availableMonths.sort((a: string, b: string) => b.localeCompare(a));
+    }
+
     const rawTargets = await TargetMaster.find(targetFilter)
       .populate("mrUserId", "name email employeeCode mobile designation")
       .sort({ createdAt: -1 })
@@ -146,234 +152,277 @@ export async function GET(req: NextRequest) {
       },
     ].filter((w) => w.startDay <= totalDaysInMonth);
 
-    // Build processing function per target item
-    const processedRows = await Promise.all(
-      allowedTargets.map(async (item: any) => {
-        const salesTarget = item.targetAmount || 0;
-        const collectionTarget = item.collectionTargetAmount || 0;
+    // 1. Bulk pre-fetch Customer phone numbers and MR assignments
+    const customerList = await Customer.find(
+      {},
+      { ORDNO: 1, CODEP: 1, CODE: 1, SCODE: 1, PARNAM: 1, MOBILE: 1, PHONE1: 1, PHONE2: 1, TEL: 1, REF: 1, DSM: 1 }
+    ).lean();
 
-        // Build Sales filter for this entity
-        const salesMatch: any = {
-          DATE: { $gte: monthStartDate, $lte: monthEndDate },
-        };
-        const gLedgerMatch: any = {
+    const custPhoneMap = new Map<string, string>();
+    const mrAssignedCustCodes = new Map<string, Set<string>>();
+
+    customerList.forEach((c: any) => {
+      const phone = c.PHONE1 || c.MOBILE || c.PHONE2 || c.TEL || c.REF || "";
+      if (c.ORDNO) custPhoneMap.set(String(c.ORDNO).trim().toUpperCase(), phone);
+      if (c.CODEP) custPhoneMap.set(String(c.CODEP).trim().toUpperCase(), phone);
+      if (c.CODE) custPhoneMap.set(String(c.CODE).trim().toUpperCase(), phone);
+      if (c.SCODE) custPhoneMap.set(String(c.SCODE).trim().toUpperCase(), phone);
+      if (c.PARNAM) custPhoneMap.set(String(c.PARNAM).trim().toUpperCase(), phone);
+
+      const dsm = (c.DSM || "").trim().toUpperCase();
+      if (dsm) {
+        if (!mrAssignedCustCodes.has(dsm)) mrAssignedCustCodes.set(dsm, new Set());
+        if (c.ORDNO) mrAssignedCustCodes.get(dsm)!.add(String(c.ORDNO).trim().toUpperCase());
+        if (c.CODEP) mrAssignedCustCodes.get(dsm)!.add(String(c.CODEP).trim().toUpperCase());
+      }
+    });
+
+    // 2. Bulk pre-fetch Users for MR phone numbers
+    const userList = await User.find({}, { name: 1, employeeCode: 1, mobile: 1, phone: 1 }).lean();
+    const mrPhoneMap = new Map<string, string>();
+    userList.forEach((u: any) => {
+      const phone = u.mobile || u.phone || "";
+      if (u.name) mrPhoneMap.set(String(u.name).trim().toUpperCase(), phone);
+      if (u.employeeCode) mrPhoneMap.set(String(u.employeeCode).trim().toUpperCase(), phone);
+      if (u._id) mrPhoneMap.set(String(u._id), phone);
+    });
+
+    // 3. Bulk Aggregate Sales for the month
+    const bulkSalesAgg = await SalesMdis.aggregate([
+      { $match: { DATE: { $gte: monthStartDate, $lte: monthEndDate } } },
+      {
+        $group: {
+          _id: {
+            date: "$DATE",
+            party: "$PARTY",
+            codep: "$CODEP",
+            code: "$CODE",
+            dsm: "$DSM",
+            asm: "$ASM",
+            rsm: "$RSM",
+          },
+          totalSales: {
+            $sum: {
+              $ifNull: [
+                "$NETAMT",
+                { $ifNull: ["$TOTAMT", { $ifNull: ["$FINAL", { $ifNull: ["$AMOUNT", 0] }] }] },
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    // 4. Bulk Aggregate Collections for the month
+    const bulkCollAgg = await GLedger.aggregate([
+      {
+        $match: {
           BOOK: "R",
           CD: "C",
           DATE: { $gte: monthStartDate, $lte: monthEndDate },
-        };
-
-        if (item.targetType === "Customer") {
-          if (item.customerCode) {
-            salesMatch.$or = [
-              { CODEP: item.customerCode },
-              { CODE: item.customerCode },
-              { PARTY: { $regex: escapeRegex(item.customerName || item.customerCode), $options: "i" } },
-            ];
-            gLedgerMatch.CODE = item.customerCode;
-          } else if (item.customerName) {
-            salesMatch.PARTY = { $regex: escapeRegex(item.customerName), $options: "i" };
-            const cust = await Customer.findOne(
-              { PARNAM: { $regex: escapeRegex(item.customerName), $options: "i" } },
-              { ORDNO: 1, CODEP: 1 }
-            ).lean();
-            if (cust) {
-              gLedgerMatch.CODE = cust.ORDNO || cust.CODEP;
-            }
-          }
-        } else if (item.targetType === "MR") {
-          const empCode = item.mrUserId?.employeeCode || item.mrUserId?.name || item.mrName;
-          if (empCode) {
-            salesMatch.$or = [
-              { DSM: { $regex: escapeRegex(empCode), $options: "i" } },
-              { ASM: { $regex: escapeRegex(empCode), $options: "i" } },
-              { RSM: { $regex: escapeRegex(empCode), $options: "i" } },
-            ];
-
-            const assignedCusts = await Customer.find(
-              { DSM: { $regex: escapeRegex(empCode), $options: "i" } },
-              { ORDNO: 1, CODEP: 1 }
-            ).lean();
-
-            const assignedCodes = assignedCusts.map((c: any) => c.ORDNO || c.CODEP).filter(Boolean);
-            if (assignedCodes.length > 0) {
-              gLedgerMatch.CODE = { $in: assignedCodes };
-            }
-          }
-        }
-
-        // Aggregate Sales per day & per month
-        const dailySalesAgg = await SalesMdis.aggregate([
-          { $match: salesMatch },
-          {
-            $group: {
-              _id: "$DATE",
-              totalSales: {
-                $sum: {
-                  $ifNull: [
-                    "$NETAMT",
-                    { $ifNull: ["$TOTAMT", { $ifNull: ["$FINAL", { $ifNull: ["$AMOUNT", 0] }] }] },
-                  ],
-                },
-              },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            date: "$DATE",
+            code: "$CODE",
+          },
+          totalCollection: {
+            $sum: {
+              $ifNull: [
+                "$CREDIT",
+                { $ifNull: ["$AMOUNT", { $ifNull: ["$DEBIT", 0] }] },
+              ],
             },
           },
-        ]);
+        },
+      },
+    ]);
 
-        const dailySalesMap: Record<string, number> = {};
-        let monthlyActualSales = 0;
-        dailySalesAgg.forEach((r: any) => {
-          const dateStr = r._id;
-          const amt = Math.max(0, Number(r.totalSales) || 0);
-          if (dateStr) dailySalesMap[dateStr] = amt;
-          monthlyActualSales += amt;
-        });
+    // Process targets lightning fast in memory
+    const processedRows = allowedTargets.map((item: any) => {
+      const salesTarget = item.targetAmount || 0;
+      const collectionTarget = item.collectionTargetAmount || 0;
 
-        // Aggregate Collections per day & per month
-        const dailyCollectionAgg = await GLedger.aggregate([
-          { $match: gLedgerMatch },
-          {
-            $group: {
-              _id: "$DATE",
-              totalCollection: {
-                $sum: {
-                  $ifNull: [
-                    "$CREDIT",
-                    { $ifNull: ["$AMOUNT", { $ifNull: ["$DEBIT", 0] }] },
-                  ],
-                },
-              },
-            },
-          },
-        ]);
+      const dailySalesMap: Record<string, number> = {};
+      const dailyCollectionMap: Record<string, number> = {};
+      let monthlyActualSales = 0;
+      let monthlyActualCollection = 0;
 
-        const dailyCollectionMap: Record<string, number> = {};
-        let monthlyActualCollection = 0;
-        dailyCollectionAgg.forEach((r: any) => {
-          const dateStr = r._id;
-          const amt = Math.max(0, Number(r.totalCollection) || 0);
-          if (dateStr) dailyCollectionMap[dateStr] = amt;
-          monthlyActualCollection += amt;
-        });
+      if (item.targetType === "Customer") {
+        const codeUpper = (item.customerCode || "").trim().toUpperCase();
+        const nameUpper = (item.customerName || "").trim().toUpperCase();
 
-        // Compute Weekly Breakdown
-        const weeklyBreakdown = weeks.map((w) => {
-          const daysInWeek = w.endDay - w.startDay + 1;
-          const weeklySalesTarget = Math.round((salesTarget * daysInWeek) / totalDaysInMonth);
-          const weeklyCollectionTarget = Math.round((collectionTarget * daysInWeek) / totalDaysInMonth);
+        // Match Sales
+        bulkSalesAgg.forEach((s: any) => {
+          const sParty = (s._id?.party || "").trim().toUpperCase();
+          const sCodep = (s._id?.codep || "").trim().toUpperCase();
+          const sCode = (s._id?.code || "").trim().toUpperCase();
 
-          let weekActualSales = 0;
-          let weekActualCollection = 0;
-
-          for (let d = w.startDay; d <= w.endDay; d++) {
-            const dayStr = `${periodMonth}-${String(d).padStart(2, "0")}`;
-            weekActualSales += dailySalesMap[dayStr] || 0;
-            weekActualCollection += dailyCollectionMap[dayStr] || 0;
+          if (
+            (codeUpper && (sCodep === codeUpper || sCode === codeUpper || (sParty && sParty.includes(codeUpper)))) ||
+            (nameUpper && sParty && sParty.includes(nameUpper))
+          ) {
+            const dateStr = s._id?.date;
+            const amt = Math.max(0, Number(s.totalSales) || 0);
+            if (dateStr) {
+              dailySalesMap[dateStr] = (dailySalesMap[dateStr] || 0) + amt;
+              monthlyActualSales += amt;
+            }
           }
-
-          const salesAchPercent =
-            weeklySalesTarget > 0 ? Math.min(100, Math.round((weekActualSales / weeklySalesTarget) * 100)) : 0;
-          const collectionAchPercent =
-            weeklyCollectionTarget > 0
-              ? Math.min(100, Math.round((weekActualCollection / weeklyCollectionTarget) * 100))
-              : 0;
-
-          return {
-            weekNo: w.weekNo,
-            label: w.label,
-            startDate: `${periodMonth}-${String(w.startDay).padStart(2, "0")}`,
-            endDate: `${periodMonth}-${String(w.endDay).padStart(2, "0")}`,
-            daysInWeek,
-            weeklySalesTarget,
-            weekActualSales,
-            weeklySalesShortfall: Math.max(0, weeklySalesTarget - weekActualSales),
-            salesAchPercent,
-            weeklyCollectionTarget,
-            weekActualCollection,
-            weeklyCollectionShortfall: Math.max(0, weeklyCollectionTarget - weekActualCollection),
-            collectionAchPercent,
-          };
         });
 
-        // Compute Day-Wise Breakdown
-        const dailyBreakdown = [];
-        for (let d = 1; d <= totalDaysInMonth; d++) {
+        // Match Collections
+        bulkCollAgg.forEach((c: any) => {
+          const cCode = (c._id?.code || "").trim().toUpperCase();
+          if (codeUpper && cCode === codeUpper) {
+            const dateStr = c._id?.date;
+            const amt = Math.max(0, Number(c.totalCollection) || 0);
+            if (dateStr) {
+              dailyCollectionMap[dateStr] = (dailyCollectionMap[dateStr] || 0) + amt;
+              monthlyActualCollection += amt;
+            }
+          }
+        });
+      } else if (item.targetType === "MR") {
+        const mrUserIdStr = typeof item.mrUserId === "object" ? item.mrUserId?._id?.toString() : String(item.mrUserId || "");
+        const empCodeUpper = (item.mrUserId?.employeeCode || item.mrUserId?.name || item.mrName || "").trim().toUpperCase();
+
+        const assignedCustCodesSet = mrAssignedCustCodes.get(empCodeUpper) || new Set();
+
+        // Match Sales
+        bulkSalesAgg.forEach((s: any) => {
+          const sDsm = (s._id?.dsm || "").trim().toUpperCase();
+          const sAsm = (s._id?.asm || "").trim().toUpperCase();
+          const sRsm = (s._id?.rsm || "").trim().toUpperCase();
+
+          if (
+            empCodeUpper &&
+            (sDsm.includes(empCodeUpper) || sAsm.includes(empCodeUpper) || sRsm.includes(empCodeUpper))
+          ) {
+            const dateStr = s._id?.date;
+            const amt = Math.max(0, Number(s.totalSales) || 0);
+            if (dateStr) {
+              dailySalesMap[dateStr] = (dailySalesMap[dateStr] || 0) + amt;
+              monthlyActualSales += amt;
+            }
+          }
+        });
+
+        // Match Collections for MR's assigned customers
+        bulkCollAgg.forEach((c: any) => {
+          const cCode = (c._id?.code || "").trim().toUpperCase();
+          if (assignedCustCodesSet.has(cCode)) {
+            const dateStr = c._id?.date;
+            const amt = Math.max(0, Number(c.totalCollection) || 0);
+            if (dateStr) {
+              dailyCollectionMap[dateStr] = (dailyCollectionMap[dateStr] || 0) + amt;
+              monthlyActualCollection += amt;
+            }
+          }
+        });
+      }
+
+      // Compute Weekly Breakdown
+      const weeklyBreakdown = weeks.map((w) => {
+        const daysInWeek = w.endDay - w.startDay + 1;
+        const weeklySalesTarget = Math.round((salesTarget * daysInWeek) / totalDaysInMonth);
+        const weeklyCollectionTarget = Math.round((collectionTarget * daysInWeek) / totalDaysInMonth);
+
+        let weekActualSales = 0;
+        let weekActualCollection = 0;
+
+        for (let d = w.startDay; d <= w.endDay; d++) {
           const dayStr = `${periodMonth}-${String(d).padStart(2, "0")}`;
-          const dailySalesTarget = Math.round(salesTarget / totalDaysInMonth);
-          const dailyCollectionTarget = Math.round(collectionTarget / totalDaysInMonth);
-          const dayActualSales = dailySalesMap[dayStr] || 0;
-          const dayActualCollection = dailyCollectionMap[dayStr] || 0;
-
-          dailyBreakdown.push({
-            date: dayStr,
-            day: d,
-            dailySalesTarget,
-            dayActualSales,
-            salesAchPercent:
-              dailySalesTarget > 0 ? Math.min(100, Math.round((dayActualSales / dailySalesTarget) * 100)) : 0,
-            dailyCollectionTarget,
-            dayActualCollection,
-            collectionAchPercent:
-              dailyCollectionTarget > 0
-                ? Math.min(100, Math.round((dayActualCollection / dailyCollectionTarget) * 100))
-                : 0,
-          });
+          weekActualSales += dailySalesMap[dayStr] || 0;
+          weekActualCollection += dailyCollectionMap[dayStr] || 0;
         }
 
-        // Overall Monthly Stats
         const salesAchPercent =
-          salesTarget > 0 ? Math.min(100, Math.round((monthlyActualSales / salesTarget) * 100)) : 0;
+          weeklySalesTarget > 0 ? Math.min(100, Math.round((weekActualSales / weeklySalesTarget) * 100)) : 0;
         const collectionAchPercent =
-          collectionTarget > 0
-            ? Math.min(100, Math.round((monthlyActualCollection / collectionTarget) * 100))
+          weeklyCollectionTarget > 0
+            ? Math.min(100, Math.round((weekActualCollection / weeklyCollectionTarget) * 100))
             : 0;
 
-        // Unlock gift slab calculation
-        let activeGiftSlab = null;
-        if (item.hasGiftScheme && Array.isArray(item.giftSlabs) && item.giftSlabs.length > 0) {
-          const sorted = [...item.giftSlabs].sort((a, b) => b.minAchievementPercent - a.minAchievementPercent);
-          for (const slab of sorted) {
-            if (salesAchPercent >= slab.minAchievementPercent) {
-              activeGiftSlab = slab;
-              break;
-            }
-          }
-        }
+        return {
+          weekNo: w.weekNo,
+          label: w.label,
+          startDate: `${periodMonth}-${String(w.startDay).padStart(2, "0")}`,
+          endDate: `${periodMonth}-${String(w.endDay).padStart(2, "0")}`,
+          daysInWeek,
+          weeklySalesTarget,
+          weekActualSales,
+          weeklySalesShortfall: Math.max(0, weeklySalesTarget - weekActualSales),
+          salesAchPercent,
+          weeklyCollectionTarget,
+          weekActualCollection,
+          weeklyCollectionShortfall: Math.max(0, weeklyCollectionTarget - weekActualCollection),
+          collectionAchPercent,
+        };
+      });
 
-        // Lookup phone number for direct WhatsApp messaging: MR target -> MR phone, Customer target -> Customer phone
-        let phoneNumber = "";
-        try {
-          if (item.targetType === "MR") {
-            // MR Target: Get MR Executive's phone number
-            if (item.mrUserId && typeof item.mrUserId === "object") {
-              phoneNumber = item.mrUserId.mobile || item.mrUserId.phone || "";
-            }
-            if (!phoneNumber && item.mrName) {
-              const userDoc = await User.findOne(
-                { $or: [{ name: { $regex: escapeRegex(item.mrName), $options: "i" } }, { employeeCode: { $regex: escapeRegex(item.mrName), $options: "i" } }] },
-                { mobile: 1, phone: 1 }
-              ).lean();
-              if (userDoc) phoneNumber = (userDoc as any).mobile || (userDoc as any).phone || "";
-            }
-          } else if (item.targetType === "Customer") {
-            // Customer Target: Get Customer/Party's phone number
-            const code = (item.customerCode || "").trim();
-            const name = (item.customerName || "").trim();
-            if (code || name) {
-              const custMatch = code
-                ? { $or: [{ ORDNO: code }, { CODEP: code }, { CODE: code }, { SCODE: code }] }
-                : { $or: [{ PARNAM: { $regex: escapeRegex(name), $options: "i" } }, { MAILNAM: { $regex: escapeRegex(name), $options: "i" } }] };
-              const custDoc = await Customer.findOne(
-                custMatch,
-                { PHONE1: 1, PHONE2: 1, MOBILE: 1, TEL: 1, REF: 1 }
-              ).lean();
-              if (custDoc) {
-                phoneNumber = (custDoc as any).PHONE1 || (custDoc as any).MOBILE || (custDoc as any).PHONE2 || (custDoc as any).TEL || (custDoc as any).REF || "";
-              }
-            }
+      // Compute Day-Wise Breakdown
+      const dailyBreakdown = [];
+      for (let d = 1; d <= totalDaysInMonth; d++) {
+        const dayStr = `${periodMonth}-${String(d).padStart(2, "0")}`;
+        const dailySalesTarget = Math.round(salesTarget / totalDaysInMonth);
+        const dailyCollectionTarget = Math.round(collectionTarget / totalDaysInMonth);
+        const dayActualSales = dailySalesMap[dayStr] || 0;
+        const dayActualCollection = dailyCollectionMap[dayStr] || 0;
+
+        dailyBreakdown.push({
+          date: dayStr,
+          day: d,
+          dailySalesTarget,
+          dayActualSales,
+          salesAchPercent:
+            dailySalesTarget > 0 ? Math.min(100, Math.round((dayActualSales / dailySalesTarget) * 100)) : 0,
+          dailyCollectionTarget,
+          dayActualCollection,
+          collectionAchPercent:
+            dailyCollectionTarget > 0
+              ? Math.min(100, Math.round((dayActualCollection / dailyCollectionTarget) * 100))
+              : 0,
+        });
+      }
+
+      // Overall Monthly Stats
+      const salesAchPercent =
+        salesTarget > 0 ? Math.min(100, Math.round((monthlyActualSales / salesTarget) * 100)) : 0;
+      const collectionAchPercent =
+        collectionTarget > 0
+          ? Math.min(100, Math.round((monthlyActualCollection / collectionTarget) * 100))
+          : 0;
+
+      // Unlock gift slab calculation
+      let activeGiftSlab = null;
+      if (item.hasGiftScheme && Array.isArray(item.giftSlabs) && item.giftSlabs.length > 0) {
+        const sorted = [...item.giftSlabs].sort((a, b) => b.minAchievementPercent - a.minAchievementPercent);
+        for (const slab of sorted) {
+          if (salesAchPercent >= slab.minAchievementPercent) {
+            activeGiftSlab = slab;
+            break;
           }
-        } catch (phoneErr) {
-          console.error("Report phone lookup error:", phoneErr);
         }
+      }
+
+      // Lookup phone number for direct WhatsApp messaging
+      let phoneNumber = "";
+      if (item.targetType === "MR") {
+        const mrUserIdStr = typeof item.mrUserId === "object" ? item.mrUserId?._id?.toString() : String(item.mrUserId || "");
+        const mrNameUpper = (item.mrName || "").trim().toUpperCase();
+        phoneNumber =
+          (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "") ||
+          mrPhoneMap.get(mrNameUpper) ||
+          mrPhoneMap.get(mrUserIdStr) ||
+          "";
+      } else if (item.targetType === "Customer") {
+        const codeUpper = (item.customerCode || "").trim().toUpperCase();
+        const nameUpper = (item.customerName || "").trim().toUpperCase();
+        phoneNumber = custPhoneMap.get(codeUpper) || custPhoneMap.get(nameUpper) || "";
+      }
 
         return {
           _id: item._id,
@@ -404,8 +453,7 @@ export async function GET(req: NextRequest) {
           weeklyBreakdown,
           dailyBreakdown,
         };
-      })
-    );
+      });
 
     // Calculate Summary Totals
     let totalSalesTarget = 0;
@@ -433,6 +481,7 @@ export async function GET(req: NextRequest) {
       targetType,
       frequency,
       totalDaysInMonth,
+      availableMonths: availableMonths || [],
       isMrRestricted: restriction.isMrRestricted,
       summary: {
         totalRecords: processedRows.length,
