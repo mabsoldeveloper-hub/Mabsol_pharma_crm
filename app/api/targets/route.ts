@@ -109,28 +109,25 @@ export async function GET(req: NextRequest) {
           : item.mrUserId?._id?.toString() || "";
         const itemMrNameStr = (item.mrName || "").trim().toLowerCase();
 
-        // Check if target is explicitly assigned to another MR
-        const isExplicitlyAssignedToOtherMr =
-          (itemMrId && itemMrId !== currentUserIdStr) ||
-          (itemMrNameStr &&
-            !itemMrNameStr.includes(currentUserNameStr) &&
-            (!currentEmpCodeStr || !itemMrNameStr.includes(currentEmpCodeStr)));
+        // 1. Check if the target has an explicitly assigned MR Executive (mrUserId or mrName)
+        const hasExplicitMrAssignment = Boolean(itemMrId || itemMrNameStr);
 
-        if (isExplicitlyAssignedToOtherMr) {
-          return false;
+        if (hasExplicitMrAssignment) {
+          // If explicitly assigned to an MR, show ONLY if that MR matches the logged-in user
+          const isAssignedToCurrentUser =
+            (itemMrId && itemMrId === currentUserIdStr) ||
+            (currentUserNameStr && itemMrNameStr && itemMrNameStr.includes(currentUserNameStr)) ||
+            (currentEmpCodeStr && itemMrNameStr && itemMrNameStr.includes(currentEmpCodeStr));
+
+          return Boolean(isAssignedToCurrentUser);
         }
 
-        // 1. Direct MR assignment match on target
-        if (itemMrId && itemMrId === currentUserIdStr) return true;
-        if (currentUserNameStr && itemMrNameStr && itemMrNameStr.includes(currentUserNameStr)) return true;
-        if (currentEmpCodeStr && itemMrNameStr && itemMrNameStr.includes(currentEmpCodeStr)) return true;
-
-        // 2. If MR target type but not assigned to this MR, hide it
+        // 2. If MR target type with no assigned MR, hide it from non-Admins
         if (item.targetType === "MR") {
           return false;
         }
 
-        // 3. If Customer target with no explicit MR assignment, check if customer belongs to this MR's assigned customer list
+        // 3. If Customer target with no explicit MR assigned, check if customer belongs to this MR's assigned customer list
         if (item.targetType === "Customer") {
           const cCode = (item.customerCode || "").trim().toLowerCase();
           const cName = (item.customerName || "").trim().toLowerCase();
