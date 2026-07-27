@@ -10,7 +10,6 @@ import {
   FaFileInvoiceDollar,
   FaUserTie,
   FaSpinner,
-  FaTags,
 } from "react-icons/fa";
 
 interface AddCustomerModalProps {
@@ -247,106 +246,107 @@ export default function AddCustomerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden my-8 animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-2 sm:p-4 md:p-6 overflow-y-auto">
+      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden my-auto animate-in fade-in zoom-in duration-200">
+        
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#343872] to-indigo-700 text-white">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-white/15 backdrop-blur-md text-white">
-              <FaPlus size={15} />
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-[#343872] to-indigo-700 text-white gap-2">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-white/15 backdrop-blur-md text-white flex-shrink-0">
+              <FaPlus className="text-sm sm:text-base" />
             </div>
-            <div>
-              <h3 className="text-base font-bold tracking-wide text-white m-0">Add New Customer</h3>
-              <p className="text-xs text-indigo-100/90 m-0">Fill complete customer details to save into Customer Master</p>
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold tracking-wide text-white m-0 truncate">Add New Customer</h3>
+              <p className="text-[11px] sm:text-xs text-indigo-100/90 m-0 truncate">Fill customer details into Customer Master</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={() => setIsAddAreaOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/20 hover:bg-white/30 text-white border border-white/30 transition outline-none cursor-pointer"
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-white/20 hover:bg-white/30 text-white border border-white/30 transition outline-none cursor-pointer"
             >
-              <FaPlus size={10} />
+              <FaPlus size={9} />
               <span>+ Add Area</span>
             </button>
 
             <button
               onClick={onClose}
-              className="flex items-center justify-center h-8 w-8 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all duration-200 outline-none cursor-pointer"
+              className="flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all duration-200 outline-none cursor-pointer"
             >
-              <FaTimes size={14} />
+              <FaTimes size={13} />
             </button>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap border-b border-gray-200 bg-gray-50/80 px-6 pt-3 gap-2">
+        {/* Navigation Tabs - Horizontally Scrollable on Mobile */}
+        <div className="flex-shrink-0 flex items-center overflow-x-auto whitespace-nowrap border-b border-gray-200 bg-gray-50/80 px-3 sm:px-6 pt-2 sm:pt-3 gap-1.5 sm:gap-2 [scrollbar-width:none] [-ms-overflow-style:none]">
           <button
             type="button"
             onClick={() => setActiveTab("basic")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 text-[11px] sm:text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === "basic"
                 ? "bg-white text-indigo-700 border-indigo-700 shadow-sm"
                 : "text-gray-600 border-transparent hover:text-gray-900 hover:bg-gray-100/60"
             }`}
           >
-            <FaInfoCircle size={13} />
+            <FaInfoCircle size={12} />
             Basic Info
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("contact")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 text-[11px] sm:text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === "contact"
                 ? "bg-white text-emerald-600 border-emerald-600 shadow-sm"
                 : "text-gray-600 border-transparent hover:text-gray-900 hover:bg-gray-100/60"
             }`}
           >
-            <FaPhoneAlt size={12} />
+            <FaPhoneAlt size={11} />
             Contact Info
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("address")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 text-[11px] sm:text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === "address"
                 ? "bg-white text-sky-600 border-sky-600 shadow-sm"
                 : "text-gray-600 border-transparent hover:text-gray-900 hover:bg-gray-100/60"
             }`}
           >
-            <FaMapMarkerAlt size={13} />
+            <FaMapMarkerAlt size={12} />
             Address & Route
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("tax")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 text-[11px] sm:text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === "tax"
                 ? "bg-white text-amber-600 border-amber-600 shadow-sm"
                 : "text-gray-600 border-transparent hover:text-gray-900 hover:bg-gray-100/60"
             }`}
           >
-            <FaFileInvoiceDollar size={13} />
+            <FaFileInvoiceDollar size={12} />
             Taxation & Licenses
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("sales")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 text-[11px] sm:text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === "sales"
                 ? "bg-white text-purple-600 border-purple-600 shadow-sm"
                 : "text-gray-600 border-transparent hover:text-gray-900 hover:bg-gray-100/60"
             }`}
           >
-            <FaUserTie size={13} />
+            <FaUserTie size={12} />
             Sales & Balances
           </button>
         </div>
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center justify-between">
+          <div className="mx-4 sm:mx-6 mt-3 sm:mt-4 p-2.5 sm:p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] sm:text-xs font-medium flex items-center justify-between">
             <span>{errorMsg}</span>
             <button onClick={() => setErrorMsg("")} className="text-rose-500 hover:text-rose-700 cursor-pointer">
               <FaTimes size={12} />
@@ -354,18 +354,19 @@ export default function AddCustomerModal({
           </div>
         )}
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 max-h-[60vh] overflow-y-auto">
+        {/* Form Body - Scrollable */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4">
+            
             {/* 1. BASIC INFO & ACCOUNT GROUP */}
             {activeTab === "basic" && (
               <div className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <h4 className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <FaInfoCircle className="text-indigo-600" /> Basic Information
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="col-span-1 sm:col-span-2">
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">
                       Party / Customer Name <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -375,12 +376,12 @@ export default function AddCustomerModal({
                       onChange={handleChange}
                       placeholder="e.g. Apollo Pharmacy Pvt Ltd"
                       required
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-600 outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Customer Code</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Customer Code</label>
                     <input
                       type="text"
                       name="CODEP"
@@ -392,7 +393,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Account Group</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Account Group</label>
                     <select
                       name="SCODE"
                       value={formData.SCODE}
@@ -409,7 +410,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Applicable Sale Rate / Price List</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Applicable Sale Rate / Price List</label>
                     <select
                       name="PRICE"
                       value={formData.PRICE}
@@ -430,7 +431,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Credit Days</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Credit Days</label>
                     <input
                       type="number"
                       name="DUEDAYS"
@@ -442,7 +443,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Account Status</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Account Status</label>
                     <select
                       name="STATUS"
                       value={formData.STATUS}
@@ -460,12 +461,12 @@ export default function AddCustomerModal({
             {/* 2. CONTACT DETAILS */}
             {activeTab === "contact" && (
               <div className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <h4 className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <FaPhoneAlt className="text-emerald-600" /> Contact Details
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Contact Person</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Contact Person</label>
                     <input
                       type="text"
                       name="REF"
@@ -477,7 +478,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Primary Mobile Number</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Primary Mobile Number</label>
                     <input
                       type="text"
                       name="PHONE1"
@@ -489,7 +490,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Secondary Phone</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Secondary Phone</label>
                     <input
                       type="text"
                       name="PHONE2"
@@ -500,8 +501,8 @@ export default function AddCustomerModal({
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
+                  <div className="col-span-1 sm:col-span-2">
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Email Address</label>
                     <input
                       type="email"
                       name="MAILNAM"
@@ -518,12 +519,12 @@ export default function AddCustomerModal({
             {/* 3. ADDRESS & LOCATION */}
             {activeTab === "address" && (
               <div className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <h4 className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <FaMapMarkerAlt className="text-sky-600" /> Address & Location Details
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="sm:col-span-3">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Street Address</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-3">
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Street Address</label>
                     <input
                       type="text"
                       name="PARADD"
@@ -535,7 +536,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Address Line 2</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Address Line 2</label>
                     <input
                       type="text"
                       name="PARADD2"
@@ -547,7 +548,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Address Line 3</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Address Line 3</label>
                     <input
                       type="text"
                       name="PARADD3"
@@ -561,11 +562,11 @@ export default function AddCustomerModal({
                   {/* Area Selector + Add Area Button */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-gray-700">Locality / Area</label>
+                      <label className="block text-[11px] sm:text-xs font-semibold text-gray-700">Locality / Area</label>
                       <button
                         type="button"
                         onClick={() => setIsAddAreaOpen(true)}
-                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                        className="text-[10px] sm:text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
                       >
                         + Create Area
                       </button>
@@ -588,7 +589,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">City / Town</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">City / Town</label>
                     <input
                       type="text"
                       name="CITY"
@@ -600,7 +601,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">State</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">State</label>
                     <input
                       type="text"
                       name="STATE"
@@ -612,7 +613,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Country</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Country</label>
                     <input
                       type="text"
                       name="COUNTRY"
@@ -624,7 +625,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Pincode</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Pincode</label>
                     <input
                       type="text"
                       name="PINCODE"
@@ -636,7 +637,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Delivery Route</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Delivery Route</label>
                     <input
                       type="text"
                       name="ROUT"
@@ -653,12 +654,12 @@ export default function AddCustomerModal({
             {/* 4. TAXATION & LICENSES */}
             {activeTab === "tax" && (
               <div className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <h4 className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <FaFileInvoiceDollar className="text-amber-600" /> Regulatory Licenses & Tax Numbers
                 </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">GSTIN / GST Number</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">GSTIN / GST Number</label>
                     <input
                       type="text"
                       name="GSTNO"
@@ -670,7 +671,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Drug License 1</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Drug License 1</label>
                     <input
                       type="text"
                       name="DLNO"
@@ -682,7 +683,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Drug License 2</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Drug License 2</label>
                     <input
                       type="text"
                       name="DLNO2"
@@ -694,7 +695,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">FSSAI License</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">FSSAI License</label>
                     <input
                       type="text"
                       name="FSSAINO"
@@ -706,7 +707,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">PAN Number</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">PAN Number</label>
                     <input
                       type="text"
                       name="PANNO"
@@ -718,7 +719,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">TIN Number</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">TIN Number</label>
                     <input
                       type="text"
                       name="TINNO"
@@ -730,7 +731,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Sales Tax No</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Sales Tax No</label>
                     <input
                       type="text"
                       name="STAXNO"
@@ -742,7 +743,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">CST Number</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">CST Number</label>
                     <input
                       type="text"
                       name="CSTNO"
@@ -759,12 +760,12 @@ export default function AddCustomerModal({
             {/* 5. SALES HIERARCHY & BALANCES */}
             {activeTab === "sales" && (
               <div className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <h4 className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <FaUserTie className="text-purple-600" /> Sales Hierarchy & Initial Balances
                 </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Salesman / DSM</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Salesman / DSM</label>
                     <input
                       type="text"
                       name="DSM"
@@ -776,7 +777,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Area Sales Manager (ASM)</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Area Sales Manager (ASM)</label>
                     <input
                       type="text"
                       name="ASM"
@@ -788,7 +789,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Regional Manager (RSM)</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Regional Manager (RSM)</label>
                     <input
                       type="text"
                       name="RSM"
@@ -800,7 +801,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Territory / Company Code</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Territory / Company Code</label>
                     <input
                       type="text"
                       name="GCODE"
@@ -812,7 +813,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Company Name</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Company Name</label>
                     <input
                       type="text"
                       name="COMPANY"
@@ -824,7 +825,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Outstanding Balance (₹)</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Outstanding Balance (₹)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -837,7 +838,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Credit Limit (₹)</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Credit Limit (₹)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -850,7 +851,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Debit Balance (₹)</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Debit Balance (₹)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -863,7 +864,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Opening Balance (₹)</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Opening Balance (₹)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -876,7 +877,7 @@ export default function AddCustomerModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Default Discount (%)</label>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">Default Discount (%)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -893,17 +894,17 @@ export default function AddCustomerModal({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-t border-gray-200">
-            <span className="text-xs text-gray-500">
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 bg-gray-50 border-t border-gray-200">
+            <span className="text-[11px] sm:text-xs text-gray-500">
               Tab {activeTab === "basic" ? "1" : activeTab === "contact" ? "2" : activeTab === "address" ? "3" : activeTab === "tax" ? "4" : "5"} of 5
             </span>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition outline-none disabled:opacity-50 cursor-pointer"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition outline-none disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
@@ -911,7 +912,7 @@ export default function AddCustomerModal({
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-[#343872] to-indigo-700 rounded-xl shadow-md hover:from-[#2a2d5c] hover:to-indigo-800 transition outline-none disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-1.5 sm:gap-2 px-4 py-1.5 sm:px-5 sm:py-2 text-xs font-semibold text-white bg-gradient-to-r from-[#343872] to-indigo-700 rounded-xl shadow-md hover:from-[#2a2d5c] hover:to-indigo-800 transition outline-none disabled:opacity-50 cursor-pointer"
               >
                 {submitting ? (
                   <>
@@ -920,7 +921,7 @@ export default function AddCustomerModal({
                   </>
                 ) : (
                   <>
-                    <FaPlus size={12} />
+                    <FaPlus size={11} />
                     <span>Save Customer</span>
                   </>
                 )}
@@ -932,13 +933,14 @@ export default function AddCustomerModal({
 
       {/* ==================== ADD AREA SUB-MODAL POPUP ==================== */}
       {isAddAreaOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-3 sm:p-4">
+          <div className="relative w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden my-auto animate-in fade-in zoom-in duration-200">
+            
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-sky-600 to-indigo-600 text-white">
+            <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 bg-gradient-to-r from-sky-600 to-indigo-600 text-white">
               <div className="flex items-center gap-2">
                 <FaMapMarkerAlt size={14} />
-                <h4 className="text-sm font-bold m-0">Create New Area</h4>
+                <h4 className="text-xs sm:text-sm font-bold m-0">Create New Area</h4>
               </div>
               <button
                 type="button"
@@ -951,75 +953,77 @@ export default function AddCustomerModal({
 
             {/* Error message */}
             {areaErrorMsg && (
-              <div className="mx-5 mt-3 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+              <div className="mx-4 mt-3 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
                 {areaErrorMsg}
               </div>
             )}
 
-            <form onSubmit={handleSaveArea} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Area Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newAreaForm.areaName}
-                  onChange={(e) => setNewAreaForm((prev) => ({ ...prev, areaName: e.target.value }))}
-                  placeholder="e.g. Satellite, CG Road, North Zone"
-                  required
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-600 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Assigned Price Rate for this Area
-                </label>
-                <select
-                  value={newAreaForm.PRICE}
-                  onChange={(e) => setNewAreaForm((prev) => ({ ...prev, PRICE: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-600 outline-none bg-white font-semibold text-slate-700"
-                >
-                  <option value="RATEA">Rate A (City Rate)</option>
-                  <option value="RATEB">Rate B (Suburban Rate)</option>
-                  <option value="RATEC">Rate C (Bulk Rate)</option>
-                  <option value="RATED">Rate D (Outstation Rate)</option>
-                  <option value="RATEE">Rate E (Stockist Rate)</option>
-                  <option value="RATEF">Rate F (Sale Rate)</option>
-                  <option value="RATEG">Rate G (Special Rate)</option>
-                  <option value="RETAIL">Retail Rate</option>
-                  <option value="WHOLESALE">Wholesale Rate</option>
-                </select>
-                <p className="text-[10px] text-gray-500 mt-1">
-                  Selecting this area on a customer will auto-assign this rate.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveArea} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">City</label>
+                  <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">
+                    Area Name <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="text"
-                    value={newAreaForm.city}
-                    onChange={(e) => setNewAreaForm((prev) => ({ ...prev, city: e.target.value }))}
-                    placeholder="e.g. Ahmedabad"
+                    value={newAreaForm.areaName}
+                    onChange={(e) => setNewAreaForm((prev) => ({ ...prev, areaName: e.target.value }))}
+                    placeholder="e.g. Satellite, CG Road, North Zone"
+                    required
                     className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-600 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">State</label>
-                  <input
-                    type="text"
-                    value={newAreaForm.state}
-                    onChange={(e) => setNewAreaForm((prev) => ({ ...prev, state: e.target.value }))}
-                    placeholder="e.g. Gujarat"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-600 outline-none"
-                  />
+                  <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">
+                    Assigned Price Rate for this Area
+                  </label>
+                  <select
+                    value={newAreaForm.PRICE}
+                    onChange={(e) => setNewAreaForm((prev) => ({ ...prev, PRICE: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-600 outline-none bg-white font-semibold text-slate-700"
+                  >
+                    <option value="RATEA">Rate A (City Rate)</option>
+                    <option value="RATEB">Rate B (Suburban Rate)</option>
+                    <option value="RATEC">Rate C (Bulk Rate)</option>
+                    <option value="RATED">Rate D (Outstation Rate)</option>
+                    <option value="RATEE">Rate E (Stockist Rate)</option>
+                    <option value="RATEF">Rate F (Sale Rate)</option>
+                    <option value="RATEG">Rate G (Special Rate)</option>
+                    <option value="RETAIL">Retail Rate</option>
+                    <option value="WHOLESALE">Wholesale Rate</option>
+                  </select>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Selecting this area on a customer will auto-assign this rate.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">City</label>
+                    <input
+                      type="text"
+                      value={newAreaForm.city}
+                      onChange={(e) => setNewAreaForm((prev) => ({ ...prev, city: e.target.value }))}
+                      placeholder="e.g. Ahmedabad"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-600 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] sm:text-xs font-semibold text-gray-700 mb-1">State</label>
+                    <input
+                      type="text"
+                      value={newAreaForm.state}
+                      onChange={(e) => setNewAreaForm((prev) => ({ ...prev, state: e.target.value }))}
+                      placeholder="e.g. Gujarat"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-600 outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
+              <div className="flex-shrink-0 flex items-center justify-end gap-2 p-3 sm:p-4 bg-gray-50 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setIsAddAreaOpen(false)}
