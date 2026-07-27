@@ -145,7 +145,32 @@ export default function CustomerOverview({ customer }: Props) {
         <Field label="Main Group" value={show(customer.MAINGROUP)} />
         <Field label="Parent Group" value={show(customer.PARENTGROUP)} />
         <Field label="Order Number" value={show(customer.ORDNO)} />
-        <Field label="Price List / Category" value={show(customer.PRICE)} />
+        <Field
+          label="Applicable Rate / Price List"
+          value={
+            customer.PRICE ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {String(customer.PRICE).trim().toUpperCase() === "RATEA"
+                  ? "Rate A"
+                  : String(customer.PRICE).trim().toUpperCase() === "RATEB"
+                  ? "Rate B"
+                  : String(customer.PRICE).trim().toUpperCase() === "RATEC"
+                  ? "Rate C"
+                  : String(customer.PRICE).trim().toUpperCase() === "RATED"
+                  ? "Rate D"
+                  : String(customer.PRICE).trim().toUpperCase() === "RATEE"
+                  ? "Rate E"
+                  : String(customer.PRICE).trim().toUpperCase() === "RATEF"
+                  ? "Rate F (Sale Rate)"
+                  : String(customer.PRICE).trim().toUpperCase() === "RATEG"
+                  ? "Rate G"
+                  : String(customer.PRICE)}
+              </span>
+            ) : (
+              "-"
+            )
+          }
+        />
         <Field label="Credit Days" value={customer.DUEDAYS || customer.DAYS ? `${customer.DUEDAYS || customer.DAYS} Days` : "-"} />
         <Field
           label="Account Status"
