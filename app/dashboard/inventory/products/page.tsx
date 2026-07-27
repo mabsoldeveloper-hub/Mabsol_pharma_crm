@@ -29,7 +29,10 @@ import {
   FaChevronRight,
   FaMapMarkerAlt,
   FaArrowRight,
+  FaPlus,
 } from "react-icons/fa";
+import AddProductModal from "@/components/product/AddProductModal";
+
 
 type MrTerritoryInfo = {
   isMrRestricted: boolean;
@@ -139,6 +142,8 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
 
   useEffect(() => {
     loadMrTerritoryInfo();
@@ -440,24 +445,40 @@ export default function ProductsPage() {
             </h5>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <FaSearch
-              size={12}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70"
-            />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search product, code or company..."
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <FaSearch
+                size={12}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search product, code or company..."
+                className="
+                  w-full pl-8 pr-3 py-1.5 rounded-lg text-xs
+                  bg-white/15 text-white placeholder-white/60
+                  ring-1 ring-white/25 focus:ring-white/50
+                  outline-none backdrop-blur-md
+                  transition-all duration-200
+                "
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(true)}
               className="
-                w-full pl-8 pr-3 py-1.5 rounded-lg text-xs
-                bg-white/15 text-white placeholder-white/60
-                ring-1 ring-white/25 focus:ring-white/50
-                outline-none backdrop-blur-md
-                transition-all duration-200
+                w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                bg-white text-blue-700 shadow-sm
+                hover:bg-blue-50 hover:text-blue-800 active:scale-95
+                transition-all duration-200 shrink-0 cursor-pointer
               "
-            />
+            >
+              <FaPlus size={11} />
+              <span>Add Product</span>
+            </button>
           </div>
         </div>
 
@@ -615,6 +636,12 @@ export default function ProductsPage() {
           </div>
         </div>
       </div>
+
+      <AddProductModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={loadProducts}
+      />
     </div>
   );
 }
