@@ -1,124 +1,168 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Product from "@/models/Product";
+import ProductBatch from "@/models/ProductBatch";
 import SaleType from "@/models/SaleType";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    await connectDB();
+  await connectDB();
 
-    const restriction = await getMrTerritoryRestriction();
+  const restriction = await getMrTerritoryRestriction();
 
-    const productFilter: any = {};
-    if (restriction.isMrRestricted) {
-        if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
-            productFilter.GCODE = {
-                $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes],
-            };
-        } else {
-            return NextResponse.json([]);
-        }
+  const productFilter: any = {};
+  if (restriction.isMrRestricted) {
+    if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+      productFilter.GCODE = {
+        $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes],
+      };
+    } else {
+      return NextResponse.json([]);
     }
+  }
 
-    const products = await Product.find(
-        productFilter,
-        {
-            PRODUCT: 1,
-            NAME: 1,
-            CODE: 1,
-            BALANCE: 1,
-            MRP: 1,
-            PRATE: 1,
-            RATEF: 1,
-            UNIT: 1,
-            STATUS: 1,
-            CGST: 1,
-            IGST: 1,
-            GCODE: 1,
-        }
-    ).sort({ PRODUCT: 1 });
+  const [products, saleTypes, productBatches] = await Promise.all([
+    Product.find(productFilter).sort({ PRODUCT: 1, NAME: 1 }).lean(),
+    SaleType.find({}, { SCODE: 1, SNAME: 1 }).lean(),
+    ProductBatch.find({}).lean(),
+  ]);
 
-    const saleTypes = await SaleType.find(
-        {},
-        {
-            SCODE: 1,
-            SNAME: 1,
-        }
-    );
+  // SCODE -> SNAME map (Company Name)
+  const companyMap = new Map();
+  saleTypes.forEach((st: any) => {
+    companyMap.set(String(st.SCODE).trim(), String(st.SNAME).trim());
+  });
 
-    // SCODE -> SNAME map
-    const companyMap = new Map();
-    saleTypes.forEach((st: any) => {
-        companyMap.set(String(st.SCODE).trim(), String(st.SNAME).trim());
+  // Batch Map (Product Code/Name -> Batches Array)
+  const batchMap = new Map<string, any[]>();
+  productBatches.forEach((b: any) => {
+    const keys = [
+      String(b.PRODUCT || "").trim().toUpperCase(),
+      String(b.CODE || "").trim().toUpperCase(),
+      String(b.ITEM || "").trim().toUpperCase(),
+    ].filter(Boolean);
+
+    const batchObj = {
+      batchNo: b.BATCH || b.BATCHNO || "DEFAULT",
+      expiry: b.EXPIRY || "",
+      stock: Number(b.CLBAL || b.STOCK || 0),
+      mrp: Number(b.MRP || 0),
+      ratef: Number(b.RATEF || 0),
+    };
+
+    keys.forEach((key) => {
+      const list = batchMap.get(key) || [];
+      list.push(batchObj);
+      batchMap.set(key, list);
     });
+  });
 
-    const result = products.map((p: any) => {
-        const obj = p.toObject();
-        const gcodeStr = String(p.GCODE || "").trim();
-        obj.companyName = companyMap.get(gcodeStr) || "N/A";
-        return obj;
-    });
+  const result = products.map((p: any) => {
+    const gcodeStr = String(p.GCODE || "").trim();
+    const codeKey = String(p.PRODUCT || p.CODE || "").trim().toUpperCase();
+    const nameKey = String(p.NAME || "").trim().toUpperCase();
 
-    return NextResponse.json(result);
+    const batches = batchMap.get(codeKey) || batchMap.get(nameKey) || [];
+
+    // Fallback batch if p.BATCH exists directly on product
+    const finalBatches =
+      batches.length > 0
+        ? batches
+        : p.BATCH
+        ? [
+            {
+              batchNo: p.BATCH,
+              expiry: p.EXPIRY || "",
+              stock: Number(p.CLBAL || p.STOCK || 0),
+              mrp: Number(p.MRP || 0),
+              ratef: Number(p.RATEF || 0),
+            },
+          ]
+        : [];
+
+    const exactProductName = String(p.PRODUCT || p.NAME || p.DESCRIPT || "Unnamed Product").trim();
+
+    return {
+      ...p,
+      NAME: exactProductName,
+      PRODUCT: exactProductName,
+      companyName: companyMap.get(gcodeStr) || (p.COMPANY && p.COMPANY !== "ZZZZZZ 144" ? p.COMPANY : "N/A"),
+      batches: finalBatches,
+    };
+  });
+
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {
-    try {
-        await connectDB();
-        const body = await request.json();
+  try {
+    await connectDB();
+    const body = await request.json();
 
-        if (!body.PRODUCT || !String(body.PRODUCT).trim()) {
-            return NextResponse.json(
-                { success: false, message: "Product Name is required" },
-                { status: 400 }
-            );
-        }
+    const productName = String(body.PRODUCT || body.NAME || "").trim();
 
-        const numericFields = [
-            "MRP", "PRATE", "RATEF", "LPRATE", "COST", "RATEA", "RATEB", "RATEC", "RATED", "RATEE", "RATEG",
-            "CGST", "SGST", "IGST", "PURTAX", "SALTAX", "BALANCE", "OPENING", "ONQTY", "ONQTYFREE", "FREEBAL",
-            "HOLD", "MINIMUM", "MAXIMUM", "TQTY", "QTY", "PACK", "SALDIS", "PURDIS", "SALVDIS", "PURSPDIS",
-            "PURSPVDIS", "PURSPVDIS1", "SALVDIS1", "FIXDIS", "FIXDIS1"
-        ];
-
-        const productData: Record<string, any> = {};
-
-        // Copy string fields
-        Object.keys(body).forEach((key) => {
-            if (body[key] !== undefined && body[key] !== null) {
-                productData[key] = body[key];
-            }
-        });
-
-        productData.PRODUCT = String(body.PRODUCT).trim();
-        productData.CODE = body.CODE && String(body.CODE).trim() ? String(body.CODE).trim() : `P${Date.now().toString().slice(-6)}`;
-        productData.STATUS = body.STATUS || "Y";
-
-        // Provide unique VFP keys to avoid E11000 index collision on {_vfpTable: null, _vfpSourceKey: null}
-        productData._vfpTable = body._vfpTable || "vfp_new_folder_pro";
-        productData._vfpSourceKey = body._vfpSourceKey || `MANUAL_${productData.CODE}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-
-
-        // Convert numeric fields properly
-        numericFields.forEach((field) => {
-            if (field in body && body[field] !== "" && body[field] !== null && body[field] !== undefined) {
-                const num = Number(body[field]);
-                productData[field] = isNaN(num) ? 0 : num;
-            }
-        });
-
-        const newProduct = await Product.create(productData);
-
-        return NextResponse.json(
-            { success: true, message: "Product created successfully", data: newProduct },
-            { status: 201 }
-        );
-    } catch (error: any) {
-        return NextResponse.json(
-            { success: false, message: error.message || "Failed to create product" },
-            { status: 500 }
-        );
+    if (!productName) {
+      return NextResponse.json(
+        { success: false, message: "Product Name is required" },
+        { status: 400 }
+      );
     }
+
+    const numericFields = [
+      "MRP", "PRATE", "RATEF", "LPRATE", "COST", "RATEA", "RATEB", "RATEC", "RATED", "RATEE", "RATEG",
+      "CONVRATE", "CGST", "SGST", "IGST", "CESS", "STAX", "CLBAL", "STOCK", "MINQTY", "MAXQTY", "REORDER",
+      "DISCOUNT", "MAXDISC", "NETRATE"
+    ];
+
+    const productData: Record<string, any> = {};
+
+    Object.keys(body).forEach((key) => {
+      if (body[key] !== undefined && body[key] !== null) {
+        productData[key] = body[key];
+      }
+    });
+
+    productData.PRODUCT = productName;
+    productData.NAME = productName;
+    productData.CODE = body.CODE || `PROD_${Date.now().toString().slice(-6)}`;
+
+    // Unique VFP keys to prevent E11000 index collision
+    productData._vfpTable = body._vfpTable || "vfp_new_folder_pro";
+    productData._vfpSourceKey = body._vfpSourceKey || `MANUAL_PROD_${productData.CODE}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+    numericFields.forEach((field) => {
+      if (field in body && body[field] !== "" && body[field] !== null && body[field] !== undefined) {
+        const num = Number(body[field]);
+        productData[field] = isNaN(num) ? 0 : num;
+      }
+    });
+
+    const newProduct = await Product.create(productData);
+
+    // Also create initial ProductBatch if batch is provided
+    if (body.BATCH && String(body.BATCH).trim()) {
+      await ProductBatch.create({
+        PRODUCT: productData.CODE,
+        BATCH: String(body.BATCH).trim(),
+        EXPIRY: body.EXPIRY || "",
+        CLBAL: Number(productData.CLBAL || productData.STOCK || 0),
+        MRP: Number(productData.MRP || 0),
+        RATEF: Number(productData.RATEF || 0),
+        _vfpTable: "vfp_new_folder_probat",
+        _vfpSourceKey: `MANUAL_BAT_${productData.CODE}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      });
+    }
+
+    return NextResponse.json(
+      { success: true, message: "Product created successfully", data: newProduct },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, message: error.message || "Failed to create product" },
+      { status: 500 }
+    );
+  }
 }

@@ -18,6 +18,7 @@ import {
     FaReceipt,
     FaPercentage,
     FaCheckCircle,
+    FaPlus,
 } from "react-icons/fa";
 
 type MrTerritoryInfo = {
@@ -401,6 +402,15 @@ export default function InvoicePage() {
                         <h5 className="text-sm font-semibold text-white tracking-wide m-0">
                             Invoice Register
                         </h5>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Link
+                            href="/dashboard/sales/invoice/create"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-md transition"
+                        >
+                            <FaPlus size={10} /> + Create Sale Invoice
+                        </Link>
                     </div>
 
                     <div className="relative w-full sm:w-80">

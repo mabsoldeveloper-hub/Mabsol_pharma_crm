@@ -1,107 +1,258 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import SalesMdis from "@/models/SalesMdis";
+import SalesDis from "@/models/SalesDis";
 import Order from "@/models/Order";
+import Customer from "@/models/Customer";
+import Product from "@/models/Product";
+import ProductBatch from "@/models/ProductBatch";
+import GLedger from "@/models/GLedger";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export async function GET() {
-    try {
-        await connectDB();
+  try {
+    await connectDB();
 
-        const restriction = await getMrTerritoryRestriction();
+    const restriction = await getMrTerritoryRestriction();
 
-        const invoiceFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+    const invoiceFilter: any = restriction.isMrRestricted
+      ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+        ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+        : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+        ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+        : { CODEP: "NONE_MATCH" }
+      : {};
 
-        // Invoice Header
-        const invoices = await SalesMdis.find(
-            invoiceFilter,
-            {
-                VCN: 1,
-                DATE: 1,
-                TYPE: 1,
-                CODEP: 1,
-                COMPANY: 1,
-                FINAL: 1,
-                AMOUNTT: 1,
-                TAXAMO: 1,
-                CGSTAMO: 1,
-                STAXAMO: 1,
-                ROUND: 1,
-            }
-        )
-            .sort({ DATE: -1 })
-            .lean();
+    // Invoice Header
+    const invoices = await SalesMdis.find(
+      invoiceFilter,
+      {
+        VCN: 1,
+        DATE: 1,
+        TYPE: 1,
+        CODEP: 1,
+        COMPANY: 1,
+        FINAL: 1,
+        AMOUNTT: 1,
+        TAXAMO: 1,
+        CGSTAMO: 1,
+        STAXAMO: 1,
+        ROUND: 1,
+      }
+    )
+      .sort({ DATE: -1 })
+      .lean();
 
-        // Customer Master
-        const customers = await Order.find(
-            {},
-            {
-                ORDNO: 1,
-                PARNAM: 1,
-                CITY: 1,
-                GSTNO: 1,
-                GSTHED: 1,
-                STATE: 1,
-                COMPANY: 1,
-                GCODE: 1,
-                SCODE: 1,
-                DSM: 1,
-            }
-        ).lean();
+    // Customer Master
+    const customers = await Order.find(
+      {},
+      {
+        ORDNO: 1,
+        PARNAM: 1,
+        CITY: 1,
+        GSTNO: 1,
+        GSTHED: 1,
+        STATE: 1,
+        COMPANY: 1,
+        GCODE: 1,
+        SCODE: 1,
+        DSM: 1,
+      }
+    ).lean();
 
-        // Customer Map (ORDNO -> Customer)
-        const customerMap = new Map();
+    // Customer Map (ORDNO -> Customer)
+    const customerMap = new Map();
 
-        customers.forEach((c: any) => {
-            const key = String(c.ORDNO || "").trim().toUpperCase();
-            customerMap.set(key, c);
-        });
+    customers.forEach((c: any) => {
+      const key = String(c.ORDNO || "").trim().toUpperCase();
+      customerMap.set(key, c);
+    });
 
-        const result = invoices.map((bill: any) => {
-            const code = String(bill.CODEP || "").trim().toUpperCase();
-            const customer = customerMap.get(code);
+    const result = invoices.map((bill: any) => {
+      const code = String(bill.CODEP || "").trim().toUpperCase();
+      const customer = customerMap.get(code);
 
-            const cgst = Number(bill.CGSTAMO || 0);
-            const sgst = Number(bill.STAXAMO || 0);
+      const cgst = Number(bill.CGSTAMO || 0);
+      const sgst = Number(bill.STAXAMO || 0);
 
-            const isLocal = (customer?.GSTHED || "").toUpperCase().includes("LOCAL");
-            const igst = isLocal ? 0 : Number(bill.TAXAMO || 0);
+      const isLocal = (customer?.GSTHED || "").toUpperCase().includes("LOCAL");
+      const igst = isLocal ? 0 : Number(bill.TAXAMO || 0);
 
-            return {
-                _id: bill._id,
-                vcn: bill.VCN,
-                date: bill.DATE,
-                type: bill.TYPE,
-                code: code,
-                customer: customer?.PARNAM || "",
-                city: customer?.CITY || "",
-                gst: customer?.GSTNO || "",
-                state: customer?.STATE || "",
-                gstHeading: customer?.GSTHED || "",
-                taxable: bill.AMOUNTT || 0,
-                cgst,
-                sgst,
-                igst,
-                round: bill.ROUND || 0,
-                finalAmount: bill.FINAL || 0,
-            };
-        });
+      return {
+        _id: bill._id,
+        vcn: bill.VCN,
+        date: bill.DATE,
+        type: bill.TYPE,
+        code: code,
+        customer: customer?.PARNAM || "",
+        city: customer?.CITY || "",
+        gst: customer?.GSTNO || "",
+        state: customer?.STATE || "",
+        gstHeading: customer?.GSTHED || "",
+        taxable: bill.AMOUNTT || 0,
+        cgst,
+        sgst,
+        igst,
+        round: bill.ROUND || 0,
+        finalAmount: bill.FINAL || 0,
+      };
+    });
 
-        return NextResponse.json({
-            success: true,
-            total: result.length,
-            invoices: result,
-        });
-    } catch (err: any) {
-        return NextResponse.json({
-            success: false,
-            message: err.message,
-        });
+    return NextResponse.json({
+      success: true,
+      total: result.length,
+      invoices: result,
+    });
+  } catch (err: any) {
+    return NextResponse.json({
+      success: false,
+      message: err.message,
+    });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const body = await req.json();
+
+    const customerCode = String(body.CODEP || body.code || "").trim();
+    if (!customerCode) {
+      return NextResponse.json(
+        { success: false, message: "Customer Code (CODEP) is required" },
+        { status: 400 }
+      );
     }
+
+    const items: any[] = Array.isArray(body.items) ? body.items : [];
+    if (items.length === 0) {
+      return NextResponse.json(
+        { success: false, message: "At least one product item is required for the invoice" },
+        { status: 400 }
+      );
+    }
+
+    // Generate Invoice VCN
+    const vcn = body.VCN || `INV-${Date.now().toString().slice(-6)}`;
+    const invoiceDate = body.DATE || new Date().toISOString().slice(0, 10);
+
+    let totalTaxable = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+
+    // Process items & update stock
+    const lineItemDocs = [];
+
+    for (const item of items) {
+      const qty = Number(item.QTY || item.qty || 1);
+      const rate = Number(item.LPRATE || item.rate || 0);
+      const cgstPct = Number(item.CGST || item.cgst || 0);
+      const sgstPct = Number(item.SGST || item.sgst || 0);
+      const igstPct = Number(item.IGST || item.igst || 0);
+
+      const itemTaxable = qty * rate;
+      const itemCgst = itemTaxable * (cgstPct / 100);
+      const itemSgst = itemTaxable * (sgstPct / 100);
+      const itemIgst = itemTaxable * (igstPct / 100);
+
+      totalTaxable += itemTaxable;
+      totalCgst += itemCgst;
+      totalSgst += itemSgst;
+      totalIgst += itemIgst;
+
+      const prodCode = item.PRODUCT || item.productCode || item.code;
+
+      lineItemDocs.push({
+        VCN: vcn,
+        DATE: invoiceDate,
+        PRODUCT: prodCode,
+        NAME: item.NAME || item.name || "",
+        QTY: qty,
+        LPRATE: rate,
+        MRP: Number(item.MRP || 0),
+        BATCH: item.BATCH || "",
+        EXPIRY: item.EXPIRY || "",
+        CGST: cgstPct,
+        SGST: sgstPct,
+        IGST: igstPct,
+        AMOUNTT: itemTaxable,
+        _vfpTable: "vfp_new_folder_dis",
+        _vfpSourceKey: `MANUAL_DIS_${vcn}_${prodCode}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      });
+
+      // Deduct stock from Product Master
+      if (prodCode) {
+        await Product.updateOne(
+          { $or: [{ PRODUCT: prodCode }, { CODE: prodCode }] },
+          { $inc: { CLBAL: -qty, STOCK: -qty } }
+        );
+
+        if (item.BATCH) {
+          await ProductBatch.updateOne(
+            { BATCH: item.BATCH },
+            { $inc: { CLBAL: -qty, STOCK: -qty } }
+          );
+        }
+      }
+    }
+
+    const totalTax = totalCgst + totalSgst + totalIgst;
+    const grossTotal = totalTaxable + totalTax;
+    const finalAmount = Math.round(grossTotal);
+    const round = Number((finalAmount - grossTotal).toFixed(2));
+
+    // Save Header (SalesMdis)
+    const newHeader = await SalesMdis.create({
+      VCN: vcn,
+      DATE: invoiceDate,
+      CODEP: customerCode,
+      TYPE: body.TYPE || "SALE",
+      AMOUNTT: totalTaxable,
+      CGSTAMO: totalCgst,
+      STAXAMO: totalSgst,
+      TAXAMO: totalTax,
+      ROUND: round,
+      FINAL: finalAmount,
+      _vfpTable: "vfp_new_folder_mdis",
+      _vfpSourceKey: `MANUAL_MDIS_${vcn}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    });
+
+    // Save Line Items (SalesDis)
+    if (lineItemDocs.length > 0) {
+      await SalesDis.insertMany(lineItemDocs);
+    }
+
+    // Debit Customer Ledger & Increase Customer Balance
+    await GLedger.create({
+      CODE: customerCode,
+      VCN: vcn,
+      DATE: invoiceDate,
+      TYPE: "SALES",
+      DEBIT: finalAmount,
+      CREDIT: 0,
+      REMARK: `Sale Invoice #${vcn}`,
+      _vfpTable: "vfp_new_folder_gledger",
+      _vfpSourceKey: `MANUAL_GL_${vcn}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    });
+
+    await Customer.updateOne(
+      { $or: [{ CODEP: customerCode }, { ORDNO: customerCode }] },
+      { $inc: { BALANCE: finalAmount, DEBIT: finalAmount } }
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Sale Invoice created successfully",
+        data: { vcn, finalAmount, header: newHeader },
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, message: error.message || "Failed to create sale invoice" },
+      { status: 500 }
+    );
+  }
 }
