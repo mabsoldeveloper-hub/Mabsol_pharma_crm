@@ -96,6 +96,11 @@ export async function POST(request: Request) {
         productData.CODE = body.CODE && String(body.CODE).trim() ? String(body.CODE).trim() : `P${Date.now().toString().slice(-6)}`;
         productData.STATUS = body.STATUS || "Y";
 
+        // Provide unique VFP keys to avoid E11000 index collision on {_vfpTable: null, _vfpSourceKey: null}
+        productData._vfpTable = body._vfpTable || "vfp_new_folder_pro";
+        productData._vfpSourceKey = body._vfpSourceKey || `MANUAL_${productData.CODE}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+
         // Convert numeric fields properly
         numericFields.forEach((field) => {
             if (field in body && body[field] !== "" && body[field] !== null && body[field] !== undefined) {
