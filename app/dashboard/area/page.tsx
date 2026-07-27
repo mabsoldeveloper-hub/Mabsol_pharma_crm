@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 import { INDIA_LOCATIONS, INDIA_VIEWBOX, type StatePath } from "./india-map-data";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 type MrTerritoryInfo = {
     isMrRestricted: boolean;
@@ -176,6 +177,16 @@ export default function IndiaMapPage() {
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const mapCardRef = useRef<HTMLDivElement | null>(null);
+
+    const { selectedFY } = useFinancialYear();
+
+    useEffect(() => {
+        if (selectedFY && !selectedFY.isAll && selectedFY.fyName) {
+            setFy(selectedFY.fyName);
+        } else if (selectedFY?.isAll) {
+            setFy("All");
+        }
+    }, [selectedFY]);
 
     useEffect(() => {
         loadMrTerritoryInfo();

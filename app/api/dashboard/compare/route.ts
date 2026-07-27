@@ -45,6 +45,8 @@ const dateRangeMatch = (from: string | null, to: string | null) => {
     return { $match: { _dateParsed: range } };
 };
 
+import FinancialYear from "@/models/FinancialYear";
+
 export async function GET(req: Request) {
     try {
         await connectDB();
@@ -80,8 +82,23 @@ export async function GET(req: Request) {
             : {};
 
         const { searchParams } = new URL(req.url);
-        const from = searchParams.get("from");
-        const to = searchParams.get("to");
+        let from = searchParams.get("from");
+        let to = searchParams.get("to");
+        const fyId = searchParams.get("fyId");
+
+        if (!from || !to) {
+            let currentFY = null;
+            if (fyId && fyId !== "ALL") {
+                currentFY = await FinancialYear.findById(fyId);
+            } else if (fyId !== "ALL") {
+                currentFY = await FinancialYear.findOne({ isCurrent: true });
+            }
+            if (currentFY) {
+                if (!from && currentFY.startDate) from = new Date(currentFY.startDate).toISOString().slice(0, 10);
+                if (!to && currentFY.endDate) to = new Date(currentFY.endDate).toISOString().slice(0, 10);
+            }
+        }
+
         const rangeStage = dateRangeMatch(from, to);
 
         // ---------------------------------------------------------------------
