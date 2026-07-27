@@ -16,7 +16,11 @@ import {
   FaSearch,
   FaChevronDown,
   FaTimes,
-  FaShieldAlt,
+  FaCheckCircle,
+  FaPercentage,
+  FaGlobe,
+  FaHome,
+  FaBuilding,
 } from "react-icons/fa";
 
 interface CustomerOption {
@@ -27,6 +31,7 @@ interface CustomerOption {
   CITY?: string;
   STATE?: string;
   GSTNO?: string;
+  GSTHED?: string;
   PRICE?: string; // Rate A, B, C, D, E, F, etc.
   BALANCE?: number;
 }
@@ -74,8 +79,10 @@ interface InvoiceItem {
   batch: string;
   expiry: string;
   qty: number;
-  rate: number;
+  freeQty: number;
   mrp: number;
+  rate: number;
+  disc: number;
   cgst: number;
   sgst: number;
   igst: number;
@@ -90,9 +97,11 @@ export default function CreateSaleInvoicePage() {
   // Data Sources
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
+  const [company, setCompany] = useState<any>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   // Invoice Form Header State
   const [selectedCustomerCode, setSelectedCustomerCode] = useState("");
@@ -117,6 +126,47 @@ export default function CreateSaleInvoicePage() {
     );
   }, [customers, selectedCustomerCode]);
 
+  // Company State Code & Customer State Code
+  const companyGst = useMemo(() => String(company?.gstNo || company?.GSTNO || "").trim(), [company]);
+  const companyStateCode = useMemo(() => (/^\d{2}/.test(companyGst) ? companyGst.slice(0, 2) : ""), [companyGst]);
+
+  const customerGst = useMemo(() => String(selectedCustomer?.GSTNO || "").trim(), [selectedCustomer]);
+  const customerStateCode = useMemo(() => (/^\d{2}/.test(customerGst) ? customerGst.slice(0, 2) : ""), [customerGst]);
+
+  // Tax Category: Local (CGST+SGST) vs Central (IGST) by comparing Company GST vs Customer GST State Code
+  const isLocalParty = useMemo(() => {
+    if (!selectedCustomer) return true; // Default Local
+
+    // 1. Compare State Codes from GSTIN (first 2 digits)
+    if (companyStateCode && customerStateCode) {
+      return companyStateCode === customerStateCode;
+    }
+
+    // 2. Explicit GSTHED in Customer Record
+    const gstHed = String(selectedCustomer.GSTHED || "").trim().toUpperCase();
+    if (
+      gstHed.includes("CENTRAL") ||
+      gstHed.includes("IGST") ||
+      gstHed.includes("OUT") ||
+      gstHed.includes("INTERSTATE")
+    ) {
+      return false; // Central Party -> IGST
+    }
+    if (gstHed.includes("LOCAL")) {
+      return true; // Local Party -> CGST + SGST
+    }
+
+    // 3. Compare State Names
+    const compState = String(company?.state || "").trim().toLowerCase();
+    const custState = String(selectedCustomer.STATE || "").trim().toLowerCase();
+
+    if (compState && custState) {
+      return compState === custState;
+    }
+
+    return true; // Default Local
+  }, [selectedCustomer, companyStateCode, customerStateCode, company]);
+
   // Filtered Customers by Search Query
   const filteredCustomers = useMemo(() => {
     const s = custSearch.trim().toLowerCase();
@@ -136,7 +186,10 @@ export default function CreateSaleInvoicePage() {
   // Draft Item Entry Form State
   const [draftProdCode, setDraftProdCode] = useState("");
   const [draftQty, setDraftQty] = useState<number | "">(1);
+  const [draftFreeQty, setDraftFreeQty] = useState<number | "">(0);
+  const [draftMrp, setDraftMrp] = useState<number | "">(0);
   const [draftRate, setDraftRate] = useState<number | "">(0);
+  const [draftDisc, setDraftDisc] = useState<number | "">(0);
   const [draftBatch, setDraftBatch] = useState("");
   const [draftExpiry, setDraftExpiry] = useState("");
   const [draftCgst, setDraftCgst] = useState<number | "">(6);
@@ -186,9 +239,10 @@ export default function CreateSaleInvoicePage() {
   const loadData = async () => {
     try {
       setLoadingInitial(true);
-      const [resCust, resProd] = await Promise.all([
+      const [resCust, resProd, resComp] = await Promise.all([
         fetch("/api/customers"),
         fetch("/api/products"),
+        fetch("/api/company-settings"),
       ]);
 
       if (resCust.ok) {
@@ -200,6 +254,11 @@ export default function CreateSaleInvoicePage() {
         const jsonProd = await resProd.json();
         if (Array.isArray(jsonProd)) setProducts(jsonProd);
       }
+
+      if (resComp.ok) {
+        const jsonComp = await resComp.json();
+        if (jsonComp && typeof jsonComp === "object") setCompany(jsonComp);
+      }
     } catch (err) {
       console.error("Failed to load invoice initial data", err);
     } finally {
@@ -207,7 +266,7 @@ export default function CreateSaleInvoicePage() {
     }
   };
 
-  // Auto-populate batch, expiry, rate when product or customer changes
+  // Auto-populate batch, expiry, rate, mrp, and tax (Local vs Central)
   useEffect(() => {
     if (selectedProduct) {
       // Check customer price tier (RATEA, RATEB, RATEC, RATED, RATEE, RATEF, etc.)
@@ -223,11 +282,21 @@ export default function CreateSaleInvoicePage() {
       else if (rateTier === "RATEG" && selectedProduct.RATEG) rateToUse = Number(selectedProduct.RATEG);
 
       setDraftRate(rateToUse);
+      setDraftMrp(Number(selectedProduct.MRP || 0));
 
-      // Taxes
-      const cgst = Number(selectedProduct.CGST || 6);
-      setDraftCgst(cgst);
-      setDraftSgst(cgst);
+      // Local vs Central Tax Logic
+      const rawCgst = Number(selectedProduct.CGST || 6);
+      const totalGstPct = Number(selectedProduct.IGST) || rawCgst * 2;
+
+      if (isLocalParty) {
+        setDraftCgst(totalGstPct / 2);
+        setDraftSgst(totalGstPct / 2);
+        setDraftIgst(0);
+      } else {
+        setDraftCgst(0);
+        setDraftSgst(0);
+        setDraftIgst(totalGstPct);
+      }
 
       // Batches Auto-population
       if (selectedProduct.batches && selectedProduct.batches.length > 0) {
@@ -242,7 +311,7 @@ export default function CreateSaleInvoicePage() {
         setDraftExpiry("");
       }
     }
-  }, [selectedProduct, selectedCustomer]);
+  }, [selectedProduct, selectedCustomer, isLocalParty]);
 
   // When user selects a specific batch from batch dropdown
   const handleBatchSelect = (batchNo: string) => {
@@ -254,6 +323,7 @@ export default function CreateSaleInvoicePage() {
       if (b) {
         if (b.expiry) setDraftExpiry(b.expiry);
         if (b.ratef && Number(b.ratef) > 0) setDraftRate(Number(b.ratef));
+        if (b.mrp && Number(b.mrp) > 0) setDraftMrp(Number(b.mrp));
       }
     }
   };
@@ -267,12 +337,19 @@ export default function CreateSaleInvoicePage() {
     }
 
     const qtyNum = Number(draftQty) || 1;
+    const freeQtyNum = Number(draftFreeQty) || 0;
     const rateNum = Number(draftRate) || 0;
-    const cgstNum = Number(draftCgst) || 0;
-    const sgstNum = Number(draftSgst) || 0;
-    const igstNum = Number(draftIgst) || 0;
+    const mrpNum = Number(draftMrp) || Number(selectedProduct.MRP || 0);
+    const discNum = Number(draftDisc) || 0;
 
-    const taxableAmount = qtyNum * rateNum;
+    const cgstNum = isLocalParty ? Number(draftCgst) || 0 : 0;
+    const sgstNum = isLocalParty ? Number(draftSgst) || 0 : 0;
+    const igstNum = !isLocalParty ? Number(draftIgst) || 0 : 0;
+
+    const grossAmount = qtyNum * rateNum;
+    const discAmount = grossAmount * (discNum / 100);
+    const taxableAmount = grossAmount - discAmount;
+
     const taxAmount = taxableAmount * ((cgstNum + sgstNum + igstNum) / 100);
     const finalAmount = taxableAmount + taxAmount;
 
@@ -285,8 +362,10 @@ export default function CreateSaleInvoicePage() {
       batch: draftBatch || selectedProduct.BATCH || "DEFAULT",
       expiry: draftExpiry || selectedProduct.EXPIRY || "",
       qty: qtyNum,
+      freeQty: freeQtyNum,
+      mrp: mrpNum,
       rate: rateNum,
-      mrp: Number(selectedProduct.MRP || 0),
+      disc: discNum,
       cgst: cgstNum,
       sgst: sgstNum,
       igst: igstNum,
@@ -301,7 +380,10 @@ export default function CreateSaleInvoicePage() {
     setDraftProdCode("");
     setProdSearch("");
     setDraftQty(1);
+    setDraftFreeQty(0);
     setDraftRate(0);
+    setDraftMrp(0);
+    setDraftDisc(0);
     setDraftBatch("");
     setDraftExpiry("");
     setErrorMsg("");
@@ -348,17 +430,23 @@ export default function CreateSaleInvoicePage() {
     try {
       setSubmitting(true);
       setErrorMsg("");
+      setSuccessMsg("");
+
+      const codepToUse = selectedCustomer?.CODEP || selectedCustomer?.ORDNO || selectedCustomerCode;
 
       const payload = {
         VCN: invoiceVcn,
         DATE: invoiceDate,
-        CODEP: selectedCustomerCode,
+        CODEP: codepToUse,
+        TYPE: "S",
         items: items.map((item) => ({
           PRODUCT: item.code,
           NAME: item.name,
           QTY: item.qty,
+          FREEQTY: item.freeQty,
           LPRATE: item.rate,
           MRP: item.mrp,
+          DISC: item.disc,
           BATCH: item.batch,
           EXPIRY: item.expiry,
           CGST: item.cgst,
@@ -379,8 +467,12 @@ export default function CreateSaleInvoicePage() {
         throw new Error(data.message || "Failed to generate Sale Invoice");
       }
 
-      router.push("/dashboard/sales/invoice");
+      setSuccessMsg(`Sale Invoice #${data.data?.vcn || invoiceVcn} created successfully! Redirecting...`);
+      setTimeout(() => {
+        router.push("/dashboard/sales/invoice");
+      }, 1200);
     } catch (err: any) {
+      console.error("Submit Sale Invoice error:", err);
       setErrorMsg(err.message || "Something went wrong while saving the invoice.");
     } finally {
       setSubmitting(false);
@@ -402,7 +494,9 @@ export default function CreateSaleInvoicePage() {
             <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
               <FaFileInvoiceDollar className="text-indigo-600" /> Generate New Sale Invoice
             </h2>
-            <p className="text-xs text-slate-500">Live Sale Billing with Searchable Product & Customer Comboboxes</p>
+            <p className="text-xs text-slate-500">
+              Live Billing with Company GST State ({companyStateCode || "24"}) vs Customer GST Matching
+            </p>
           </div>
         </div>
 
@@ -413,7 +507,14 @@ export default function CreateSaleInvoicePage() {
         </div>
       </div>
 
-      {/* Error Message Alert */}
+      {/* Success / Error Message Alerts */}
+      {successMsg && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2 shadow-sm">
+          <FaCheckCircle className="text-emerald-600 flex-shrink-0" size={15} />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
       {errorMsg && (
         <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2">
@@ -436,8 +537,15 @@ export default function CreateSaleInvoicePage() {
           <div className="relative isolate overflow-hidden rounded-2xl bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_rgba(52,56,114,0.08)] p-5 space-y-4">
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 via-white/5 to-transparent" />
             
-            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-              <FaUserCheck className="text-indigo-600" /> Customer & Billing Info
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <FaUserCheck className="text-indigo-600" /> Customer & Billing Info
+              </span>
+              {companyGst ? (
+                <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
+                  <FaBuilding className="text-slate-400" size={10} /> Our GST: <span className="font-bold text-slate-700">{companyGst}</span>
+                </span>
+              ) : null}
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -525,12 +633,12 @@ export default function CreateSaleInvoicePage() {
                   type="date"
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 outline-none bg-white/80"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 outline-none bg-white/80 font-medium"
                 />
               </div>
             </div>
 
-            {/* Selected Customer Details Banner */}
+            {/* Selected Customer Details & Local vs Central Tax Category Banner */}
             {selectedCustomer && (
               <div className="mt-3 p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div>
@@ -539,8 +647,18 @@ export default function CreateSaleInvoicePage() {
                   {selectedCustomer.GSTNO ? <span className="text-slate-600 ml-2">📜 GST: {selectedCustomer.GSTNO}</span> : null}
                 </div>
                 <div className="flex items-center gap-3">
+                  {/* LOCAL VS CENTRAL BADGE BASED ON COMPANY GST VS CUSTOMER GST */}
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${
+                    isLocalParty
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      : "bg-blue-100 text-blue-800 border-blue-300"
+                  }`}>
+                    {isLocalParty ? <FaHome size={11} /> : <FaGlobe size={11} />}
+                    {isLocalParty ? "LOCAL SALE (CGST + SGST)" : "CENTRAL SALE (IGST)"}
+                  </span>
+
                   <span className="px-2 py-0.5 rounded bg-white text-indigo-700 font-semibold border border-indigo-200">
-                    Assigned Rate: {selectedCustomer.PRICE || "Rate F"}
+                    Rate: {selectedCustomer.PRICE || "Rate F"}
                   </span>
                   <span className="font-semibold text-slate-700">
                     Outstanding: ₹{Number(selectedCustomer.BALANCE || 0).toLocaleString("en-IN")}
@@ -554,17 +672,21 @@ export default function CreateSaleInvoicePage() {
           <div className="relative isolate overflow-hidden rounded-2xl bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_rgba(52,56,114,0.08)] p-5 space-y-4">
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 via-white/5 to-transparent" />
             
-            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-              <FaBoxOpen className="text-emerald-600" /> Add Product & Auto Batch Selection
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <FaBoxOpen className="text-emerald-600" /> Add Product Item ({isLocalParty ? "Local CGST+SGST" : "Central IGST"})
+              </span>
             </h3>
 
             <form onSubmit={handleAddItem} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              
+              {/* Row 1: Product Combobox & Batch & Expiry */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 
                 {/* SEARCHABLE PRODUCT COMBOBOX */}
                 <div className="sm:col-span-2 relative" ref={prodDropdownRef}>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Search & Select Medicine Product <span className="text-rose-500">*</span>
+                    Select Medicine Product <span className="text-rose-500">*</span>
                   </label>
                   {loadingInitial ? (
                     <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
@@ -650,7 +772,7 @@ export default function CreateSaleInvoicePage() {
                   )}
                 </div>
 
-                {/* Batch Selection Field (Dropdown if multiple batches, or text input) */}
+                {/* Batch Selection Field */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Batch Number</label>
                   {selectedProduct && selectedProduct.batches && selectedProduct.batches.length > 0 ? (
@@ -670,12 +792,13 @@ export default function CreateSaleInvoicePage() {
                       type="text"
                       value={draftBatch}
                       onChange={(e) => setDraftBatch(e.target.value)}
-                      placeholder="e.g. BATCH-2026-A"
+                      placeholder="Batch No"
                       className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80 font-semibold text-slate-800"
                     />
                   )}
                 </div>
 
+                {/* Expiry Date */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date</label>
                   <input
@@ -686,9 +809,12 @@ export default function CreateSaleInvoicePage() {
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80"
                   />
                 </div>
+              </div>
 
+              {/* Row 2: Quantities, Pricing & Dynamic Tax Fields (Local CGST+SGST vs Central IGST) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Quantity (QTY)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Billing Qty</label>
                   <input
                     type="number"
                     min="1"
@@ -697,6 +823,30 @@ export default function CreateSaleInvoicePage() {
                     placeholder="1"
                     required
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80 font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Free Qty (Scheme)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={draftFreeQty}
+                    onChange={(e) => setDraftFreeQty(e.target.value ? Number(e.target.value) : "")}
+                    placeholder="0"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80 font-medium text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">MRP (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={draftMrp}
+                    onChange={(e) => setDraftMrp(e.target.value ? Number(e.target.value) : "")}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80 font-medium text-slate-700"
                   />
                 </div>
 
@@ -716,33 +866,60 @@ export default function CreateSaleInvoicePage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">CGST + SGST (%)</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Disc (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={draftDisc}
+                    onChange={(e) => setDraftDisc(e.target.value ? Number(e.target.value) : "")}
+                    placeholder="0%"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80 font-semibold text-indigo-700"
+                  />
+                </div>
+
+                {/* Dynamic Tax Inputs: CGST+SGST for Local vs IGST for Central */}
+                {isLocalParty ? (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">CGST / SGST (%)</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={draftCgst}
+                        onChange={(e) => setDraftCgst(e.target.value ? Number(e.target.value) : "")}
+                        placeholder="CGST"
+                        className="w-full px-2 py-2 text-[11px] rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80 font-semibold text-slate-800"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={draftSgst}
+                        onChange={(e) => setDraftSgst(e.target.value ? Number(e.target.value) : "")}
+                        placeholder="SGST"
+                        className="w-full px-2 py-2 text-[11px] rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80 font-semibold text-slate-800"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-700 mb-1">IGST (%) [Central]</label>
                     <input
                       type="number"
                       step="0.01"
-                      value={draftCgst}
-                      onChange={(e) => setDraftCgst(e.target.value ? Number(e.target.value) : "")}
-                      placeholder="CGST %"
-                      className="w-full px-2 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={draftSgst}
-                      onChange={(e) => setDraftSgst(e.target.value ? Number(e.target.value) : "")}
-                      placeholder="SGST %"
-                      className="w-full px-2 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-600 outline-none bg-white/80"
+                      value={draftIgst}
+                      onChange={(e) => setDraftIgst(e.target.value ? Number(e.target.value) : "")}
+                      placeholder="IGST %"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-blue-300 focus:ring-2 focus:ring-blue-600 outline-none bg-blue-50/50 font-bold text-blue-800"
                     />
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Stock Warning Banner if Qty > Stock */}
-              {selectedProduct && Number(draftQty || 0) > Number(selectedProduct.CLBAL || selectedProduct.STOCK || 0) && (
+              {/* Stock Warning Banner if (Qty + FreeQty) > Stock */}
+              {selectedProduct && (Number(draftQty || 0) + Number(draftFreeQty || 0)) > Number(selectedProduct.CLBAL || selectedProduct.STOCK || 0) && (
                 <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center gap-2">
-                  <FaExclamationTriangle className="text-amber-600" />
-                  <span>Warning: Requested Qty ({draftQty}) exceeds current Available Stock ({selectedProduct.CLBAL || selectedProduct.STOCK || 0}).</span>
+                  <FaExclamationTriangle className="text-amber-600 flex-shrink-0" />
+                  <span>Warning: Total Qty (Billing: {draftQty} + Free: {draftFreeQty}) exceeds Available Stock ({selectedProduct.CLBAL || selectedProduct.STOCK || 0}).</span>
                 </div>
               )}
 
@@ -776,10 +953,11 @@ export default function CreateSaleInvoicePage() {
                       <th className="py-2.5 px-3">#</th>
                       <th className="py-2.5 px-3">Product</th>
                       <th className="py-2.5 px-3">Batch</th>
-                      <th className="py-2.5 px-3 text-right">Qty</th>
+                      <th className="py-2.5 px-3 text-right">Qty + Free</th>
                       <th className="py-2.5 px-3 text-right">Rate (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Disc %</th>
                       <th className="py-2.5 px-3 text-right">Taxable</th>
-                      <th className="py-2.5 px-3 text-right">Tax</th>
+                      <th className="py-2.5 px-3 text-right">{isLocalParty ? "CGST + SGST" : "IGST"}</th>
                       <th className="py-2.5 px-3 text-right">Total (₹)</th>
                       <th className="py-2.5 px-3 text-center">Action</th>
                     </tr>
@@ -792,10 +970,15 @@ export default function CreateSaleInvoicePage() {
                           {item.name} <span className="text-[10px] text-slate-400 font-normal">({item.pack})</span>
                         </td>
                         <td className="py-2.5 px-3 text-slate-600">{item.batch}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-900">{item.qty}</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                          {item.qty} {item.freeQty > 0 ? <span className="text-emerald-600 text-[10px]">(+{item.freeQty} Free)</span> : ""}
+                        </td>
                         <td className="py-2.5 px-3 text-right text-emerald-700">₹{item.rate.toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right text-indigo-700">{item.disc > 0 ? `${item.disc}%` : "-"}</td>
                         <td className="py-2.5 px-3 text-right">₹{item.taxableAmount.toFixed(2)}</td>
-                        <td className="py-2.5 px-3 text-right text-amber-600">₹{item.taxAmount.toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right text-amber-600">
+                          {item.igst > 0 ? `₹${item.taxAmount.toFixed(2)} (${item.igst}%)` : `₹${item.taxAmount.toFixed(2)} (${item.cgst + item.sgst}%)`}
+                        </td>
                         <td className="py-2.5 px-3 text-right font-bold text-slate-900">₹{item.finalAmount.toFixed(2)}</td>
                         <td className="py-2.5 px-3 text-center">
                           <button
@@ -819,8 +1002,13 @@ export default function CreateSaleInvoicePage() {
           <div className="relative isolate overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/70 shadow-[0_8px_32px_rgba(52,56,114,0.08)] p-6 space-y-5 sticky top-6">
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-white/5 to-transparent" />
             
-            <h3 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-3 m-0">
-              Invoice Summary
+            <h3 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-3 m-0 flex items-center justify-between">
+              <span>Invoice Summary</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                isLocalParty ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
+              }`}>
+                {isLocalParty ? "Local" : "Central"}
+              </span>
             </h3>
 
             <div className="space-y-3 text-xs">
@@ -829,20 +1017,22 @@ export default function CreateSaleInvoicePage() {
                 <span className="font-semibold text-slate-800">₹{invoiceSummary.totalTaxable.toFixed(2)}</span>
               </div>
 
-              <div className="flex items-center justify-between text-slate-600">
-                <span>CGST Amount:</span>
-                <span className="font-semibold text-slate-800">₹{invoiceSummary.totalCgst.toFixed(2)}</span>
-              </div>
+              {isLocalParty ? (
+                <>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>CGST Amount:</span>
+                    <span className="font-semibold text-slate-800">₹{invoiceSummary.totalCgst.toFixed(2)}</span>
+                  </div>
 
-              <div className="flex items-center justify-between text-slate-600">
-                <span>SGST Amount:</span>
-                <span className="font-semibold text-slate-800">₹{invoiceSummary.totalSgst.toFixed(2)}</span>
-              </div>
-
-              {invoiceSummary.totalIgst > 0 && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span>IGST Amount:</span>
-                  <span className="font-semibold text-slate-800">₹{invoiceSummary.totalIgst.toFixed(2)}</span>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span>SGST Amount:</span>
+                    <span className="font-semibold text-slate-800">₹{invoiceSummary.totalSgst.toFixed(2)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between text-blue-800 font-medium">
+                  <span>IGST Amount (Central):</span>
+                  <span className="font-semibold text-blue-900">₹{invoiceSummary.totalIgst.toFixed(2)}</span>
                 </div>
               )}
 

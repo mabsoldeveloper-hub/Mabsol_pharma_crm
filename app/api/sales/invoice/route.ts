@@ -82,7 +82,7 @@ export async function GET() {
         _id: bill._id,
         vcn: bill.VCN,
         date: bill.DATE,
-        type: bill.TYPE,
+        type: bill.TYPE || "S",
         code: code,
         customer: customer?.PARNAM || "",
         city: customer?.CITY || "",
@@ -132,7 +132,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate Invoice VCN
+    // Unique Invoice VCN
     const vcn = body.VCN || `INV-${Date.now().toString().slice(-6)}`;
     const invoiceDate = body.DATE || new Date().toISOString().slice(0, 10);
 
@@ -146,12 +146,19 @@ export async function POST(req: Request) {
 
     for (const item of items) {
       const qty = Number(item.QTY || item.qty || 1);
+      const freeQty = Number(item.FREEQTY || item.freeQty || 0);
       const rate = Number(item.LPRATE || item.rate || 0);
+      const mrp = Number(item.MRP || item.mrp || 0);
+      const discPct = Number(item.DISC || item.disc || 0);
       const cgstPct = Number(item.CGST || item.cgst || 0);
       const sgstPct = Number(item.SGST || item.sgst || 0);
       const igstPct = Number(item.IGST || item.igst || 0);
 
-      const itemTaxable = qty * rate;
+      // Taxable after discount
+      const grossAmount = qty * rate;
+      const discAmount = grossAmount * (discPct / 100);
+      const itemTaxable = grossAmount - discAmount;
+
       const itemCgst = itemTaxable * (cgstPct / 100);
       const itemSgst = itemTaxable * (sgstPct / 100);
       const itemIgst = itemTaxable * (igstPct / 100);
@@ -161,37 +168,41 @@ export async function POST(req: Request) {
       totalSgst += itemSgst;
       totalIgst += itemIgst;
 
-      const prodCode = item.PRODUCT || item.productCode || item.code;
+      const prodCode = String(item.PRODUCT || item.productCode || item.code || "").trim();
+      const prodName = String(item.NAME || item.name || "").trim();
 
       lineItemDocs.push({
         VCN: vcn,
         DATE: invoiceDate,
         PRODUCT: prodCode,
-        NAME: item.NAME || item.name || "",
+        NAME: prodName,
         QTY: qty,
+        FREEQTY: freeQty,
         LPRATE: rate,
-        MRP: Number(item.MRP || 0),
-        BATCH: item.BATCH || "",
-        EXPIRY: item.EXPIRY || "",
+        MRP: mrp,
+        DISC: discPct,
         CGST: cgstPct,
         SGST: sgstPct,
         IGST: igstPct,
         AMOUNTT: itemTaxable,
+        BATCH: item.BATCH || "DEFAULT",
+        EXPIRY: item.EXPIRY || "",
         _vfpTable: "vfp_new_folder_dis",
         _vfpSourceKey: `MANUAL_DIS_${vcn}_${prodCode}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       });
 
-      // Deduct stock from Product Master
+      // Deduct stock from Product Master (Total Deduct = Qty + Free Qty)
+      const totalDeductQty = qty + freeQty;
       if (prodCode) {
         await Product.updateOne(
-          { $or: [{ PRODUCT: prodCode }, { CODE: prodCode }] },
-          { $inc: { CLBAL: -qty, STOCK: -qty } }
+          { $or: [{ PRODUCT: prodCode }, { CODE: prodCode }, { NAME: prodCode }, { NAME: prodName }] },
+          { $inc: { CLBAL: -totalDeductQty, STOCK: -totalDeductQty } }
         );
 
         if (item.BATCH) {
           await ProductBatch.updateOne(
             { BATCH: item.BATCH },
-            { $inc: { CLBAL: -qty, STOCK: -qty } }
+            { $inc: { CLBAL: -totalDeductQty, STOCK: -totalDeductQty } }
           );
         }
       }
@@ -202,12 +213,12 @@ export async function POST(req: Request) {
     const finalAmount = Math.round(grossTotal);
     const round = Number((finalAmount - grossTotal).toFixed(2));
 
-    // Save Header (SalesMdis)
+    // Save Header (SalesMdis) with TYPE = "S"
     const newHeader = await SalesMdis.create({
       VCN: vcn,
       DATE: invoiceDate,
       CODEP: customerCode,
-      TYPE: body.TYPE || "SALE",
+      TYPE: "S",
       AMOUNTT: totalTaxable,
       CGSTAMO: totalCgst,
       STAXAMO: totalSgst,
@@ -228,7 +239,7 @@ export async function POST(req: Request) {
       CODE: customerCode,
       VCN: vcn,
       DATE: invoiceDate,
-      TYPE: "SALES",
+      TYPE: "S",
       DEBIT: finalAmount,
       CREDIT: 0,
       REMARK: `Sale Invoice #${vcn}`,
@@ -250,6 +261,7 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error: any) {
+    console.error("Sale Invoice Save Error:", error);
     return NextResponse.json(
       { success: false, message: error.message || "Failed to create sale invoice" },
       { status: 500 }

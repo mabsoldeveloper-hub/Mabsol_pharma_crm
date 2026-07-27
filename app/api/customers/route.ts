@@ -45,6 +45,9 @@ export async function GET() {
       COMPANY: 1,
       GCODE: 1,
       DSM: 1,
+      GSTHED: 1,
+      STATE: 1,
+      PRICE: 1,
     }
   )
     .sort({ PARNAM: 1 })
