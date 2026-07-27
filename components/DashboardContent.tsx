@@ -56,6 +56,10 @@ export default function DashboardContent() {
             }
 
             const res = await fetch(url);
+            if (!res.ok) {
+              console.error(`Dashboard API returned status ${res.status}`);
+              return;
+            }
             const json = await res.json();
             setData(json);
         } catch (err) {

@@ -133,7 +133,16 @@ function daysFromNowStr(days: number) {
 async function sumField(model: any, match: Record<string, any>, field: string) {
   const [row] = await model.aggregate([
     { $match: match },
-    { $group: { _id: null, total: { $sum: `$${field}` } } },
+    {
+      $group: {
+        _id: null,
+        total: {
+          $sum: {
+            $convert: { input: `$${field}`, to: "double", onError: 0, onNull: 0 },
+          },
+        },
+      },
+    },
   ]);
   return row?.total ?? 0;
 }
@@ -404,8 +413,17 @@ export async function GET(req: Request) {
       {
         $group: {
           _id: null,
-          revenue: { $sum: "$AMMMOUNT" },
-          cost: { $sum: { $multiply: ["$QTY", "$LPRATE"] } },
+          revenue: {
+            $sum: { $convert: { input: "$AMMMOUNT", to: "double", onError: 0, onNull: 0 } },
+          },
+          cost: {
+            $sum: {
+              $multiply: [
+                { $convert: { input: "$QTY", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$LPRATE", to: "double", onError: 0, onNull: 0 } },
+              ],
+            },
+          },
         },
       },
     ]),
@@ -413,19 +431,55 @@ export async function GET(req: Request) {
     // Stock Value = BALANCE * PRATE
     Product.aggregate([
       { $match: productFilter },
-      { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
+      {
+        $group: {
+          _id: null,
+          value: {
+            $sum: {
+              $multiply: [
+                { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+              ],
+            },
+          },
+        },
+      },
     ]),
 
     // Expired Stock Value
     ProductBatch.aggregate([
       { $match: { ...batchFilter, EXP: { $ne: null, $lt: today } } },
-      { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
+      {
+        $group: {
+          _id: null,
+          value: {
+            $sum: {
+              $multiply: [
+                { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+              ],
+            },
+          },
+        },
+      },
     ]),
 
     // Near Expiry Stock Value
     ProductBatch.aggregate([
       { $match: { ...batchFilter, EXP: { $ne: null, $gte: today, $lte: near90 } } },
-      { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
+      {
+        $group: {
+          _id: null,
+          value: {
+            $sum: {
+              $multiply: [
+                { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+              ],
+            },
+          },
+        },
+      },
     ]),
 
     // Last month sales, for Monthly Growth %
