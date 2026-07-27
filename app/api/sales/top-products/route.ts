@@ -6,11 +6,31 @@ import SalesDis from "@/models/SalesDis";
 import Product from "@/models/Product";
 import SaleType from "@/models/SaleType";
 
-export async function GET() {
+import FinancialYear from "@/models/FinancialYear";
 
+export async function GET(req: Request) {
     try {
-
         await connectDB();
+
+        const { searchParams } = new URL(req.url);
+        let startDate = searchParams.get("startDate");
+        let endDate = searchParams.get("endDate");
+        const fyId = searchParams.get("fyId");
+
+        if (!startDate || !endDate) {
+            let currentFY = null;
+            if (fyId && fyId !== "ALL") {
+                currentFY = await FinancialYear.findById(fyId);
+            } else if (fyId !== "ALL") {
+                currentFY = await FinancialYear.findOne({ isCurrent: true });
+            }
+            if (currentFY) {
+                startDate = currentFY.startDate ? new Date(currentFY.startDate).toISOString().slice(0, 10) : null;
+                endDate = currentFY.endDate ? new Date(currentFY.endDate).toISOString().slice(0, 10) : null;
+            }
+        }
+
+        const dateMatch: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
 
         // Product Master
         const products = await Product.find(
@@ -26,9 +46,7 @@ export async function GET() {
         const productMap = new Map();
 
         products.forEach((p: any) => {
-
             productMap.set(String(p.CODE), p);
-
         });
 
         // Company Master
@@ -43,45 +61,34 @@ export async function GET() {
         const companyMap = new Map();
 
         saleTypes.forEach((c: any) => {
-
             companyMap.set(String(c.SCODE).trim(), c.SNAME);
-
         });
 
         // Sales Summary
         const sales = await SalesDis.aggregate([
-
+            { $match: dateMatch },
             {
                 $group: {
-
                     _id: "$CODE",
-
                     qty: {
                         $sum: "$QTY",
                     },
-
                     amount: {
                         $sum: "$AMMMOUNT",
                     },
-
                     bills: {
                         $sum: 1,
                     },
-
                 },
-
             },
-
             {
                 $sort: {
                     amount: -1,
                 },
             },
-
             {
                 $limit: 20,
             },
-
         ]);
 
         const result = sales.map((item: any) => {

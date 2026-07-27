@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import OutstandingReport from "@/models/OutstandingReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import FinancialYear from "@/models/FinancialYear";
 
 export async function GET(req: NextRequest) {
     try {
@@ -16,6 +17,23 @@ export async function GET(req: NextRequest) {
         const restriction = await getMrTerritoryRestriction();
 
         const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
+
+        let dueFrom = searchParams.get("dueFrom") || "";
+        let dueTo = searchParams.get("dueTo") || "";
+        const fyId = searchParams.get("fyId");
+
+        if (!dueFrom || !dueTo) {
+            let currentFY = null;
+            if (fyId && fyId !== "ALL") {
+                currentFY = await FinancialYear.findById(fyId);
+            } else if (fyId !== "ALL") {
+                currentFY = await FinancialYear.findOne({ isCurrent: true });
+            }
+            if (currentFY) {
+                if (!dueFrom && currentFY.startDate) dueFrom = new Date(currentFY.startDate).toISOString().slice(0, 10);
+                if (!dueTo && currentFY.endDate) dueTo = new Date(currentFY.endDate).toISOString().slice(0, 10);
+            }
+        }
 
         const filter = {
             search: searchParams.get("search") || "",
@@ -33,8 +51,8 @@ export async function GET(req: NextRequest) {
             mr: searchParams.get("mr") || "",
             voucher: searchParams.get("voucher") || "",
             vcn: searchParams.get("vcn") || "",
-            dueFrom: searchParams.get("dueFrom") || "",
-            dueTo: searchParams.get("dueTo") || "",
+            dueFrom,
+            dueTo,
             minAmount: searchParams.get("minAmount") || "",
             maxAmount: searchParams.get("maxAmount") || "",
             onlyOutstanding: searchParams.get("onlyOutstanding") || "Y",

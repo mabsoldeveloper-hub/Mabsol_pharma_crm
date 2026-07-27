@@ -11,6 +11,7 @@ import ProductBatch from "@/models/ProductBatch";
 // ---- NEW: models for the 5 new cards ----
 import User from "@/models/User";
 import Company from "@/models/Company";
+import FinancialYear from "@/models/FinancialYear";
 
 /* ------------------------------------------------------------------ */
 /*  IMPORTANT: force this route to run fresh on every request.         */
@@ -139,24 +140,47 @@ async function sumField(model: any, match: Record<string, any>, field: string) {
 
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
-export async function GET() {
+export async function GET(req: Request) {
   await dbConnect();
+
+  const { searchParams } = new URL(req.url);
+  let startDate = searchParams.get("startDate");
+  let endDate = searchParams.get("endDate");
+  const fyId = searchParams.get("fyId");
+
+  if (!startDate || !endDate) {
+    let currentFY = null;
+    if (fyId && fyId !== "ALL") {
+      currentFY = await FinancialYear.findById(fyId);
+    } else if (fyId !== "ALL") {
+      currentFY = await FinancialYear.findOne({ isCurrent: true });
+    }
+    if (currentFY) {
+      startDate = currentFY.startDate ? new Date(currentFY.startDate).toISOString().slice(0, 10) : null;
+      endDate = currentFY.endDate ? new Date(currentFY.endDate).toISOString().slice(0, 10) : null;
+    }
+  }
+
+  const dateMatchMDIS: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
+  const dateMatchDIS: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
+  const dateMatchGLEDGER: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
+  const dateMatchPEND: any = (startDate && endDate) ? { DDATE: { $gte: startDate, $lte: endDate } } : {};
 
   const restriction = await getMrTerritoryRestriction();
 
   const mdisSaleFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-      ? { ...MDIS_SALE_FILTER, COMPANY: { $in: restriction.allowedCompanyCodes } }
+      ? { ...MDIS_SALE_FILTER, ...dateMatchMDIS, COMPANY: { $in: restriction.allowedCompanyCodes } }
       : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...MDIS_SALE_FILTER, CODEP: { $in: restriction.allowedOrdnos } }
-      : { ...MDIS_SALE_FILTER, CODEP: "NONE_MATCH" }
-    : MDIS_SALE_FILTER;
+      ? { ...MDIS_SALE_FILTER, ...dateMatchMDIS, CODEP: { $in: restriction.allowedOrdnos } }
+      : { ...MDIS_SALE_FILTER, ...dateMatchMDIS, CODEP: "NONE_MATCH" }
+    : { ...MDIS_SALE_FILTER, ...dateMatchMDIS };
 
   const pendFilter = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ORD: { $in: restriction.allowedOrdnos } }
-      : { ORD: "NONE_MATCH" }
-    : {};
+      ? { ...dateMatchPEND, ORD: { $in: restriction.allowedOrdnos } }
+      : { ...dateMatchPEND, ORD: "NONE_MATCH" }
+    : { ...dateMatchPEND };
 
   const baseCustomerFilter: any = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
@@ -202,11 +226,11 @@ export async function GET() {
 
   const salesDisFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-      ? { COMPANY: { $in: restriction.allowedCompanyCodes } }
+      ? { ...dateMatchDIS, COMPANY: { $in: restriction.allowedCompanyCodes } }
       : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { CODEP: { $in: restriction.allowedOrdnos } }
-      : { CODEP: "NONE_MATCH" }
-    : {};
+      ? { ...dateMatchDIS, CODEP: { $in: restriction.allowedOrdnos } }
+      : { ...dateMatchDIS, CODEP: "NONE_MATCH" }
+    : { ...dateMatchDIS };
 
   const today = todayStr();
   const monthStart = monthStartStr();
@@ -223,12 +247,14 @@ export async function GET() {
 
   const GLEDGER_COLLECTION_FILTER = {
     ...GLEDGER_BASE_FILTER,
+    ...dateMatchGLEDGER,
     [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
   };
 
   // ---- NEW: customer-scoped filter for Total Credit / Total Debit cards ----
   const GLEDGER_CUSTOMER_TXN_FILTER = {
     BOOK: { $in: CUSTOMER_TXN_BOOKS },
+    ...dateMatchGLEDGER,
     [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
   };
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import GstReport from "@/models/GstReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import FinancialYear from "@/models/FinancialYear";
 
 export async function GET(req: NextRequest) {
     try {
@@ -19,6 +20,23 @@ export async function GET(req: NextRequest) {
 
         const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
 
+        let dateFrom = searchParams.get("dateFrom") || "";
+        let dateTo = searchParams.get("dateTo") || "";
+        const fyId = searchParams.get("fyId");
+
+        if (!dateFrom || !dateTo) {
+            let currentFY = null;
+            if (fyId && fyId !== "ALL") {
+                currentFY = await FinancialYear.findById(fyId);
+            } else if (fyId !== "ALL") {
+                currentFY = await FinancialYear.findOne({ isCurrent: true });
+            }
+            if (currentFY) {
+                if (!dateFrom && currentFY.startDate) dateFrom = new Date(currentFY.startDate).toISOString().slice(0, 10);
+                if (!dateTo && currentFY.endDate) dateTo = new Date(currentFY.endDate).toISOString().slice(0, 10);
+            }
+        }
+
         const filter = {
             search: searchParams.get("search") || "",
             customerCode: searchParams.get("customerCode") || "",
@@ -27,8 +45,8 @@ export async function GET(req: NextRequest) {
             hsn: searchParams.get("hsn") || "",
             city: searchParams.get("city") || "",
             type: searchParams.get("type") || "",
-            dateFrom: searchParams.get("dateFrom") || "",
-            dateTo: searchParams.get("dateTo") || "",
+            dateFrom,
+            dateTo,
             page: restriction.isMrRestricted ? 1 : page,
             limit: fetchLimit,
         };

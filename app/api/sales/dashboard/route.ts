@@ -6,27 +6,49 @@ import Product from "@/models/Product";
 import Customer from "@/models/Customer";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
-export async function GET() {
+import FinancialYear from "@/models/FinancialYear";
+
+export async function GET(req: Request) {
     try {
         await connectDB();
+
+        const { searchParams } = new URL(req.url);
+        let startDate = searchParams.get("startDate");
+        let endDate = searchParams.get("endDate");
+        const fyId = searchParams.get("fyId");
+
+        if (!startDate || !endDate) {
+            let currentFY = null;
+            if (fyId && fyId !== "ALL") {
+                currentFY = await FinancialYear.findById(fyId);
+            } else if (fyId !== "ALL") {
+                currentFY = await FinancialYear.findOne({ isCurrent: true });
+            }
+            if (currentFY) {
+                startDate = currentFY.startDate ? new Date(currentFY.startDate).toISOString().slice(0, 10) : null;
+                endDate = currentFY.endDate ? new Date(currentFY.endDate).toISOString().slice(0, 10) : null;
+            }
+        }
+
+        const dateMatch: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
 
         const restriction = await getMrTerritoryRestriction();
 
         const mdisFilter: any = restriction.isMrRestricted
             ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                ? { ...dateMatch, COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
                 : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+                ? { ...dateMatch, CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { ...dateMatch, CODEP: "NONE_MATCH" }
+            : { ...dateMatch };
 
         const disFilter: any = restriction.isMrRestricted
             ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                ? { ...dateMatch, COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
                 : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+                ? { ...dateMatch, CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                : { ...dateMatch, CODEP: "NONE_MATCH" }
+            : { ...dateMatch };
 
         const customerFilter: any = restriction.isMrRestricted
             ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
