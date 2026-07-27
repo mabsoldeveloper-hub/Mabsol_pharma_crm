@@ -29,7 +29,7 @@ export async function GET() {
     let startupCommand = "";
     let isFromDb = false;
 
-    const config = await VfpConfig.findOne({ email: user.email }).lean() || await VfpConfig.findOne({ key: "vfp_sync_config" }).lean();
+    const config = await VfpConfig.findOne({ email: user.email }).lean();
     if (config) {
       if ((config as any).dataDir !== undefined) {
         dataDir = (config as any).dataDir;
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     const { dataDir, sourceDir, enabledFiles, autoSync, autoSyncInterval, useVfpEngine, vfpExePath, prgPath, userName, companyName, license, startupCommand } = body;
 
     const updateFields: any = {};
-    const existingConfig = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
+    const existingConfig = await VfpConfig.findOne({ email: user.email });
 
     const isLinuxServer = process.platform !== "win32";
     const checkPathExists = (p: string) => {

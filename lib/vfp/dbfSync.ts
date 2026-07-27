@@ -80,8 +80,7 @@ export async function performDirectServerSync(userEmail: string) {
     fName.replace(/\.[^.]+$/, "")
   );
 
-  await VfpTableMap.deleteMany({ email, fileName: { $nin: scannedFileNames } });
-  await VfpSyncState.deleteMany({ email, tableName: { $nin: scannedTableNames } });
+  // Preserve existing metadata for all tables without deleting unscanned table states
 
   await VfpSyncLog.create({
     runId,
@@ -202,7 +201,7 @@ async function importSingleDbfFile(
       importedCount += bulkOps.length;
     }
 
-    await collection.deleteMany({ _vfpTable: tableName, _vfpSyncRunId: { $ne: runId } });
+    // Previously synced records are preserved; upsert appends new records and updates existing ones without deleting old data
 
     const syncDateLabel = getSyncDateLabel(new Date());
     await VfpSyncState.updateOne(

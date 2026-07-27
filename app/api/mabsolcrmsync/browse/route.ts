@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +32,50 @@ export async function GET(request: NextRequest) {
           } catch (e) {}
         }
       } else {
-        const rootPaths = ["/", "/home", "/media", "/mnt"];
-        for (const p of rootPaths) {
+        // Linux / AWS Server under XRDP or Wine - ONLY return mapped local Windows PC drives
+        const homeDir = os.homedir();
+        
+        // 1. Check for XRDP Local PC Redirected Drives (thinclient_drives)
+        try {
+          const possibleHomes = ["/home", homeDir];
+          for (const hDir of possibleHomes) {
+            if (fs.existsSync(hDir)) {
+              const userDirs = fs.readdirSync(hDir, { withFileTypes: true });
+              for (const uDir of userDirs) {
+                if (uDir.isDirectory()) {
+                  const thinClientPath = path.join(hDir, uDir.name, "thinclient_drives");
+                  if (fs.existsSync(thinClientPath)) {
+                    try {
+                      const subDrives = fs.readdirSync(thinClientPath);
+                      for (const sDrive of subDrives) {
+                        const fullDrivePath = path.join(thinClientPath, sDrive);
+                        if (fs.existsSync(fullDrivePath) && !drives.includes(fullDrivePath)) {
+                          drives.push(fullDrivePath);
+                        }
+                      }
+                    } catch (e) {}
+                    if (drives.length === 0 && !drives.includes(thinClientPath)) {
+                      drives.push(thinClientPath);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {}
+
+        // 2. Check for Wine DOS Devices (C:, D:, Z: drives mapped by Wine)
+        const wineDevicesDir = path.join(homeDir, ".wine", "dosdevices");
+        if (fs.existsSync(wineDevicesDir)) {
           try {
-            if (fs.existsSync(p)) {
-              drives.push(p);
+            const wineItems = fs.readdirSync(wineDevicesDir);
+            for (const item of wineItems) {
+              const fullWinePath = path.join(wineDevicesDir, item);
+              try {
+                if (fs.existsSync(fullWinePath) && !drives.includes(fullWinePath)) {
+                  drives.push(fullWinePath);
+                }
+              } catch (e) {}
             }
           } catch (e) {}
         }

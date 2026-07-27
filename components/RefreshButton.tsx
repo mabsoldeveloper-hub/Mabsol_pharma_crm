@@ -16,21 +16,13 @@ export default function RefreshButton() {
 
   return (
     <button 
-      className="btn" 
       onClick={handleRefresh} 
       type="button"
-      style={{ 
-        display: "inline-flex", 
-        alignItems: "center", 
-        gap: "6px",
-        padding: "6px 12px",
-        fontSize: "12px",
-        borderRadius: "6px",
-        cursor: "pointer"
-      }}
+      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer shadow-2xs"
     >
-      <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
-      Refresh logs
+      <RefreshCw size={13} className={`text-slate-500 ${refreshing ? "animate-spin" : ""}`} />
+      <span>Refresh logs</span>
     </button>
   );
 }
+

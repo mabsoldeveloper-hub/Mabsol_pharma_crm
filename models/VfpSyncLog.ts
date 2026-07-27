@@ -19,7 +19,7 @@ const VfpSyncLogSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["queued", "running", "success", "failed", "locked", "skipped"],
+      enum: ["queued", "running", "success", "failed", "locked", "skipped", "cancelled"],
       required: true,
     },
     message: String,
