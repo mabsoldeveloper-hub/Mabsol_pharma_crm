@@ -55,6 +55,9 @@ export default function CustomerWiseSales() {
 
     useEffect(() => {
         loadCustomers();
+        const onFyChange = () => loadCustomers();
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
     }, [loadCustomers]);
 
     // search filter (customer + city)

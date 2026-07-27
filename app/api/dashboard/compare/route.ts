@@ -27,6 +27,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import { SalesDis, SalesMdis, Product, GLedger, Pendings } from "@/models/dashboardModels";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { getFYDateRange } from "@/lib/financialYearHelper";
 
 // Parses "YYYY-MM-DD" style strings safely inside an aggregation pipeline
 const parsedDateStage = (field: string) => ({
@@ -87,16 +88,9 @@ export async function GET(req: Request) {
         const fyId = searchParams.get("fyId");
 
         if (!from || !to) {
-            let currentFY = null;
-            if (fyId && fyId !== "ALL") {
-                currentFY = await FinancialYear.findById(fyId);
-            } else if (fyId !== "ALL") {
-                currentFY = await FinancialYear.findOne({ isCurrent: true });
-            }
-            if (currentFY) {
-                if (!from && currentFY.startDate) from = new Date(currentFY.startDate).toISOString().slice(0, 10);
-                if (!to && currentFY.endDate) to = new Date(currentFY.endDate).toISOString().slice(0, 10);
-            }
+            const fyRange = await getFYDateRange(searchParams);
+            if (!from && fyRange.startDate) from = fyRange.startDate;
+            if (!to && fyRange.endDate) to = fyRange.endDate;
         }
 
         const rangeStage = dateRangeMatch(from, to);

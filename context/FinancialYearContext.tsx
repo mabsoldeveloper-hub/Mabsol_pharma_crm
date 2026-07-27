@@ -121,3 +121,14 @@ export function FinancialYearProvider({ children }: { children: React.ReactNode 
 export function useFinancialYear() {
   return useContext(FinancialYearContext);
 }
+
+export function useFinancialYearListener(onFYChange: () => void) {
+  const { selectedFY } = useFinancialYear();
+
+  useEffect(() => {
+    onFYChange();
+    const handleEvent = () => onFYChange();
+    window.addEventListener("financial-year-changed", handleEvent);
+    return () => window.removeEventListener("financial-year-changed", handleEvent);
+  }, [selectedFY, onFYChange]);
+}

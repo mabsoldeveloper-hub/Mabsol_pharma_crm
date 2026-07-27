@@ -5,6 +5,7 @@ import Order from "@/models/Order";
 import Product from "@/models/Product";
 import GlLedger from "@/models/GlLedger";
 import SaleType from "@/models/SaleType";
+import { buildFYDateQuery } from "@/lib/financialYearHelper";
 
 export interface GstReportFilter {
     search?: string;        // party name / GST no / voucher
@@ -51,9 +52,8 @@ async function buildMdisMatch(filter: GstReportFilter) {
     const match: any = {};
 
     if (dateFrom || dateTo) {
-        match.DATE = {};
-        if (dateFrom) match.DATE.$gte = dateFrom;
-        if (dateTo) match.DATE.$lte = dateTo;
+        const dateQuery = buildFYDateQuery("DATE", dateFrom || null, dateTo || null);
+        Object.assign(match, dateQuery);
     }
 
     if (type) match.TYPE = type;

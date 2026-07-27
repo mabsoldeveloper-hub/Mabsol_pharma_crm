@@ -139,32 +139,19 @@ async function sumField(model: any, match: Record<string, any>, field: string) {
 }
 
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 
 export async function GET(req: Request) {
   await dbConnect();
 
   const { searchParams } = new URL(req.url);
-  let startDate = searchParams.get("startDate");
-  let endDate = searchParams.get("endDate");
-  const fyId = searchParams.get("fyId");
+  const fyRange = await getFYDateRange(searchParams);
+  const { startDate, endDate } = fyRange;
 
-  if (!startDate || !endDate) {
-    let currentFY = null;
-    if (fyId && fyId !== "ALL") {
-      currentFY = await FinancialYear.findById(fyId);
-    } else if (fyId !== "ALL") {
-      currentFY = await FinancialYear.findOne({ isCurrent: true });
-    }
-    if (currentFY) {
-      startDate = currentFY.startDate ? new Date(currentFY.startDate).toISOString().slice(0, 10) : null;
-      endDate = currentFY.endDate ? new Date(currentFY.endDate).toISOString().slice(0, 10) : null;
-    }
-  }
-
-  const dateMatchMDIS: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
-  const dateMatchDIS: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
-  const dateMatchGLEDGER: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
-  const dateMatchPEND: any = (startDate && endDate) ? { DDATE: { $gte: startDate, $lte: endDate } } : {};
+  const dateMatchMDIS = buildFYDateQuery("DATE", startDate, endDate);
+  const dateMatchDIS = buildFYDateQuery("DATE", startDate, endDate);
+  const dateMatchGLEDGER = buildFYDateQuery("DATE", startDate, endDate);
+  const dateMatchPEND = buildFYDateQuery("DDATE", startDate, endDate);
 
   const restriction = await getMrTerritoryRestriction();
 

@@ -153,15 +153,20 @@ export default function ComparisonDashboardPage() {
     const { selectedFY } = useFinancialYear();
 
     useEffect(() => {
-        if (selectedFY && !selectedFY.isAll && selectedFY.startDate && selectedFY.endDate) {
-            const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
-            const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
-            setFrom(s);
-            setTo(e);
-        } else if (selectedFY?.isAll) {
-            setFrom("");
-            setTo("");
-        }
+        const updateFYFilters = () => {
+            if (selectedFY && !selectedFY.isAll && selectedFY.startDate && selectedFY.endDate) {
+                const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                setFrom(s);
+                setTo(e);
+            } else if (selectedFY?.isAll) {
+                setFrom("");
+                setTo("");
+            }
+        };
+        updateFYFilters();
+        window.addEventListener("financial-year-changed", updateFYFilters);
+        return () => window.removeEventListener("financial-year-changed", updateFYFilters);
     }, [selectedFY]);
 
     useEffect(() => {

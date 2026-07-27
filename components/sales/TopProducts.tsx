@@ -66,6 +66,9 @@ export default function TopProducts() {
 
     useEffect(() => {
         loadProducts();
+        const onFyChange = () => loadProducts();
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
     }, [loadProducts]);
 
     const columns = useMemo(

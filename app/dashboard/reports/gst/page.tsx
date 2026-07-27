@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 interface RegisterRow {
     VOUCHER: number;
@@ -147,6 +148,8 @@ export default function GstReportPage() {
         setFilters((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
+    const { selectedFY } = useFinancialYear();
+
     const fetchReport = useCallback(
         async (targetPage: number, activeFilters: typeof DEFAULT_FILTERS, type: ReportType) => {
             setLoading(true);
@@ -158,6 +161,18 @@ export default function GstReportPage() {
                     page: String(targetPage),
                     limit: String(LIMIT),
                 });
+
+                if (selectedFY) {
+                    if (selectedFY.isAll) {
+                        params.set("fyId", "ALL");
+                    } else if (selectedFY._id) {
+                        params.set("fyId", selectedFY._id);
+                        if (selectedFY.startDate && selectedFY.endDate) {
+                            params.set("dateFrom", new Date(selectedFY.startDate).toISOString().slice(0, 10));
+                            params.set("dateTo", new Date(selectedFY.endDate).toISOString().slice(0, 10));
+                        }
+                    }
+                }
 
                 Object.entries(activeFilters).forEach(([key, value]) => {
                     if (value) params.set(key, value);
@@ -185,13 +200,15 @@ export default function GstReportPage() {
                 setLoading(false);
             }
         },
-        []
+        [selectedFY]
     );
 
     useEffect(() => {
         fetchReport(page, appliedFilters, reportType);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, appliedFilters, reportType]);
+        const onFyChange = () => fetchReport(page, appliedFilters, reportType);
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
+    }, [page, appliedFilters, reportType, fetchReport]);
 
     const searchReport = () => {
         setPage(1);

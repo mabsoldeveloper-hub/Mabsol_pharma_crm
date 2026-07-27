@@ -68,6 +68,9 @@ export default function SalesDashboard() {
 
   useEffect(() => {
     loadDashboard();
+    const onFyChange = () => loadDashboard();
+    window.addEventListener("financial-year-changed", onFyChange);
+    return () => window.removeEventListener("financial-year-changed", onFyChange);
   }, [loadDashboard]);
 
   if (!summary) {

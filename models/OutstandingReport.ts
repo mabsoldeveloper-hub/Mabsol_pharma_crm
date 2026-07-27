@@ -4,6 +4,7 @@ import Pend from "@/models/Pend";
 import GlLedger from "@/models/GlLedger";
 import SalesMdis from "@/models/SalesMdis";
 import SalesDis from "@/models/SalesDis";
+import { buildFYDateQuery } from "@/lib/financialYearHelper";
 
 export interface OutstandingReportFilter {
     // customer-level (Order)
@@ -317,9 +318,8 @@ export default class OutstandingReport {
         if (vcn) pendMatch.VCN = { $regex: escapeRegex(vcn), $options: "i" };
 
         if (dueFrom || dueTo) {
-            pendMatch.DDATE = {};
-            if (dueFrom) pendMatch.DDATE.$gte = dueFrom;
-            if (dueTo) pendMatch.DDATE.$lte = dueTo;
+            const dateFilter = buildFYDateQuery("DDATE", dueFrom || null, dueTo || null);
+            Object.assign(pendMatch, dateFilter);
         }
 
         if (minAmount !== "" || maxAmount !== "") {

@@ -59,6 +59,9 @@ export default function RecentBills() {
 
     useEffect(() => {
         loadBills();
+        const onFyChange = () => loadBills();
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
     }, [loadBills]);
 
     // search filter (voucher + customer + city + user)

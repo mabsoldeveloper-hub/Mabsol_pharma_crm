@@ -185,15 +185,20 @@ export default function OutstandingReportPage() {
     const { selectedFY } = useFinancialYear();
 
     useEffect(() => {
-        if (selectedFY && !selectedFY.isAll && selectedFY.startDate && selectedFY.endDate) {
-            const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
-            const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
-            setFilters((prev) => ({ ...prev, dueFrom: s, dueTo: e }));
-            setAppliedFilters((prev) => ({ ...prev, dueFrom: s, dueTo: e }));
-        } else if (selectedFY?.isAll) {
-            setFilters((prev) => ({ ...prev, dueFrom: "", dueTo: "" }));
-            setAppliedFilters((prev) => ({ ...prev, dueFrom: "", dueTo: "" }));
-        }
+        const updateFYFilters = () => {
+            if (selectedFY && !selectedFY.isAll && selectedFY.startDate && selectedFY.endDate) {
+                const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                setFilters((prev) => ({ ...prev, dueFrom: s, dueTo: e }));
+                setAppliedFilters((prev) => ({ ...prev, dueFrom: s, dueTo: e }));
+            } else if (selectedFY?.isAll) {
+                setFilters((prev) => ({ ...prev, dueFrom: "", dueTo: "" }));
+                setAppliedFilters((prev) => ({ ...prev, dueFrom: "", dueTo: "" }));
+            }
+        };
+        updateFYFilters();
+        window.addEventListener("financial-year-changed", updateFYFilters);
+        return () => window.removeEventListener("financial-year-changed", updateFYFilters);
     }, [selectedFY]);
 
     // MR Territory state

@@ -8,29 +8,17 @@ import SaleType from "@/models/SaleType";
 
 import FinancialYear from "@/models/FinancialYear";
 
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
+
 export async function GET(req: Request) {
     try {
         await connectDB();
 
         const { searchParams } = new URL(req.url);
-        let startDate = searchParams.get("startDate");
-        let endDate = searchParams.get("endDate");
-        const fyId = searchParams.get("fyId");
+        const fyRange = await getFYDateRange(searchParams);
+        const { startDate, endDate } = fyRange;
 
-        if (!startDate || !endDate) {
-            let currentFY = null;
-            if (fyId && fyId !== "ALL") {
-                currentFY = await FinancialYear.findById(fyId);
-            } else if (fyId !== "ALL") {
-                currentFY = await FinancialYear.findOne({ isCurrent: true });
-            }
-            if (currentFY) {
-                startDate = currentFY.startDate ? new Date(currentFY.startDate).toISOString().slice(0, 10) : null;
-                endDate = currentFY.endDate ? new Date(currentFY.endDate).toISOString().slice(0, 10) : null;
-            }
-        }
-
-        const dateMatch: any = (startDate && endDate) ? { DATE: { $gte: startDate, $lte: endDate } } : {};
+        const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
 
         // Product Master
         const products = await Product.find(

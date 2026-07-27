@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import GstReport from "@/models/GstReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import FinancialYear from "@/models/FinancialYear";
+import { getFYDateRange } from "@/lib/financialYearHelper";
 
 export async function GET(req: NextRequest) {
     try {
@@ -22,19 +23,11 @@ export async function GET(req: NextRequest) {
 
         let dateFrom = searchParams.get("dateFrom") || "";
         let dateTo = searchParams.get("dateTo") || "";
-        const fyId = searchParams.get("fyId");
 
         if (!dateFrom || !dateTo) {
-            let currentFY = null;
-            if (fyId && fyId !== "ALL") {
-                currentFY = await FinancialYear.findById(fyId);
-            } else if (fyId !== "ALL") {
-                currentFY = await FinancialYear.findOne({ isCurrent: true });
-            }
-            if (currentFY) {
-                if (!dateFrom && currentFY.startDate) dateFrom = new Date(currentFY.startDate).toISOString().slice(0, 10);
-                if (!dateTo && currentFY.endDate) dateTo = new Date(currentFY.endDate).toISOString().slice(0, 10);
-            }
+            const fyRange = await getFYDateRange(searchParams);
+            if (!dateFrom && fyRange.startDate) dateFrom = fyRange.startDate;
+            if (!dateTo && fyRange.endDate) dateTo = fyRange.endDate;
         }
 
         const filter = {

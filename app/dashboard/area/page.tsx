@@ -654,8 +654,8 @@ export default function IndiaMapPage() {
                                         {national.stock.lowStockItems.length === 0 ? (
                                             <EmptyNote text="All product stock balances are above reorder levels." />
                                         ) : (
-                                            national.stock.lowStockItems.map((it) => (
-                                                <RowLine key={it.code} left={it.name} right={`${it.balance} / min ${it.minimum}`} tone="red" />
+                                            national.stock.lowStockItems.map((it, idx) => (
+                                                <RowLine key={`${it.code}-${idx}`} left={it.name} right={`${it.balance} / min ${it.minimum}`} tone="red" />
                                             ))
                                         )}
                                     </Panel>
@@ -663,9 +663,9 @@ export default function IndiaMapPage() {
                                         {national.expiry.upcoming.length === 0 ? (
                                             <EmptyNote text="No batches expiring within 90 days." />
                                         ) : (
-                                            national.expiry.upcoming.map((it) => (
+                                            national.expiry.upcoming.map((it, idx) => (
                                                 <RowLine
-                                                    key={`${it.code}-${it.batch}`}
+                                                    key={`${it.code}-${it.batch}-${idx}`}
                                                     left={`${it.name} (${it.batch})`}
                                                     right={it.daysLeft < 0 ? `expired ${Math.abs(it.daysLeft)}d ago` : `${it.daysLeft}d left`}
                                                     tone={it.daysLeft < 0 ? "red" : "yellow"}
@@ -678,9 +678,9 @@ export default function IndiaMapPage() {
                                             {national.partyDirectory.totalParties} parties ·{" "}
                                             {national.partyDirectory.partiesWithPincode} with pincode
                                         </p>
-                                        {national.partyDirectory.topParties.map((p) => (
+                                        {national.partyDirectory.topParties.map((p, idx) => (
                                             <RowLine
-                                                key={p.name}
+                                                key={`${p.name}-${idx}`}
                                                 left={`${p.name}${partyLocationLine(p) ? ` — ${partyLocationLine(p)}` : ""}`}
                                                 right={formatINR(p.balance)}
                                                 tone={p.balance < 0 ? "red" : "green"}
@@ -749,8 +749,8 @@ export default function IndiaMapPage() {
                                     ) : !drillDown || drillDown.topParties.length === 0 ? (
                                         <EmptyNote text="No sales vouchers found for this state / period." />
                                     ) : (
-                                        drillDown.topParties.map((p) => (
-                                            <RowLine key={p.code} left={p.name} right={formatINR(p.sales)} tone="green" />
+                                        drillDown.topParties.map((p, idx) => (
+                                            <RowLine key={`${p.code}-${idx}`} left={p.name} right={formatINR(p.sales)} tone="green" />
                                         ))
                                     )}
                                 </Panel>
@@ -760,8 +760,8 @@ export default function IndiaMapPage() {
                                     ) : !drillDown || drillDown.topProducts.length === 0 ? (
                                         <EmptyNote text="No dispatched items found for this state / period." />
                                     ) : (
-                                        drillDown.topProducts.map((p) => (
-                                            <RowLine key={p.code} left={p.name} right={`${p.qty} units`} />
+                                        drillDown.topProducts.map((p, idx) => (
+                                            <RowLine key={`${p.code}-${idx}`} left={p.name} right={`${p.qty} units`} />
                                         ))
                                     )}
                                 </Panel>
@@ -772,7 +772,7 @@ export default function IndiaMapPage() {
                                         <EmptyNote text="No recent sales vouchers." />
                                     ) : (
                                         drillDown.recentSales.map((v, i) => (
-                                            <RowLine key={i} left={`${v.vcn} — ${v.partyName} (${v.date ? v.date.slice(0, 10) : ""})`} right={formatINR(v.final)} tone="green" />
+                                            <RowLine key={`sale-${v.vcn}-${i}`} left={`${v.vcn} — ${v.partyName} (${v.date ? v.date.slice(0, 10) : ""})`} right={formatINR(v.final)} tone="green" />
                                         ))
                                     )}
                                 </Panel>
@@ -783,7 +783,7 @@ export default function IndiaMapPage() {
                                         <EmptyNote text="No recent dispatch entries." />
                                     ) : (
                                         drillDown.recentDispatch.map((d, i) => (
-                                            <RowLine key={i} left={`${d.vcn} — ${d.partyName}`} right={d.date ? d.date.slice(0, 10) : ""} />
+                                            <RowLine key={`dispatch-${d.vcn}-${i}`} left={`${d.vcn} — ${d.partyName}`} right={d.date ? d.date.slice(0, 10) : ""} />
                                         ))
                                     )}
                                 </Panel>

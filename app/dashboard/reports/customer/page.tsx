@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 interface CustomerRow {
     ORDNO: string;
@@ -139,6 +140,8 @@ export default function CustomerReportPage() {
         }));
     };
 
+    const { selectedFY } = useFinancialYear();
+
     const fetchReport = useCallback(
         async (targetPage: number, activeFilters: typeof DEFAULT_FILTERS) => {
             setLoading(true);
@@ -150,6 +153,18 @@ export default function CustomerReportPage() {
                     page: String(targetPage),
                     limit: String(LIMIT),
                 });
+
+                if (selectedFY) {
+                    if (selectedFY.isAll) {
+                        params.set("fyId", "ALL");
+                    } else if (selectedFY._id) {
+                        params.set("fyId", selectedFY._id);
+                        if (selectedFY.startDate && selectedFY.endDate) {
+                            params.set("startDate", new Date(selectedFY.startDate).toISOString().slice(0, 10));
+                            params.set("endDate", new Date(selectedFY.endDate).toISOString().slice(0, 10));
+                        }
+                    }
+                }
 
                 Object.entries(activeFilters).forEach(([key, value]) => {
                     if (value) params.set(key, value);
@@ -175,13 +190,15 @@ export default function CustomerReportPage() {
                 setLoading(false);
             }
         },
-        []
+        [selectedFY]
     );
 
     useEffect(() => {
         fetchReport(page, appliedFilters);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, appliedFilters]);
+        const onFyChange = () => fetchReport(page, appliedFilters);
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
+    }, [page, appliedFilters, fetchReport]);
 
     const searchReport = () => {
         setPage(1);

@@ -3,6 +3,8 @@ import Order from "@/models/Order";
 import MaOrder from "@/models/MaOrder";
 import Pend from "@/models/Pend";
 import GlLedger from "@/models/GlLedger";
+import SalesMdis from "@/models/SalesMdis";
+import { buildFYDateQuery } from "@/lib/financialYearHelper";
 
 export interface CustomerReportFilter {
     search?: string;
@@ -16,6 +18,10 @@ export interface CustomerReportFilter {
     city?: string;
 
     status?: string;
+
+    startDate?: string;
+    endDate?: string;
+    fyId?: string;
 
     page?: number;
     limit?: number;
@@ -196,11 +202,17 @@ export default class CustomerReport {
 
         const ordnos = rows.map((r: any) => r.ORDNO).filter(Boolean);
 
+        const { startDate, endDate } = filter;
+
         // ---- 4. Only now fetch related data, only for customers on this page ----
+        const pendDateFilter = buildFYDateQuery("DDATE", startDate, endDate);
+        const ledgerDateFilter = buildFYDateQuery("DATE", startDate, endDate);
+        const maOrderDateFilter = buildFYDateQuery("DATE", startDate, endDate);
+
         const [pendRecords, ledgerRecords, maOrderRecords] = await Promise.all([
-            ordnos.length ? Pend.find({ ORD: { $in: ordnos } }).lean() : Promise.resolve([]),
-            ordnos.length ? GlLedger.find({ CODE1: { $in: ordnos } }).lean() : Promise.resolve([]),
-            ordnos.length ? MaOrder.find({ ORDNO: { $in: ordnos } }).lean() : Promise.resolve([]),
+            ordnos.length ? Pend.find({ ORD: { $in: ordnos }, ...pendDateFilter }).lean() : Promise.resolve([]),
+            ordnos.length ? GlLedger.find({ CODE1: { $in: ordnos }, ...ledgerDateFilter }).lean() : Promise.resolve([]),
+            ordnos.length ? MaOrder.find({ ORDNO: { $in: ordnos }, ...maOrderDateFilter }).lean() : Promise.resolve([]),
         ]);
 
         // ---- 5. Group related data per customer in JS (tiny dataset, cheap) ----
@@ -227,9 +239,6 @@ export default class CustomerReport {
                 return max;
             }, null);
 
-        // First non-null value of `field` across a list of records (most recently
-        // pushed record wins ties, since we don't have a reliable "latest" order
-        // guarantee from find() without an explicit sort).
         const firstNonNull = (items: any[], field: string): string | null => {
             for (const item of items) {
                 if (item[field] !== null && item[field] !== undefined && item[field] !== "") {
@@ -254,8 +263,6 @@ export default class CustomerReport {
                 PARNAM: row.PARNAM,
                 CITY: row.CITY,
 
-                // Order's own AREA/ROUT/DSM are usually null but not always — check
-                // Order first, then fall back to Pend (AREA/ROUT) / GlLedger (DSM).
                 AREA: row.AREA ?? firstNonNull(pend, "AREA"),
                 ROUT: row.ROUT ?? firstNonNull(pend, "ROUT"),
                 DSM: row.DSM ?? firstNonNull(ledger, "DSM"),
@@ -295,52 +302,110 @@ export default class CustomerReport {
 
     static async customerLedger(filter: CustomerReportFilter = {}) {
         await dbConnect();
-        return [];
+        const { customerCode, search, startDate, endDate, page = 1, limit = 50 } = filter;
+        const query: any = { ...buildFYDateQuery("DATE", startDate, endDate) };
+
+        if (customerCode) query.CODE1 = customerCode;
+        if (search) {
+            const s = escapeRegex(search);
+            query.$or = [{ CODE1: { $regex: s, $options: "i" } }, { REMARK1: { $regex: s, $options: "i" } }];
+        }
+
+        const skip = (Math.max(1, page) - 1) * Math.max(1, limit);
+        const [records, total] = await Promise.all([
+            GlLedger.find(query).sort({ DATE: -1 }).skip(skip).limit(limit).lean(),
+            GlLedger.countDocuments(query),
+        ]);
+
+        const ordnos = Array.from(new Set(records.map((r: any) => r.CODE1).filter(Boolean)));
+        const orders = ordnos.length ? await Order.find({ ORDNO: { $in: ordnos } }, { ORDNO: 1, PARNAM: 1, CITY: 1 }).lean() : [];
+        const orderMap = new Map(orders.map((o: any) => [o.ORDNO, o]));
+
+        const rows = records.map((r: any) => {
+            const party = orderMap.get(r.CODE1);
+            return {
+                ...r,
+                PARNAM: party?.PARNAM || r.CODE1 || "Unknown",
+                CITY: party?.CITY || "-",
+            };
+        });
+
+        return { total, page, limit, totalPages: Math.ceil(total / limit) || 1, rows };
     }
 
     static async customerOutstanding(filter: CustomerReportFilter = {}) {
-        await dbConnect();
-        return [];
+        const master = await this.customerMaster(filter);
+        if (master && Array.isArray(master.rows)) {
+            master.rows = master.rows.filter((r) => (r.outstandingAmount || 0) > 0);
+            master.total = master.rows.length;
+        }
+        return master;
     }
 
     static async customerBalance(filter: CustomerReportFilter = {}) {
-        await dbConnect();
-        return [];
+        return this.customerMaster(filter);
     }
 
     static async customerOpening(filter: CustomerReportFilter = {}) {
         await dbConnect();
-        return [];
+        const { startDate, endDate, page = 1, limit = 50 } = filter;
+        const query: any = { BOOK: "O", ...buildFYDateQuery("DATE", startDate, endDate) };
+        const skip = (Math.max(1, page) - 1) * Math.max(1, limit);
+        const [records, total] = await Promise.all([
+            GlLedger.find(query).sort({ DATE: -1 }).skip(skip).limit(limit).lean(),
+            GlLedger.countDocuments(query),
+        ]);
+        return { total, page, limit, totalPages: Math.ceil(total / limit) || 1, rows: records };
     }
 
     static async customerCreditLimit(filter: CustomerReportFilter = {}) {
-        await dbConnect();
-        return [];
+        return this.customerMaster(filter);
     }
 
     static async customerDueDays(filter: CustomerReportFilter = {}) {
-        await dbConnect();
-        return [];
+        return this.customerMaster({ ...filter, sortField: "DUEDAYS", sortOrder: -1 });
     }
 
     static async customerAging(filter: CustomerReportFilter = {}) {
         await dbConnect();
-        return [];
+        const master = await this.customerMaster(filter);
+        return master;
     }
 
     static async areaWiseCustomer(filter: CustomerReportFilter = {}) {
         await dbConnect();
-        return [];
+        const { startDate, endDate } = filter;
+        const pendDateFilter = buildFYDateQuery("DDATE", startDate, endDate);
+        const aggregated = await Pend.aggregate([
+            { $match: { AREA: { $ne: null }, ...pendDateFilter } },
+            { $group: { _id: "$AREA", count: { $sum: 1 }, totalOutstanding: { $sum: "$FINAL" } } },
+            { $sort: { totalOutstanding: -1 } },
+        ]);
+        return { rows: aggregated.map((a: any) => ({ area: a._id, count: a.count, totalOutstanding: a.totalOutstanding })) };
     }
 
     static async routeWiseCustomer(filter: CustomerReportFilter = {}) {
         await dbConnect();
-        return [];
+        const { startDate, endDate } = filter;
+        const pendDateFilter = buildFYDateQuery("DDATE", startDate, endDate);
+        const aggregated = await Pend.aggregate([
+            { $match: { ROUT: { $ne: null }, ...pendDateFilter } },
+            { $group: { _id: "$ROUT", count: { $sum: 1 }, totalOutstanding: { $sum: "$FINAL" } } },
+            { $sort: { totalOutstanding: -1 } },
+        ]);
+        return { rows: aggregated.map((r: any) => ({ route: r._id, count: r.count, totalOutstanding: r.totalOutstanding })) };
     }
 
     static async dsmWiseCustomer(filter: CustomerReportFilter = {}) {
         await dbConnect();
-        return [];
+        const { startDate, endDate } = filter;
+        const ledgerDateFilter = buildFYDateQuery("DATE", startDate, endDate);
+        const aggregated = await GlLedger.aggregate([
+            { $match: { DSM: { $ne: null }, ...ledgerDateFilter } },
+            { $group: { _id: "$DSM", count: { $sum: 1 }, totalDebit: { $sum: "$DEBIT" }, totalCredit: { $sum: "$CREDIT" } } },
+            { $sort: { totalDebit: -1 } },
+        ]);
+        return { rows: aggregated.map((d: any) => ({ dsm: d._id, count: d.count, totalDebit: d.totalDebit, totalCredit: d.totalCredit })) };
     }
 
     static async activeCustomers(filter: CustomerReportFilter = {}) {
@@ -359,7 +424,6 @@ export default class CustomerReport {
 
     static async newCustomers(filter: CustomerReportFilter = {}) {
         await dbConnect();
-
         return Order.find({})
             .sort({ DATE: -1 })
             .limit(100)
@@ -368,11 +432,28 @@ export default class CustomerReport {
 
     static async partySummary(filter: CustomerReportFilter = {}) {
         await dbConnect();
-        return [];
+        return this.customerMaster(filter);
     }
 
     static async collectionPending(filter: CustomerReportFilter = {}) {
         await dbConnect();
-        return [];
+        const { startDate, endDate, page = 1, limit = 50 } = filter;
+        const pendDateFilter = buildFYDateQuery("DDATE", startDate, endDate);
+        const query = { FINAL: { $gt: 0 }, ...pendDateFilter };
+        const skip = (Math.max(1, page) - 1) * Math.max(1, limit);
+        const [pends, total] = await Promise.all([
+            Pend.find(query).sort({ DDATE: -1 }).skip(skip).limit(limit).lean(),
+            Pend.countDocuments(query),
+        ]);
+        const ords = Array.from(new Set(pends.map((p: any) => p.ORD).filter(Boolean)));
+        const orders = ords.length ? await Order.find({ ORDNO: { $in: ords } }, { ORDNO: 1, PARNAM: 1, CITY: 1 }).lean() : [];
+        const orderMap = new Map(orders.map((o: any) => [o.ORDNO, o]));
+
+        const rows = pends.map((p: any) => ({
+            ...p,
+            PARNAM: orderMap.get(p.ORD)?.PARNAM || p.ORD,
+            CITY: orderMap.get(p.ORD)?.CITY || "-",
+        }));
+        return { total, page, limit, totalPages: Math.ceil(total / limit) || 1, rows };
     }
 }
