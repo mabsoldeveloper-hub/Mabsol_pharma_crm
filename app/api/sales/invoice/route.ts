@@ -140,6 +140,7 @@ export async function POST(req: Request) {
     let totalCgst = 0;
     let totalSgst = 0;
     let totalIgst = 0;
+    let totalCess = 0;
 
     // Process items & update stock
     const lineItemDocs = [];
@@ -149,24 +150,33 @@ export async function POST(req: Request) {
       const freeQty = Number(item.FREEQTY || item.freeQty || 0);
       const rate = Number(item.LPRATE || item.rate || 0);
       const mrp = Number(item.MRP || item.mrp || 0);
+      const prate = Number(item.PRATE || item.prate || 0);
       const discPct = Number(item.DISC || item.disc || 0);
+      const cashDiscPct = Number(item.CASHDISC || item.cashDisc || 0);
       const cgstPct = Number(item.CGST || item.cgst || 0);
       const sgstPct = Number(item.SGST || item.sgst || 0);
       const igstPct = Number(item.IGST || item.igst || 0);
+      const cessPct = Number(item.CESS || item.cess || 0);
 
       // Taxable after discount
       const grossAmount = qty * rate;
       const discAmount = grossAmount * (discPct / 100);
-      const itemTaxable = grossAmount - discAmount;
+      let itemTaxable = grossAmount - discAmount;
+
+      if (cashDiscPct > 0) {
+        itemTaxable -= itemTaxable * (cashDiscPct / 100);
+      }
 
       const itemCgst = itemTaxable * (cgstPct / 100);
       const itemSgst = itemTaxable * (sgstPct / 100);
       const itemIgst = itemTaxable * (igstPct / 100);
+      const itemCess = itemTaxable * (cessPct / 100);
 
       totalTaxable += itemTaxable;
       totalCgst += itemCgst;
       totalSgst += itemSgst;
       totalIgst += itemIgst;
+      totalCess += itemCess;
 
       const prodCode = String(item.PRODUCT || item.productCode || item.code || "").trim();
       const prodName = String(item.NAME || item.name || "").trim();
@@ -176,17 +186,25 @@ export async function POST(req: Request) {
         DATE: invoiceDate,
         PRODUCT: prodCode,
         NAME: prodName,
+        PACK: String(item.PACK || item.pack || ""),
+        UNIT: String(item.UNIT || item.unit || ""),
+        HSN: String(item.HSN || item.hsn || ""),
         QTY: qty,
         FREEQTY: freeQty,
         LPRATE: rate,
         MRP: mrp,
+        PRATE: prate,
         DISC: discPct,
+        CASHDISC: cashDiscPct,
         CGST: cgstPct,
         SGST: sgstPct,
         IGST: igstPct,
+        CESS: cessPct,
         AMOUNTT: itemTaxable,
-        BATCH: item.BATCH || "DEFAULT",
-        EXPIRY: item.EXPIRY || "",
+        BATCH: item.BATCH || item.batch || "DEFAULT",
+        EXPIRY: item.EXPIRY || item.expiry || "",
+        MFG: item.MFG || item.mfg || "",
+        REMARK: item.REMARK || item.remark || "",
         _vfpTable: "vfp_new_folder_dis",
         _vfpSourceKey: `MANUAL_DIS_${vcn}_${prodCode}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       });
@@ -199,16 +217,17 @@ export async function POST(req: Request) {
           { $inc: { CLBAL: -totalDeductQty, STOCK: -totalDeductQty } }
         );
 
-        if (item.BATCH) {
+        if (item.BATCH || item.batch) {
+          const batchNo = item.BATCH || item.batch;
           await ProductBatch.updateOne(
-            { BATCH: item.BATCH },
+            { BATCH: batchNo },
             { $inc: { CLBAL: -totalDeductQty, STOCK: -totalDeductQty } }
           );
         }
       }
     }
 
-    const totalTax = totalCgst + totalSgst + totalIgst;
+    const totalTax = totalCgst + totalSgst + totalIgst + totalCess;
     const grossTotal = totalTaxable + totalTax;
     const finalAmount = Math.round(grossTotal);
     const round = Number((finalAmount - grossTotal).toFixed(2));
