@@ -10,6 +10,8 @@ import GLedger from "@/models/GLedger";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { consumeNextVoucherNumber } from "@/lib/voucherSeriesHelper";
 
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
+
 function formatInvoiceDate(rawDate: any): string {
   if (!rawDate) return "";
   if (typeof rawDate === "string") {
@@ -37,13 +39,18 @@ function formatInvoiceDate(rawDate: any): string {
   return String(rawDate).slice(0, 10);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await connectDB();
 
+    const { searchParams } = new URL(req.url);
+    const fyRange = await getFYDateRange(searchParams);
+    const { startDate, endDate } = fyRange;
+
+    const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
     const restriction = await getMrTerritoryRestriction();
 
-    let invoiceFilter: any = {};
+    let invoiceFilter: any = { ...dateMatch };
 
     if (restriction.isMrRestricted) {
       const orConditions: any[] = [];
@@ -61,9 +68,9 @@ export async function GET() {
       }
 
       if (orConditions.length > 0) {
-        invoiceFilter = { $or: orConditions };
+        invoiceFilter = { ...dateMatch, $or: orConditions };
       } else {
-        invoiceFilter = { CODEP: "NONE_MATCH" };
+        invoiceFilter = { ...dateMatch, CODEP: "NONE_MATCH" };
       }
     }
 

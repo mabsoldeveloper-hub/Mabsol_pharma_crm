@@ -22,8 +22,9 @@ export async function GET(req: Request) {
 
         const restriction = await getMrTerritoryRestriction();
 
-        let mdisFilter: any = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] } };
-        let disFilter: any = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] } };
+        const saleFilterBase = { TRANSFER: { $ne: "P" }, TYPE: { $nin: ["PROFORMA", "ESTIMATE", "P"] } };
+        let mdisFilter: any = { ...dateMatch, ...saleFilterBase };
+        let disFilter: any = { ...dateMatch, ...saleFilterBase };
         let customerFilter: any = {};
         let productFilter: any = {};
 
@@ -37,11 +38,11 @@ export async function GET(req: Request) {
           }
 
           if (orConditions.length > 0) {
-            mdisFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, $or: orConditions };
-            disFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, $or: orConditions };
+            mdisFilter = { ...dateMatch, ...saleFilterBase, $or: orConditions };
+            disFilter = { ...dateMatch, ...saleFilterBase, $or: orConditions };
           } else {
-            mdisFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, CODEP: "NONE_MATCH" };
-            disFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, CODEP: "NONE_MATCH" };
+            mdisFilter = { ...dateMatch, ...saleFilterBase, CODEP: "NONE_MATCH" };
+            disFilter = { ...dateMatch, ...saleFilterBase, CODEP: "NONE_MATCH" };
           }
 
           if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
