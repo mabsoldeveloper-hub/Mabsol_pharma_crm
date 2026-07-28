@@ -251,9 +251,7 @@ async function runSync(reason, targetEmail) {
         path.relative(currentDataDir, filePath).replace(/\\/g, "/")
       );
 
-      await TableMap.deleteMany({ email: currentEmail, fileName: { $nin: scannedFileNames } });
-      await SyncState.deleteMany({ email: currentEmail, tableName: { $nin: scannedTableNames } });
-      await FileAsset.deleteMany({ email: currentEmail, relativePath: { $nin: scannedAssetRelativePaths } });
+      // Preserve existing table maps, sync states, and file assets without deleting unscanned items
 
       await SyncLog.create({
         runId,
@@ -538,8 +536,7 @@ async function importDbfFile(filePath, runId, email, dataDir) {
       importedCount += bulkOps.length;
     }
 
-    // Clean up any records in this collection that were not updated in this sync run (e.g., packed/deleted rows)
-    await collection.deleteMany({ _vfpTable: tableName, _vfpSyncRunId: { $ne: runId } });
+    // Previously synced records are preserved; upsert appends new records and updates existing ones without deleting old data
 
     const syncDateLabel = getSyncDateLabel(new Date());
     await SyncState.updateOne(

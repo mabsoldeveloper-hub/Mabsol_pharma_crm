@@ -4,7 +4,6 @@ import ProtectedPage from "@/components/ProtectedPage";
 import { Fragment } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import RefreshButton from "@/components/RefreshButton";
-import "./vfp.css";
 
 export const dynamic = "force-dynamic";
 import {
@@ -111,74 +110,97 @@ export default async function VfpDashboardPage({
 
   return (
     <ProtectedPage permission="vfp.view">
-      <div className="vfp-page-body">
+      <div className="w-full max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-8 space-y-6 text-slate-900 box-border bg-slate-50/40 min-h-screen">
         
         {/* Eyebrow & Page Header */}
-        <div className="eyebrow">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M20 9a8 8 0 00-14.9-3M4 15a8 8 0 0014.9 3"/></svg>
-          Data migration
-        </div>
-        
-        <div className="header-row">
-          <div>
-            <h1 className="vfp-h1">Migrate Data Control</h1>
-            <p className="subtitle">Monitor local folder changes, DBF imports, file snapshots, and queued updates from one dashboard.</p>
-          </div>
-          <span className="status-pill">
-            <span className="dot-pulse"></span>
-            Sync active
-          </span>
-        </div>
-
-        {/* Signature Pipeline Visual */}
-        <div className="pipeline">
-          {/* Node 1: FoxPro Folder */}
-          <div className="p-node active">
-            <div className="p-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
-            </div>
-            <div className="p-label">FoxPro Folder</div>
-            <div className="p-sub truncate max-w-[130px]" title={status.dataDir}>{status.dataDir ? status.dataDir.substring(status.dataDir.lastIndexOf("\\") + 1) || status.dataDir : "Not set"}</div>
+        <div>
+          <div className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-slate-800 uppercase mb-1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5 text-slate-700"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+            <span>DATA MIGRATION</span>
           </div>
           
-          {/* Flow track 1 */}
-          <div className="p-track">
-            <span className="packet"></span>
-            <span className="packet"></span>
-            <span className="packet"></span>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full max-w-full">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-950 m-0 leading-tight">Migrate Data Control</h1>
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-2xl m-0 mt-1">Monitor local folder changes, DBF imports, file snapshots, and queued updates from one dashboard.</p>
+            </div>
+            <span 
+              className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-bold px-4 py-1.5 border border-emerald-200/80 shadow-2xs whitespace-nowrap shrink-0 btn-pill"
+              style={{ borderRadius: "9999px" }}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Sync active
+            </span>
+          </div>
+        </div>
+
+        {/* 1 Unified Container Card for Data Pipeline with Animated Flow (No Inner Node Borders) */}
+        <div 
+          className="bg-white border border-slate-200/90 shadow-2xs p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 md:gap-6 w-full box-border relative overflow-hidden"
+          style={{ borderRadius: "20px" }}
+        >
+          {/* Node 1: FoxPro Folder */}
+          <div className="flex items-center gap-3 flex-1 min-w-0 p-1">
+            <div 
+              className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-700 shrink-0 shadow-2xs"
+              style={{ borderRadius: "12px" }}
+            >
+              <FolderOpen size={17} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">FoxPro Folder</div>
+              <div className="text-[11px] text-slate-400 font-mono truncate mt-0.5" title={status.dataDir}>
+                {status.dataDir || "Not configured"}
+              </div>
+            </div>
+          </div>
+
+          {/* Animated Flow Track 1 */}
+          <div className="hidden md:block flex-1 h-[2px] bg-slate-100 relative overflow-hidden rounded-full min-w-[30px] my-auto">
+            <span className="animate-flow-line rounded-full" />
           </div>
 
           {/* Node 2: Sync Engine */}
-          <div className="p-node active">
-            <div className="p-icon">
-              <Settings size={20} className="animate-spin" style={{ animationDuration: "12s" }} />
+          <div className="flex items-center gap-3 flex-1 min-w-0 p-1">
+            <div 
+              className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-700 shrink-0 shadow-2xs"
+              style={{ borderRadius: "12px" }}
+            >
+              <Settings size={17} className="animate-spin text-slate-700" style={{ animationDuration: "10s" }} />
             </div>
-            <div className="p-label">Sync Engine</div>
-            <div className="p-sub" id="engine-sub">Sync Engine: Ready</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">Sync Engine</div>
+              <div className="text-[11px] text-slate-400 font-mono mt-0.5" id="engine-sub">
+                Sync Engine: Ready
+              </div>
+            </div>
           </div>
 
-          {/* Flow track 2 */}
-          <div className="p-track">
-            <span className="packet" style={{ animationDelay: ".5s" }}></span>
-            <span className="packet" style={{ animationDelay: "1.3s" }}></span>
-            <span className="packet" style={{ animationDelay: "2.1s" }}></span>
+          {/* Animated Flow Track 2 */}
+          <div className="hidden md:block flex-1 h-[2px] bg-slate-100 relative overflow-hidden rounded-full min-w-[30px] my-auto">
+            <span className="animate-flow-line rounded-full" style={{ animationDelay: "1.2s" }} />
           </div>
 
           {/* Node 3: CRM DBF Table */}
-          <div className="p-node">
-            <div className="p-icon">
-              <Database size={20} />
+          <div className="flex items-center gap-3 flex-1 min-w-0 p-1">
+            <div 
+              className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-700 shrink-0 shadow-2xs"
+              style={{ borderRadius: "12px" }}
+            >
+              <Database size={17} />
             </div>
-            <div className="p-label">CRM DBF Table</div>
-            <div className="p-sub truncate max-w-[130px]">
-              {status.enabledFiles && status.enabledFiles.length > 0 
-                ? status.enabledFiles[0] 
-                : "All tables"}
+            <div className="min-w-0 flex-1">
+              <div className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">CRM DBF Table</div>
+              <div className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
+                {status.enabledFiles && status.enabledFiles.length > 0 
+                  ? status.enabledFiles[0] 
+                  : "All tables"}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Control Panel - Full Width */}
+        {/* Control Panel Section */}
         <VfpSyncActions 
           currentPath={status.dataDir} 
           enabledFiles={status.enabledFiles}
@@ -191,14 +213,22 @@ export default async function VfpDashboardPage({
         />
 
         {/* Sync Activity Logs Card */}
-        <div className="card">
-          <div className="card-head">
+        <div 
+          className="bg-white border border-slate-200/90 shadow-xs overflow-hidden w-full max-w-full box-border"
+          style={{ borderRadius: "24px" }}
+        >
+          
+          {/* Logs Card Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 border-b border-slate-100 gap-3 w-full box-border">
             <div>
-              <div className="card-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6M9 9h1"/></svg>
-                Sync activity logs
+              <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                SYNC ACTIVITY LOGS
+              </span>
+              <div className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4.5 h-4.5 text-slate-700"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6M9 9h1"/></svg>
+                <span>Sync activity logs</span>
               </div>
-              <span style={{ fontSize: "12px", color: "var(--ink-faint)" }}>
+              <span className="text-xs text-slate-400 block mt-0.5">
                 Filter and review CRM data transfer logs
               </span>
             </div>
@@ -206,12 +236,19 @@ export default async function VfpDashboardPage({
           </div>
 
           {/* Filter Bar */}
-          <div className="filter-bar">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between p-4 sm:p-5 border-b border-slate-100 gap-4 w-full box-border bg-slate-50/30">
+            
+            {/* Range Pills */}
             <div className="flex items-center gap-2 flex-wrap">
               {rangeOptions.map((option) => (
                 <Link
                   key={option}
-                  className={`chip ${range === option && !startDate && !endDate ? "active" : ""}`}
+                  className={`text-xs font-bold px-4 py-2 border transition-all whitespace-nowrap inline-flex items-center btn-pill ${
+                    range === option && !startDate && !endDate 
+                      ? "bg-black border-black text-white shadow-xs" 
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs"
+                  }`}
+                  style={{ borderRadius: "9999px" }}
                   href={`/dashboard/mabsolcrmsync?range=${option}`}
                 >
                   {formatRangeName(option)}
@@ -219,71 +256,100 @@ export default async function VfpDashboardPage({
               ))}
             </div>
             
-            <form className="flex items-center gap-2 flex-wrap" method="get">
-              <input
-                className="date-input"
-                type="date"
-                name="startDate"
-                defaultValue={startDate || ""}
-              />
-              <span style={{ fontSize: "11px", color: "var(--ink-faint)", whiteSpace: "nowrap" }}>to</span>
-              <input
-                className="date-input"
-                type="date"
-                name="endDate"
-                defaultValue={endDate || ""}
-              />
-              <button className="btn btn-primary" type="submit">
+            {/* Date Filters Form */}
+            <form className="flex items-center gap-2 flex-wrap flex-1 lg:flex-initial" method="get">
+              <div 
+                className="flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 text-xs text-slate-700 shadow-2xs flex-1 sm:flex-initial"
+                style={{ borderRadius: "9999px" }}
+              >
+                <input
+                  className="font-mono text-xs text-slate-800 bg-transparent outline-none w-full"
+                  type="date"
+                  name="startDate"
+                  defaultValue={startDate || ""}
+                  placeholder="mm/dd/yyyy"
+                />
+              </div>
+              <span className="text-xs text-slate-400 font-medium whitespace-nowrap">to</span>
+              <div 
+                className="flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 text-xs text-slate-700 shadow-2xs flex-1 sm:flex-initial"
+                style={{ borderRadius: "9999px" }}
+              >
+                <input
+                  className="font-mono text-xs text-slate-800 bg-transparent outline-none w-full"
+                  type="date"
+                  name="endDate"
+                  defaultValue={endDate || ""}
+                  placeholder="mm/dd/yyyy"
+                />
+              </div>
+              
+              <button 
+                className="px-5 py-2 text-xs font-bold bg-black text-white hover:bg-slate-900 transition-all cursor-pointer whitespace-nowrap shadow-xs ml-1 btn-pill" 
+                style={{ borderRadius: "9999px" }}
+                type="submit"
+              >
                 Apply
               </button>
-              <Link href="/dashboard/mabsolcrmsync" className="btn">
+              <Link 
+                href="/dashboard/mabsolcrmsync" 
+                className="px-4 py-2 text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shadow-2xs btn-pill"
+                style={{ borderRadius: "9999px" }}
+              >
                 Reset
               </Link>
             </form>
-            
-            <div className="filter-spacer"></div>
-            
-            <div className="icon-btn" title="Search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-            </div>
           </div>
 
           {/* Logs List */}
-          <div className="log-list" id="log-list">
+          <div className="max-h-[520px] overflow-y-auto w-full box-border divide-y divide-slate-100" id="log-list">
             {recentLogs.length === 0 ? (
-              <div className="log-empty">
+              <div 
+                className="text-center py-12 px-4 text-xs sm:text-sm text-slate-400 bg-slate-50/40 m-4 border border-dashed border-slate-200 font-medium"
+                style={{ borderRadius: "16px" }}
+              >
                 No sync activity logs found.
               </div>
             ) : (
               recentLogs.map((log) => {
                 const logStatus = (log.status || "unknown").toLowerCase();
-                const logClass = logStatus === "success" 
-                  ? "success" 
-                  : logStatus === "running" 
-                  ? "running" 
-                  : "error";
+                const isSuccess = logStatus === "success";
+                const isRunning = logStatus === "running";
 
                 return (
-                  <div className={`log-item ${logClass}`} key={String(log._id)}>
-                    <div className="log-main">
-                      <div className="log-top">
-                        <span className="log-name">
+                  <div 
+                    className="p-4 sm:p-5 hover:bg-slate-50/60 transition-colors bg-white flex flex-col sm:flex-row sm:items-start justify-between gap-3" 
+                    key={String(log._id)}
+                  >
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="text-xs sm:text-sm font-bold text-slate-900">
                           {log.action} {log.tableName ? `· ${log.tableName}` : ""}
                         </span>
-                        <span className={`badge ${
-                          logClass === "success" 
-                            ? "badge-success" 
-                            : logClass === "running" 
-                            ? "badge-running" 
-                            : "badge-error"
-                        }`}>
-                          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="12"/></svg>
-                          {log.status || "Unknown"}
+                        <span 
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-0.5 border btn-pill ${
+                            isSuccess 
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200/80" 
+                              : isRunning 
+                              ? "bg-sky-50 text-sky-700 border-sky-200/80" 
+                              : "bg-red-50 text-red-700 border-red-200/80"
+                          }`}
+                          style={{ borderRadius: "9999px" }}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            isSuccess ? "bg-emerald-500" : isRunning ? "bg-sky-500 animate-pulse" : "bg-red-500"
+                          }`} />
+                          {log.status ? log.status.toUpperCase() : "UNKNOWN"}
                         </span>
                       </div>
-                      <div className="log-desc">{log.message || log.error || "No description logged."}</div>
+                      <div className="text-xs text-slate-500 font-mono break-words leading-relaxed">
+                        {log.message || log.error || "No description logged."}
+                      </div>
                     </div>
-                    <div className="log-time">{formatDate(log.createdAt)}</div>
+                    
+                    <div className="text-xs text-slate-400 font-mono whitespace-nowrap shrink-0">
+                      {formatDate(log.createdAt)}
+                    </div>
                   </div>
                 );
               })

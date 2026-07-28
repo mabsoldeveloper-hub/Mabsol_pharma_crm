@@ -20,6 +20,7 @@ interface FileSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (selectedPath: string) => void;
+  onSelectMultiple?: (selectedPaths: string[]) => void;
   title: string;
   filterType: "exe" | "prg" | "dir" | "dbf";
   initialPath?: string;
@@ -29,6 +30,7 @@ export default function FileSelectorModal({
   isOpen,
   onClose,
   onSelect,
+  onSelectMultiple,
   title,
   filterType,
   initialPath = ""
@@ -39,10 +41,81 @@ export default function FileSelectorModal({
   const [directories, setDirectories] = useState<string[]>([]);
   const [files, setFiles] = useState<string[]>([]);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const crumbTrackRef = useRef<HTMLDivElement>(null);
+  const localFolderInputRef = useRef<HTMLInputElement>(null);
+  const localFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePickFromMyPC = async () => {
+    if (filterType === "dir") {
+      if ("showDirectoryPicker" in window) {
+        try {
+          const handle = await (window as any).showDirectoryPicker();
+          if (handle && handle.name) {
+            const pathGuess = prompt(
+              `Selected local folder: "${handle.name}".\nEnter or confirm full Windows path (e.g. C:\\${handle.name} or D:\\${handle.name}):`,
+              `C:\\${handle.name}`
+            );
+            if (pathGuess) {
+              onSelect(pathGuess);
+              onClose();
+            }
+          }
+        } catch (e: any) {
+          if (e.name !== "AbortError") {
+            localFolderInputRef.current?.click();
+          }
+        }
+      } else {
+        localFolderInputRef.current?.click();
+      }
+    } else {
+      localFileInputRef.current?.click();
+    }
+  };
+
+  const handleLocalFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles && selectedFiles.length > 0) {
+      const relPath = selectedFiles[0].webkitRelativePath || "";
+      const folderName = relPath.split("/")[0] || "SelectedFolder";
+      const fullPath = prompt(
+        `Selected local PC folder: "${folderName}".\nEnter or confirm full Windows path (e.g. C:\\${folderName} or D:\\${folderName}):`,
+        `C:\\${folderName}`
+      );
+      if (fullPath) {
+        onSelect(fullPath);
+        onClose();
+      }
+    }
+  };
+
+  const handleLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFilesList = e.target.files;
+    if (selectedFilesList && selectedFilesList.length > 0) {
+      const selectedPathsList: string[] = [];
+      Array.from(selectedFilesList).forEach((f) => {
+        const fullPath = prompt(
+          `Selected local PC file: "${f.name}".\nEnter or confirm full Windows path (e.g. C:\\VfpData\\${f.name}):`,
+          `C:\\${f.name}`
+        );
+        if (fullPath) {
+          selectedPathsList.push(fullPath);
+        }
+      });
+      if (selectedPathsList.length > 0) {
+        if (onSelectMultiple) {
+          onSelectMultiple(selectedPathsList);
+        } else {
+          onSelect(selectedPathsList[0]);
+        }
+        onClose();
+      }
+    }
+  };
 
   // Auto-scroll breadcrumbs when currentDir changes
   useEffect(() => {
@@ -56,6 +129,7 @@ export default function FileSelectorModal({
     setLoading(true);
     setError("");
     setSelectedItem(null);
+    setSelectedItems([]);
     try {
       const typeParam = filterType === "dir" ? "" : filterType;
       const response = await fetch(
@@ -85,6 +159,7 @@ export default function FileSelectorModal({
       wasOpenRef.current = true;
       setError("");
       setSearchQuery("");
+      setSelectedItems([]);
       let startDir = initialPath || "";
       if (filterType !== "dir" && (startDir.endsWith(".exe") || startDir.endsWith(".prg") || startDir.endsWith(".dbf"))) {
         const lastSlash = Math.max(startDir.lastIndexOf("/"), startDir.lastIndexOf("\\"));
@@ -100,6 +175,20 @@ export default function FileSelectorModal({
 
   const handleSelectItem = (name: string) => {
     setSelectedItem(name);
+    if (filterType !== "dir") {
+      setSelectedItems((prev) => 
+        prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name]
+      );
+    }
+  };
+
+  const handleSelectAllFiles = () => {
+    const available = files.filter(f => f.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (selectedItems.length === available.length) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems([...available]);
+    }
   };
 
   const handleDoubleClickDirectory = (dirName: string) => {
@@ -116,18 +205,27 @@ export default function FileSelectorModal({
   };
 
   const handleConfirmSelect = () => {
+    const separator = currentDir.endsWith("\\") || currentDir.endsWith("/") ? "" : "\\";
+    
     if (filterType === "dir") {
       if (selectedItem) {
-        const separator = currentDir.endsWith("\\") || currentDir.endsWith("/") ? "" : "\\";
         onSelect(`${currentDir}${separator}${selectedItem}`);
       } else {
         onSelect(currentDir);
       }
       onClose();
-    } else if (selectedItem) {
-      const separator = currentDir.endsWith("\\") || currentDir.endsWith("/") ? "" : "\\";
-      onSelect(`${currentDir}${separator}${selectedItem}`);
-      onClose();
+    } else {
+      // Files multi-select
+      const finalItems = selectedItems.length > 0 ? selectedItems : selectedItem ? [selectedItem] : [];
+      if (finalItems.length > 0) {
+        const fullPaths = finalItems.map((item) => `${currentDir}${separator}${item}`);
+        if (onSelectMultiple) {
+          onSelectMultiple(fullPaths);
+        } else {
+          onSelect(fullPaths[0]);
+        }
+        onClose();
+      }
     }
   };
 
@@ -155,6 +253,9 @@ export default function FileSelectorModal({
   };
 
   const getSelectedFullPath = () => {
+    if (selectedItems.length > 0) {
+      return `${selectedItems.length} file(s) selected (${selectedItems.join(", ")})`;
+    }
     if (!selectedItem) {
       return filterType === "dir" ? currentDir || "none" : "none";
     }
@@ -184,38 +285,68 @@ export default function FileSelectorModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-[#16181D]/40 flex items-center justify-center p-6 z-[1050] backdrop-blur-xs">
-      <div className="bg-white w-full max-w-[480px] rounded-[10px] shadow-2xl flex flex-col max-h-[88vh] overflow-hidden border border-[#E4E6EB]">
+    <div className="fixed inset-0 bg-[#16181D]/40 flex items-center justify-center p-3 sm:p-6 z-[1050] backdrop-blur-xs">
+      <div className="bg-white w-full max-w-[520px] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden border border-[#E4E6EB]">
         
         {/* Header */}
-        <div className="flex items-start justify-between p-[20px_22px_16px] gap-[14px] bg-white shrink-0">
+        <div className="flex items-start justify-between p-4 sm:p-5 gap-3 bg-white shrink-0">
           <div className="flex gap-3 items-start">
-            <div className="w-[34px] h-[34px] rounded-[8px] border border-[#E4E6EB] bg-[#F7F8FA] text-[#63676F] flex items-center justify-center shrink-0">
-              <HeaderIcon className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl border border-[#E4E6EB] bg-[#F7F8FA] text-[#63676F] flex items-center justify-center shrink-0">
+              <HeaderIcon className="w-4.5 h-4.5" />
             </div>
             <div>
-              <h2 className="font-sans text-base font-bold text-[#16181D] m-0 mb-[3px] tracking-[-0.01em] leading-snug">
+              <h2 className="font-sans text-base font-bold text-[#16181D] m-0 mb-0.5 tracking-tight leading-snug">
                 {title}
               </h2>
-              <p className="text-[12.5px] text-[#9297A1] m-0 leading-normal">
-                Browse your server filesystem to configure VFP paths
+              <p className="text-xs text-[#9297A1] m-0 leading-normal">
+                {filterType === "dbf" ? "Select one or multiple DBF files to synchronize" : "Browse local PC drives and folders to configure VFP paths"}
               </p>
             </div>
           </div>
           <button 
             type="button"
-            className="w-7 h-7 rounded-md border-0 bg-transparent text-[#9297A1] cursor-pointer flex items-center justify-center shrink-0 hover:bg-[#F7F8FA] hover:text-[#16181D] transition-colors mt-0.5"
+            className="w-7 h-7 rounded-full border-0 bg-transparent text-[#9297A1] cursor-pointer flex items-center justify-center shrink-0 hover:bg-[#F7F8FA] hover:text-[#16181D] transition-colors mt-0.5"
             onClick={onClose}
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Navigation Bar */}
-        <div className="flex items-center gap-2 p-[0_22px_14px] shrink-0">
+        {/* Local PC Pick Banner */}
+        <div className="px-4 sm:px-5 pb-3 shrink-0">
           <button
             type="button"
-            className="w-[30px] h-[30px] rounded-[7px] border border-[#E4E6EB] bg-white flex items-center justify-center cursor-pointer text-[#63676F] shrink-0 hover:bg-[#F7F8FA] disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+            onClick={handlePickFromMyPC}
+            className="w-full flex items-center justify-center gap-2 bg-[#F1F5F9] hover:bg-[#E2E8F0] border border-[#CBD5E1] rounded-xl py-2 px-3 text-xs font-bold text-[#0F172A] transition-all cursor-pointer shadow-2xs active:scale-[0.99]"
+          >
+            <HardDrive className="w-4 h-4 text-[#2563EB]" />
+            <span>Browse My Local PC (Windows Explorer)</span>
+          </button>
+          
+          <input
+            type="file"
+            ref={localFolderInputRef}
+            onChange={handleLocalFolderChange}
+            // @ts-ignore
+            webkitdirectory=""
+            directory=""
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={localFileInputRef}
+            onChange={handleLocalFileChange}
+            multiple={filterType === "dbf"}
+            accept={filterType === "exe" ? ".exe" : filterType === "prg" ? ".prg" : filterType === "dbf" ? ".dbf" : "*"}
+            className="hidden"
+          />
+        </div>
+
+        {/* Navigation Bar */}
+        <div className="flex items-center gap-2 px-4 sm:px-5 pb-3 shrink-0">
+          <button
+            type="button"
+            className="w-8 h-8 rounded-xl border border-[#E4E6EB] bg-white flex items-center justify-center cursor-pointer text-[#63676F] shrink-0 hover:bg-[#F7F8FA] disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
             onClick={handleNavigateUp}
             disabled={!currentDir || loading}
             title="Up one level"
@@ -223,12 +354,12 @@ export default function FileSelectorModal({
             <ArrowUp className="w-3.5 h-3.5" />
           </button>
           
-          <div ref={crumbTrackRef} className="flex-1 min-w-0 flex items-center gap-1.5 bg-[#F7F8FA] border border-[#E4E6EB] rounded-[7px] p-[8px_12px] overflow-x-auto whitespace-nowrap scrollbar-none">
+          <div ref={crumbTrackRef} className="flex-1 min-w-0 flex items-center gap-1.5 bg-[#F7F8FA] border border-[#E4E6EB] rounded-xl p-2 overflow-x-auto whitespace-nowrap scrollbar-none">
             {crumbs.map((crumb, idx) => (
               <span key={idx} className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
-                  className={`text-[12.5px] font-medium cursor-pointer px-[3px] py-[2px] rounded font-mono transition-colors focus:outline-none ${
+                  className={`text-xs font-medium cursor-pointer px-1 py-0.5 rounded font-mono transition-colors focus:outline-none ${
                     idx === crumbs.length - 1 
                       ? "text-[#16181D] font-bold pointer-events-none" 
                       : "text-[#9297A1] hover:text-[#16181D]"
@@ -238,17 +369,17 @@ export default function FileSelectorModal({
                   {crumb.name}
                 </button>
                 {idx < crumbs.length - 1 && (
-                  <span className="text-[#D4D7DE] text-[12px] select-none font-mono">/</span>
+                  <span className="text-[#D4D7DE] text-xs select-none font-mono">/</span>
                 )}
               </span>
             ))}
           </div>
         </div>
 
-        {/* Filter Input */}
+        {/* Filter Input & Select All Option */}
         {currentDir && (
-          <div className="px-[22px] pb-[14px] shrink-0">
-            <div className="flex items-center gap-2.5 bg-[#F7F8FA] border border-[#E4E6EB] rounded-[7px] p-[9px_12px]">
+          <div className="px-4 sm:px-5 pb-3 shrink-0 flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-2.5 bg-[#F7F8FA] border border-[#E4E6EB] rounded-xl px-3 py-2">
               <Search className="w-3.5 h-3.5 text-[#9297A1] shrink-0" />
               <input
                 type="text"
@@ -268,34 +399,45 @@ export default function FileSelectorModal({
                 </button>
               )}
             </div>
+
+            {/* Select All Files Toggle for DBF / Multi-select */}
+            {filterType !== "dir" && filteredFiles.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelectAllFiles}
+                className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 transition-all shrink-0 cursor-pointer shadow-2xs whitespace-nowrap"
+              >
+                {selectedItems.length === filteredFiles.length ? "Deselect All" : "Select All"}
+              </button>
+            )}
           </div>
         )}
 
         {/* Message Banner (Errors) */}
         {error && (
-          <div className="mx-[22px] mb-[14px] flex items-center gap-2.5 bg-[#FCEBEA] border border-[#F3C9C6] rounded-[7px] p-[10px_13px] text-[12.5px] text-[#C0332A] font-medium animate-in fade-in duration-100 shrink-0">
+          <div className="mx-4 sm:mx-5 mb-3 flex items-center gap-2 bg-[#FCEBEA] border border-[#F3C9C6] rounded-xl p-2.5 text-xs text-[#C0332A] font-medium animate-in fade-in duration-100 shrink-0">
             <span>{error}</span>
           </div>
         )}
 
         {/* Contents List */}
-        <div className="mx-[22px] mb-[22px] border border-[#E4E6EB] rounded-[9px] flex-1 min-h-[180px] max-h-[260px] overflow-y-auto bg-white">
+        <div className="mx-4 sm:mx-5 mb-4 border border-[#E4E6EB] rounded-xl flex-1 min-h-[180px] max-h-[280px] overflow-y-auto bg-white">
           {loading ? (
             <div className="h-full min-h-[180px] flex flex-col items-center justify-center text-[#9297A1] gap-2.5">
               <Loader2 className="w-6 h-6 animate-spin text-[#3457D5]" />
               <span className="text-xs font-semibold">Scanning directory...</span>
             </div>
           ) : !currentDir && drives.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-[36px_20px] text-center text-[#9297A1] min-h-[180px]">
+            <div className="flex flex-col items-center justify-center p-8 text-center text-[#9297A1] min-h-[180px]">
               <HardDrive className="w-7 h-7 mb-2 text-[#D4D7DE]" />
-              <div className="text-[13px] font-semibold text-[#63676F] mb-0.5">No drives available</div>
-              <div className="text-[11.5px] text-[#9297A1]">Could not scan standard drives on the host.</div>
+              <div className="text-xs font-semibold text-[#63676F] mb-0.5">No drives available</div>
+              <div className="text-[11px] text-[#9297A1]">Could not scan standard drives on the host.</div>
             </div>
           ) : currentDir && filteredDirectories.length === 0 && filteredFiles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-[36px_20px] text-center text-[#9297A1] min-h-[180px]">
+            <div className="flex flex-col items-center justify-center p-8 text-center text-[#9297A1] min-h-[180px]">
               <Folder className="w-7 h-7 mb-2 text-[#D4D7DE]" />
-              <div className="text-[13px] font-semibold text-[#63676F] mb-0.5">No items found</div>
-              <div className="text-[11.5px] text-[#9297A1]">This location is empty or matches no filter.</div>
+              <div className="text-xs font-semibold text-[#63676F] mb-0.5">No items found</div>
+              <div className="text-[11px] text-[#9297A1]">This location is empty or matches no filter.</div>
             </div>
           ) : (
             <div className="divide-y divide-[#E4E6EB]">
@@ -305,22 +447,22 @@ export default function FileSelectorModal({
                 return (
                   <div
                     key={drive}
-                    className={`flex items-center gap-[12px] p-[12px_14px] cursor-pointer transition-colors group ${
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors group ${
                       isSelected ? "bg-[#EEF1FD]" : "hover:bg-[#F7F8FA]"
                     }`}
                     onClick={() => handleSelectItem(drive)}
                     onDoubleClick={() => browsePath(drive)}
                   >
-                    <div className={`w-[28px] h-[28px] rounded-[6px] flex items-center justify-center shrink-0 transition-colors ${
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                       isSelected ? "bg-white text-[#3457D5]" : "bg-[#F7F8FA] text-[#9297A1]"
                     }`}>
                       <HardDrive className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13.5px] font-semibold text-[#16181D] truncate font-mono">
+                      <div className="text-xs font-semibold text-[#16181D] truncate font-mono">
                         Local Disk ({drive})
                       </div>
-                      <div className="text-[11.5px] text-[#9297A1] font-mono">System Drive</div>
+                      <div className="text-[11px] text-[#9297A1] font-mono">System Drive</div>
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-[#9297A1] shrink-0 ml-auto group-hover:translate-x-0.5 transition-transform" />
                   </div>
@@ -333,7 +475,7 @@ export default function FileSelectorModal({
                 return (
                   <div
                     key={dir}
-                    className={`flex items-center gap-[12px] p-[12px_14px] cursor-pointer transition-colors group ${
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors group ${
                       isSelected ? "bg-[#EEF1FD]" : "hover:bg-[#F7F8FA]"
                     }`}
                     onClick={() => {
@@ -345,16 +487,16 @@ export default function FileSelectorModal({
                     }}
                     onDoubleClick={() => handleDoubleClickDirectory(dir)}
                   >
-                    <div className={`w-[28px] h-[28px] rounded-[6px] flex items-center justify-center shrink-0 transition-colors ${
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                       isSelected ? "bg-white text-[#3457D5]" : "bg-[#F7F8FA] text-[#9297A1]"
                     }`}>
                       <Folder className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13.5px] font-semibold text-[#16181D] truncate font-sans">
+                      <div className="text-xs font-semibold text-[#16181D] truncate font-sans">
                         {dir}
                       </div>
-                      <div className="text-[11.5px] text-[#9297A1] font-sans">Folder</div>
+                      <div className="text-[11px] text-[#9297A1] font-sans">Folder</div>
                     </div>
                     {filterType === "dir" ? (
                       <Check className={`w-3.5 h-3.5 text-[#3457D5] shrink-0 ml-auto transition-all ${
@@ -369,7 +511,8 @@ export default function FileSelectorModal({
 
               {/* Render Files */}
               {filterType !== "dir" && filteredFiles.map((file) => {
-                const isSelected = selectedItem === file;
+                const isChecked = selectedItems.includes(file);
+                const isSelected = selectedItem === file || isChecked;
                 
                 let FileIcon = FileCode;
                 let metaText = "File";
@@ -386,25 +529,31 @@ export default function FileSelectorModal({
                 return (
                   <div
                     key={file}
-                    className={`flex items-center gap-[12px] p-[12px_14px] cursor-pointer transition-colors group ${
-                      isSelected ? "bg-[#EEF1FD]" : "hover:bg-[#F7F8FA]"
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors group ${
+                      isChecked ? "bg-[#EEF1FD]" : "hover:bg-[#F7F8FA]"
                     }`}
                     onClick={() => handleSelectItem(file)}
                   >
-                    <div className={`w-[28px] h-[28px] rounded-[6px] flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected ? "bg-white text-[#3457D5]" : `bg-[#F7F8FA] ${iconColor}`
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}}
+                      className="w-4 h-4 text-indigo-600 rounded cursor-pointer shrink-0"
+                    />
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      isChecked ? "bg-white text-[#3457D5]" : `bg-[#F7F8FA] ${iconColor}`
                     }`}>
                       <FileIcon className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13.5px] font-semibold text-[#16181D] truncate font-mono">
+                      <div className="text-xs font-semibold text-[#16181D] truncate font-mono">
                         {file}
                       </div>
-                      <div className="text-[11.5px] text-[#9297A1] font-sans">{metaText}</div>
+                      <div className="text-[11px] text-[#9297A1] font-sans">{metaText}</div>
                     </div>
-                    <Check className={`w-3.5 h-3.5 text-[#3457D5] shrink-0 ml-auto transition-all ${
-                      isSelected ? "opacity-100 scale-100" : "opacity-0 scale-75"
-                    }`} />
+                    {isChecked && (
+                      <Check className="w-4 h-4 text-[#3457D5] shrink-0 ml-auto" />
+                    )}
                   </div>
                 );
               })}
@@ -413,14 +562,14 @@ export default function FileSelectorModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-4 p-[15px_22px] border-t border-[#E4E6EB] bg-white shrink-0">
-          <div className="text-[12px] text-[#9297A1] truncate max-w-[220px]">
-            Selected: <span className="text-[#63676F] font-mono font-medium ml-1" title={selectedFullPath}>{selectedFullPath}</span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 sm:px-5 border-t border-[#E4E6EB] bg-white shrink-0">
+          <div className="text-xs text-[#9297A1] truncate max-w-full sm:max-w-[260px]">
+            Selected: <span className="text-[#16181D] font-mono font-bold ml-1" title={selectedFullPath}>{selectedFullPath}</span>
           </div>
-          <div className="flex gap-2.5 shrink-0">
+          <div className="flex gap-2.5 shrink-0 justify-end w-full sm:w-auto">
             <button
               type="button"
-              className="text-[13px] font-semibold rounded-[7px] px-[16px] py-[9px] cursor-pointer border border-[#D4D7DE] bg-white text-[#16181D] hover:bg-[#F7F8FA] active:scale-[0.98] transition-all disabled:opacity-50"
+              className="flex-1 sm:flex-none text-xs font-bold rounded-xl px-4 py-2 cursor-pointer border border-[#D4D7DE] bg-white text-[#16181D] hover:bg-[#F7F8FA] active:scale-[0.98] transition-all disabled:opacity-50"
               onClick={onClose}
               disabled={loading}
             >
@@ -428,11 +577,11 @@ export default function FileSelectorModal({
             </button>
             <button
               type="button"
-              className="text-[13px] font-semibold rounded-[7px] px-[16px] py-[9px] cursor-pointer border border-[#3457D5] bg-[#3457D5] text-white hover:bg-[#2C48B8] active:scale-[0.98] transition-all disabled:bg-[#B7C1EE] disabled:border-[#B7C1EE] disabled:cursor-not-allowed disabled:active:scale-100"
+              className="flex-1 sm:flex-none text-xs font-bold rounded-xl px-4 py-2 cursor-pointer border border-[#3457D5] bg-[#3457D5] text-white hover:bg-[#2C48B8] active:scale-[0.98] transition-all disabled:bg-[#B7C1EE] disabled:border-[#B7C1EE] disabled:cursor-not-allowed disabled:active:scale-100 shadow-2xs"
               onClick={handleConfirmSelect}
-              disabled={loading || (filterType !== "dir" && !selectedItem)}
+              disabled={loading || (filterType !== "dir" && selectedItems.length === 0 && !selectedItem)}
             >
-              Confirm selection
+              {selectedItems.length > 1 ? `Confirm (${selectedItems.length} files)` : "Confirm selection"}
             </button>
           </div>
         </div>

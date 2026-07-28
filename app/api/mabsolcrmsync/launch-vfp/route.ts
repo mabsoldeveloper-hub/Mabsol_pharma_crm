@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import VfpConfig from "@/models/VfpConfig";
+import VfpSettingLog from "@/models/VfpSettingLog";
 import { getCurrentUser } from "@/lib/auth";
 import fs from "fs";
 import path from "path";
@@ -152,11 +153,26 @@ export async function POST() {
 
     const vfpDir = path.dirname(vfpExePath);
 
+    // Support Windows executable on Linux AWS server via Wine & XRDP Display
+    let execCmd = vfpExePath;
+    let execArgs = ["-c" + fpwPath];
+
+    if (process.platform !== "win32" && (vfpExePath.toLowerCase().endsWith(".exe") || !fs.existsSync(vfpExePath))) {
+      execCmd = "wine";
+      execArgs = [vfpExePath, "-c" + fpwPath];
+    }
+
+    const displayEnv = process.env.DISPLAY || ":10.0" || ":0";
+
     // Spawn VFP in detached mode pointing to configuration
-    const child = spawn(vfpExePath, ["-c" + fpwPath], {
+    const child = spawn(execCmd, execArgs, {
       cwd: vfpDir,
       detached: true,
       stdio: "ignore",
+      env: {
+        ...process.env,
+        DISPLAY: displayEnv,
+      },
     });
 
     // Unreference the child process so Next.js doesn't wait for it to exit
@@ -180,6 +196,22 @@ export async function POST() {
         }
       } catch (e) {}
     }, 5000);
+
+    // Log VFP launch event in VfpSettingLog
+    try {
+      await VfpSettingLog.create({
+        email: user.email,
+        userName: (config as any)?.userName || user.name || "Operator",
+        companyName: (config as any)?.companyName || "Unknown",
+        license: (config as any)?.license || "N/A",
+        vfpExePath,
+        action: "vfp_launched",
+        status: "success",
+        message: `Visual FoxPro (${path.basename(vfpExePath)}) console opened to extract DBF data.`,
+      });
+    } catch {
+      // Ignore logging error
+    }
 
     return NextResponse.json({
       success: true,

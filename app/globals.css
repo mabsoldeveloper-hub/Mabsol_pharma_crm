@@ -104,12 +104,46 @@ body {
   #printable-area * {
     visibility: visible;
   }
+}
 
-  #printable-area {
-    position: absolute;
-    inset: 0;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 16px !important;
+/* Animation Keyframes */
+
+@keyframes flow {
+  0% {
+    left: -20%;
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0.2;
   }
 }
+
+.animate-flow-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #10b981, transparent);
+  animation: flow 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-flow-dot {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: flow 2.4s linear infinite;
+}
+
+/* Ensure pill buttons have full rounded capsule shape */
+.btn-pill {
+  border-radius: 9999px !important;
+}
