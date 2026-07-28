@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
     useReactTable,
     getCoreRowModel,
@@ -20,6 +20,7 @@ import {
     FaChevronLeft,
     FaChevronRight,
 } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 type TopProduct = {
     code: string;
@@ -38,16 +39,37 @@ export default function TopProducts() {
         { id: "amount", desc: true },
     ]);
     const [globalFilter, setGlobalFilter] = useState("");
+    const { selectedFY } = useFinancialYear();
+
+    const loadProducts = useCallback(async () => {
+        let url = "/api/sales/top-products";
+        if (selectedFY) {
+            if (selectedFY.isAll) {
+                url += "?fyId=ALL";
+            } else if (selectedFY._id) {
+                url += `?fyId=${selectedFY._id}`;
+                if (selectedFY.startDate && selectedFY.endDate) {
+                    const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                    const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                    url += `&startDate=${s}&endDate=${e}`;
+                }
+            }
+        }
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            setProducts(Array.isArray(data) ? data : []);
+        } catch {
+            setProducts([]);
+        }
+    }, [selectedFY]);
 
     useEffect(() => {
         loadProducts();
-    }, []);
-
-    const loadProducts = async () => {
-        const res = await fetch("/api/sales/top-products");
-        const data = await res.json();
-        setProducts(data);
-    };
+        const onFyChange = () => loadProducts();
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
+    }, [loadProducts]);
 
     const columns = useMemo(
         () => [

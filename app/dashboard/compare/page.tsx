@@ -25,8 +25,9 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
     BarChart,
     Bar,
@@ -149,6 +150,24 @@ export default function ComparisonDashboardPage() {
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
     const isMobile = useIsMobile();
+    const { selectedFY } = useFinancialYear();
+
+    useEffect(() => {
+        const updateFYFilters = () => {
+            if (selectedFY && !selectedFY.isAll && selectedFY.startDate && selectedFY.endDate) {
+                const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                setFrom(s);
+                setTo(e);
+            } else if (selectedFY?.isAll) {
+                setFrom("");
+                setTo("");
+            }
+        };
+        updateFYFilters();
+        window.addEventListener("financial-year-changed", updateFYFilters);
+        return () => window.removeEventListener("financial-year-changed", updateFYFilters);
+    }, [selectedFY]);
 
     useEffect(() => {
         loadMrTerritoryInfo();
@@ -174,7 +193,7 @@ export default function ComparisonDashboardPage() {
         }
     };
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -186,11 +205,15 @@ export default function ComparisonDashboardPage() {
             if (!json.success) throw new Error(json.error || "Failed to load dashboard");
             setData(json.data);
         } catch (e: any) {
-            setError(e.message ?? "Something went wrong");
+            setError(e.message || "Failed to load comparison data.");
         } finally {
             setLoading(false);
         }
-    };
+    }, [from, to]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     return (
         <div className="min-h-screen p-3 sm:p-6 space-y-4 sm:space-y-6 relative">

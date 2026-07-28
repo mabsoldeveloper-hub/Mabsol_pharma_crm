@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import {
     FaFileInvoice,
@@ -8,10 +8,12 @@ import {
     FaChevronLeft,
     FaChevronRight,
 } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 type Bill = {
     _id: string;
     VOUCHER: string;
+    VCN?: string;
     DATE: string;
     customer: string;
     city: string;
@@ -25,31 +27,43 @@ export default function RecentBills() {
     const [search, setSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 8;
+    const { selectedFY } = useFinancialYear();
 
-    useEffect(() => {
-        loadBills();
-    }, []);
-
-    const loadBills = async () => {
-
+    const loadBills = useCallback(async () => {
+        let url = "/api/sales/recent";
+        if (selectedFY) {
+            if (selectedFY.isAll) {
+                url += "?fyId=ALL";
+            } else if (selectedFY._id) {
+                url += `?fyId=${selectedFY._id}`;
+                if (selectedFY.startDate && selectedFY.endDate) {
+                    const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                    const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                    url += `&startDate=${s}&endDate=${e}`;
+                }
+            }
+        }
         try {
-
-            const res = await fetch("/api/sales/recent");
+            const res = await fetch(url);
             const data = await res.json();
 
             if (Array.isArray(data)) {
                 setBills(data);
             } else {
-                console.error("Invalid API Response", data);
                 setBills([]);
             }
-
         } catch (err) {
             console.error(err);
             setBills([]);
         }
+    }, [selectedFY]);
 
-    };
+    useEffect(() => {
+        loadBills();
+        const onFyChange = () => loadBills();
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
+    }, [loadBills]);
 
     // search filter (voucher + customer + city + user)
     const filteredBills = useMemo(() => {
@@ -187,7 +201,7 @@ export default function RecentBills() {
                                     </td>
                                     <td className="px-4 py-2.5 text-center">
                                         <Link
-                                            href={`/dashboard/sales/bills/${bill.VOUCHER}`}
+                                            href={`/dashboard/sales/invoice/${encodeURIComponent(bill.VOUCHER || bill.VCN || bill._id)}`}
                                             className="
                         inline-flex items-center justify-center
                         px-3 py-1 rounded-lg text-xs font-medium

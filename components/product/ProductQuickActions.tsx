@@ -1,8 +1,12 @@
 "use client";
 
-import { FaEdit, FaPrint } from "react-icons/fa";
+import { FaPlus, FaPrint } from "react-icons/fa";
 
-export default function ProductQuickActions() {
+interface ProductQuickActionsProps {
+  onAddClick?: () => void;
+}
+
+export default function ProductQuickActions({ onAddClick }: ProductQuickActionsProps) {
   return (
     <div
       className="
@@ -18,23 +22,27 @@ export default function ProductQuickActions() {
 
       <div className="relative flex flex-col gap-2.5">
         <button
+          type="button"
+          onClick={onAddClick}
           className="
             group relative flex items-center justify-center gap-2 w-full py-2.5 rounded-xl
             text-sm font-semibold text-white overflow-hidden
-            bg-gradient-to-r from-indigo-500 to-blue-500
-            shadow-md shadow-indigo-500/25
+            bg-gradient-to-r from-blue-600 to-indigo-600
+            shadow-md shadow-blue-500/25
             transition-all duration-300 ease-out
-            hover:shadow-lg hover:shadow-indigo-500/40 hover:-translate-y-0.5
-            active:translate-y-0 active:shadow-sm
+            hover:shadow-lg hover:shadow-blue-500/40 hover:-translate-y-0.5
+            active:translate-y-0 active:shadow-sm cursor-pointer
           "
         >
           {/* shine sweep */}
           <span className="pointer-events-none absolute -inset-y-8 -left-1/2 w-1/3 rotate-12 bg-white/30 blur-md opacity-0 group-hover:opacity-100 group-hover:translate-x-[250%] transition-all duration-700 ease-out" />
-          <FaEdit size={14} className="relative" />
-          <span className="relative">Edit Product</span>
+          <FaPlus size={13} className="relative" />
+          <span className="relative">Add New Product</span>
         </button>
 
         <button
+          type="button"
+          onClick={() => window.print()}
           className="
             group relative flex items-center justify-center gap-2 w-full py-2.5 rounded-xl
             text-sm font-semibold text-white overflow-hidden
@@ -42,7 +50,7 @@ export default function ProductQuickActions() {
             shadow-md shadow-emerald-500/25
             transition-all duration-300 ease-out
             hover:shadow-lg hover:shadow-emerald-500/40 hover:-translate-y-0.5
-            active:translate-y-0 active:shadow-sm
+            active:translate-y-0 active:shadow-sm cursor-pointer
           "
         >
           <span className="pointer-events-none absolute -inset-y-8 -left-1/2 w-1/3 rotate-12 bg-white/30 blur-md opacity-0 group-hover:opacity-100 group-hover:translate-x-[250%] transition-all duration-700 ease-out" />
@@ -52,4 +60,4 @@ export default function ProductQuickActions() {
       </div>
     </div>
   );
-}
+}

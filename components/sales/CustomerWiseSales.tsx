@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
     FaUsers,
     FaSearch,
     FaChevronLeft,
     FaChevronRight,
 } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 type Customer = {
     customer: string;
@@ -22,37 +23,42 @@ export default function CustomerWiseSales() {
     const [search, setSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 8;
+    const { selectedFY } = useFinancialYear();
 
-    useEffect(() => {
-        loadCustomers();
-    }, []);
-
-    const loadCustomers = async () => {
-
+    const loadCustomers = useCallback(async () => {
+        let url = "/api/sales/customer-wise";
+        if (selectedFY) {
+            if (selectedFY.isAll) {
+                url += "?fyId=ALL";
+            } else if (selectedFY._id) {
+                url += `?fyId=${selectedFY._id}`;
+                if (selectedFY.startDate && selectedFY.endDate) {
+                    const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                    const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                    url += `&startDate=${s}&endDate=${e}`;
+                }
+            }
+        }
         try {
-
-            const res = await fetch("/api/sales/customer-wise");
-
+            const res = await fetch(url);
             const data = await res.json();
-
-            console.log("API Response :", data);
-            console.log("Is Array :", Array.isArray(data));
-
             if (Array.isArray(data)) {
                 setCustomers(data);
             } else {
-                console.error("Invalid API Response", data);
                 setCustomers([]);
             }
-
         } catch (err) {
-
             console.error(err);
             setCustomers([]);
-
         }
+    }, [selectedFY]);
 
-    };
+    useEffect(() => {
+        loadCustomers();
+        const onFyChange = () => loadCustomers();
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
+    }, [loadCustomers]);
 
     // search filter (customer + city)
     const filteredCustomers = useMemo(() => {

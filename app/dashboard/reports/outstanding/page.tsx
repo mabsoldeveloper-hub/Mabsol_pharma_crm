@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 interface LedgerDetail {
     CODE?: string | null;
@@ -180,6 +181,25 @@ export default function OutstandingReportPage() {
 
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+    const { selectedFY } = useFinancialYear();
+
+    useEffect(() => {
+        const updateFYFilters = () => {
+            if (selectedFY && !selectedFY.isAll && selectedFY.startDate && selectedFY.endDate) {
+                const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                setFilters((prev) => ({ ...prev, dueFrom: s, dueTo: e }));
+                setAppliedFilters((prev) => ({ ...prev, dueFrom: s, dueTo: e }));
+            } else if (selectedFY?.isAll) {
+                setFilters((prev) => ({ ...prev, dueFrom: "", dueTo: "" }));
+                setAppliedFilters((prev) => ({ ...prev, dueFrom: "", dueTo: "" }));
+            }
+        };
+        updateFYFilters();
+        window.addEventListener("financial-year-changed", updateFYFilters);
+        return () => window.removeEventListener("financial-year-changed", updateFYFilters);
+    }, [selectedFY]);
 
     // MR Territory state
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);

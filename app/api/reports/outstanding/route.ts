@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import OutstandingReport from "@/models/OutstandingReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import FinancialYear from "@/models/FinancialYear";
+import { getFYDateRange } from "@/lib/financialYearHelper";
 
 export async function GET(req: NextRequest) {
     try {
@@ -16,6 +18,15 @@ export async function GET(req: NextRequest) {
         const restriction = await getMrTerritoryRestriction();
 
         const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
+
+        let dueFrom = searchParams.get("dueFrom") || "";
+        let dueTo = searchParams.get("dueTo") || "";
+
+        if (!dueFrom || !dueTo) {
+            const fyRange = await getFYDateRange(searchParams);
+            if (!dueFrom && fyRange.startDate) dueFrom = fyRange.startDate;
+            if (!dueTo && fyRange.endDate) dueTo = fyRange.endDate;
+        }
 
         const filter = {
             search: searchParams.get("search") || "",
@@ -33,8 +44,8 @@ export async function GET(req: NextRequest) {
             mr: searchParams.get("mr") || "",
             voucher: searchParams.get("voucher") || "",
             vcn: searchParams.get("vcn") || "",
-            dueFrom: searchParams.get("dueFrom") || "",
-            dueTo: searchParams.get("dueTo") || "",
+            dueFrom,
+            dueTo,
             minAmount: searchParams.get("minAmount") || "",
             maxAmount: searchParams.get("maxAmount") || "",
             onlyOutstanding: searchParams.get("onlyOutstanding") || "Y",

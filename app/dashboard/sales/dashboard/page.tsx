@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 
 import SalesCards from "@/components/sales/SalesCards";
 import RecentBills from "@/components/sales/RecentBills";
 import TopProducts from "@/components/sales/TopProducts";
 import CustomerWiseSales from "@/components/sales/CustomerWiseSales";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 type MrTerritoryInfo = {
     isMrRestricted: boolean;
@@ -17,11 +18,7 @@ type MrTerritoryInfo = {
 export default function SalesDashboard() {
   const [summary, setSummary] = useState<any>(null);
   const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
-
-  useEffect(() => {
-    loadMrTerritoryInfo();
-    loadDashboard();
-  }, []);
+  const { selectedFY } = useFinancialYear();
 
   const loadMrTerritoryInfo = async () => {
     try {
@@ -41,11 +38,40 @@ export default function SalesDashboard() {
     }
   };
 
-  const loadDashboard = async () => {
-    const res = await fetch("/api/sales/dashboard");
-    const data = await res.json();
-    setSummary(data);
-  };
+  const loadDashboard = useCallback(async () => {
+    let url = "/api/sales/dashboard";
+    if (selectedFY) {
+      if (selectedFY.isAll) {
+        url += "?fyId=ALL";
+      } else if (selectedFY._id) {
+        url += `?fyId=${selectedFY._id}`;
+        if (selectedFY.startDate && selectedFY.endDate) {
+          const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+          const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+          url += `&startDate=${s}&endDate=${e}`;
+        }
+      }
+    }
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      setSummary(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedFY]);
+
+  useEffect(() => {
+    loadMrTerritoryInfo();
+  }, []);
+
+  useEffect(() => {
+    loadDashboard();
+    const onFyChange = () => loadDashboard();
+    window.addEventListener("financial-year-changed", onFyChange);
+    return () => window.removeEventListener("financial-year-changed", onFyChange);
+  }, [loadDashboard]);
 
   if (!summary) {
     return <div className="text-center mt-5">Loading...</div>;

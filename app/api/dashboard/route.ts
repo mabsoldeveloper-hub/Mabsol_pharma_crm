@@ -11,6 +11,7 @@ import ProductBatch from "@/models/ProductBatch";
 // ---- NEW: models for the 5 new cards ----
 import User from "@/models/User";
 import Company from "@/models/Company";
+import FinancialYear from "@/models/FinancialYear";
 
 /* ------------------------------------------------------------------ */
 /*  IMPORTANT: force this route to run fresh on every request.         */
@@ -36,7 +37,10 @@ export const revalidate = 0;
 // (includes non-sale voucher types), tell me the real TRANSFER/TYPE
 // value used on a genuine sale row and I'll tighten this back to an
 // exact match.
-const MDIS_SALE_FILTER = { TRANSFER: { $ne: "P" } };
+const MDIS_SALE_FILTER = {
+  TRANSFER: { $ne: "P" },
+  TYPE: { $nin: ["PROFORMA", "ESTIMATE"] },
+};
 
 // GLEDGER is a double-entry ledger: every transaction writes one CD:"C"
 // row and one CD:"D" row, and both sides always sum to the same total
@@ -132,31 +136,81 @@ function daysFromNowStr(days: number) {
 async function sumField(model: any, match: Record<string, any>, field: string) {
   const [row] = await model.aggregate([
     { $match: match },
-    { $group: { _id: null, total: { $sum: `$${field}` } } },
+    {
+      $group: {
+        _id: null,
+        total: {
+          $sum: {
+            $cond: [
+              { $gt: [{ $convert: { input: `$${field}`, to: "double", onError: 0, onNull: 0 } }, 0] },
+              { $convert: { input: `$${field}`, to: "double", onError: 0, onNull: 0 } },
+              {
+                $add: [
+                  { $convert: { input: "$AMOUNTT", to: "double", onError: 0, onNull: 0 } },
+                  { $convert: { input: "$TAXAMO", to: "double", onError: 0, onNull: 0 } },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    },
   ]);
   return row?.total ?? 0;
 }
 
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 
-export async function GET() {
+export async function GET(req: Request) {
   await dbConnect();
+
+  const { searchParams } = new URL(req.url);
+  const fyRange = await getFYDateRange(searchParams);
+  const { startDate, endDate } = fyRange;
+
+  const dateMatchMDIS = buildFYDateQuery("DATE", startDate, endDate);
+  const dateMatchDIS = buildFYDateQuery("DATE", startDate, endDate);
+  const dateMatchGLEDGER = buildFYDateQuery("DATE", startDate, endDate);
+  const dateMatchPEND = buildFYDateQuery("DDATE", startDate, endDate);
 
   const restriction = await getMrTerritoryRestriction();
 
-  const mdisSaleFilter = restriction.isMrRestricted
-    ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-      ? { ...MDIS_SALE_FILTER, COMPANY: { $in: restriction.allowedCompanyCodes } }
-      : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...MDIS_SALE_FILTER, CODEP: { $in: restriction.allowedOrdnos } }
+  const territoryOrConditions: any[] = [];
+  if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+    territoryOrConditions.push({ CODEP: { $in: restriction.allowedOrdnos } });
+  }
+  if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+    territoryOrConditions.push({ COMPANY: { $in: restriction.allowedCompanyCodes } });
+  }
+
+  const mdisBaseFilter = restriction.isMrRestricted
+    ? territoryOrConditions.length > 0
+      ? { ...MDIS_SALE_FILTER, $or: territoryOrConditions }
       : { ...MDIS_SALE_FILTER, CODEP: "NONE_MATCH" }
-    : MDIS_SALE_FILTER;
+    : { ...MDIS_SALE_FILTER };
+
+  const mdisSaleFilter = restriction.isMrRestricted
+    ? territoryOrConditions.length > 0
+      ? { ...MDIS_SALE_FILTER, ...dateMatchMDIS, $or: territoryOrConditions }
+      : { ...MDIS_SALE_FILTER, ...dateMatchMDIS, CODEP: "NONE_MATCH" }
+    : { ...MDIS_SALE_FILTER, ...dateMatchMDIS };
+
+  const today = todayStr();
+  const monthStart = monthStartStr();
+  const yearStart = yearStartStr();
+
+  const todayMatch = buildFYDateQuery("DATE", today, today);
+  const monthMatch = buildFYDateQuery("DATE", monthStart, today);
+  const yearMatch = startDate && endDate
+    ? buildFYDateQuery("DATE", startDate, endDate)
+    : buildFYDateQuery("DATE", yearStart, today);
 
   const pendFilter = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ORD: { $in: restriction.allowedOrdnos } }
-      : { ORD: "NONE_MATCH" }
-    : {};
+      ? { ...dateMatchPEND, ORD: { $in: restriction.allowedOrdnos } }
+      : { ...dateMatchPEND, ORD: "NONE_MATCH" }
+    : { ...dateMatchPEND };
 
   const baseCustomerFilter: any = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
@@ -202,15 +256,12 @@ export async function GET() {
 
   const salesDisFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-      ? { COMPANY: { $in: restriction.allowedCompanyCodes } }
+      ? { ...dateMatchDIS, COMPANY: { $in: restriction.allowedCompanyCodes } }
       : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { CODEP: { $in: restriction.allowedOrdnos } }
-      : { CODEP: "NONE_MATCH" }
-    : {};
+      ? { ...dateMatchDIS, CODEP: { $in: restriction.allowedOrdnos } }
+      : { ...dateMatchDIS, CODEP: "NONE_MATCH" }
+    : { ...dateMatchDIS };
 
-  const today = todayStr();
-  const monthStart = monthStartStr();
-  const yearStart = yearStartStr();
   const near90 = daysFromNowStr(90);
 
   // Customer codes fetched up front — needed to build the real GLEDGER
@@ -223,12 +274,14 @@ export async function GET() {
 
   const GLEDGER_COLLECTION_FILTER = {
     ...GLEDGER_BASE_FILTER,
+    ...dateMatchGLEDGER,
     [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
   };
 
   // ---- NEW: customer-scoped filter for Total Credit / Total Debit cards ----
   const GLEDGER_CUSTOMER_TXN_FILTER = {
     BOOK: { $in: CUSTOMER_TXN_BOOKS },
+    ...dateMatchGLEDGER,
     [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
   };
 
@@ -273,9 +326,9 @@ export async function GET() {
     lastMonthSales,
   ] = await Promise.all([
     sumField(SalesMdis, { ...mdisSaleFilter }, "FINAL"),
-    sumField(SalesMdis, { ...mdisSaleFilter, DATE: today }, "FINAL"),
-    sumField(SalesMdis, { ...mdisSaleFilter, DATE: { $gte: monthStart, $lte: today } }, "FINAL"),
-    sumField(SalesMdis, { ...mdisSaleFilter, DATE: { $gte: yearStart, $lte: today } }, "FINAL"),
+    sumField(SalesMdis, { ...mdisBaseFilter, ...todayMatch }, "FINAL"),
+    sumField(SalesMdis, { ...mdisBaseFilter, ...monthMatch }, "FINAL"),
+    sumField(SalesMdis, { ...mdisBaseFilter, ...yearMatch }, "FINAL"),
     sumField(Pend, pendFilter, "FINAL"),
     sumField(Pend, { ...pendFilter, DDATE: { $lt: today } }, "FINAL"),
     sumField(GLedger, { ...GLEDGER_COLLECTION_FILTER }, "CREDIT"),
@@ -391,8 +444,17 @@ export async function GET() {
       {
         $group: {
           _id: null,
-          revenue: { $sum: "$AMMMOUNT" },
-          cost: { $sum: { $multiply: ["$QTY", "$LPRATE"] } },
+          revenue: {
+            $sum: { $convert: { input: "$AMMMOUNT", to: "double", onError: 0, onNull: 0 } },
+          },
+          cost: {
+            $sum: {
+              $multiply: [
+                { $convert: { input: "$QTY", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$LPRATE", to: "double", onError: 0, onNull: 0 } },
+              ],
+            },
+          },
         },
       },
     ]),
@@ -400,19 +462,55 @@ export async function GET() {
     // Stock Value = BALANCE * PRATE
     Product.aggregate([
       { $match: productFilter },
-      { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
+      {
+        $group: {
+          _id: null,
+          value: {
+            $sum: {
+              $multiply: [
+                { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+              ],
+            },
+          },
+        },
+      },
     ]),
 
     // Expired Stock Value
     ProductBatch.aggregate([
       { $match: { ...batchFilter, EXP: { $ne: null, $lt: today } } },
-      { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
+      {
+        $group: {
+          _id: null,
+          value: {
+            $sum: {
+              $multiply: [
+                { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+              ],
+            },
+          },
+        },
+      },
     ]),
 
     // Near Expiry Stock Value
     ProductBatch.aggregate([
       { $match: { ...batchFilter, EXP: { $ne: null, $gte: today, $lte: near90 } } },
-      { $group: { _id: null, value: { $sum: { $multiply: ["$BALANCE", "$PRATE"] } } } },
+      {
+        $group: {
+          _id: null,
+          value: {
+            $sum: {
+              $multiply: [
+                { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+              ],
+            },
+          },
+        },
+      },
     ]),
 
     // Last month sales, for Monthly Growth %

@@ -1,21 +1,48 @@
-
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Customer from "@/models/Customer";
+import AccountGroup from "@/models/AccountGroup";
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await connectDB();
+  try {
+    await connectDB();
+    const { id } = await params;
 
-  const { id } = await params;
+    const customerDoc = await Customer.findById(id).lean();
+    if (!customerDoc) {
+      return NextResponse.json(null, { status: 404 });
+    }
 
-  console.log("ID =", id);
+    const scode = String((customerDoc as any).SCODE || "").trim();
+    let groupInfo: any = {};
+    if (scode) {
+      const groupDoc = await AccountGroup.findOne(
+        { ORDNO: scode },
+        { PARNAM: 1, GROUP: 1, GCODE: 1 }
+      ).lean();
 
-  const customer = await Customer.findById(id);
+      if (groupDoc) {
+        groupInfo = {
+          GROUPNAME: groupDoc.PARNAM || "",
+          MAINGROUP: groupDoc.GROUP || "",
+          PARENTGROUP: groupDoc.GCODE || "",
+        };
+      }
+    }
 
-  console.log(customer);
+    const enriched = {
+      ...customerDoc,
+      ...groupInfo,
+    };
 
-  return NextResponse.json(customer);
+    return NextResponse.json(enriched);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch customer" },
+      { status: 500 }
+    );
+  }
 }

@@ -125,29 +125,29 @@ export async function GET(request: Request) {
 
         const restriction = await getMrTerritoryRestriction();
 
-        const mrMdisMatch: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        let mrMdisMatch: any = {};
+        let mrDisMatch: any = {};
+        let mrSubdisMatch: any = {};
 
-        const mrDisMatch: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        if (restriction.isMrRestricted) {
+          const orConditions: any[] = [];
+          if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+            orConditions.push({ CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } });
+          }
+          if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+            orConditions.push({ COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } });
+          }
 
-        const mrSubdisMatch: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+          if (orConditions.length > 0) {
+            mrMdisMatch = { $or: orConditions };
+            mrDisMatch = { $or: orConditions };
+            mrSubdisMatch = { $or: orConditions };
+          } else {
+            mrMdisMatch = { CODEP: "NONE_MATCH" };
+            mrDisMatch = { CODEP: "NONE_MATCH" };
+            mrSubdisMatch = { CODEP: "NONE_MATCH" };
+          }
+        }
 
         const mrGledgerMatch: any = restriction.isMrRestricted
             ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0

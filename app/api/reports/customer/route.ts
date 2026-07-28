@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import CustomerReport from "@/models/CustomerReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { getFYDateRange } from "@/lib/financialYearHelper";
 
 export async function GET(req: NextRequest) {
     try {
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
 
         const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
 
+        const fyRange = await getFYDateRange(searchParams);
+
         const filter = {
             search: searchParams.get("search") || "",
             customer: searchParams.get("customer") || "",
@@ -27,6 +30,9 @@ export async function GET(req: NextRequest) {
             dsm: searchParams.get("dsm") || "",
             city: searchParams.get("city") || "",
             status: searchParams.get("status") || "",
+            startDate: fyRange.startDate || searchParams.get("startDate") || "",
+            endDate: fyRange.endDate || searchParams.get("endDate") || "",
+            fyId: fyRange.fyId || searchParams.get("fyId") || "",
             page: restriction.isMrRestricted ? 1 : page,
             limit: fetchLimit,
         };

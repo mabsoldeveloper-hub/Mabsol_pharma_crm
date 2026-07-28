@@ -6,39 +6,52 @@ import Product from "@/models/Product";
 import Customer from "@/models/Customer";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
-export async function GET() {
+import FinancialYear from "@/models/FinancialYear";
+
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
+
+export async function GET(req: Request) {
     try {
         await connectDB();
 
+        const { searchParams } = new URL(req.url);
+        const fyRange = await getFYDateRange(searchParams);
+        const { startDate, endDate } = fyRange;
+
+        const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
+
         const restriction = await getMrTerritoryRestriction();
 
-        const mdisFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        let mdisFilter: any = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] } };
+        let disFilter: any = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] } };
+        let customerFilter: any = {};
+        let productFilter: any = {};
 
-        const disFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        if (restriction.isMrRestricted) {
+          const orConditions: any[] = [];
+          if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+            orConditions.push({ CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } });
+          }
+          if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+            orConditions.push({ COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } });
+          }
 
-        const customerFilter: any = restriction.isMrRestricted
-            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { ORDNO: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { ORDNO: "NONE_MATCH" }
-            : {};
+          if (orConditions.length > 0) {
+            mdisFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, $or: orConditions };
+            disFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, $or: orConditions };
+          } else {
+            mdisFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, CODEP: "NONE_MATCH" };
+            disFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, CODEP: "NONE_MATCH" };
+          }
 
-        const productFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : { GCODE: "NONE_MATCH" }
-            : {};
+          if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+            customerFilter = { ORDNO: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } };
+          }
+
+          if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+            productFilter = { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } };
+          }
+        }
 
         // Total Bills
         const totalBills = await SalesMdis.countDocuments(mdisFilter);
@@ -68,13 +81,13 @@ export async function GET() {
         // Total Customers
         const customers = await Customer.countDocuments({
             ...customerFilter,
-            STATUS: "Y",
+            STATUS: { $ne: "N" },
         });
 
         // Total Products
         const products = await Product.countDocuments({
             ...productFilter,
-            STATUS: "Y",
+            STATUS: { $ne: "N" },
         });
 
         return NextResponse.json({

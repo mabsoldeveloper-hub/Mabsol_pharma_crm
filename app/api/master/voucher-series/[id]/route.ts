@@ -1,0 +1,68 @@
+import { NextRequest, NextResponse } from "next/server";
+import connectDB from "@/lib/mongodb";
+import VoucherSeries from "@/models/VoucherSeries";
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const { id } = await params;
+    const body = await req.json();
+
+    const series = await VoucherSeries.findById(id);
+    if (!series) {
+      return NextResponse.json({ success: false, message: "Voucher Series not found" }, { status: 404 });
+    }
+
+    if (body.seriesName !== undefined) series.seriesName = String(body.seriesName).trim();
+    if (body.voucherType !== undefined) series.voucherType = String(body.voucherType).toUpperCase();
+    if (body.prefix !== undefined) series.prefix = String(body.prefix).trim();
+    if (body.suffix !== undefined) series.suffix = String(body.suffix).trim();
+    if (body.nextNumber !== undefined) series.nextNumber = Number(body.nextNumber);
+    if (body.padding !== undefined) series.padding = Number(body.padding);
+    if (body.status !== undefined) series.status = body.status === "Inactive" ? "Inactive" : "Active";
+
+    if (body.isDefault === true) {
+      await VoucherSeries.updateMany({ voucherType: series.voucherType }, { $set: { isDefault: false } });
+      series.isDefault = true;
+    } else if (body.isDefault === false) {
+      series.isDefault = false;
+    }
+
+    await series.save();
+
+    return NextResponse.json({
+      success: true,
+      message: "Voucher Series updated successfully",
+      data: series,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const { id } = await params;
+
+    const series = await VoucherSeries.findById(id);
+    if (!series) {
+      return NextResponse.json({ success: false, message: "Voucher Series not found" }, { status: 404 });
+    }
+
+    await VoucherSeries.findByIdAndDelete(id);
+
+    return NextResponse.json({
+      success: true,
+      message: "Voucher Series deleted successfully",
+    });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
+}

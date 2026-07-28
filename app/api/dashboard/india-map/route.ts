@@ -70,6 +70,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import FinancialYear from "@/models/FinancialYear";
+
 export async function GET(req: Request) {
     try {
         await connectDB();
@@ -107,8 +109,21 @@ export async function GET(req: Request) {
             : {};
 
         const { searchParams } = new URL(req.url);
-        const fy = searchParams.get("fy");
+        let fy = searchParams.get("fy");
         const month = searchParams.get("month");
+        const fyId = searchParams.get("fyId");
+
+        if (!fy || fy === "null" || fy === "undefined") {
+            let currentFY = null;
+            if (fyId && fyId !== "ALL") {
+                currentFY = await FinancialYear.findById(fyId);
+            } else if (fyId !== "ALL") {
+                currentFY = await FinancialYear.findOne({ isCurrent: true });
+            }
+            if (currentFY?.fyName) {
+                fy = currentFY.fyName;
+            }
+        }
 
         const acc = new Map<string, StateAccumulator>();
         const getAcc = (stateName: string): StateAccumulator => {

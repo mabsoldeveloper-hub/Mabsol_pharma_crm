@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, List, PersonCircle, Trash } from "react-bootstrap-icons";
+import { Bell, List, PersonCircle, Trash, CalendarEvent } from "react-bootstrap-icons";
 
 import { useUser } from "@/context/UserContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import LogoutButton from "./LogoutButton";
 
 export default function Topbar({
@@ -16,11 +17,10 @@ export default function Topbar({
   mobile: boolean;
 }) {
   const { user } = useUser();
+  const { fyList, selectedFY, setSelectedFY } = useFinancialYear();
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [fyList, setFyList] = useState<any[]>([]);
-  const [selectedFY, setSelectedFY] = useState<any>(null);
   const [companyName, setCompanyName] = useState<string>("");
 
   const notifRef = useRef<HTMLDivElement>(null);
@@ -46,16 +46,6 @@ export default function Topbar({
       .catch(() => { });
   }, [user]);
 
-  useEffect(() => {
-    fetch("/api/financial-year")
-      .then((res) => res.json())
-      .then((data) => {
-        setFyList(data);
-        const currentFY = data.find((x: any) => x.isCurrent);
-        if (currentFY) setSelectedFY(currentFY);
-      })
-      .catch(() => { });
-  }, []);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -163,11 +153,47 @@ export default function Topbar({
               {companyName || "Select Company"}
             </span>
 
-            {selectedFY?.fyName && (
-              <span className="inline-flex items-center rounded-lg bg-emerald-100 text-emerald-700 px-3 py-1.5 text-[13px] font-semibold">
-                {selectedFY.fyName}
-              </span>
-            )}
+            <div className="relative inline-flex items-center">
+              <div className="absolute left-2.5 text-emerald-600 pointer-events-none">
+                <CalendarEvent size={14} />
+              </div>
+              <select
+                value={selectedFY?._id || ""}
+                onChange={(e) => {
+                  const fy = fyList.find((x) => x._id === e.target.value);
+                  if (fy) setSelectedFY(fy);
+                }}
+                className="pl-8 pr-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-[13px] font-semibold border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm transition-all"
+                title="Select Financial Year"
+              >
+                {fyList.map((fy) => (
+                  <option key={fy._id} value={fy._id}>
+                    {fy.isAll ? "All Financial Years" : `FY ${fy.fyName}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+        {mobile && (
+          <div className="relative inline-flex items-center ml-1">
+            <div className="absolute left-2 text-emerald-600 pointer-events-none">
+              <CalendarEvent size={12} />
+            </div>
+            <select
+              value={selectedFY?._id || ""}
+              onChange={(e) => {
+                const fy = fyList.find((x) => x._id === e.target.value);
+                if (fy) setSelectedFY(fy);
+              }}
+              className="pl-6 pr-2 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-semibold border border-emerald-200 focus:outline-none cursor-pointer"
+            >
+              {fyList.map((fy) => (
+                <option key={fy._id} value={fy._id}>
+                  {fy.isAll ? "All FYs" : `FY ${fy.fyName}`}
+                </option>
+              ))}
+            </select>
           </div>
         )}
       </div>

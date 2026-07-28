@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 interface BatchInfo {
     batchNo?: string;
@@ -227,6 +228,8 @@ export default function ProductReportPage() {
         }));
     };
 
+    const { selectedFY } = useFinancialYear();
+
     const fetchReport = useCallback(
         async (targetPage: number, activeFilters: typeof DEFAULT_FILTERS) => {
             // Cancel any request that's still in flight from a previous
@@ -246,6 +249,18 @@ export default function ProductReportPage() {
                     limit: String(LIMIT),
                 });
 
+                if (selectedFY) {
+                    if (selectedFY.isAll) {
+                        params.set("fyId", "ALL");
+                    } else if (selectedFY._id) {
+                        params.set("fyId", selectedFY._id);
+                        if (selectedFY.startDate && selectedFY.endDate) {
+                            params.set("startDate", new Date(selectedFY.startDate).toISOString().slice(0, 10));
+                            params.set("endDate", new Date(selectedFY.endDate).toISOString().slice(0, 10));
+                        }
+                    }
+                }
+
                 Object.entries(activeFilters).forEach(([key, value]) => {
                     if (value) params.set(key, value);
                 });
@@ -264,8 +279,6 @@ export default function ProductReportPage() {
                 setTotalPages(json.data.totalPages || 1);
                 setExpanded(new Set());
             } catch (err: any) {
-                // AbortError just means a newer request superseded this one -
-                // not a real failure, so don't show it as an error.
                 if (err?.name === "AbortError") return;
 
                 setError(err?.message || "Something went wrong");
@@ -278,13 +291,15 @@ export default function ProductReportPage() {
                 }
             }
         },
-        []
+        [selectedFY]
     );
 
     useEffect(() => {
         fetchReport(page, appliedFilters);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, appliedFilters]);
+        const onFyChange = () => fetchReport(page, appliedFilters);
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
+    }, [page, appliedFilters, fetchReport]);
 
     // Abort any pending request on unmount.
     useEffect(() => {

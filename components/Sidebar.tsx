@@ -637,6 +637,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           color="cyan"
                         />
                       </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/voucher-series"
+                          icon={<FaSlidersH />}
+                          label="Bill Series Master"
+                          active={pathname.startsWith("/dashboard/master/voucher-series")}
+                          color="cyan"
+                        />
+                      </li>
                     </>
                   }
                 />
@@ -775,8 +784,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                         <SubLink
                           href="/dashboard/sales/invoice"
                           icon={<FaFileInvoice />}
-                          label="Invoices"
-                          active={pathname.startsWith("/dashboard/sales/invoice")}
+                          label="Invoices List"
+                          active={pathname === "/dashboard/sales/invoice"}
+                          color="blue"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/sales/invoice/create"
+                          icon={<FaPlusCircle />}
+                          label="Create Sale Invoice"
+                          active={pathname.startsWith("/dashboard/sales/invoice/create")}
                           color="blue"
                         />
                       </li>

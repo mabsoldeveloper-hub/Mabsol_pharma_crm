@@ -31,6 +31,8 @@ import {
   createColumnHelper,
   type SortingState,
 } from "@tanstack/react-table";
+import AddCustomerModal from "@/components/customer/AddCustomerModal";
+
 
 type MrTerritoryInfo = {
   isMrRestricted: boolean;
@@ -118,6 +120,8 @@ export default function CustomerPage() {
   const [groupFilter, setGroupFilter] = useState("All");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
 
   useEffect(() => {
     loadMrTerritoryInfo();
@@ -352,7 +356,10 @@ export default function CustomerPage() {
           <h2 className="text-2xl font-bold text-slate-800">Customer Master</h2>
           <p className="text-sm text-slate-500 mt-0.5">Manage all customers from one place</p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-xl bg-[#343872] text-white text-sm font-medium px-4 py-2.5 shadow-[0_4px_14px_rgba(52,56,114,0.35)] hover:bg-[#2a2d5c] transition-colors">
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#343872] text-white text-sm font-medium px-4 py-2.5 shadow-[0_4px_14px_rgba(52,56,114,0.35)] hover:bg-[#2a2d5c] transition-colors cursor-pointer"
+        >
           <FaPlus size={12} /> Add Customer
         </button>
       </div>
@@ -517,6 +524,12 @@ export default function CustomerPage() {
           </div>
         </div>
       </div>
+
+      <AddCustomerModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={loadCustomers}
+      />
     </div>
   );
 }

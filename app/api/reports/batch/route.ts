@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import BatchReport from "@/models/BatchReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { getFYDateRange } from "@/lib/financialYearHelper";
 
 export async function GET(req: NextRequest) {
     try {
@@ -20,6 +21,8 @@ export async function GET(req: NextRequest) {
         // doesn't produce empty / 1-2 item fragmented pages
         const fetchLimit = restriction.isMrRestricted ? 5000 : limit;
 
+        const fyRange = await getFYDateRange(searchParams);
+
         const filter = {
             search: searchParams.get("search") || "",
             batchNo: searchParams.get("batchNo") || "",
@@ -31,8 +34,8 @@ export async function GET(req: NextRequest) {
             area: searchParams.get("area") || "",
             route: searchParams.get("route") || "",
             status: searchParams.get("status") || "",
-            fromDate: searchParams.get("fromDate") || "",
-            toDate: searchParams.get("toDate") || "",
+            fromDate: searchParams.get("fromDate") || fyRange.startDate || "",
+            toDate: searchParams.get("toDate") || fyRange.endDate || "",
             page: restriction.isMrRestricted ? 1 : page,
             limit: fetchLimit,
             sortField: searchParams.get("sortField") || "DATE",
