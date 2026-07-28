@@ -42,8 +42,8 @@ export async function POST(req: Request) {
         const isMatch = await bcrypt.compare(otp, otpDoc.otp);
 
         if (!isMatch) {
-            otpDoc.attempts += 1;
-            await otpDoc.save();
+                otpDoc.attempts += 1;
+                await otpDoc.save();
             return NextResponse.json({
                 success: false,
                 message: "Incorrect code. Please try again.",
@@ -51,7 +51,9 @@ export async function POST(req: Request) {
         }
 
         // OTP correct — consume it so it can't be reused
-        await Otp.deleteMany({ email });
+        if (otpDoc) {
+            await Otp.deleteMany({ email });
+        }
 
         const user = await User.findOne({ email });
 

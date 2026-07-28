@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server";
 
 import connectDB from "@/lib/mongodb";
-import User from "@/models/User";
-import Otp from "@/models/Otp";
 import { sendOtpEmail } from "@/lib/sendEmail";
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
+import Otp from "@/models/Otp";
+import User from "@/models/User";
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
