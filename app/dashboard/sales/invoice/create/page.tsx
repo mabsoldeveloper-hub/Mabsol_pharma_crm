@@ -73,6 +73,9 @@ interface CustomerInvoiceHistory {
   vcn: string;
   date: string;
   type: string;
+  billType?: string;
+  isConverted?: boolean;
+  convertedToVcn?: string;
   taxable: number;
   cgst: number;
   sgst: number;
@@ -187,6 +190,8 @@ export default function CreateSaleInvoicePage() {
   const [selectedCustomerCode, setSelectedCustomerCode] = useState("");
   const [invoiceDate, setInvoiceDate] = useState("");
   const [invoiceVcn, setInvoiceVcn] = useState("");
+  const [billType, setBillType] = useState<"S" | "PROFORMA">("S");
+  const [convertFromVcn, setConvertFromVcn] = useState("");
 
   // Customer Invoice History State
   const [customerHistory, setCustomerHistory] = useState<CustomerInvoiceHistory[]>([]);
@@ -388,8 +393,17 @@ export default function CreateSaleInvoicePage() {
 
   useEffect(() => {
     setInvoiceDate(new Date().toISOString().slice(0, 10));
-    setInvoiceVcn(`INV-${Date.now().toString().slice(-6)}`);
+    setInvoiceVcn(billType === "PROFORMA" ? `PRF-${Date.now().toString().slice(-6)}` : `INV-${Date.now().toString().slice(-6)}`);
     loadData();
+
+    // Check if loaded with convertFrom query parameter
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const convertFrom = params.get("convertFrom") || params.get("proformaId") || "";
+      if (convertFrom) {
+        loadProformaInvoiceToConvert(convertFrom);
+      }
+    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (custDropdownRef.current && !custDropdownRef.current.contains(e.target as Node)) {
@@ -405,6 +419,94 @@ export default function CreateSaleInvoicePage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    fetchNextVcn(billType);
+  }, [billType]);
+
+  const fetchNextVcn = async (typeMode: "S" | "PROFORMA") => {
+    try {
+      const res = await fetch(`/api/sales/invoice/next-number?type=${typeMode}`);
+      const json = await res.json();
+      if (json.success && json.vcn) {
+        setInvoiceVcn(json.vcn);
+      }
+    } catch {
+      setInvoiceVcn(typeMode === "PROFORMA" ? `PRF-${Date.now().toString().slice(-6)}` : `INV-${Date.now().toString().slice(-6)}`);
+    }
+  };
+
+  const loadProformaInvoiceToConvert = async (vcnToConvert: string) => {
+    try {
+      setLoadingInitial(true);
+      const res = await fetch(`/api/sales/invoice/${encodeURIComponent(vcnToConvert)}`);
+      const data = await res.json();
+      if (data.success && data.header) {
+        setBillType("S");
+        setConvertFromVcn(vcnToConvert);
+        if (data.header.CODEP) {
+          setSelectedCustomerCode(data.header.CODEP);
+        }
+        if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+          const loadedItems: InvoiceItem[] = data.items.map((it: any, idx: number) => {
+            const qty = Number(it.qty || 1);
+            const freeQty = Number(it.freeQty || 0);
+            const rate = Number(it.rate || 0);
+            const mrp = Number(it.mrp || 0);
+            const prate = Number(it.prate || 0);
+            const disc = Number(it.disc || 0);
+            const cashDisc = Number(it.cashDisc || 0);
+            const cgst = Number(it.cgst || 0);
+            const sgst = Number(it.sgst || 0);
+            const igst = Number(it.igst || 0);
+            const cess = Number(it.cess || 0);
+
+            const gross = qty * rate;
+            const discAmt = gross * (disc / 100);
+            let taxable = gross - discAmt;
+            if (cashDisc > 0) taxable -= taxable * (cashDisc / 100);
+            const taxAmt = taxable * ((cgst + sgst + igst) / 100);
+            const finalAmt = Math.round(taxable + taxAmt);
+
+            return {
+              productId: it.code || `PROD-${idx}`,
+              code: it.code || "",
+              name: it.product || it.name || "Item",
+              pack: it.pack || "",
+              unit: it.unit || "",
+              hsn: it.hsn || "",
+              batch: it.batch || "DEFAULT",
+              expiry: it.expiry || "",
+              mfg: it.mfg || "",
+              qty,
+              freeQty,
+              mrp,
+              prate,
+              rate,
+              disc,
+              cashDisc,
+              cgst,
+              sgst,
+              igst,
+              cess,
+              companyName: it.company || "",
+              rack: "",
+              remark: it.remark || "",
+              taxableAmount: taxable,
+              taxAmount: taxAmt,
+              finalAmount: finalAmt,
+            };
+          });
+          setItems(loadedItems);
+        }
+        setSuccessMsg(`Proforma Invoice #${vcnToConvert} loaded! Change items if needed and click Create to generate Final Tax Invoice.`);
+      }
+    } catch (err) {
+      console.error("Failed to load Proforma invoice:", err);
+    } finally {
+      setLoadingInitial(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -638,7 +740,8 @@ export default function CreateSaleInvoicePage() {
         VCN: invoiceVcn,
         DATE: invoiceDate,
         CODEP: codepToUse,
-        TYPE: "S",
+        billType: billType,
+        convertFromVcn: convertFromVcn,
         items: items.map((item) => ({
           PRODUCT: item.code,
           NAME: item.name,
@@ -755,6 +858,59 @@ export default function CreateSaleInvoicePage() {
                 </span>
               ) : null}
             </h3>
+
+            {/* BILL MODE SELECTOR (Tax Invoice vs Proforma / Kaccha Bill) */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                <span>Billing Type Mode:</span>
+                <span className="text-[10px] text-slate-500 font-medium">({billType === "PROFORMA" ? "Proforma / Kaccha Bill Mode" : "Final Tax Invoice / Pakka Bill Mode"})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBillType("S");
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    billType === "S"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <FaReceipt size={12} /> Tax Invoice (Pakka Bill)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBillType("PROFORMA");
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    billType === "PROFORMA"
+                      ? "bg-amber-600 text-white shadow-md shadow-amber-600/30"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <FaFileInvoiceDollar size={12} /> Proforma / Kaccha Bill
+                </button>
+              </div>
+            </div>
+
+            {/* Conversion Mode Active Banner */}
+            {convertFromVcn && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in duration-150">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-amber-600 text-white text-[10px] uppercase tracking-wider font-extrabold">Conversion Mode Active</span>
+                  <span>Converting Proforma Invoice <strong className="text-amber-950">#{convertFromVcn}</strong> into Final Tax Invoice.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConvertFromVcn("")}
+                  className="px-2.5 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-900 text-[11px] font-bold cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               
@@ -1028,17 +1184,29 @@ export default function CreateSaleInvoicePage() {
                                     <div>
                                       <div className="font-bold text-slate-800 flex items-center gap-2">
                                         <span>VCN: #{inv.vcn}</span>
-                                        <span
-                                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                            inv.status === "Paid"
-                                              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                              : inv.status === "Partial"
-                                              ? "bg-amber-100 text-amber-800 border-amber-300"
-                                              : "bg-rose-100 text-rose-800 border-rose-300"
-                                          }`}
-                                        >
-                                          {inv.status}
-                                        </span>
+                                        {(inv.type === "PROFORMA" || inv.billType === "PROFORMA" || inv.status === "Proforma") ? (
+                                          inv.isConverted || inv.status === "Converted" ? (
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600 border border-slate-300">
+                                              ✓ Converted
+                                            </span>
+                                          ) : (
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                                              📋 Proforma (Kaccha)
+                                            </span>
+                                          )
+                                        ) : (
+                                          <span
+                                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                              inv.status === "Paid"
+                                                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                                : inv.status === "Partial"
+                                                ? "bg-amber-100 text-amber-800 border-amber-300"
+                                                : "bg-rose-100 text-rose-800 border-rose-300"
+                                            }`}
+                                          >
+                                            {inv.status}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
                                         <span>📅 {inv.date || "N/A"}</span>
@@ -1057,7 +1225,22 @@ export default function CreateSaleInvoicePage() {
                                       </div>
                                     </div>
 
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1.5">
+                                      {(inv.type === "PROFORMA" || inv.billType === "PROFORMA" || inv.status === "Proforma") &&
+                                        !inv.isConverted &&
+                                        inv.status !== "Converted" && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              loadProformaInvoiceToConvert(inv.vcn);
+                                            }}
+                                            className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[10px] transition shadow-sm cursor-pointer flex items-center gap-1"
+                                            title="Convert this Kaccha Bill into a Final Tax Invoice"
+                                          >
+                                            ⚡ Convert
+                                          </button>
+                                        )}
                                       <Link
                                         href={`/dashboard/sales/invoice/${encodeURIComponent(inv.vcn)}`}
                                         target="_blank"

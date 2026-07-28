@@ -28,7 +28,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
     const cards = [
         {
             title: "Total Sales",
-            value: kpis?.totalSales ?? 0,
+            value: formatCurrency(kpis?.totalSales),
             icon: <FaChartLine size={20} />,
             url: "/dashboard/sales/dashboard",
             color: "indigo",
@@ -37,36 +37,42 @@ export default function KPICards({ kpis }: { kpis: any }) {
             title: "Today's Sales",
             value: formatCurrency(kpis?.todaySales),
             icon: <FaCalendarDay size={20} />,
+            url: "/dashboard/sales/invoice",
             color: "blue",
         },
         {
             title: "Monthly Sales",
             value: formatCurrency(kpis?.monthlySales),
             icon: <FaCalendarAlt size={20} />,
+            url: "/dashboard/sales/dashboard",
             color: "cyan",
         },
         {
             title: "Yearly Sales",
             value: formatCurrency(kpis?.yearlySales),
             icon: <FaCalendarAlt size={20} />,
+            url: "/dashboard/sales/dashboard",
             color: "teal",
         },
         {
             title: "Outstanding",
             value: formatCurrency(kpis?.totalOutstanding),
             icon: <FaWallet size={20} />,
+            url: "/dashboard/sales/invoice",
             color: "amber",
         },
         {
             title: "Overdue Amount",
             value: formatCurrency(kpis?.overdueAmount),
             icon: <FaExclamationTriangle size={20} />,
+            url: "/dashboard/sales/invoice",
             color: "rose",
         },
         {
             title: "Total Collections",
             value: formatCurrency(kpis?.totalCollections),
             icon: <FaRupeeSign size={20} />,
+            url: "/dashboard/sales/dashboard",
             color: "emerald",
         },
         {

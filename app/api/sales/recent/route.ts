@@ -8,6 +8,7 @@ import Customer from "@/models/Customer";
 import FinancialYear from "@/models/FinancialYear";
 
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export async function GET(req: Request) {
     try {
@@ -18,9 +19,26 @@ export async function GET(req: Request) {
         const { startDate, endDate } = fyRange;
 
         const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
+        const restriction = await getMrTerritoryRestriction();
+
+        let billMatch: any = { ...dateMatch };
+        if (restriction.isMrRestricted) {
+          const orConditions: any[] = [];
+          if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+            orConditions.push({ CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } });
+          }
+          if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+            orConditions.push({ COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } });
+          }
+          if (orConditions.length > 0) {
+            billMatch = { ...dateMatch, $or: orConditions };
+          } else {
+            billMatch = { ...dateMatch, CODEP: "NONE_MATCH" };
+          }
+        }
 
         const bills = await SalesMdis.find(
-            dateMatch,
+            billMatch,
             {
                 VOUCHER: 1,
                 DATE: 1,

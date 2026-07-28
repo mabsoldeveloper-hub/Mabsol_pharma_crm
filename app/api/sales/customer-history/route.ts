@@ -175,6 +175,9 @@ export async function GET(req: Request) {
         vcn,
         date: billDate,
         type: bill.TYPE || "S",
+        billType: bill.TYPE === "PROFORMA" || bill.TYPE === "ESTIMATE" ? "PROFORMA" : "S",
+        isConverted: Boolean(bill.IS_CONVERTED),
+        convertedToVcn: bill.CONVERTED_TO || "",
         taxable,
         cgst,
         sgst,
@@ -182,7 +185,7 @@ export async function GET(req: Request) {
         round: Number(bill.ROUND || 0),
         finalAmount,
         pendingAmount,
-        status,
+        status: bill.STATUS || (bill.TYPE === "PROFORMA" ? "Proforma" : status),
         itemsCount: items.length,
         items,
       };

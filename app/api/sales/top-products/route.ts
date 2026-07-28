@@ -57,12 +57,12 @@ export async function GET(req: Request) {
             { $match: dateMatch },
             {
                 $group: {
-                    _id: "$CODE",
+                    _id: { $ifNull: ["$PRODUCT", "$CODE"] },
                     qty: {
                         $sum: "$QTY",
                     },
                     amount: {
-                        $sum: "$AMMMOUNT",
+                        $sum: { $ifNull: ["$AMOUNTT", { $multiply: [{ $ifNull: ["$QTY", 0] }, { $ifNull: ["$LPRATE", 0] }] }] },
                     },
                     bills: {
                         $sum: 1,

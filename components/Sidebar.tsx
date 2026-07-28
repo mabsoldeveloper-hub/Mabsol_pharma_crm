@@ -637,6 +637,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           color="cyan"
                         />
                       </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/master/voucher-series"
+                          icon={<FaSlidersH />}
+                          label="Bill Series Master"
+                          active={pathname.startsWith("/dashboard/master/voucher-series")}
+                          color="cyan"
+                        />
+                      </li>
                     </>
                   }
                 />

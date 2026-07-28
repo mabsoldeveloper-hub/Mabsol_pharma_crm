@@ -8,6 +8,7 @@ import Product from "@/models/Product";
 import ProductBatch from "@/models/ProductBatch";
 import GLedger from "@/models/GLedger";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { consumeNextVoucherNumber } from "@/lib/voucherSeriesHelper";
 
 export async function GET() {
   try {
@@ -54,6 +55,10 @@ export async function GET() {
         CGSTAMO: 1,
         STAXAMO: 1,
         ROUND: 1,
+        IS_CONVERTED: 1,
+        CONVERTED_TO: 1,
+        CONVERTED_FROM: 1,
+        STATUS: 1,
       }
     )
       .sort({ DATE: -1 })
@@ -101,6 +106,11 @@ export async function GET() {
         vcn: bill.VCN,
         date: bill.DATE,
         type: bill.TYPE || "S",
+        billType: bill.TYPE === "PROFORMA" || bill.TYPE === "ESTIMATE" ? "PROFORMA" : "S",
+        isConverted: Boolean(bill.IS_CONVERTED),
+        convertedToVcn: bill.CONVERTED_TO || "",
+        convertedFromVcn: bill.CONVERTED_FROM || "",
+        status: bill.STATUS || (bill.TYPE === "PROFORMA" ? "Proforma" : "Final"),
         code: code,
         customer: customer?.PARNAM || "",
         city: customer?.CITY || "",
@@ -144,6 +154,17 @@ export async function POST(req: Request) {
       );
     }
 
+    const rawBillType = String(body.billType || body.type || body.TYPE || "S").toUpperCase();
+    const effectiveType = rawBillType.includes("PROFORMA") || rawBillType.includes("ESTIMATE") ? "PROFORMA" : "S";
+    const convertFromVcn = String(body.convertFromVcn || "").trim();
+
+    // Unique Invoice VCN from active VoucherSeries Master
+    let vcn = body.VCN ? String(body.VCN).trim() : "";
+    if (!vcn || vcn.startsWith("INV-") || vcn.startsWith("PRF-")) {
+      vcn = await consumeNextVoucherNumber(effectiveType === "PROFORMA" ? "PROFORMA" : "SALES");
+    }
+    const invoiceDate = body.DATE || new Date().toISOString().slice(0, 10);
+
     // Lookup Customer to resolve assigned COMPANY / GCODE / SCODE for territory tracking
     const customerObj: any = await Customer.findOne({
       $or: [
@@ -165,10 +186,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    // Unique Invoice VCN
-    const vcn = body.VCN || `INV-${Date.now().toString().slice(-6)}`;
-    const invoiceDate = body.DATE || new Date().toISOString().slice(0, 10);
 
     let totalTaxable = 0;
     let totalCgst = 0;
@@ -267,13 +284,15 @@ export async function POST(req: Request) {
     const finalAmount = Math.round(grossTotal);
     const round = Number((finalAmount - grossTotal).toFixed(2));
 
-    // Save Header (SalesMdis) with TYPE = "S" and resolved COMPANY
+    // Save Header (SalesMdis) with resolved TYPE and STATUS
     const newHeader = await SalesMdis.create({
       VCN: vcn,
       DATE: invoiceDate,
       CODEP: customerCode,
       COMPANY: customerCompany,
-      TYPE: "S",
+      TYPE: effectiveType,
+      STATUS: effectiveType === "PROFORMA" ? "Proforma" : "Final",
+      CONVERTED_FROM: convertFromVcn || undefined,
       AMOUNTT: totalTaxable,
       CGSTAMO: totalCgst,
       STAXAMO: totalSgst,
@@ -289,29 +308,50 @@ export async function POST(req: Request) {
       await SalesDis.insertMany(lineItemDocs);
     }
 
-    // Debit Customer Ledger & Increase Customer Balance
-    await GLedger.create({
-      CODE: customerCode,
-      VCN: vcn,
-      DATE: invoiceDate,
-      TYPE: "S",
-      DEBIT: finalAmount,
-      CREDIT: 0,
-      REMARK: `Sale Invoice #${vcn}`,
-      _vfpTable: "vfp_new_folder_gledger",
-      _vfpSourceKey: `MANUAL_GL_${vcn}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    });
+    // If converted from a Proforma Invoice, update original Proforma to "Converted"
+    if (convertFromVcn) {
+      await SalesMdis.updateMany(
+        {
+          $or: [
+            { VCN: convertFromVcn },
+            { VCN: new RegExp(`^${convertFromVcn.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}$`, "i") },
+          ],
+        },
+        {
+          $set: {
+            IS_CONVERTED: true,
+            CONVERTED_TO: vcn,
+            STATUS: "Converted",
+          },
+        }
+      );
+    }
 
-    await Customer.updateOne(
-      { $or: [{ CODEP: customerCode }, { ORDNO: customerCode }] },
-      { $inc: { BALANCE: finalAmount, DEBIT: finalAmount } }
-    );
+    // Only Debit Customer Ledger & Increase Customer Balance for Final Tax Invoices (TYPE === "S")
+    if (effectiveType === "S") {
+      await GLedger.create({
+        CODE: customerCode,
+        VCN: vcn,
+        DATE: invoiceDate,
+        TYPE: "S",
+        DEBIT: finalAmount,
+        CREDIT: 0,
+        REMARK: convertFromVcn ? `Sale Invoice #${vcn} (Converted from Proforma #${convertFromVcn})` : `Sale Invoice #${vcn}`,
+        _vfpTable: "vfp_new_folder_gledger",
+        _vfpSourceKey: `MANUAL_GL_${vcn}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      });
+
+      await Customer.updateOne(
+        { $or: [{ CODEP: customerCode }, { ORDNO: customerCode }] },
+        { $inc: { BALANCE: finalAmount, DEBIT: finalAmount } }
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
-        message: "Sale Invoice created successfully",
-        data: { vcn, finalAmount, header: newHeader },
+        message: effectiveType === "PROFORMA" ? "Proforma Invoice created successfully" : "Sale Invoice created successfully",
+        data: { vcn, finalAmount, billType: effectiveType, header: newHeader },
       },
       { status: 201 }
     );

@@ -23,135 +23,70 @@ export async function GET(
         // Invoice Header
         // ===========================
 
-        const header: any = await SalesMdis.findOne(
-            {
-                VCN: vcn,
-            }
-        ).lean();
+        const header: any = await SalesMdis.findOne({
+            $or: [
+                { VCN: vcn },
+                { VCN: new RegExp(`^${vcn.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}$`, "i") },
+            ],
+        }).lean();
 
         if (!header) {
-
             return NextResponse.json({
                 success: false,
                 message: "Invoice not found",
             });
-
         }
 
-        // ===========================
+        const resolvedVcn = String(header.VCN || vcn).trim();
+
         // Customer
-        // ===========================
+        const customer = await Order.findOne({
+            $or: [{ ORDNO: header.CODEP }, { CODEP: header.CODEP }],
+        }).lean();
 
-        const customer = await Order.findOne(
-            {
-                ORDNO: header.CODEP,
-            }
-        ).lean();
-
-        // ===========================
         // Invoice Items
-        // ===========================
-
-        const details: any[] = await SalesDis.find(
-            {
-                VCN: vcn,
-            }
-        ).lean();
+        const details: any[] = await SalesDis.find({
+            $or: [
+                { VCN: resolvedVcn },
+                { VCN: new RegExp(`^${resolvedVcn.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}$`, "i") },
+            ],
+        }).lean();
 
         const items = [];
 
         for (const row of details) {
-
+            const prodCode = String(row.PRODUCT || row.CODE || "").trim();
             const product: any = await Product.findOne({
-
-                CODE: row.CODE,
-
-            }).lean();
-
-            const batch: any = await Batch.findOne({
-
-                CODE: row.CODE,
-
-                BATCHNO: row.BATCH,
-
+                $or: [{ CODE: prodCode }, { PRODUCT: prodCode }]
             }).lean();
 
             items.push({
-
-                code: row.CODE,
-
-                product:
-
-                    product?.PRODUCT ||
-
-                    product?.BILLNAME ||
-
-                    "",
-
-                company:
-
-                    row.COMPANY ||
-
-                    "",
-
-                batch:
-
-                    row.BATCH ||
-
-                    "",
-
-                expiry:
-
-                    row.EXP ||
-
-                    "",
-
-                mrp:
-
-                    batch?.MRP ||
-
-                    row.MRP ||
-
-                    0,
-
-                qty:
-
-                    row.QTY ||
-
-                    0,
-
-                free:
-
-                    row.FREE ||
-
-                    0,
-
-                rate:
-
-                    row.RATE ||
-
-                    0,
-
-                taxable:
-
-                    row.AMMMOUNT ||
-
-                    0,
-
-                tax:
-
-                    row.SSTAAMO ||
-
-                    0,
-
-                amount:
-
-                    Number(row.AMMMOUNT || 0) +
-
-                    Number(row.SSTAAMO || 0),
-
+                code: prodCode,
+                product: product?.PRODUCT || row.NAME || prodCode || "",
+                name: row.NAME || product?.PRODUCT || "",
+                pack: row.PACK || product?.PACK || "",
+                unit: row.UNIT || product?.UNIT || "",
+                hsn: row.HSN || product?.HSN || "",
+                company: row.COMPANY || product?.GCODE || "",
+                batch: row.BATCH || "DEFAULT",
+                expiry: row.EXPIRY || row.EXP || "",
+                mfg: row.MFG || "",
+                mrp: Number(row.MRP || 0),
+                prate: Number(row.PRATE || 0),
+                rate: Number(row.LPRATE || row.RATE || 0),
+                qty: Number(row.QTY || 0),
+                freeQty: Number(row.FREEQTY || row.FREE || 0),
+                disc: Number(row.DISC || 0),
+                cashDisc: Number(row.CASHDISC || 0),
+                cgst: Number(row.CGST || 0),
+                sgst: Number(row.SGST || 0),
+                igst: Number(row.IGST || 0),
+                cess: Number(row.CESS || 0),
+                taxable: Number(row.AMOUNTT || row.AMMMOUNT || 0),
+                tax: Number(row.TAXAMO || row.SSTAAMO || 0),
+                amount: Number(row.AMOUNTT || 0) + Number(row.TAXAMO || 0),
+                remark: row.REMARK || "",
             });
-
         }
 
         // ===========================

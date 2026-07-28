@@ -22,33 +22,36 @@ export async function GET(req: Request) {
 
         const restriction = await getMrTerritoryRestriction();
 
-        const mdisFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { ...dateMatch, COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { ...dateMatch, CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { ...dateMatch, CODEP: "NONE_MATCH" }
-            : { ...dateMatch };
+        let mdisFilter: any = { ...dateMatch };
+        let disFilter: any = { ...dateMatch };
+        let customerFilter: any = {};
+        let productFilter: any = {};
 
-        const disFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { ...dateMatch, COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { ...dateMatch, CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { ...dateMatch, CODEP: "NONE_MATCH" }
-            : { ...dateMatch };
+        if (restriction.isMrRestricted) {
+          const orConditions: any[] = [];
+          if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+            orConditions.push({ CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } });
+          }
+          if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+            orConditions.push({ COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } });
+          }
 
-        const customerFilter: any = restriction.isMrRestricted
-            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { ORDNO: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { ORDNO: "NONE_MATCH" }
-            : {};
+          if (orConditions.length > 0) {
+            mdisFilter = { ...dateMatch, $or: orConditions };
+            disFilter = { ...dateMatch, $or: orConditions };
+          } else {
+            mdisFilter = { ...dateMatch, CODEP: "NONE_MATCH" };
+            disFilter = { ...dateMatch, CODEP: "NONE_MATCH" };
+          }
 
-        const productFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : { GCODE: "NONE_MATCH" }
-            : {};
+          if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+            customerFilter = { ORDNO: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } };
+          }
+
+          if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+            productFilter = { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } };
+          }
+        }
 
         // Total Bills
         const totalBills = await SalesMdis.countDocuments(mdisFilter);

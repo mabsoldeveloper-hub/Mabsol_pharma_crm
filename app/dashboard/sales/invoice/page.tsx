@@ -46,12 +46,17 @@ type InvoiceRow = {
     finalAmount: number;
     tax: number;
     total: number;
+    billType?: string;
+    isConverted?: boolean;
+    convertedToVcn?: string;
+    status?: string;
 };
 
 export default function InvoicePage() {
 
     const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
     const [search, setSearch] = useState("");
+    const [typeTabFilter, setTypeTabFilter] = useState<"ALL" | "S" | "PROFORMA">("ALL");
     const [currentPage, setCurrentPage] = useState(1);
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
     const pageSize = 10;
@@ -102,17 +107,25 @@ export default function InvoicePage() {
 
     };
 
-    // search filter (bill no, customer, city)
+    // search & type filter (bill no, customer, city, billType)
     const filtered = useMemo(() => {
         const s = search.trim().toLowerCase();
-        if (!s) return invoices;
+        let list = invoices;
 
-        return invoices.filter((row) =>
+        if (typeTabFilter === "S") {
+            list = list.filter((r) => r.type === "S" || r.billType === "S" || (!r.billType && r.type !== "PROFORMA"));
+        } else if (typeTabFilter === "PROFORMA") {
+            list = list.filter((r) => r.type === "PROFORMA" || r.billType === "PROFORMA");
+        }
+
+        if (!s) return list;
+
+        return list.filter((row) =>
             String(row.vcn || "").toLowerCase().includes(s) ||
             String(row.customer || "").toLowerCase().includes(s) ||
             String(row.city || "").toLowerCase().includes(s)
         );
-    }, [invoices, search]);
+    }, [invoices, search, typeTabFilter]);
 
     // reset to page 1 whenever search changes
     useEffect(() => {
@@ -171,20 +184,37 @@ export default function InvoicePage() {
     const purchaseBills = filtered.filter((x) => x.type === "P").length;
     const returnBills = filtered.filter((x) => x.type === "R").length;
 
-    const typeBadge = (type: string) => {
-        if (type === "S")
+    const typeBadge = (row: InvoiceRow) => {
+        const t = row.type || row.billType;
+        const isConverted = Boolean(row.isConverted) || row.status === "Converted" || Boolean(row.convertedToVcn);
+
+        if (t === "PROFORMA" || t === "ESTIMATE") {
+            if (isConverted) {
+                return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-300" title={row.convertedToVcn ? `Converted to #${row.convertedToVcn}` : "Converted"}>
+                        ✓ Converted {row.convertedToVcn ? `(#${row.convertedToVcn.replace(/^INV-/, "")})` : ""}
+                    </span>
+                );
+            }
             return (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700 ring-1 ring-emerald-500/20">
-                    Sales
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                    📋 Proforma (Kaccha)
                 </span>
             );
-        if (type === "P")
+        }
+        if (t === "S")
+            return (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700 ring-1 ring-emerald-500/20">
+                    Tax Invoice (Pakka)
+                </span>
+            );
+        if (t === "P")
             return (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-100 text-blue-700 ring-1 ring-blue-500/20">
                     Purchase
                 </span>
             );
-        if (type === "R")
+        if (t === "R")
             return (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-700 ring-1 ring-red-500/20">
                     Return
@@ -192,7 +222,7 @@ export default function InvoicePage() {
             );
         return (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 ring-1 ring-gray-400/20">
-                Unknown
+                Invoice
             </span>
         );
     };
@@ -404,12 +434,49 @@ export default function InvoicePage() {
                         </h5>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* TYPE FILTER TABS */}
+                        <div className="flex items-center bg-white/10 p-0.5 rounded-lg border border-white/20 text-xs">
+                            <button
+                                type="button"
+                                onClick={() => setTypeTabFilter("ALL")}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                                    typeTabFilter === "ALL"
+                                        ? "bg-white text-slate-900 shadow-sm"
+                                        : "text-white/80 hover:text-white"
+                                }`}
+                            >
+                                All
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTypeTabFilter("S")}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                                    typeTabFilter === "S"
+                                        ? "bg-emerald-500 text-white shadow-sm"
+                                        : "text-white/80 hover:text-white"
+                                }`}
+                            >
+                                Tax Invoices
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTypeTabFilter("PROFORMA")}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                                    typeTabFilter === "PROFORMA"
+                                        ? "bg-amber-500 text-white shadow-sm"
+                                        : "text-white/80 hover:text-white"
+                                }`}
+                            >
+                                Proforma (Kaccha)
+                            </button>
+                        </div>
+
                         <Link
                             href="/dashboard/sales/invoice/create"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-md transition"
                         >
-                            <FaPlus size={10} /> + Create Sale Invoice
+                            <FaPlus size={10} /> + Create Invoice
                         </Link>
                     </div>
 
@@ -468,7 +535,7 @@ export default function InvoicePage() {
                                             {row.date}
                                         </td>
                                         <td className="px-4 py-2.5 text-left">
-                                            {typeBadge(row.type)}
+                                            {typeBadge(row)}
                                         </td>
                                         <td className="px-4 py-2.5 text-left text-gray-600">
                                             {row.customer}
@@ -509,18 +576,23 @@ export default function InvoicePage() {
                                             ₹ {Number(row.total || 0).toLocaleString("en-IN")}
                                         </td>
                                         <td className="px-4 py-2.5 text-center">
-                                            <Link
-                                                href={`/dashboard/sales/invoice/${encodeURIComponent(row.vcn)}`}
-                                                className="
-                          inline-flex items-center justify-center
-                          px-3 py-1 rounded-lg text-xs font-medium
-                          bg-gray-800 text-white
-                          hover:bg-gray-900
-                          transition-colors duration-200
-                        "
-                                            >
-                                                View
-                                            </Link>
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                {(row.type === "PROFORMA" || row.billType === "PROFORMA") && !Boolean(row.isConverted) && row.status !== "Converted" && !row.convertedToVcn && (
+                                                    <Link
+                                                        href={`/dashboard/sales/invoice/create?convertFrom=${encodeURIComponent(row.vcn)}`}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-extrabold bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition"
+                                                        title="Convert this Proforma / Kaccha Bill into a Final Tax Invoice"
+                                                    >
+                                                        ⚡ Convert
+                                                    </Link>
+                                                )}
+                                                <Link
+                                                    href={`/dashboard/sales/invoice/${encodeURIComponent(row.vcn)}`}
+                                                    className="inline-flex items-center justify-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-white hover:bg-gray-900 transition-colors duration-200"
+                                                >
+                                                    View
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
