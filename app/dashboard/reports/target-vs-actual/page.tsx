@@ -403,29 +403,29 @@ export default function TargetVsActualReportPage() {
   };
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
       {/* Top Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white shadow-2xl border border-indigo-500/20">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-4 sm:p-6 text-white shadow-2xl border border-indigo-500/20">
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative z-10">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
               <Link
                 href="/dashboard/reports"
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white/10 hover:bg-white/20 text-indigo-200 backdrop-blur-md flex items-center gap-1.5 transition-all"
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white/10 hover:bg-white/20 text-indigo-200 backdrop-blur-md flex items-center gap-1.5 transition-all shrink-0"
               >
                 <FaArrowLeft size={10} /> Reports Hub
               </Link>
-              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
-                <FaBullseye /> Party vs MR Target Dashboard
+              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 shrink-0">
+                <FaBullseye className="shrink-0" /> Party vs MR Target Dashboard
               </span>
               {isMrRestricted && (
-                <span className="px-2.5 py-0.5 text-xs font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                  <FaLock size={10} /> Territory Scope Restricted
+                <span className="px-2.5 py-0.5 text-xs font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 shrink-0">
+                  <FaLock size={10} className="shrink-0" /> Territory Scope Restricted
                 </span>
               )}
             </div>
-            <h1 className="text-2xl lg:text-3xl font-black tracking-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight break-words">
               Party Target vs MR Target & Sales vs Collection Report
             </h1>
             <p className="text-xs text-indigo-200/80 mt-1 max-w-3xl leading-relaxed">
@@ -433,10 +433,10 @@ export default function TargetVsActualReportPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto shrink-0">
             <button
               onClick={fetchReportData}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 backdrop-blur-md transition-all active:scale-95"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 backdrop-blur-md transition-all active:scale-95"
             >
               <FaRedo size={11} className={loading ? "animate-spin" : ""} /> Refresh
             </button>
@@ -444,14 +444,14 @@ export default function TargetVsActualReportPage() {
             <button
               onClick={exportCSV}
               disabled={rows.length === 0}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all active:scale-95 disabled:opacity-50"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all active:scale-95 disabled:opacity-50"
             >
               <FaDownload size={11} /> Export CSV
             </button>
 
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg transition-all active:scale-95"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg transition-all active:scale-95"
             >
               <FaPrint size={11} /> Print Report
             </button>
@@ -461,9 +461,9 @@ export default function TargetVsActualReportPage() {
 
       {/* Territory Restriction Banner */}
       {isMrRestricted && (
-        <div className="flex items-center gap-3 rounded-2xl border border-amber-300/60 bg-amber-500/10 p-4 text-amber-900 shadow-sm backdrop-blur-md">
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-300/60 bg-amber-500/10 p-3.5 sm:p-4 text-amber-900 shadow-sm backdrop-blur-md">
           <FaMapMarkerAlt className="text-amber-600 flex-shrink-0" size={18} />
-          <div className="text-xs">
+          <div className="text-xs min-w-0 flex-1">
             <p className="font-bold">Territory Scope Filter Active</p>
             <p className="text-amber-800">You are currently viewing performance metrics strictly restricted to your assigned MR territory and customer assignments.</p>
           </div>
@@ -471,8 +471,8 @@ export default function TargetVsActualReportPage() {
       )}
 
       {/* Filter Control Bar */}
-      <div className="bg-white/80 backdrop-blur-xl p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="bg-white/80 backdrop-blur-xl p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Target Month Picker */}
           <div>
             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
@@ -546,8 +546,8 @@ export default function TargetVsActualReportPage() {
         </div>
 
         {/* Quick View Filter Chips */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-100 pt-3">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-400">View Granularity:</span>
             <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200/80">
               <button
@@ -577,7 +577,7 @@ export default function TargetVsActualReportPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <button
               onClick={expandAll}
               className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
@@ -597,32 +597,32 @@ export default function TargetVsActualReportPage() {
 
       {/* Summary Stat Cards */}
       {summary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Sales Target Card */}
-          <div className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Total Sales Target</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1">₹{formatINR(summary.totalSalesTarget)}</h3>
+          <div className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider truncate">Total Sales Target</p>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 mt-1 truncate">₹{formatINR(summary.totalSalesTarget)}</h3>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold shrink-0">
                 <FaBullseye size={18} />
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-slate-100">
-              <span className="text-slate-500 font-medium">Actual Sales</span>
-              <span className="font-extrabold text-emerald-600">₹{formatINR(summary.totalActualSales)}</span>
+            <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-slate-100 gap-2">
+              <span className="text-slate-500 font-medium truncate">Actual Sales</span>
+              <span className="font-extrabold text-emerald-600 truncate">₹{formatINR(summary.totalActualSales)}</span>
             </div>
           </div>
 
           {/* Sales Achievement % Card */}
-          <div className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Sales Achievement</p>
-                <h3 className="text-xl font-black text-emerald-600 mt-1">{summary.overallSalesAchPercent}%</h3>
+          <div className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider truncate">Sales Achievement</p>
+                <h3 className="text-lg sm:text-xl font-black text-emerald-600 mt-1 truncate">{summary.overallSalesAchPercent}%</h3>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
                 <FaChartLine size={18} />
               </div>
             </div>
@@ -633,35 +633,35 @@ export default function TargetVsActualReportPage() {
                   style={{ width: `${Math.min(100, summary.overallSalesAchPercent)}%` }}
                 />
               </div>
-              <p className="text-[10px] text-slate-400 font-semibold text-right">Shortfall: ₹{formatINR(summary.totalSalesShortfall)}</p>
+              <p className="text-[10px] text-slate-400 font-semibold text-right truncate">Shortfall: ₹{formatINR(summary.totalSalesShortfall)}</p>
             </div>
           </div>
 
           {/* Collection Target Card */}
-          <div className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Total Collection Target</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1">₹{formatINR(summary.totalCollectionTarget)}</h3>
+          <div className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider truncate">Total Collection Target</p>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 mt-1 truncate">₹{formatINR(summary.totalCollectionTarget)}</h3>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
                 <FaWallet size={18} />
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-slate-100">
-              <span className="text-slate-500 font-medium">Actual Collections</span>
-              <span className="font-extrabold text-indigo-600">₹{formatINR(summary.totalActualCollection)}</span>
+            <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-slate-100 gap-2">
+              <span className="text-slate-500 font-medium truncate">Actual Collections</span>
+              <span className="font-extrabold text-indigo-600 truncate">₹{formatINR(summary.totalActualCollection)}</span>
             </div>
           </div>
 
           {/* Collection Achievement % Card */}
-          <div className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Collection Achievement</p>
-                <h3 className="text-xl font-black text-indigo-600 mt-1">{summary.overallCollectionAchPercent}%</h3>
+          <div className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider truncate">Collection Achievement</p>
+                <h3 className="text-lg sm:text-xl font-black text-indigo-600 mt-1 truncate">{summary.overallCollectionAchPercent}%</h3>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shrink-0">
                 <FaLayerGroup size={18} />
               </div>
             </div>
@@ -672,7 +672,7 @@ export default function TargetVsActualReportPage() {
                   style={{ width: `${Math.min(100, summary.overallCollectionAchPercent)}%` }}
                 />
               </div>
-              <p className="text-[10px] text-slate-400 font-semibold text-right">Shortfall: ₹{formatINR(summary.totalCollectionShortfall)}</p>
+              <p className="text-[10px] text-slate-400 font-semibold text-right truncate">Shortfall: ₹{formatINR(summary.totalCollectionShortfall)}</p>
             </div>
           </div>
         </div>
@@ -888,33 +888,30 @@ export default function TargetVsActualReportPage() {
             <p className="text-[11px] text-slate-400 mt-1">Try selecting a different target month or clear your search term.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-900 text-white font-extrabold">
-                  <th className="p-3.5 w-10 text-center"></th>
-                  <th className="p-3.5">Entity / Target Name</th>
-                  <th className="p-3.5">Type</th>
-                  <th className="p-3.5 text-right bg-slate-800/80">Sales Target</th>
-                  <th className="p-3.5 text-right bg-emerald-950/60 text-emerald-300">Actual Sales</th>
-                  <th className="p-3.5 text-center bg-emerald-950/60 text-emerald-300">Sales Ach %</th>
-                  <th className="p-3.5 text-right bg-slate-800/80">Collection Target</th>
-                  <th className="p-3.5 text-right bg-indigo-950/60 text-indigo-300">Actual Collection</th>
-                  <th className="p-3.5 text-center bg-indigo-950/60 text-indigo-300">Coll Ach %</th>
-                  <th className="p-3.5 text-center">Reward Scheme</th>
-                  <th className="p-3.5 text-center">WhatsApp Chat</th>
-                </tr>
-              </thead>
+          <div className="overflow-x-auto w-full">
+            <div className="min-w-[1360px]">
+              <div className="bg-slate-900 text-white font-extrabold flex items-center p-3.5 text-xs border-b border-slate-800">
+                <div className="w-10 text-center shrink-0"></div>
+                <div className="w-64 text-left pr-4 shrink-0">Entity / Target Name</div>
+                <div className="w-24 text-left shrink-0">Type</div>
+                <div className="w-32 text-right shrink-0">Sales Target</div>
+                <div className="w-36 text-right shrink-0 text-emerald-300">Actual Sales</div>
+                <div className="w-28 text-center shrink-0 text-emerald-300">Sales Ach %</div>
+                <div className="w-36 text-right shrink-0">Collection Target</div>
+                <div className="w-36 text-right shrink-0 text-indigo-300">Actual Collection</div>
+                <div className="w-28 text-center shrink-0 text-indigo-300">Coll Ach %</div>
+                <div className="w-36 text-center shrink-0">Reward Scheme</div>
+                <div className="w-36 text-center shrink-0 pl-2">WhatsApp Chat</div>
+              </div>
 
-              <tbody className="divide-y divide-slate-200/80 font-medium">
+              <div className="divide-y divide-slate-200/80 font-medium bg-white">
                 {rows.map((row) => {
                   const isExpanded = expandedRows.has(row._id);
 
                   return (
-                    <tr key={row._id} className="hover:bg-slate-50/80 transition-colors group">
-                      <td colSpan={11} className="p-0">
-                        {/* Parent Master Row */}
-                        <div className="flex items-center w-full p-3.5 border-b border-slate-100">
+                    <div key={row._id} className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
+                      {/* Parent Master Row */}
+                      <div className="flex items-center min-w-[1360px] p-3.5 text-xs">
                           {/* Accordion Toggle */}
                           <button
                             onClick={() => toggleRow(row._id)}
@@ -1132,13 +1129,12 @@ export default function TargetVsActualReportPage() {
                             )}
                           </div>
                         )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
         )}
       </div>
     </div>

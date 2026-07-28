@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   FaFolderOpen,
   FaFolder,
@@ -11,7 +11,6 @@ import {
   FaSearch,
   FaSyncAlt,
 } from "react-icons/fa";
-import FolderSelectorModal from "./FolderSelectorModal";
 
 interface VfpConfigWizardProps {
   isOpen: boolean;
@@ -70,18 +69,58 @@ export default function VfpConfigWizard({
 
   if (!isOpen) return null;
 
-  // Folder picking handlers
-  function handleBrowseFolder(field: "source" | "dest") {
-    setBrowsingField(field);
-    setIsFolderPickerOpen(true);
+  const nativeFolderInputRef = useRef<HTMLInputElement>(null);
+  const activeFieldRef = useRef<"source" | "dest">("dest");
+
+  // Directly trigger native Windows Explorer directory picker
+  async function handleBrowseFolder(field: "source" | "dest") {
+    activeFieldRef.current = field;
+
+    if ("showDirectoryPicker" in window) {
+      try {
+        const handle = await (window as any).showDirectoryPicker();
+        if (handle && handle.name) {
+          const folderName = handle.name;
+          const currentVal = field === "source" ? sourceDir : dataDir;
+          const finalPath = prompt(
+            `Selected directory: "${folderName}".\nPlease confirm or enter full Windows path (e.g. C:\\Users\\...\\${folderName}):`,
+            currentVal || `C:\\${folderName}`
+          );
+          if (finalPath) {
+            if (field === "source") setSourceDir(finalPath);
+            else setDataDir(finalPath);
+          }
+          return;
+        }
+      } catch (e: any) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    nativeFolderInputRef.current?.click();
   }
 
-  function handleFolderSelected(path: string) {
-    if (browsingField === "source") {
-      setSourceDir(path);
-    } else {
-      setDataDir(path);
+  function handleNativeFolderChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    const field = activeFieldRef.current;
+    if (files && files.length > 0) {
+      const relPath = files[0].webkitRelativePath || "";
+      const folderName = relPath.split("/")[0] || relPath.split("\\")[0] || "SelectedFolder";
+      let nativePath = (files[0] as any).path;
+      if (nativePath) {
+        const lastSlash = Math.max(nativePath.lastIndexOf("/"), nativePath.lastIndexOf("\\"));
+        if (lastSlash !== -1) nativePath = nativePath.substring(0, lastSlash);
+      }
+      const currentVal = field === "source" ? sourceDir : dataDir;
+      const finalPath = nativePath || prompt(
+        `Selected directory: "${folderName}".\nConfirm Windows path:`,
+        currentVal || `C:\\${folderName}`
+      );
+      if (finalPath) {
+        if (field === "source") setSourceDir(finalPath);
+        else setDataDir(finalPath);
+      }
     }
+    e.target.value = "";
   }
 
   // Action: Scan directory and list DBF files
@@ -470,14 +509,15 @@ export default function VfpConfigWizard({
         </div>
       </div>
 
-      {/* Internal Folder Selector Pickers */}
-      <FolderSelectorModal
-        isOpen={isFolderPickerOpen}
-        onClose={() => setIsFolderPickerOpen(false)}
-        currentPath={browsingField === "source" ? sourceDir : dataDir}
-        onFolderSelected={handleFolderSelected}
-        selectOnly={true}
-        title={browsingField === "source" ? "Select Source VFP Data Folder" : "Select Destination Sync Folder"}
+      {/* Hidden Native Directory Explorer Input */}
+      <input
+        type="file"
+        ref={nativeFolderInputRef}
+        //@ts-ignore
+        webkitdirectory=""
+        directory=""
+        style={{ display: "none" }}
+        onChange={handleNativeFolderChange}
       />
     </div>
   );

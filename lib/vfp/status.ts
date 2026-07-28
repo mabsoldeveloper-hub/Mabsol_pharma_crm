@@ -209,6 +209,7 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
   }, {});
   let dataDir = process.env.VFP_DATA_DIR || "";
   let sourceDir = "";
+  let consoleSyncDir = "";
   let enabledFiles: string[] = [];
   let autoSync = false;
   let autoSyncInterval = 10;
@@ -223,6 +224,7 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
   if (config) {
     if (config.dataDir !== undefined) dataDir = config.dataDir;
     if (config.sourceDir) sourceDir = config.sourceDir;
+    if (config.consoleSyncDir !== undefined) consoleSyncDir = config.consoleSyncDir;
     if (config.enabledFiles) enabledFiles = config.enabledFiles;
     if (config.autoSync !== undefined) autoSync = config.autoSync;
     if (config.autoSyncInterval !== undefined) autoSyncInterval = config.autoSyncInterval;
@@ -255,6 +257,7 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     dataDir,
     dataDirExists,
     sourceDir,
+    consoleSyncDir,
     enabledFiles,
     autoSync,
     autoSyncInterval,

@@ -110,10 +110,10 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (data.success) {
-        setStep("otp");
-        setOtp(Array(OTP_LENGTH).fill(""));
-        setResendTimer(RESEND_SECONDS);
-        setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
+          setStep("otp");
+          setOtp(Array(OTP_LENGTH).fill(""));
+          setResendTimer(RESEND_SECONDS);
+          setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
       } else {
         setError(data.message || "Couldn't sign you in. Check your details and try again.");
       }

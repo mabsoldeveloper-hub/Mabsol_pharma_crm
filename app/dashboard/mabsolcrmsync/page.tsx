@@ -110,7 +110,7 @@ export default async function VfpDashboardPage({
 
   return (
     <ProtectedPage permission="vfp.view">
-      <div className="w-full max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-8 space-y-6 text-slate-900 box-border bg-slate-50/40 min-h-screen">
+      <div className="w-full max-w-full overflow-x-hidden sm:p-6 lg:p-8 space-y-6 text-slate-900 box-border bg-slate-50/40 min-h-screen">
         
         {/* Eyebrow & Page Header */}
         <div>
@@ -202,7 +202,8 @@ export default async function VfpDashboardPage({
 
         {/* Control Panel Section */}
         <VfpSyncActions 
-          currentPath={status.dataDir} 
+          currentPath={status.consoleSyncDir || ""} 
+          destinationPath={status.dataDir || ""}
           enabledFiles={status.enabledFiles}
           initialAutoSync={status.autoSync}
           initialAutoSyncInterval={status.autoSyncInterval}

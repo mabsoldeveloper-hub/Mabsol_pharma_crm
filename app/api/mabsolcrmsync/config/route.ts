@@ -17,6 +17,7 @@ export async function GET() {
 
     let dataDir = process.env.VFP_DATA_DIR || "";
     let sourceDir = "";
+    let consoleSyncDir = "";
     let enabledFiles: string[] = [];
     let useVfpEngine = false;
     let autoSync = false;
@@ -37,6 +38,9 @@ export async function GET() {
       }
       if ((config as any).sourceDir) {
         sourceDir = (config as any).sourceDir;
+      }
+      if ((config as any).consoleSyncDir !== undefined) {
+        consoleSyncDir = (config as any).consoleSyncDir;
       }
       if ((config as any).enabledFiles) {
         enabledFiles = (config as any).enabledFiles;
@@ -85,6 +89,7 @@ export async function GET() {
       success: true,
       dataDir,
       sourceDir,
+      consoleSyncDir,
       enabledFiles,
       autoSync,
       autoSyncInterval,
@@ -178,6 +183,26 @@ export async function POST(request: NextRequest) {
         }
       }
       updateFields.sourceDir = sourceDir;
+    }
+
+    const { consoleSyncDir } = body;
+    if (consoleSyncDir !== undefined) {
+      if (consoleSyncDir) {
+        if (!checkPathExists(consoleSyncDir)) {
+          return NextResponse.json(
+            { success: false, error: `Sync folder path does not exist on local disk: ${consoleSyncDir}` },
+            { status: 400 }
+          );
+        }
+
+        if (!checkIsDir(consoleSyncDir)) {
+          return NextResponse.json(
+            { success: false, error: `Sync path is not a directory: ${consoleSyncDir}` },
+            { status: 400 }
+          );
+        }
+      }
+      updateFields.consoleSyncDir = consoleSyncDir;
     }
 
     if (enabledFiles !== undefined) {

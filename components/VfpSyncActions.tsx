@@ -13,10 +13,10 @@ import {
   Check,
   Edit2
 } from "lucide-react";
-import FileSelectorModal from "./FileSelectorModal";
 
 interface VfpSyncActionsProps {
   currentPath?: string;
+  destinationPath?: string;
   enabledFiles?: string[];
   initialAutoSync?: boolean;
   initialAutoSyncInterval?: number;
@@ -42,6 +42,7 @@ function formatIntervalSummary(mins: number): string {
 
 export default function VfpSyncActions({ 
   currentPath = "", 
+  destinationPath = "",
   enabledFiles = [], 
   initialAutoSync = false,
   initialAutoSyncInterval = 10,
@@ -98,13 +99,110 @@ export default function VfpSyncActions({
   const [folderDbfFiles, setFolderDbfFiles] = useState<string[]>([]);
   const [scanningFolder, setScanningFolder] = useState(false);
 
-  // Modals state
-  const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
-  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
+  // Native file & directory input refs
+  const nativeFolderInputRef = useRef<HTMLInputElement>(null);
+  const nativeFileInputRef = useRef<HTMLInputElement>(null);
 
   const isMounted = useRef(false);
   const prevProps = useRef({ currentPath, enabledFiles });
   const lastUserEditTimeRef = useRef<number>(0);
+
+  // Trigger native Windows folder browser dialog
+  const handleOpenNativeFolderPicker = async () => {
+    if (autoSync) {
+      setMessage({ type: "info", text: "Please turn off Auto-sync below to change folder." });
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/select-folder-dialog", { method: "POST" });
+      const data = await res.json();
+      if (data.success && data.path) {
+        setDataDir(data.path);
+        saveConfiguration(data.path, syncScope, selectedFiles, autoSync, autoSyncInterval);
+        return;
+      }
+    } catch (e) {
+      setMessage({ type: "error", text: "Unable to open Windows folder dialog." });
+    }
+  };
+
+  const handleNativeFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const relPath = files[0].webkitRelativePath || "";
+      const folderName = relPath.split("/")[0] || relPath.split("\\")[0] || "SelectedFolder";
+      
+      let detectedPath = (files[0] as any).path ? (files[0] as any).path : "";
+      if (detectedPath) {
+        const lastSlash = Math.max(detectedPath.lastIndexOf("/"), detectedPath.lastIndexOf("\\"));
+        if (lastSlash !== -1) {
+          detectedPath = detectedPath.substring(0, lastSlash);
+        }
+      }
+
+      const finalPath = detectedPath || prompt(
+        `Selected folder: "${folderName}".\nConfirm Windows path:`,
+        `C:\\${folderName}`
+      );
+
+      if (finalPath) {
+        setDataDir(finalPath);
+        const dbfNames: string[] = [];
+        Array.from(files).forEach((f) => {
+          if (f.name.toLowerCase().endsWith(".dbf")) {
+            if (!dbfNames.includes(f.name)) dbfNames.push(f.name);
+          }
+        });
+        const updatedFiles = dbfNames.length > 0 ? Array.from(new Set([...selectedFiles, ...dbfNames])) : selectedFiles;
+        if (dbfNames.length > 0) setSelectedFiles(updatedFiles);
+        saveConfiguration(finalPath, syncScope, updatedFiles, autoSync, autoSyncInterval);
+      }
+    }
+    e.target.value = "";
+  };
+
+  // Directly trigger native Windows Explorer file picker for DBF tables
+  const handleOpenNativeFilePicker = () => {
+    if (autoSync) {
+      setMessage({ type: "info", text: "Please turn off Auto-sync below to add DBF tables." });
+      return;
+    }
+    nativeFileInputRef.current?.click();
+  };
+
+  const handleNativeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFileNames: string[] = [];
+      let detectedFolderPath = dataDir;
+
+      Array.from(files).forEach((file) => {
+        const fileName = file.name;
+        if (!newFileNames.includes(fileName)) {
+          newFileNames.push(fileName);
+        }
+
+        const fullPath = (file as any).path;
+        if (fullPath) {
+          const lastSlash = Math.max(fullPath.lastIndexOf("/"), fullPath.lastIndexOf("\\"));
+          if (lastSlash !== -1) {
+            detectedFolderPath = fullPath.substring(0, lastSlash);
+          }
+        }
+      });
+
+      if (detectedFolderPath !== dataDir) {
+        setDataDir(detectedFolderPath);
+      }
+
+      const updated = Array.from(new Set([...selectedFiles, ...newFileNames]));
+      setSelectedFiles(updated);
+      setSyncScope("selected");
+      saveConfiguration(detectedFolderPath, "selected", updated, autoSync, autoSyncInterval, true);
+    }
+    e.target.value = "";
+  };
 
   // Auto-scan DBF files in current folder
   useEffect(() => {
@@ -173,7 +271,7 @@ export default function VfpSyncActions({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dataDir: updatedDir,
+          consoleSyncDir: updatedDir,
           enabledFiles: filesToSync,
           autoSync: updatedAutoSync,
           autoSyncInterval: updatedInterval,
@@ -364,7 +462,7 @@ export default function VfpSyncActions({
       style={{ borderRadius: "24px" }}
     >
       {/* Card Header */}
-      <div className="flex items-center justify-between  sm:p-5 border-b border-slate-100 flex-wrap gap-3 w-full box-border bg-white">
+      <div className="flex items-center justify-between p-2 sm:p-5 border-b border-slate-100 flex-wrap gap-3 w-full box-border bg-white">
         <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-900 tracking-tight">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-slate-700"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
           <span>Sync control panel</span>
@@ -458,18 +556,12 @@ export default function VfpSyncActions({
                         <button 
                           type="button"
                           disabled={autoSync}
-                          onClick={() => {
-                            if (autoSync) {
-                              setMessage({ type: "info", text: "Please turn off Auto-sync below to add DBF tables." });
-                              return;
-                            }
-                            setIsFilePickerOpen(true);
-                          }}
+                          onClick={handleOpenNativeFilePicker}
                           className={`inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 bg-white border border-slate-200 text-slate-800 transition-all shadow-2xs btn-pill ${
                             autoSync ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-100 cursor-pointer"
                           }`}
                           style={{ borderRadius: "9999px" }}
-                          title={autoSync ? "Turn off Auto-sync to add DBF tables" : "Add DBF table(s)"}
+                          title={autoSync ? "Turn off Auto-sync to add DBF tables" : "Open Windows Explorer to select DBF table(s)"}
                         >
                           <Plus size={12} className="text-slate-600" />
                           <span>Add DBF table(s)</span>
@@ -561,19 +653,31 @@ export default function VfpSyncActions({
 
             {/* SHOW SELECT SOURCE FOLDER ONLY WHEN 'All tables' IS ACTIVE */}
             {syncScope === "all" && (
-              <div className="animate-in slide-in-from-top-2 duration-150">
-                <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  SELECT SOURCE FOLDER
-                </span>
+              <div className="animate-in slide-in-from-top-2 duration-150 space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    SELECT SOURCE DATA FOLDER (FOR DBF TABLES TO SYNC)
+                  </span>
+                </div>
                 <div className="space-y-2">
                   <div 
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 bg-slate-50/60 border border-slate-200/80 text-xs font-mono text-slate-700 w-full overflow-hidden box-border shadow-2xs"
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 bg-slate-50/60 border border-slate-200/80 text-xs font-mono text-slate-700 w-full overflow-hidden box-border shadow-2xs focus-within:bg-white focus-within:border-slate-400 transition-all"
                     style={{ borderRadius: "12px" }}
                   >
                     <FolderOpen size={15} className="text-slate-400 shrink-0" />
-                    <span className="truncate block w-full min-w-0 font-mono text-xs text-slate-800" title={dataDir}>
-                      {dataDir || "No folder selected"}
-                    </span>
+                    <input
+                      type="text"
+                      value={dataDir}
+                      onChange={(e) => {
+                        const newDir = e.target.value;
+                        setDataDir(newDir);
+                        saveConfiguration(newDir, syncScope, selectedFiles, autoSync, autoSyncInterval, true);
+                      }}
+                      placeholder="Enter or browse folder path (e.g. C:\ or D:\SHYLARK 2026-27)"
+                      className="w-full bg-transparent border-0 outline-none text-xs font-mono text-slate-800 placeholder:text-slate-400"
+                      disabled={autoSync}
+                      title="Directly edit directory path"
+                    />
                   </div>
 
                   {dataDir && (
@@ -597,8 +701,9 @@ export default function VfpSyncActions({
                     <button 
                       className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-4 text-xs font-bold border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer shadow-2xs btn-pill" 
                       style={{ borderRadius: "9999px" }}
-                      onClick={() => setIsFolderPickerOpen(true)} 
+                      onClick={handleOpenNativeFolderPicker} 
                       type="button"
+                      title="Open Windows Explorer to select source folder"
                     >
                       <FolderOpen size={13} className="text-slate-500" />
                       <span>Browse</span>
@@ -623,7 +728,16 @@ export default function VfpSyncActions({
             )}
 
             {(() => {
+              const isNoFolderSelected = syncScope === "all" && !dataDir.trim();
               const isNoFilesSelected = syncScope === "selected" && selectedFiles.length === 0;
+              const isAutoSyncDisabled = isNoFolderSelected || isNoFilesSelected;
+
+              const disabledReason = isNoFolderSelected
+                ? "Please select a source folder in 'All tables' before enabling Auto-sync."
+                : isNoFilesSelected
+                ? "Please select at least 1 DBF table before enabling Auto-sync."
+                : "";
+
               return (
                 <div 
                   className="flex items-center justify-between gap-4 p-3.5 bg-slate-50/50 border border-slate-200/80 w-full box-border"
@@ -632,25 +746,25 @@ export default function VfpSyncActions({
                   <div>
                     <div className="text-xs font-bold text-slate-900">Enable auto-sync</div>
                     <div className="text-[11px] text-slate-400 leading-tight mt-0.5">Run background synchronization on a schedule</div>
-                    {isNoFilesSelected && (
+                    {isAutoSyncDisabled && (
                       <span className="text-[11px] font-bold text-amber-600 block mt-1">
-                        ⚠️ Select at least 1 DBF table to enable auto-sync
+                        ⚠️ {isNoFolderSelected ? "Select a source folder to enable auto-sync" : "Select at least 1 DBF table to enable auto-sync"}
                       </span>
                     )}
                   </div>
                   <div 
                     className={`w-10 h-5.5 rounded-full relative transition-colors shrink-0 p-0.5 ${
-                      isNoFilesSelected
+                      isAutoSyncDisabled
                         ? "bg-slate-200 cursor-not-allowed opacity-50"
                         : autoSync 
                         ? "bg-slate-900 cursor-pointer" 
                         : "bg-slate-200 cursor-pointer"
                     }`}
                     style={{ borderRadius: "9999px" }}
-                    title={isNoFilesSelected ? "Select at least 1 DBF table to enable auto-sync" : "Toggle auto-sync"}
+                    title={isAutoSyncDisabled ? disabledReason : "Toggle auto-sync"}
                     onClick={() => {
-                      if (isNoFilesSelected) {
-                        setMessage({ type: "error", text: "Please select at least 1 DBF table before enabling Auto-sync." });
+                      if (isAutoSyncDisabled) {
+                        setMessage({ type: "error", text: disabledReason });
                         return;
                       }
                       const newAutoSync = !autoSync;
@@ -665,7 +779,7 @@ export default function VfpSyncActions({
                   >
                     <div 
                       className={`w-4.5 h-4.5 rounded-full bg-white transition-all shadow-xs ${
-                        autoSync && !isNoFilesSelected ? "translate-x-4.5" : "translate-x-0"
+                        autoSync && !isAutoSyncDisabled ? "translate-x-4.5" : "translate-x-0"
                       }`} 
                       style={{ borderRadius: "9999px" }}
                     />
@@ -923,23 +1037,23 @@ export default function VfpSyncActions({
         </div>
       )}
 
-      <FileSelectorModal
-        isOpen={isFolderPickerOpen}
-        onClose={() => setIsFolderPickerOpen(false)}
-        onSelect={handleFolderSelect}
-        title="Select VFP Database Folder"
-        filterType="dir"
-        initialPath={dataDir}
+      {/* Hidden Native File & Directory Inputs for Windows Explorer */}
+      <input
+        type="file"
+        ref={nativeFolderInputRef}
+        //@ts-ignore
+        webkitdirectory=""
+        directory=""
+        style={{ display: "none" }}
+        onChange={handleNativeFolderChange}
       />
-
-      <FileSelectorModal
-        isOpen={isFilePickerOpen}
-        onClose={() => setIsFilePickerOpen(false)}
-        onSelect={handleFileSelect}
-        onSelectMultiple={handleMultipleFilesSelect}
-        title="Select Target DBF Table(s)"
-        filterType="dbf"
-        initialPath={dataDir}
+      <input
+        type="file"
+        ref={nativeFileInputRef}
+        accept=".dbf"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleNativeFileChange}
       />
     </div>
   );

@@ -20,6 +20,11 @@ const VfpConfigSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    consoleSyncDir: {
+      type: String,
+      required: false,
+      default: "",
+    },
     enabledFiles: {
       type: [String],
       required: false,

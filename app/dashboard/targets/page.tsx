@@ -206,25 +206,25 @@ export default function GeneralTargetsPage() {
   };
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-700 via-pink-700 to-purple-800 p-6 text-white shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-700 via-pink-700 to-purple-800 p-4 sm:p-6 text-white shadow-xl">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center gap-1.5">
-                <FaBullseye /> {isAdmin ? "Admin Sales Target & Achievement Center" : "MR Territory Target Portal"}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
+              <span className="px-2.5 py-1 text-[11px] sm:text-xs font-semibold rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center gap-1.5">
+                <FaBullseye className="shrink-0" /> <span className="truncate">{isAdmin ? "Admin Sales Target & Achievement Center" : "MR Territory Target Portal"}</span>
               </span>
-              <span className="px-2.5 py-0.5 text-xs font-bold rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
-                <FaGift /> Incentive & Gift Tracker
+              <span className="px-2.5 py-0.5 text-[11px] sm:text-xs font-bold rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
+                <FaGift className="shrink-0" /> Incentive & Gift Tracker
               </span>
               {isMrRestricted && (
-                <span className="px-2.5 py-0.5 text-xs font-bold rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
-                  <FaLock size={10} /> Territory Scope Filter Active
+                <span className="px-2.5 py-0.5 text-[11px] sm:text-xs font-bold rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                  <FaLock size={10} className="shrink-0" /> Territory Scope Filter Active
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight break-words">
               {isAdmin ? "Global Target & Performance Dashboard" : `My Territory Targets - ${currentUser?.name || "Field Executive"}`}
             </h1>
             <p className="text-xs text-white/80 mt-1">
@@ -234,19 +234,19 @@ export default function GeneralTargetsPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
             <Link
               href="/dashboard/reports/target-vs-actual"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-bold text-xs shadow-lg hover:brightness-110 transition-all hover:scale-105"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-bold text-xs shadow-lg hover:brightness-110 transition-all hover:scale-105"
             >
-              <FaChartLine /> Party vs MR Target Report
+              <FaChartLine className="shrink-0" /> <span>Party vs MR Target Report</span>
             </Link>
             {isAdmin && (
               <Link
                 href="/dashboard/master/targets"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-rose-950 font-bold text-xs shadow-lg hover:bg-rose-50 transition-all hover:scale-105"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white text-rose-950 font-bold text-xs shadow-lg hover:bg-rose-50 transition-all hover:scale-105"
               >
-                <FaCog /> Target Master Setup
+                <FaCog className="shrink-0" /> <span>Target Master Setup</span>
               </Link>
             )}
           </div>
@@ -254,43 +254,43 @@ export default function GeneralTargetsPage() {
       </div>
 
       {/* Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase text-slate-400">Total Assigned Target</p>
-            <p className="text-lg font-extrabold text-slate-900 mt-0.5">₹{stats.totalTarget.toLocaleString("en-IN")}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white/70 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-2 min-w-0">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase text-slate-400 truncate">Total Assigned Target</p>
+            <p className="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5 truncate">₹{stats.totalTarget.toLocaleString("en-IN")}</p>
           </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+          <div className="p-2.5 sm:p-3 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
             <FaBullseye size={20} />
           </div>
         </div>
 
-        <div className="bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase text-emerald-600">Total Sales Achieved</p>
-            <p className="text-lg font-extrabold text-emerald-700 mt-0.5">₹{stats.totalAchieved.toLocaleString("en-IN")}</p>
+        <div className="bg-white/70 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-2 min-w-0">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase text-emerald-600 truncate">Total Sales Achieved</p>
+            <p className="text-base sm:text-lg font-extrabold text-emerald-700 mt-0.5 truncate">₹{stats.totalAchieved.toLocaleString("en-IN")}</p>
           </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+          <div className="p-2.5 sm:p-3 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
             <FaChartLine size={20} />
           </div>
         </div>
 
-        <div className="bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase text-rose-600">Remaining Shortfall</p>
-            <p className="text-lg font-extrabold text-rose-700 mt-0.5">₹{stats.totalShortfall.toLocaleString("en-IN")}</p>
+        <div className="bg-white/70 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-2 min-w-0">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase text-rose-600 truncate">Remaining Shortfall</p>
+            <p className="text-base sm:text-lg font-extrabold text-rose-700 mt-0.5 truncate">₹{stats.totalShortfall.toLocaleString("en-IN")}</p>
           </div>
-          <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
+          <div className="p-2.5 sm:p-3 bg-rose-50 text-rose-600 rounded-xl shrink-0">
             <FaExclamationTriangle size={20} />
           </div>
         </div>
 
-        <div className="bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase text-slate-400">Overall Rate</p>
-            <p className="text-lg font-extrabold text-purple-700 mt-0.5">{stats.overallPercent}%</p>
+        <div className="bg-white/70 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-2 min-w-0">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase text-slate-400 truncate">Overall Rate</p>
+            <p className="text-base sm:text-lg font-extrabold text-purple-700 mt-0.5 truncate">{stats.overallPercent}%</p>
           </div>
-          <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+          <div className="p-2.5 sm:p-3 bg-purple-50 text-purple-600 rounded-xl shrink-0">
             <FaTrophy size={20} />
           </div>
         </div>
@@ -298,21 +298,21 @@ export default function GeneralTargetsPage() {
 
       {/* MR Personal Target Showcase (If Logged-in user has personal MR Target) */}
       {myPersonalTarget && (
-        <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 p-6 rounded-2xl text-white shadow-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 p-4 sm:p-6 rounded-2xl text-white shadow-lg space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white/20 text-white flex items-center gap-1.5">
-                <FaUser /> My Personal Executive Sales Target
+                <FaUser className="shrink-0" /> <span className="truncate">My Personal Executive Sales Target</span>
               </span>
               <span className="text-xs font-semibold text-indigo-200">Month: {myPersonalTarget.periodMonth}</span>
             </div>
-            <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
+            <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 self-start sm:self-auto shrink-0">
               {myPersonalTarget.achievementPercent}% Completed
             </span>
           </div>
 
           <div className="space-y-2">
-            <div className="flex justify-between text-xs font-semibold text-indigo-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-semibold text-indigo-100">
               <span>Target Achievement Progress</span>
               <span>₹{(myPersonalTarget.achievedAmount || 0).toLocaleString("en-IN")} / ₹{(myPersonalTarget.targetAmount || 0).toLocaleString("en-IN")}</span>
             </div>
@@ -325,16 +325,16 @@ export default function GeneralTargetsPage() {
           </div>
 
           {myPersonalTarget.hasGiftScheme && (
-            <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/20 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <FaGift className="text-amber-300" size={16} />
-                <span>
+            <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <FaGift className="text-amber-300 shrink-0" size={16} />
+                <span className="min-w-0 truncate">
                   {myPersonalTarget.activeGiftSlab
                     ? `🎁 Reward Unlocked: ${myPersonalTarget.activeGiftSlab.giftName}`
                     : "🎁 Achieve target to unlock special executive incentive rewards!"}
                 </span>
               </div>
-              <span className="text-[10px] font-bold bg-amber-400/30 text-amber-200 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-bold bg-amber-400/30 text-amber-200 px-2 py-0.5 rounded shrink-0">
                 Active Scheme
               </span>
             </div>
@@ -343,8 +343,8 @@ export default function GeneralTargetsPage() {
       )}
 
       {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="relative w-full sm:w-80">
+      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-white/70 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="relative w-full md:w-80">
           <FaSearch size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -355,11 +355,11 @@ export default function GeneralTargetsPage() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 font-semibold focus:outline-none"
+            className="w-full sm:w-auto px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 font-semibold focus:outline-none"
           >
             <option value="">All Target Types</option>
             <option value="Customer">Customer Targets</option>
@@ -370,7 +370,7 @@ export default function GeneralTargetsPage() {
             type="month"
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 font-semibold focus:outline-none"
+            className="w-full sm:w-auto px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 font-semibold focus:outline-none"
           />
         </div>
       </div>
@@ -379,7 +379,7 @@ export default function GeneralTargetsPage() {
       {loading ? (
         <div className="p-12 text-center text-xs font-semibold text-slate-500">Loading live target achievements...</div>
       ) : filteredTargets.length === 0 ? (
-        <div className="p-12 text-center bg-white/50 backdrop-blur-md rounded-2xl border border-dashed border-slate-300">
+        <div className="p-8 sm:p-12 text-center bg-white/50 backdrop-blur-md rounded-2xl border border-dashed border-slate-300">
           <p className="text-xs font-semibold text-slate-600">No target records found for your assigned territory/period.</p>
           {isAdmin && (
             <Link
@@ -406,41 +406,41 @@ export default function GeneralTargetsPage() {
             return (
               <div
                 key={item._id}
-                className="relative rounded-2xl bg-white/70 backdrop-blur-md border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                className="relative rounded-2xl bg-white/70 backdrop-blur-md border border-slate-200/80 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`p-2.5 rounded-xl ${item.targetType === "MR" ? "bg-indigo-50 text-indigo-700" : "bg-emerald-50 text-emerald-700"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div className={`p-2.5 rounded-xl shrink-0 ${item.targetType === "MR" ? "bg-indigo-50 text-indigo-700" : "bg-emerald-50 text-emerald-700"}`}>
                         {item.targetType === "MR" ? <FaUser size={16} /> : <FaStore size={16} />}
                       </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-bold text-slate-900 break-words line-clamp-2">
                           {item.targetType === "MR" ? item.mrName || "MR Executive" : item.customerName || "Customer"}
                         </h4>
-                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-400">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-slate-400 mt-0.5">
                           {item.customerCode && <span>Code: {item.customerCode}</span>}
                           {(() => {
                             const rawPhone = item.phoneNumber || (typeof item.mrUserId === "object" ? (item.mrUserId?.mobile || item.mrUserId?.phone) : "");
                             const cleanPhone = formatWhatsAppPhone(rawPhone);
                             return cleanPhone ? (
-                              <span className="text-emerald-700 font-extrabold flex items-center gap-1">
+                              <span className="text-emerald-700 font-extrabold flex items-center gap-1 break-all">
                                 📞 +{cleanPhone}
                               </span>
                             ) : (
                               <span className="text-slate-400 font-normal">
-                                ⚠️ No Phone Saved
+                                ⚠️ No Phone
                               </span>
                             );
                           })()}
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${item.targetType === "MR" ? "bg-indigo-100 text-indigo-800 border-indigo-200" : "bg-emerald-100 text-emerald-800 border-emerald-200"}`}>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${item.targetType === "MR" ? "bg-indigo-100 text-indigo-800 border-indigo-200" : "bg-emerald-100 text-emerald-800 border-emerald-200"}`}>
                         {item.targetType === "MR" ? "MR Target" : "Customer Target"}
                       </span>
-                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1 whitespace-nowrap">
                         <FaCalendarAlt size={10} /> {item.periodMonth}
                       </span>
                     </div>
@@ -456,37 +456,37 @@ export default function GeneralTargetsPage() {
                       <div className={`h-full ${progressColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-center pt-2">
-                      <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
-                        <p className="text-[9px] uppercase font-bold text-slate-400">Target</p>
-                        <p className="text-xs font-extrabold text-slate-800">₹{targetAmt.toLocaleString("en-IN")}</p>
+                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center pt-2">
+                      <div className="bg-slate-50 p-1.5 sm:p-2 rounded-xl border border-slate-100 min-w-0">
+                        <p className="text-[9px] uppercase font-bold text-slate-400 truncate">Target</p>
+                        <p className="text-[11px] sm:text-xs font-extrabold text-slate-800 truncate">₹{targetAmt.toLocaleString("en-IN")}</p>
                       </div>
-                      <div className="bg-emerald-50/60 p-2 rounded-xl border border-emerald-100">
-                        <p className="text-[9px] uppercase font-bold text-emerald-600">Achieved</p>
-                        <p className="text-xs font-extrabold text-emerald-700">₹{achieved.toLocaleString("en-IN")}</p>
+                      <div className="bg-emerald-50/60 p-1.5 sm:p-2 rounded-xl border border-emerald-100 min-w-0">
+                        <p className="text-[9px] uppercase font-bold text-emerald-600 truncate">Achieved</p>
+                        <p className="text-[11px] sm:text-xs font-extrabold text-emerald-700 truncate">₹{achieved.toLocaleString("en-IN")}</p>
                       </div>
-                      <div className="bg-rose-50/60 p-2 rounded-xl border border-rose-100">
-                        <p className="text-[9px] uppercase font-bold text-rose-600">Shortfall</p>
-                        <p className="text-xs font-extrabold text-rose-700">₹{shortfall.toLocaleString("en-IN")}</p>
+                      <div className="bg-rose-50/60 p-1.5 sm:p-2 rounded-xl border border-rose-100 min-w-0">
+                        <p className="text-[9px] uppercase font-bold text-rose-600 truncate">Shortfall</p>
+                        <p className="text-[11px] sm:text-xs font-extrabold text-rose-700 truncate">₹{shortfall.toLocaleString("en-IN")}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Active Gift Scheme Badge */}
                   {item.hasGiftScheme && (
-                    <div className="mt-3 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-purple-500/10 border border-amber-300/40 p-2.5 rounded-xl flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FaGift className="text-amber-600" size={14} />
-                        <div>
-                          <p className="text-[10px] font-bold text-amber-900">
+                    <div className="mt-3 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-purple-500/10 border border-amber-300/40 p-2.5 rounded-xl flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FaGift className="text-amber-600 shrink-0" size={14} />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-amber-900 truncate">
                             {item.activeGiftSlab ? `Unlocked: ${item.activeGiftSlab.giftName}` : "Reward Scheme Active"}
                           </p>
                           {item.activeGiftSlab?.giftDescription && (
-                            <p className="text-[9px] text-amber-700">{item.activeGiftSlab.giftDescription}</p>
+                            <p className="text-[9px] text-amber-700 truncate">{item.activeGiftSlab.giftDescription}</p>
                           )}
                         </div>
                       </div>
-                      <span className="text-[9px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                      <span className="text-[9px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full shrink-0">
                         Gift Scheme
                       </span>
                     </div>
@@ -503,19 +503,19 @@ export default function GeneralTargetsPage() {
                         href={generateWhatsAppShareUrl(item)}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow hover:bg-emerald-700 transition-all hover:scale-[1.02]"
+                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow hover:bg-emerald-700 transition-all hover:scale-[1.02] text-center min-w-0"
                       >
-                        <FaWhatsapp size={14} /> Send Direct WhatsApp (+{cleanPhone})
+                        <FaWhatsapp size={14} className="shrink-0" /> <span className="truncate">Send Direct WhatsApp (+{cleanPhone})</span>
                       </a>
                     ) : (
                       <a
                         href={generateWhatsAppShareUrl(item)}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow hover:bg-indigo-700 transition-all hover:scale-[1.02]"
+                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow hover:bg-indigo-700 transition-all hover:scale-[1.02] text-center min-w-0"
                         title="Number not saved. Opens WhatsApp with message ready so you can pick contact manually."
                       >
-                        <FaWhatsapp size={14} /> Share Message via WhatsApp
+                        <FaWhatsapp size={14} className="shrink-0" /> <span className="truncate">Share Message via WhatsApp</span>
                       </a>
                     );
                   })()}

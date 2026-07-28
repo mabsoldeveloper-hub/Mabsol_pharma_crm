@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import ProtectedPage from "@/components/ProtectedPage";
-import FileSelectorModal from "@/components/FileSelectorModal";
 import {
   Database,
   Lock,
@@ -40,35 +39,88 @@ export default function VfpSettingsPage() {
   const [message, setMessage] = useState<{ type: "success" | "danger" | ""; text: string }>({ type: "", text: "" });
   const [logs, setLogs] = useState<VfpSettingLogEntry[]>([]);
 
-  // File/Folder browser state
-  const [browserConfig, setBrowserConfig] = useState<{
-    isOpen: boolean;
-    title: string;
-    filterType: "exe" | "prg" | "dir";
-    fieldKey: "vfpExePath" | "prgPath" | "sourceDir" | "dataDir" | null;
-  }>({
-    isOpen: false,
-    title: "",
-    filterType: "dir",
-    fieldKey: null
-  });
+  // Native file/folder input refs for settings page
+  const nativeFileInputRef = useRef<HTMLInputElement>(null);
+  const nativeFolderInputRef = useRef<HTMLInputElement>(null);
+  const activeFieldRef = useRef<"vfpExePath" | "prgPath" | "sourceDir" | "dataDir" | null>(null);
 
-  const openFileBrowser = (fieldKey: "vfpExePath" | "prgPath" | "sourceDir" | "dataDir", filterType: "exe" | "prg" | "dir", title: string) => {
-    setBrowserConfig({
-      isOpen: true,
-      title,
-      filterType,
-      fieldKey
-    });
+  const openFileBrowser = async (
+    fieldKey: "vfpExePath" | "prgPath" | "sourceDir" | "dataDir",
+    filterType: "exe" | "prg" | "dir",
+    _title: string
+  ) => {
+    activeFieldRef.current = fieldKey;
+
+    if (filterType === "dir") {
+      if ("showDirectoryPicker" in window) {
+        try {
+          const handle = await (window as any).showDirectoryPicker();
+          if (handle && handle.name) {
+            const folderName = handle.name;
+            const currentVal = form[fieldKey];
+            const finalPath = prompt(
+              `Selected directory: "${folderName}".\nPlease confirm or enter full Windows path (e.g. C:\\Users\\...\\${folderName}):`,
+              currentVal || `C:\\${folderName}`
+            );
+            if (finalPath) {
+              setForm((prev) => ({ ...prev, [fieldKey]: finalPath }));
+            }
+            return;
+          }
+        } catch (e: any) {
+          if (e.name === "AbortError") return;
+        }
+      }
+      nativeFolderInputRef.current?.click();
+    } else {
+      if (nativeFileInputRef.current) {
+        nativeFileInputRef.current.accept = filterType === "exe" ? ".exe" : ".prg,.txt,.log";
+        nativeFileInputRef.current.click();
+      }
+    }
   };
 
-  const handleBrowserSelect = (selectedPath: string) => {
-    if (browserConfig.fieldKey) {
-      setForm((prev) => ({
-        ...prev,
-        [browserConfig.fieldKey!]: selectedPath
-      }));
+  const handleNativeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    const fieldKey = activeFieldRef.current;
+    if (files && files.length > 0 && fieldKey) {
+      const file = files[0];
+      const nativePath = (file as any).path;
+      if (nativePath) {
+        setForm((prev) => ({ ...prev, [fieldKey]: nativePath }));
+      } else {
+        const finalPath = prompt(
+          `Selected file: "${file.name}".\nConfirm full Windows path:`,
+          form[fieldKey] || `C:\\${file.name}`
+        );
+        if (finalPath) {
+          setForm((prev) => ({ ...prev, [fieldKey]: finalPath }));
+        }
+      }
     }
+    e.target.value = "";
+  };
+
+  const handleNativeFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    const fieldKey = activeFieldRef.current;
+    if (files && files.length > 0 && fieldKey) {
+      const relPath = files[0].webkitRelativePath || "";
+      const folderName = relPath.split("/")[0] || relPath.split("\\")[0] || "SelectedFolder";
+      let nativePath = (files[0] as any).path;
+      if (nativePath) {
+        const lastSlash = Math.max(nativePath.lastIndexOf("/"), nativePath.lastIndexOf("\\"));
+        if (lastSlash !== -1) nativePath = nativePath.substring(0, lastSlash);
+      }
+      const finalPath = nativePath || prompt(
+        `Selected folder: "${folderName}".\nConfirm Windows path:`,
+        form[fieldKey] || `C:\\${folderName}`
+      );
+      if (finalPath) {
+        setForm((prev) => ({ ...prev, [fieldKey]: finalPath }));
+      }
+    }
+    e.target.value = "";
   };
 
   // Original saved data to restore on Cancel
@@ -675,13 +727,21 @@ export default function VfpSettingsPage() {
           </div>
         </div>
 
-        <FileSelectorModal
-          isOpen={browserConfig.isOpen}
-          onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))}
-          onSelect={handleBrowserSelect}
-          title={browserConfig.title}
-          filterType={browserConfig.filterType}
-          initialPath={browserConfig.fieldKey ? form[browserConfig.fieldKey] : ""}
+        {/* Native Hidden File and Directory Explorer Inputs */}
+        <input
+          type="file"
+          ref={nativeFileInputRef}
+          style={{ display: "none" }}
+          onChange={handleNativeFileChange}
+        />
+        <input
+          type="file"
+          ref={nativeFolderInputRef}
+          //@ts-ignore
+          webkitdirectory=""
+          directory=""
+          style={{ display: "none" }}
+          onChange={handleNativeFolderChange}
         />
 
       </div>

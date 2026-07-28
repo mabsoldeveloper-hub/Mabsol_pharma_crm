@@ -18,15 +18,11 @@ export async function performDirectServerSync(userEmail: string) {
     (await VfpConfig.findOne({ email }).lean()) ||
     (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean());
 
-  if (!config || !(config as any).dataDir) {
-    throw new Error("No database directory configured. Please select a folder in Sync Settings.");
-  }
-
-  const dataDir = (config as any).dataDir;
+  const dataDir = (config as any).consoleSyncDir || (config as any).sourceDir || (config as any).dataDir;
   const enabledFiles: string[] = (config as any).enabledFiles || [];
 
-  if (!fs.existsSync(dataDir)) {
-    throw new Error(`Configured directory does not exist on server: ${dataDir}`);
+  if (!dataDir || !fs.existsSync(dataDir)) {
+    throw new Error(`Configured directory does not exist on server: ${dataDir || "None"}`);
   }
 
   const runId = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
