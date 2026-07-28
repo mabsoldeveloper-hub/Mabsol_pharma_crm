@@ -15,13 +15,29 @@ export async function GET() {
 
     const restriction = await getMrTerritoryRestriction();
 
-    const invoiceFilter: any = restriction.isMrRestricted
-      ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-        ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-        : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-        ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-        : { CODEP: "NONE_MATCH" }
-      : {};
+    let invoiceFilter: any = {};
+
+    if (restriction.isMrRestricted) {
+      const orConditions: any[] = [];
+
+      if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+        orConditions.push({
+          CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] },
+        });
+      }
+
+      if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+        orConditions.push({
+          COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] },
+        });
+      }
+
+      if (orConditions.length > 0) {
+        invoiceFilter = { $or: orConditions };
+      } else {
+        invoiceFilter = { CODEP: "NONE_MATCH" };
+      }
+    }
 
     // Invoice Header
     const invoices = await SalesMdis.find(
@@ -74,9 +90,11 @@ export async function GET() {
 
       const cgst = Number(bill.CGSTAMO || 0);
       const sgst = Number(bill.STAXAMO || 0);
-
       const isLocal = (customer?.GSTHED || "").toUpperCase().includes("LOCAL");
       const igst = isLocal ? 0 : Number(bill.TAXAMO || 0);
+      const taxable = Number(bill.AMOUNTT || 0);
+      const tax = Number(bill.TAXAMO || 0) || (cgst + sgst + igst);
+      const finalAmount = Number(bill.FINAL || 0) || (taxable + tax);
 
       return {
         _id: bill._id,
@@ -89,12 +107,14 @@ export async function GET() {
         gst: customer?.GSTNO || "",
         state: customer?.STATE || "",
         gstHeading: customer?.GSTHED || "",
-        taxable: bill.AMOUNTT || 0,
+        taxable: taxable,
         cgst,
         sgst,
         igst,
+        tax: tax,
         round: bill.ROUND || 0,
-        finalAmount: bill.FINAL || 0,
+        finalAmount: finalAmount,
+        total: finalAmount,
       };
     });
 
@@ -123,6 +143,20 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    // Lookup Customer to resolve assigned COMPANY / GCODE / SCODE for territory tracking
+    const customerObj: any = await Customer.findOne({
+      $or: [
+        { CODEP: customerCode },
+        { ORDNO: customerCode },
+        { CODEP: new RegExp(`^${customerCode}$`, "i") },
+        { ORDNO: new RegExp(`^${customerCode}$`, "i") },
+      ],
+    }).lean();
+
+    const customerCompany = String(
+      customerObj?.COMPANY || customerObj?.GCODE || customerObj?.SCODE || ""
+    ).trim();
 
     const items: any[] = Array.isArray(body.items) ? body.items : [];
     if (items.length === 0) {
@@ -186,6 +220,7 @@ export async function POST(req: Request) {
         DATE: invoiceDate,
         PRODUCT: prodCode,
         NAME: prodName,
+        COMPANY: customerCompany,
         PACK: String(item.PACK || item.pack || ""),
         UNIT: String(item.UNIT || item.unit || ""),
         HSN: String(item.HSN || item.hsn || ""),
@@ -232,11 +267,12 @@ export async function POST(req: Request) {
     const finalAmount = Math.round(grossTotal);
     const round = Number((finalAmount - grossTotal).toFixed(2));
 
-    // Save Header (SalesMdis) with TYPE = "S"
+    // Save Header (SalesMdis) with TYPE = "S" and resolved COMPANY
     const newHeader = await SalesMdis.create({
       VCN: vcn,
       DATE: invoiceDate,
       CODEP: customerCode,
+      COMPANY: customerCompany,
       TYPE: "S",
       AMOUNTT: totalTaxable,
       CGSTAMO: totalCgst,

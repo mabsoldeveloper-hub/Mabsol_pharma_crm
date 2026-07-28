@@ -153,7 +153,7 @@ export default function InvoicePage() {
     const totalBills = filtered.length;
 
     const totalSale = filtered.reduce(
-        (sum, row) => sum + Number(row.total || 0),
+        (sum, row) => sum + Number(row.finalAmount || row.total || 0),
         0
     );
 
@@ -163,7 +163,7 @@ export default function InvoicePage() {
     );
 
     const totalTax = filtered.reduce(
-        (sum, row) => sum + Number(row.tax || 0),
+        (sum, row) => sum + Number(row.tax || (Number(row.cgst || 0) + Number(row.sgst || 0) + Number(row.igst || 0))),
         0
     );
 
