@@ -41,7 +41,7 @@ export async function getFYDateRange(searchParams: URLSearchParams): Promise<FYR
 
 /**
  * Builds a robust MongoDB match query for a date field.
- * Handles string date representations ("2021-04-01", "2021-04-01T00:00:00.000Z")
+ * Handles string date representations ("2021-04-01", "01/04/2021", "2021-04-01T00:00:00.000Z")
  * as well as native BSON Date objects, ensuring March 31st and all timestamps are covered.
  */
 export function buildFYDateQuery(fieldName: string, startDate?: string | null, endDate?: string | null): Record<string, any> {
@@ -53,10 +53,22 @@ export function buildFYDateQuery(fieldName: string, startDate?: string | null, e
   const sDate = new Date(`${sStr}T00:00:00.000Z`);
   const eDate = new Date(`${eStr}T23:59:59.999Z`);
 
+  const startYear = parseInt(sStr.slice(0, 4), 10);
+  const endYear = parseInt(eStr.slice(0, 4), 10);
+
+  const dmyOrConditions: any[] = [];
+  if (!isNaN(startYear) && !isNaN(endYear)) {
+    for (let y = startYear; y <= endYear; y++) {
+      dmyOrConditions.push({ [fieldName]: new RegExp(`[-/]${y}$`) });
+    }
+  }
+
   return {
     $or: [
       { [fieldName]: { $gte: sStr, $lte: `${eStr}\xFF` } },
-      { [fieldName]: { $gte: sDate, $lte: eDate } }
-    ]
+      { [fieldName]: { $gte: sDate, $lte: eDate } },
+      ...dmyOrConditions,
+    ],
   };
 }
+

@@ -13,6 +13,7 @@ import { useFinancialYear } from "@/context/FinancialYearContext";
 type Bill = {
     _id: string;
     VOUCHER: string;
+    VCN?: string;
     DATE: string;
     customer: string;
     city: string;
@@ -200,7 +201,7 @@ export default function RecentBills() {
                                     </td>
                                     <td className="px-4 py-2.5 text-center">
                                         <Link
-                                            href={`/dashboard/sales/bills/${bill.VOUCHER}`}
+                                            href={`/dashboard/sales/invoice/${encodeURIComponent(bill.VOUCHER || bill.VCN || bill._id)}`}
                                             className="
                         inline-flex items-center justify-center
                         px-3 py-1 rounded-lg text-xs font-medium

@@ -127,10 +127,10 @@ export default function InvoicePage() {
         );
     }, [invoices, search, typeTabFilter]);
 
-    // reset to page 1 whenever search changes
+    // reset to page 1 whenever search OR type filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [search]);
+    }, [search, typeTabFilter]);
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 

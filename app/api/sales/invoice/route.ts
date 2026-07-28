@@ -10,6 +10,33 @@ import GLedger from "@/models/GLedger";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { consumeNextVoucherNumber } from "@/lib/voucherSeriesHelper";
 
+function formatInvoiceDate(rawDate: any): string {
+  if (!rawDate) return "";
+  if (typeof rawDate === "string") {
+    const trimmed = rawDate.trim();
+    const ymdMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (ymdMatch) {
+      const [, y, m, d] = ymdMatch;
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+    const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (dmyMatch) {
+      const [, d, m, y] = dmyMatch;
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+  }
+  try {
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+  } catch {}
+  return String(rawDate).slice(0, 10);
+}
+
 export async function GET() {
   try {
     await connectDB();
@@ -100,11 +127,14 @@ export async function GET() {
       const taxable = Number(bill.AMOUNTT || 0);
       const tax = Number(bill.TAXAMO || 0) || (cgst + sgst + igst);
       const finalAmount = Number(bill.FINAL || 0) || (taxable + tax);
+      const vcn = bill.VCN || bill.VOUCHER || "";
+      const voucher = bill.VOUCHER || bill.VCN || "";
 
       return {
         _id: bill._id,
-        vcn: bill.VCN,
-        date: bill.DATE,
+        vcn: vcn,
+        voucher: voucher,
+        date: formatInvoiceDate(bill.DATE),
         type: bill.TYPE || "S",
         billType: bill.TYPE === "PROFORMA" || bill.TYPE === "ESTIMATE" ? "PROFORMA" : "S",
         isConverted: Boolean(bill.IS_CONVERTED),
@@ -160,7 +190,9 @@ export async function POST(req: Request) {
 
     // Unique Invoice VCN from active VoucherSeries Master
     let vcn = body.VCN ? String(body.VCN).trim() : "";
-    if (!vcn || vcn.startsWith("INV-") || vcn.startsWith("PRF-")) {
+    // Only generate a new VCN if none was provided by the frontend.
+    // Do NOT override a valid pre-generated VCN (e.g., INV-01001 or PRF-01001).
+    if (!vcn) {
       vcn = await consumeNextVoucherNumber(effectiveType === "PROFORMA" ? "PROFORMA" : "SALES");
     }
     const invoiceDate = body.DATE || new Date().toISOString().slice(0, 10);
@@ -234,8 +266,11 @@ export async function POST(req: Request) {
 
       lineItemDocs.push({
         VCN: vcn,
+        VOUCHER: vcn,
+        CODEP: customerCode,
         DATE: invoiceDate,
         PRODUCT: prodCode,
+        CODE: prodCode,
         NAME: prodName,
         COMPANY: customerCompany,
         PACK: String(item.PACK || item.pack || ""),
@@ -244,6 +279,7 @@ export async function POST(req: Request) {
         QTY: qty,
         FREEQTY: freeQty,
         LPRATE: rate,
+        RATE: rate,
         MRP: mrp,
         PRATE: prate,
         DISC: discPct,
@@ -255,8 +291,11 @@ export async function POST(req: Request) {
         AMOUNTT: itemTaxable,
         BATCH: item.BATCH || item.batch || "DEFAULT",
         EXPIRY: item.EXPIRY || item.expiry || "",
+        EXP: item.EXPIRY || item.expiry || "",
         MFG: item.MFG || item.mfg || "",
         REMARK: item.REMARK || item.remark || "",
+        TYPE: effectiveType,
+        TRANSFER: effectiveType === "PROFORMA" ? "PROFORMA" : "S",
         _vfpTable: "vfp_new_folder_dis",
         _vfpSourceKey: `MANUAL_DIS_${vcn}_${prodCode}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       });
@@ -287,10 +326,12 @@ export async function POST(req: Request) {
     // Save Header (SalesMdis) with resolved TYPE and STATUS
     const newHeader = await SalesMdis.create({
       VCN: vcn,
+      VOUCHER: vcn,
       DATE: invoiceDate,
       CODEP: customerCode,
       COMPANY: customerCompany,
       TYPE: effectiveType,
+      TRANSFER: effectiveType === "PROFORMA" ? "PROFORMA" : "S",
       STATUS: effectiveType === "PROFORMA" ? "Proforma" : "Final",
       CONVERTED_FROM: convertFromVcn || undefined,
       AMOUNTT: totalTaxable,

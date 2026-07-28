@@ -1,121 +1,139 @@
 import { NextResponse } from "next/server";
-
 import connectDB from "@/lib/mongodb";
-
 import SalesDis from "@/models/SalesDis";
 import Product from "@/models/Product";
 import SaleType from "@/models/SaleType";
-
-import FinancialYear from "@/models/FinancialYear";
+import Company from "@/models/Company";
 
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export async function GET(req: Request) {
-    try {
-        await connectDB();
+  try {
+    await connectDB();
 
-        const { searchParams } = new URL(req.url);
-        const fyRange = await getFYDateRange(searchParams);
-        const { startDate, endDate } = fyRange;
+    const { searchParams } = new URL(req.url);
+    const fyRange = await getFYDateRange(searchParams);
+    const { startDate, endDate } = fyRange;
 
-        const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
+    const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
+    const restriction = await getMrTerritoryRestriction();
 
-        // Product Master
-        const products = await Product.find(
-            {},
-            {
-                CODE: 1,
-                PRODUCT: 1,
-                GCODE: 1,
-                MRP: 1,
-            }
-        ).lean();
-
-        const productMap = new Map();
-
-        products.forEach((p: any) => {
-            productMap.set(String(p.CODE), p);
-        });
-
-        // Company Master
-        const saleTypes = await SaleType.find(
-            {},
-            {
-                SCODE: 1,
-                SNAME: 1,
-            }
-        ).lean();
-
-        const companyMap = new Map();
-
-        saleTypes.forEach((c: any) => {
-            companyMap.set(String(c.SCODE).trim(), c.SNAME);
-        });
-
-        // Sales Summary
-        const sales = await SalesDis.aggregate([
-            { $match: dateMatch },
-            {
-                $group: {
-                    _id: { $ifNull: ["$PRODUCT", "$CODE"] },
-                    qty: {
-                        $sum: "$QTY",
-                    },
-                    amount: {
-                        $sum: { $ifNull: ["$AMOUNTT", { $multiply: [{ $ifNull: ["$QTY", 0] }, { $ifNull: ["$LPRATE", 0] }] }] },
-                    },
-                    bills: {
-                        $sum: 1,
-                    },
-                },
-            },
-            {
-                $sort: {
-                    amount: -1,
-                },
-            },
-            {
-                $limit: 20,
-            },
-        ]);
-
-        const result = sales.map((item: any) => {
-
-            const p =
-                productMap.get(String(item._id));
-
-            return {
-
-                code: item._id,
-
-                product:
-                    p?.PRODUCT || "",
-
-                company:
-                    companyMap.get(String(p?.GCODE).trim()) || "",
-
-                qty: item.qty,
-
-                amount: item.amount,
-
-                mrp: p?.MRP || 0,
-
-            };
-
-        });
-
-        return NextResponse.json(result);
-
-    } catch (err: any) {
-
-        return NextResponse.json({
-
-            success: false,
-
-            message: err.message,
-
-        });
-
+    let disFilter: any = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] } };
+    if (restriction.isMrRestricted) {
+      const orConditions: any[] = [];
+      if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+        orConditions.push({ CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } });
+      }
+      if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+        orConditions.push({ COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } });
+      }
+      if (orConditions.length > 0) {
+        disFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, $or: orConditions };
+      } else {
+        disFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, CODEP: "NONE_MATCH" };
+      }
     }
 
-}
+    // Fetch Product Master
+    const products = await Product.find(
+      {},
+      {
+        CODE: 1,
+        PRODUCT: 1,
+        NAME: 1,
+        GCODE: 1,
+        COMPANY: 1,
+        MRP: 1,
+      }
+    ).lean();
+
+    const productMap = new Map<string, any>();
+    products.forEach((p: any) => {
+      [p.CODE, p.PRODUCT, p.NAME].forEach((k) => {
+        if (k) {
+          const key = String(k).trim().toUpperCase();
+          if (key && !productMap.has(key)) {
+            productMap.set(key, p);
+          }
+        }
+      });
+    });
+
+    // Fetch Company / SaleType Masters
+    const [saleTypes, companies] = await Promise.all([
+      SaleType.find({}, { SCODE: 1, SNAME: 1, CODE: 1, NAME: 1 }).lean(),
+      Company.find({}, { CODE: 1, NAME: 1, COMPANY: 1 }).lean(),
+    ]);
+
+    const companyMap = new Map<string, string>();
+    saleTypes.forEach((c: any) => {
+      const name = c.SNAME || c.NAME || "";
+      [c.SCODE, c.CODE].forEach((k) => {
+        if (k) companyMap.set(String(k).trim().toUpperCase(), name);
+      });
+    });
+    companies.forEach((c: any) => {
+      const name = c.NAME || c.COMPANY || "";
+      [c.CODE, c.COMPANY].forEach((k) => {
+        if (k) companyMap.set(String(k).trim().toUpperCase(), name);
+      });
+    });
+
+    // Aggregate Sales by Product
+    const sales = await SalesDis.aggregate([
+      { $match: disFilter },
+      {
+        $group: {
+          _id: { $ifNull: ["$PRODUCT", "$CODE"] },
+          disName: { $first: "$NAME" },
+          disProduct: { $first: "$PRODUCT" },
+          disCompany: { $first: "$COMPANY" },
+          disMrp: { $max: "$MRP" },
+          qty: { $sum: "$QTY" },
+          amount: {
+            $sum: {
+              $ifNull: [
+                "$AMOUNTT",
+                { $multiply: [{ $ifNull: ["$QTY", 0] }, { $ifNull: ["$LPRATE", 0] }] },
+              ],
+            },
+          },
+          bills: { $sum: 1 },
+        },
+      },
+      { $sort: { amount: -1 } },
+      { $limit: 30 },
+    ]);
+
+    const result = sales.map((item: any) => {
+      const itemKey = String(item._id || "").trim().toUpperCase();
+      const p = productMap.get(itemKey);
+
+      const prodName =
+        p?.PRODUCT || p?.NAME || item.disName || item.disProduct || item._id || "Unknown Product";
+
+      const compCode = String(p?.GCODE || p?.COMPANY || item.disCompany || "").trim().toUpperCase();
+      const compName = companyMap.get(compCode) || compCode || "-";
+
+      return {
+        code: item._id,
+        product: prodName,
+        company: compName,
+        qty: Number(item.qty || 0),
+        amount: Number(item.amount || 0),
+        mrp: Number(p?.MRP || item.disMrp || 0),
+      };
+    });
+
+    return NextResponse.json(result);
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: err.message,
+      },
+      { status: 500 }
+    );
+  }
+}

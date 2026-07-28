@@ -4,18 +4,27 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 export default function InvoiceView() {
-    const { vcn } = useParams();
+    const params = useParams();
     const router = useRouter();
     const [invoice, setInvoice] = useState<any>(null);
 
-    useEffect(() => {
-        loadInvoice();
-    }, []);
+    const rawVcn = params?.vcn;
+    const vcnStr = Array.isArray(rawVcn) ? rawVcn[0] : (rawVcn || "");
 
-    const loadInvoice = async () => {
-        const res = await fetch(`/api/sales/invoice/${vcn}`);
-        const data = await res.json();
-        setInvoice(data);
+    useEffect(() => {
+        if (vcnStr) {
+            loadInvoice(vcnStr);
+        }
+    }, [vcnStr]);
+
+    const loadInvoice = async (targetVcn: string) => {
+        try {
+            const res = await fetch(`/api/sales/invoice/${encodeURIComponent(targetVcn)}`);
+            const data = await res.json();
+            setInvoice(data);
+        } catch {
+            setInvoice({ success: false, message: "Network error — could not load invoice." });
+        }
     };
 
     if (!invoice) {
@@ -23,7 +32,24 @@ export default function InvoiceView() {
             <div className="flex min-h-[60vh] items-center justify-center text-slate-500">
                 <div className="flex items-center gap-3">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
-                    Loading invoice…
+                    Loading invoice details…
+                </div>
+            </div>
+        );
+    }
+
+    if (invoice.success === false || !invoice.header) {
+        return (
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-slate-600">
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-lg">
+                    <h3 className="text-lg font-bold text-slate-800">Invoice #{vcnStr || "N/A"} Not Found</h3>
+                    <p className="mt-1 text-xs text-slate-500">{invoice.message || "The requested invoice or purchase voucher could not be located."}</p>
+                    <button
+                        onClick={() => router.push("/dashboard/sales/invoice")}
+                        className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow transition hover:bg-indigo-700"
+                    >
+                        &larr; Back to Invoices List
+                    </button>
                 </div>
             </div>
         );
@@ -70,6 +96,8 @@ export default function InvoiceView() {
             margin: 0;
             box-shadow: none;
             border: none;
+            page-break-after: avoid !important;
+            page-break-inside: avoid !important;
           }
           #invoice-printable table {
             page-break-inside: auto;
@@ -159,35 +187,37 @@ export default function InvoiceView() {
                     <div className="relative flex items-start justify-between">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-200">
-                                Tax Invoice
+                                {h?.TYPE === "P" ? "Purchase Invoice" : h?.TYPE === "PROFORMA" ? "Proforma Estimate" : "Tax Invoice"}
                             </p>
                             <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">
-                                {h.VOUCHER || "Sales Invoice"}
+                                {h?.VOUCHER || h?.VCN || "Invoice"}
                             </h1>
                         </div>
                         <div className="text-right">
-                            <p className="text-xs uppercase tracking-widest text-indigo-200">Invoice No</p>
-                            <p className="invoice-no font-mono text-xl font-semibold text-white">{h.VCN}</p>
+                            <p className="text-xs uppercase tracking-widest text-indigo-200">
+                                {h?.TYPE === "P" ? "Voucher No" : "Invoice No"}
+                            </p>
+                            <p className="invoice-no font-mono text-xl font-semibold text-white">{h?.VCN || h?.VOUCHER}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Meta strip */}
                 <div className="invoice-section grid grid-cols-2 gap-x-6 gap-y-4 border-b border-slate-100 bg-indigo-50/50 px-8 py-5 sm:grid-cols-4">
-                    <MetaField label="Date" value={h.DATE} />
-                    <MetaField label="Type" value={h.TYPE} />
-                    <MetaField label="Voucher" value={h.VOUCHER} />
-                    <MetaField label="Invoice No" value={h.VCN} mono />
+                    <MetaField label="Date" value={h?.DATE} />
+                    <MetaField label="Type" value={h?.TYPE === "P" ? "Purchase" : h?.TYPE === "PROFORMA" ? "Proforma" : "Sales"} />
+                    <MetaField label="Voucher" value={h?.VOUCHER || h?.VCN} />
+                    <MetaField label="Invoice No" value={h?.VCN || h?.VOUCHER} mono />
                 </div>
 
-                {/* Billed to */}
+                {/* Billed to / Party */}
                 <div className="invoice-section border-b border-slate-200 px-8 py-5">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-indigo-500">
-                        Billed To
+                        {h?.TYPE === "P" ? "Supplier / Party Details" : "Billed To Customer"}
                     </p>
                     <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
                         <div className="sm:col-span-1">
-                            <p className="text-base font-semibold text-slate-900">{c?.PARNAM || "-"}</p>
+                            <p className="text-base font-semibold text-slate-900">{c?.PARNAM || c?.NAME || h?.CODEP || "-"}</p>
                         </div>
                         <MetaField label="City" value={c?.CITY} />
                         <MetaField label="GSTIN" value={c?.GSTNO} mono />
@@ -224,7 +254,7 @@ export default function InvoiceView() {
                                     <td className="py-2.5 pr-2 text-right tabular-nums text-slate-400">{item.free}</td>
                                     <td className="py-2.5 pr-2 text-right tabular-nums">{money(item.rate)}</td>
                                     <td className="py-2.5 pr-2 text-right tabular-nums">{money(item.mrp)}</td>
-                                    <td className="py-2.5 pr-2 text-right tabular-nums">{item.tax}%</td>
+                                    <td className="py-2.5 pr-2 text-right tabular-nums">{item.taxPct !== undefined ? item.taxPct : item.tax || 0}%</td>
                                     <td className="py-2.5 pl-2 text-right tabular-nums font-semibold text-indigo-700">
                                         {money(item.amount)}
                                     </td>

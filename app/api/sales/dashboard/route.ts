@@ -22,8 +22,8 @@ export async function GET(req: Request) {
 
         const restriction = await getMrTerritoryRestriction();
 
-        let mdisFilter: any = { ...dateMatch };
-        let disFilter: any = { ...dateMatch };
+        let mdisFilter: any = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] } };
+        let disFilter: any = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] } };
         let customerFilter: any = {};
         let productFilter: any = {};
 
@@ -37,11 +37,11 @@ export async function GET(req: Request) {
           }
 
           if (orConditions.length > 0) {
-            mdisFilter = { ...dateMatch, $or: orConditions };
-            disFilter = { ...dateMatch, $or: orConditions };
+            mdisFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, $or: orConditions };
+            disFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, $or: orConditions };
           } else {
-            mdisFilter = { ...dateMatch, CODEP: "NONE_MATCH" };
-            disFilter = { ...dateMatch, CODEP: "NONE_MATCH" };
+            mdisFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, CODEP: "NONE_MATCH" };
+            disFilter = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, CODEP: "NONE_MATCH" };
           }
 
           if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
@@ -81,13 +81,13 @@ export async function GET(req: Request) {
         // Total Customers
         const customers = await Customer.countDocuments({
             ...customerFilter,
-            STATUS: "Y",
+            STATUS: { $ne: "N" },
         });
 
         // Total Products
         const products = await Product.countDocuments({
             ...productFilter,
-            STATUS: "Y",
+            STATUS: { $ne: "N" },
         });
 
         return NextResponse.json({
