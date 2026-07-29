@@ -393,6 +393,20 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             if (data.vocalSummary && vocalEnabled) {
               speakText(data.vocalSummary);
             }
+            // Execute Autonomous Voice Action Command
+            if (data.actionCommand) {
+              const cmd = data.actionCommand.command;
+              if (cmd === "NAVIGATE_CREATE_BILL") {
+                setTimeout(() => {
+                  onClose();
+                  router.push("/dashboard/sales/invoice/create");
+                }, 1600);
+              } else if (cmd === "TOGGLE_IN_STOCK") {
+                setInStockOnly(true);
+              } else if (cmd === "TOGGLE_NEAR_EXPIRY") {
+                setNearExpiryOnly(true);
+              }
+            }
           }
         })
         .catch((err) => {
@@ -404,7 +418,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     }, 280);
 
     return () => clearTimeout(timer);
-  }, [query, activeCategory, inStockOnly, nearExpiryOnly, highBalanceOnly, sortBy, vocalEnabled, speakText]);
+  }, [query, activeCategory, inStockOnly, nearExpiryOnly, highBalanceOnly, sortBy, vocalEnabled, speakText, onClose, router]);
 
   // Flatten active results for keyboard navigation
   const getFlatResults = useCallback(() => {
@@ -417,42 +431,30 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     return flat;
   }, [results, activeCategory]);
 
-  const flatList = getFlatResults();
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    const flat = getFlatResults();
+    if (flat.length === 0) return;
 
-  // Keyboard controls (Arrow up, down, enter, esc)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
-
-      if (e.key === "Escape") {
-        if (selectedItem) {
-          setSelectedItem(null);
-        } else {
-          onClose();
-        }
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev < flatList.length - 1 ? prev + 1 : 0));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : flatList.length - 1));
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        if (flatList[selectedIndex]) {
-          handleItemClick(flatList[selectedIndex]);
-        }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev < flat.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : flat.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (flat[selectedIndex]) {
+        handleItemClick(flat[selectedIndex]);
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, flatList, selectedIndex, selectedItem, onClose]);
+    }
+  };
 
   const handleItemClick = (item: any) => {
-    saveRecentSearch(query || item.label || item.title || "");
+    saveRecentSearch(item.title);
+
     if (item.actionUrl) {
       onClose();
-      window.location.href = item.actionUrl;
+      router.push(item.actionUrl);
     }
   };
 
@@ -480,6 +482,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           showGuide ? "max-w-6xl" : "max-w-4xl"
         } bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] z-10 transition-all duration-300 transform scale-100`}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         {/* Header Search Bar */}
         <div className="flex items-center px-4 py-3.5 border-b border-slate-100 bg-slate-50/80 gap-3">
@@ -575,23 +578,41 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           </div>
         </div>
 
-        {/* Ambient Alexa Vocal Speaking Banner & Liquid Orb UI */}
+        {/* Holographic Siri Liquid Orb & Vocal Speaking Banner */}
         {vocalSpeaking && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-r from-indigo-950 via-purple-950 to-indigo-950 text-white text-xs font-semibold border-b border-indigo-800/80 shadow-inner animate-fadeIn">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 animate-pulse shadow-md shrink-0">
-                <Sparkles className="w-3.5 h-3.5 text-white animate-spin [animation-duration:3s]" />
+          <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-950 text-white text-xs font-semibold border-b border-indigo-800/80 shadow-2xl animate-fadeIn relative overflow-hidden">
+            {/* Ambient Liquid Gradient Orb Glow Background */}
+            <div className="absolute -left-10 -top-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl animate-pulse" />
+            <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl animate-pulse" />
+
+            <div className="flex items-center gap-3.5 min-w-0 relative z-10">
+              {/* Siri Liquid Orb */}
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-pink-500 animate-spin [animation-duration:4s] shadow-lg shadow-indigo-500/50 p-0.5 shrink-0">
+                <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+                </div>
               </div>
-              <span className="font-extrabold text-indigo-300 uppercase tracking-wider text-[11px] shrink-0">
-                Alexa AI Speaking 🔊
-              </span>
-              <span className="truncate text-indigo-100 font-medium italic">
-                &ldquo;{vocalText}&rdquo;
-              </span>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 uppercase tracking-widest text-[10px]">
+                    Alexa AI Voice Assistant 🔊
+                  </span>
+                  <span className="flex items-center gap-0.5 h-3">
+                    <span className="w-1 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms] h-full" />
+                    <span className="w-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms] h-full" />
+                    <span className="w-1 bg-pink-400 rounded-full animate-bounce [animation-delay:300ms] h-full" />
+                  </span>
+                </div>
+                <p className="truncate text-indigo-100 font-semibold italic text-xs mt-0.5">
+                  &ldquo;{vocalText}&rdquo;
+                </p>
+              </div>
             </div>
+
             <button
               onClick={stopSpeaking}
-              className="px-2 py-1 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-indigo-200 font-bold text-[11px] shrink-0 cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 rounded-xl bg-indigo-800/80 hover:bg-indigo-700 text-indigo-100 font-extrabold text-[11px] shrink-0 cursor-pointer shadow-md border border-indigo-600/50 transition-all relative z-10"
             >
               Mute 🔇
             </button>
@@ -836,147 +857,153 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             )}
 
             {/* Loading Skeleton */}
-            {loading && query.trim() && flatList.length === 0 && (
-              <div className="p-8 text-center space-y-3">
-                <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs font-semibold text-slate-500">Searching database across all tables...</p>
-              </div>
-            )}
+            {(() => {
+              const flatList = getFlatResults();
+              if (loading && query.trim() && flatList.length === 0) {
+                return (
+                  <div className="p-8 text-center space-y-3">
+                    <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-xs font-semibold text-slate-500">Searching database across all tables...</p>
+                  </div>
+                );
+              }
+              if (!loading && query.trim() && flatList.length === 0) {
+                return (
+                  <div className="p-12 text-center">
+                    <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <h4 className="text-sm font-bold text-slate-700">No matching records found</h4>
+                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                      No records matched &quot;{query}&quot; with current filters. Try turning off &quot;In Stock Only&quot; or searching product name or customer code.
+                    </p>
+                  </div>
+                );
+              }
+              if (flatList.length > 0) {
+                return (
+                  <div className="space-y-1">
+                    <div className="px-3 py-1.5 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60 rounded-md">
+                      <span>Results ({flatList.length})</span>
+                      <span>Use ↑ ↓ to navigate, Enter to open</span>
+                    </div>
 
-            {/* No Results Found */}
-            {!loading && query.trim() && flatList.length === 0 && (
-              <div className="p-12 text-center">
-                <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <h4 className="text-sm font-bold text-slate-700">No matching records found</h4>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                  No records matched &quot;{query}&quot; with current filters. Try turning off &quot;In Stock Only&quot; or searching product name or customer code.
-                </p>
-              </div>
-            )}
-
-            {/* Results List */}
-            {flatList.length > 0 && (
-              <div className="space-y-1">
-                <div className="px-3 py-1.5 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60 rounded-md">
-                  <span>Results ({flatList.length})</span>
-                  <span>Use ↑ ↓ to navigate, Enter to open</span>
-                </div>
-
-                {flatList.map((item, index) => {
-                  const isSelected = selectedIndex === index;
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleItemClick(item)}
-                      onMouseEnter={() => setSelectedIndex(index)}
-                      className={`group relative flex items-center justify-between gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
-                        isSelected
-                          ? "bg-indigo-50/90 border-indigo-200 shadow-sm"
-                          : "bg-white hover:bg-slate-50 border-transparent"
-                      }`}
-                    >
-                      {/* Left Icon & Details */}
-                      <div className="flex items-start gap-3 min-w-0">
+                    {flatList.map((item: any, index: number) => {
+                      const isSelected = selectedIndex === index;
+                      return (
                         <div
-                          className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 mt-0.5 shadow-2xs ${
-                            item.type === "kpi"
-                              ? "bg-gradient-to-br from-indigo-500 to-emerald-600 text-white shadow-sm"
-                              : item.type === "product"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : item.type === "customer"
-                              ? "bg-amber-100 text-amber-700"
-                              : item.type === "voucher"
-                              ? "bg-indigo-100 text-indigo-700"
-                              : item.type === "user"
-                              ? "bg-sky-100 text-sky-700"
-                              : "bg-slate-100 text-slate-700"
+                          key={item.id}
+                          onClick={() => handleItemClick(item)}
+                          onMouseEnter={() => setSelectedIndex(index)}
+                          className={`group relative flex items-center justify-between gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
+                            isSelected
+                              ? "bg-indigo-50/90 border-indigo-200 shadow-sm"
+                              : "bg-white hover:bg-slate-50 border-transparent"
                           }`}
                         >
-                          {item.type === "kpi" && <TrendingUp className="w-4 h-4 text-white" />}
-                          {item.type === "product" && <Package className="w-4 h-4" />}
-                          {item.type === "customer" && <Users className="w-4 h-4" />}
-                          {item.type === "voucher" && <FileText className="w-4 h-4" />}
-                          {item.type === "user" && <UserCheck className="w-4 h-4" />}
-                          {item.type === "navigation" && <Compass className="w-4 h-4" />}
-                        </div>
+                          {/* Left Icon & Details */}
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div
+                              className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 mt-0.5 shadow-2xs ${
+                                item.type === "kpi"
+                                  ? "bg-gradient-to-br from-indigo-500 to-emerald-600 text-white shadow-sm"
+                                  : item.type === "product"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : item.type === "customer"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : item.type === "voucher"
+                                  ? "bg-indigo-100 text-indigo-700"
+                                  : item.type === "user"
+                                  ? "bg-sky-100 text-sky-700"
+                                  : "bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              {item.type === "kpi" && <TrendingUp className="w-4 h-4 text-white" />}
+                              {item.type === "product" && <Package className="w-4 h-4" />}
+                              {item.type === "customer" && <Users className="w-4 h-4" />}
+                              {item.type === "voucher" && <FileText className="w-4 h-4" />}
+                              {item.type === "user" && <UserCheck className="w-4 h-4" />}
+                              {item.type === "navigation" && <Compass className="w-4 h-4" />}
+                            </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-extrabold text-sm text-slate-800 group-hover:text-indigo-700 transition-colors truncate">
-                              {item.title}
-                            </span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80">
-                              {item.category}
-                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-extrabold text-sm text-slate-800 group-hover:text-indigo-700 transition-colors truncate">
+                                  {item.title}
+                                </span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80">
+                                  {item.category}
+                                </span>
+                              </div>
+
+                              <p className="text-xs text-slate-500 mt-0.5 truncate font-medium">
+                                {item.subtitle}
+                              </p>
+
+                              {/* Badges */}
+                              {item.badges && item.badges.length > 0 && (
+                                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                  {item.badges.map((b: any, bIdx: number) => (
+                                    <span
+                                      key={bIdx}
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                        b.color === "emerald"
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : b.color === "rose"
+                                          ? "bg-rose-100 text-rose-800"
+                                          : b.color === "amber"
+                                          ? "bg-amber-100 text-amber-800"
+                                          : b.color === "blue"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : b.color === "indigo"
+                                          ? "bg-indigo-100 text-indigo-800"
+                                          : "bg-slate-100 text-slate-700"
+                                      }`}
+                                    >
+                                      {b.label}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
 
-                          <p className="text-xs text-slate-500 mt-0.5 truncate font-medium">
-                            {item.subtitle}
-                          </p>
+                          {/* Right Quick E-Commerce Action Buttons */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Read Aloud Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                speakText(`${item.title}. ${item.subtitle || ""}`);
+                              }}
+                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all shadow-2xs cursor-pointer"
+                              title="Read Aloud with Alexa Voice AI"
+                            >
+                              <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
+                            </button>
 
-                          {/* Badges */}
-                          {item.badges && item.badges.length > 0 && (
-                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                              {item.badges.map((b: any, bIdx: number) => (
-                                <span
-                                  key={bIdx}
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                    b.color === "emerald"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : b.color === "rose"
-                                      ? "bg-rose-100 text-rose-800"
-                                      : b.color === "amber"
-                                      ? "bg-amber-100 text-amber-800"
-                                      : b.color === "blue"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : b.color === "indigo"
-                                      ? "bg-indigo-100 text-indigo-800"
-                                      : "bg-slate-100 text-slate-700"
-                                  }`}
-                                >
-                                  {b.label}
-                                </span>
-                              ))}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedItem(item);
+                              }}
+                              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                              title="View Full Details"
+                            >
+                              <Info className="w-3.5 h-3.5 text-indigo-500" />
+                              <span className="hidden sm:inline">Details</span>
+                            </button>
+
+                            <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <ArrowRight className="w-4 h-4" />
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Right Quick E-Commerce Action Buttons */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Read Aloud Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            speakText(`${item.title}. ${item.subtitle || ""}`);
-                          }}
-                          className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all shadow-2xs cursor-pointer"
-                          title="Read Aloud with Alexa Voice AI"
-                        >
-                          <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedItem(item);
-                          }}
-                          className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
-                          title="View Full Details"
-                        >
-                          <Info className="w-3.5 h-3.5 text-indigo-500" />
-                          <span className="hidden sm:inline">Details</span>
-                        </button>
-
-                        <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ArrowRight className="w-4 h-4" />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      );
+                    })}
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           {/* Right Column: Global Search Guide & Amazon/Flipkart Capabilities Sidebar */}

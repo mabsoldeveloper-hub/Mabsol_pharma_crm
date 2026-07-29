@@ -412,49 +412,96 @@ async function getLiveKPIMetrics(db: any) {
   }
 }
 
-function generateVocalSummary(query: string, results: any): string | null {
+function parseVoiceActionCommand(query: string): { command: string; payload?: any } | null {
+  if (!query) return null;
+  const q = query.toLowerCase().trim();
+
+  // Excel Export action
+  if (q.includes("export") || q.includes("download excel") || q.includes("excel export") || q.includes("report download")) {
+    return { command: "EXPORT_EXCEL" };
+  }
+
+  // Create Bill / Invoice action
+  if (q.includes("create bill") || q.includes("new bill") || q.includes("bill banao") || q.includes("invoice banao") || q.includes("create invoice")) {
+    return { command: "NAVIGATE_CREATE_BILL" };
+  }
+
+  // Toggle In-Stock filter
+  if (q.includes("in stock only") || q.includes("available stock only") || q.includes("stock me jo hai")) {
+    return { command: "TOGGLE_IN_STOCK" };
+  }
+
+  // Toggle Near Expiry filter
+  if (q.includes("near expiry") || q.includes("expiring soon") || q.includes("expire hone wali")) {
+    return { command: "TOGGLE_NEAR_EXPIRY" };
+  }
+
+  return null;
+}
+
+function generateVocalSummary(query: string, results: any, actionCmd: any): string | null {
   if (!query) return null;
   const q = query.toLowerCase();
 
-  // 1. Check for KPI match
+  if (actionCmd) {
+    if (actionCmd.command === "EXPORT_EXCEL") {
+      return "Exporting report data to Excel.";
+    }
+    if (actionCmd.command === "NAVIGATE_CREATE_BILL") {
+      return "Opening Sales Invoice creation page.";
+    }
+    if (actionCmd.command === "TOGGLE_IN_STOCK") {
+      return "Filtering in-stock items only.";
+    }
+    if (actionCmd.command === "TOGGLE_NEAR_EXPIRY") {
+      return "Filtering near expiry batches expiring in 90 days.";
+    }
+  }
+
+  // Hinglish / English KPI match
   const navResults = results.navigation || [];
   const kpiMatch = navResults.find((r: any) => r.type === "kpi");
   if (kpiMatch) {
     return `${kpiMatch.title}. Click to view details.`;
   }
 
-  // 2. Intent: Top Outstanding / Dues
-  if (q.includes("who owes") || q.includes("highest outstanding") || q.includes("top outstanding") || q.includes("sabse jyada baaki")) {
+  // Hinglish Intent: Top Outstanding / Dues ("sabse jyada baaki kiska hai", "who owes the most")
+  if (q.includes("who owes") || q.includes("highest outstanding") || q.includes("top outstanding") || q.includes("sabse jyada baaki") || q.includes("jyada baaki")) {
     const topCust = (results.customers || [])[0];
     if (topCust) {
-      return `Found ${results.customers.length} party records. The party with highest balance is ${topCust.title} with ${topCust.details.outstandingBalance}.`;
+      return `Sabse jyada outstanding ${topCust.title} ka hai with balance ${topCust.details.outstandingBalance}.`;
     }
   }
 
-  // 3. Products result
+  // Hinglish Intent: Today's Sales ("aaj ki sale", "today sales", "kitni sale hui")
+  if (q.includes("aaj ki sale") || q.includes("today sales") || q.includes("kitni sale")) {
+    return `Today's sales summary updated in KPI card. Check search results.`;
+  }
+
+  // Products result
   if (results.products && results.products.length > 0) {
     const topProd = results.products[0];
-    return `Found ${results.products.length} products matching ${query}. Top result is ${topProd.title}, stock is ${topProd.details.currentStock} units.`;
+    return `Found ${results.products.length} products. Top result is ${topProd.title}, available stock is ${topProd.details.currentStock} units.`;
   }
 
-  // 4. Customers result
+  // Customers result
   if (results.customers && results.customers.length > 0) {
     const topCust = results.customers[0];
-    return `Found ${results.customers.length} customers matching ${query}. Top result is ${topCust.title}.`;
+    return `Found ${results.customers.length} customer parties. Top match is ${topCust.title}.`;
   }
 
-  // 5. Invoices / Vouchers result
+  // Invoices / Vouchers result
   if (results.vouchers && results.vouchers.length > 0) {
     const topV = results.vouchers[0];
     return `Found ${results.vouchers.length} vouchers matching ${query}. ${topV.title} for amount ${topV.details.netAmount || topV.details.debitAmount || ""}.`;
   }
 
-  // 6. Navigation page match
+  // Navigation page match
   if (navResults.length > 0) {
     return `Opening ${navResults[0].title}.`;
   }
 
-  return `No records found for ${query}.`;
+  return `No matching records found for ${query}.`;
 }
 
 export async function GET(req: NextRequest) {
@@ -549,6 +596,9 @@ export async function GET(req: NextRequest) {
     const regex = new RegExp(escapeRegex(query), "i");
     const isNumeric = !isNaN(Number(query));
     const queryNumber = isNumeric ? Number(query) : null;
+
+    // Detect Voice Action Command
+    const actionCmd = parseVoiceActionCommand(query);
 
     // Run parallel searches across database
     const [productsRes, customersRes, vouchersRes, usersRes, navRes] = await Promise.all([
@@ -990,7 +1040,7 @@ export async function GET(req: NextRequest) {
       vouchers: vouchersRes,
       users: usersRes,
       navigation: navRes,
-    });
+    }, actionCmd);
 
     return NextResponse.json({
       success: true,
@@ -999,6 +1049,7 @@ export async function GET(req: NextRequest) {
       category,
       totalResults: totalCount,
       vocalSummary,
+      actionCommand: actionCmd,
       results: {
         products: productsRes,
         customers: customersRes,
