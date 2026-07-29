@@ -199,7 +199,7 @@ export async function GET(req: Request) {
 
   const mdisPurchaseFilter = restriction.isMrRestricted
     ? territoryOrConditions.length > 0
-      ? { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS, $or: territoryOrConditions }
+      ? { $and: [{ $or: [{ TRANSFER: "P" }, { TYPE: "P" }] }, { $or: territoryOrConditions }], ...dateMatchMDIS }
       : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS, CODEP: "NONE_MATCH" }
     : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS };
 
@@ -265,8 +265,8 @@ export async function GET(req: Request) {
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
       ? { ...dateMatchDIS, COMPANY: { $in: restriction.allowedCompanyCodes } }
       : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...dateMatchDIS, CODEP: { $in: restriction.allowedOrdnos } }
-      : { ...dateMatchDIS, CODEP: "NONE_MATCH" }
+        ? { ...dateMatchDIS, CODEP: { $in: restriction.allowedOrdnos } }
+        : { ...dateMatchDIS, CODEP: "NONE_MATCH" }
     : { ...dateMatchDIS };
 
   const near90 = daysFromNowStr(90);
