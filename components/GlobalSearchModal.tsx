@@ -186,16 +186,32 @@ export default function GlobalSearchModal({
     [vocalEnabled]
   );
 
-  // Auto Voice Start when opened via "Hey Salim" wake-word
+  const [assistantName, setAssistantName] = useState("Salim");
+  const [greetingText, setGreetingText] = useState("Haan ji! Main aapki kya help kar sakta hu?");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("mabsol_voice_settings");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.assistantName) setAssistantName(parsed.assistantName);
+        if (parsed.greetingText) setGreetingText(parsed.greetingText);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isOpen]);
+
+  // Auto Voice Start when opened via "Hey [Name]" wake-word
   useEffect(() => {
     if (isOpen && autoVoiceStart) {
       if (onVoiceStartHandled) onVoiceStartHandled();
       const timer = setTimeout(() => {
-        speakText("Haan ji! Main aapki kya help kar sakta hu?");
+        speakText(greetingText || "Haan ji! Main aapki kya help kar sakta hu?");
       }, 250);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, autoVoiceStart, onVoiceStartHandled, speakText]);
+  }, [isOpen, autoVoiceStart, onVoiceStartHandled, speakText, greetingText]);
 
   const stopSpeaking = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -618,7 +634,7 @@ export default function GlobalSearchModal({
                   ? "bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100"
                   : "bg-slate-100 text-slate-400 border-slate-200"
               }`}
-              title={vocalEnabled ? "Salim Vocal Answers Enabled (Click to Mute)" : "Salim Vocal Answers Muted (Click to Enable)"}
+              title={vocalEnabled ? `${assistantName} Vocal Answers Enabled (Click to Mute)` : `${assistantName} Vocal Answers Muted (Click to Enable)`}
             >
               {vocalEnabled ? <Volume2 className="w-4 h-4 text-indigo-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
             </button>
@@ -631,7 +647,7 @@ export default function GlobalSearchModal({
                   ? "bg-rose-600 text-white shadow-lg scale-105 animate-pulse"
                   : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80"
               }`}
-              title={isListening ? "Stop Voice Search" : "Speak to Search (Salim Voice AI)"}
+              title={isListening ? "Stop Voice Search" : `Speak to Search (${assistantName} Voice AI)`}
             >
               {isListening ? (
                 <>
@@ -665,7 +681,7 @@ export default function GlobalSearchModal({
           </div>
         </div>
 
-        {/* Holographic Salim Liquid Orb & Conversational State Banner */}
+        {/* Holographic Voice Orb & Conversational State Banner */}
         {(vocalSpeaking || isListening) && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-950 text-white text-xs font-semibold border-b border-indigo-800/80 shadow-2xl animate-fadeIn relative overflow-hidden">
             {/* Ambient Liquid Gradient Orb Glow Background */}
@@ -673,7 +689,7 @@ export default function GlobalSearchModal({
             <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl animate-pulse" />
 
             <div className="flex items-center gap-3.5 min-w-0 relative z-10">
-              {/* Salim Voice Orb */}
+              {/* Voice Orb */}
               <div
                 className={`relative flex items-center justify-center w-8 h-8 rounded-full ${
                   isListening
@@ -693,7 +709,7 @@ export default function GlobalSearchModal({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 uppercase tracking-widest text-[10px]">
-                    {vocalSpeaking ? "Salim AI Speaking 🔊" : "Salim Listening... Speak your request 🎙️"}
+                    {vocalSpeaking ? `${assistantName} AI Speaking 🔊` : `${assistantName} Listening... Speak your request 🎙️`}
                   </span>
                   <span className="flex items-center gap-0.5 h-3">
                     <span className="w-1 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms] h-full" />
@@ -1067,7 +1083,7 @@ export default function GlobalSearchModal({
                                 speakText(`${item.title}. ${item.subtitle || ""}`);
                               }}
                               className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all shadow-2xs cursor-pointer"
-                              title="Read Aloud with Salim Voice AI"
+                              title={`Read Aloud with ${assistantName} Voice AI`}
                             >
                               <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
                             </button>
@@ -1161,10 +1177,10 @@ export default function GlobalSearchModal({
                   <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
                     <div className="flex items-center gap-2 font-bold text-rose-400">
                       <Mic className="w-3.5 h-3.5" />
-                      <span>Salim Voice AI & Wake-Word (&quot;Hey Salim&quot;) 🎙️</span>
+                      <span>{assistantName} Voice AI & Wake-Word (&quot;Hey {assistantName}&quot;) 🎙️</span>
                     </div>
                     <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Say <strong>&quot;Hey Salim&quot;</strong> or <strong>&quot;Salim&quot;</strong> anytime anywhere on the dashboard to automatically wake up Salim Voice Assistant! Speaks and responds in <strong>Hindi, English & Urdu</strong> like Alexa or Siri.
+                      Say <strong>&quot;Hey {assistantName}&quot;</strong> or <strong>&quot;{assistantName}&quot;</strong> anytime anywhere on the dashboard to automatically wake up {assistantName} Voice Assistant! Speaks and responds in <strong>Hindi, English & Urdu</strong> like Alexa or Siri.
                     </p>
                   </div>
 
