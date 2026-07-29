@@ -412,9 +412,88 @@ async function getLiveKPIMetrics(db: any) {
   }
 }
 
-function parseVoiceActionCommand(query: string): { command: string; payload?: any } | null {
+function parseVoiceActionCommand(query: string): { command: string; index?: number; targetTitle?: string; payload?: any } | null {
   if (!query) return null;
   const q = query.toLowerCase().trim();
+
+  // Spoken Ordinal Index Commands
+  if (
+    q === "1" ||
+    q === "open 1" ||
+    q === "open item 1" ||
+    q === "open number 1" ||
+    q.includes("pehla kholo") ||
+    q.includes("first result") ||
+    q.includes("pehla result") ||
+    q === "pehla" ||
+    q === "first"
+  ) {
+    return { command: "OPEN_RESULT_INDEX", index: 0 };
+  }
+
+  if (
+    q === "2" ||
+    q === "open 2" ||
+    q === "open item 2" ||
+    q === "open number 2" ||
+    q.includes("dusra kholo") ||
+    q.includes("second result") ||
+    q.includes("dusra result") ||
+    q === "dusra" ||
+    q === "second"
+  ) {
+    return { command: "OPEN_RESULT_INDEX", index: 1 };
+  }
+
+  if (
+    q === "3" ||
+    q === "open 3" ||
+    q === "open item 3" ||
+    q === "open number 3" ||
+    q.includes("teesra kholo") ||
+    q.includes("third result") ||
+    q.includes("teesra result") ||
+    q === "teesra" ||
+    q === "third"
+  ) {
+    return { command: "OPEN_RESULT_INDEX", index: 2 };
+  }
+
+  if (
+    q === "4" ||
+    q === "open 4" ||
+    q === "open item 4" ||
+    q === "open number 4" ||
+    q.includes("chautha kholo") ||
+    q.includes("fourth result") ||
+    q.includes("chautha result") ||
+    q === "chautha" ||
+    q === "fourth"
+  ) {
+    return { command: "OPEN_RESULT_INDEX", index: 3 };
+  }
+
+  if (
+    q === "5" ||
+    q === "open 5" ||
+    q === "open item 5" ||
+    q === "open number 5" ||
+    q.includes("paanchwa kholo") ||
+    q.includes("fifth result") ||
+    q.includes("paanchwa result") ||
+    q === "paanchwa" ||
+    q === "fifth"
+  ) {
+    return { command: "OPEN_RESULT_INDEX", index: 4 };
+  }
+
+  // Spoken Direct Title Open ("open Paracetamol", "kholo Sharma Medical")
+  if (q.startsWith("open ") || q.startsWith("kholo ")) {
+    const targetTitle = q.replace(/^open\s+|^kholo\s+/, "").trim();
+    if (targetTitle.length > 1) {
+      return { command: "OPEN_RESULT_TITLE", targetTitle };
+    }
+  }
 
   // Excel Export action
   if (q.includes("export") || q.includes("download excel") || q.includes("excel export") || q.includes("report download")) {
@@ -444,6 +523,12 @@ function generateVocalSummary(query: string, results: any, actionCmd: any): stri
   const q = query.toLowerCase();
 
   if (actionCmd) {
+    if (actionCmd.command === "OPEN_RESULT_INDEX") {
+      return `Opening result number ${actionCmd.index + 1}.`;
+    }
+    if (actionCmd.command === "OPEN_RESULT_TITLE") {
+      return `Opening ${actionCmd.targetTitle}.`;
+    }
     if (actionCmd.command === "EXPORT_EXCEL") {
       return "Exporting report data to Excel.";
     }
