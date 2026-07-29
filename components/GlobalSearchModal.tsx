@@ -396,7 +396,26 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             // Execute Autonomous Voice Action Command
             if (data.actionCommand) {
               const cmd = data.actionCommand.command;
-              if (cmd === "NAVIGATE_CREATE_BILL") {
+              if (cmd === "OPEN_RESULT_INDEX") {
+                const targetIdx = data.actionCommand.index;
+                setTimeout(() => {
+                  const flat = getFlatResults();
+                  if (flat[targetIdx]) {
+                    handleItemClick(flat[targetIdx]);
+                  }
+                }, 900);
+              } else if (cmd === "OPEN_RESULT_TITLE") {
+                const targetTitle = (data.actionCommand.targetTitle || "").toLowerCase();
+                setTimeout(() => {
+                  const flat = getFlatResults();
+                  const match = flat.find((item) =>
+                    item.title.toLowerCase().includes(targetTitle)
+                  );
+                  if (match) {
+                    handleItemClick(match);
+                  }
+                }, 900);
+              } else if (cmd === "NAVIGATE_CREATE_BILL") {
                 setTimeout(() => {
                   onClose();
                   router.push("/dashboard/sales/invoice/create");
@@ -932,6 +951,14 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80">
                                   {item.category}
                                 </span>
+                                {index < 5 && (
+                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-900 text-indigo-100 border border-indigo-700 shadow-2xs flex items-center gap-1">
+                                    <span>#{index + 1}</span>
+                                    <span className="text-[9px] text-indigo-300 font-medium hidden sm:inline">
+                                      🎙️ Say &quot;{index === 0 ? "Pehla" : index === 1 ? "Dusra" : index === 2 ? "Teesra" : index === 3 ? "Chautha" : "Paanchwa"}&quot;
+                                    </span>
+                                  </span>
+                                )}
                               </div>
 
                               <p className="text-xs text-slate-500 mt-0.5 truncate font-medium">
