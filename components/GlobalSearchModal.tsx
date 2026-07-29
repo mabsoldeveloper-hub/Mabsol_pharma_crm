@@ -77,6 +77,38 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
   const [vocalSpeaking, setVocalSpeaking] = useState(false);
   const [vocalText, setVocalText] = useState<string | null>(null);
 
+  // Female Voice Selector for Alexa Speech Synthesis
+  const getFemaleVoice = () => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    const femaleNames = [
+      "zira",
+      "jenny",
+      "aria",
+      "samantha",
+      "victoria",
+      "karen",
+      "female",
+      "google us english",
+      "google uk english female",
+      "microsoft zira",
+      "microsoft jenny",
+      "microsoft aria",
+      "microsoft ava",
+      "swara",
+      "heera",
+    ];
+
+    const found = voices.find((v) => {
+      const name = v.name.toLowerCase();
+      return femaleNames.some((f) => name.includes(f));
+    });
+
+    return found || voices.find((v) => v.lang.startsWith("en-IN") || v.lang.startsWith("en")) || voices[0];
+  };
+
   const speakText = useCallback(
     (text: string) => {
       if (!vocalEnabled || !text || typeof window === "undefined") return;
@@ -87,8 +119,13 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
 
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.rate = 1.0;
-          utterance.pitch = 1.0;
+          utterance.pitch = 1.25; // Pleasant, natural female voice pitch
           utterance.lang = "en-US";
+
+          const femaleVoice = getFemaleVoice();
+          if (femaleVoice) {
+            utterance.voice = femaleVoice;
+          }
 
           utterance.onstart = () => {
             setVocalSpeaking(true);
