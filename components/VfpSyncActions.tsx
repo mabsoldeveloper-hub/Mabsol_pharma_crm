@@ -141,12 +141,11 @@ export default function VfpSyncActions({
 
         const folderName = relFolder || firstFile.name || "";
         
-        // Find existing parent base path (e.g. C:\Users\Administrator\Downloads\...)
-        const activeBase = (dataDir && (dataDir.includes(":") || dataDir.startsWith("/"))) 
-          ? dataDir 
-          : (destinationPath && (destinationPath.includes(":") || destinationPath.startsWith("/"))) 
-          ? destinationPath 
-          : "C:\\Users\\Administrator\\Downloads";
+        // Only use the console's own dataDir as base — do NOT fall back to
+        // destinationPath which comes from the Settings page.
+        const activeBase = (dataDir && (dataDir.includes(":") || dataDir.startsWith("/")))
+          ? dataDir
+          : "";
 
         if (activeBase && folderName) {
           const lastSlash = Math.max(activeBase.lastIndexOf("/"), activeBase.lastIndexOf("\\"));
@@ -260,7 +259,12 @@ export default function VfpSyncActions({
 
   // Sync state values when props change
   useEffect(() => {
-    setDataDir(currentPath);
+    // Only set dataDir from props on first mount — after that the user owns
+    // this field locally.  This prevents Settings-page data from ghosting
+    // back into the Sync Console path after a router.refresh().
+    if (!isMounted.current) {
+      setDataDir(currentPath);
+    }
     setAutoSync(initialAutoSync);
     setAutoSyncInterval(initialAutoSyncInterval);
     setPresetInterval([10, 30, 60].includes(initialAutoSyncInterval) ? String(initialAutoSyncInterval) : "custom");
@@ -278,6 +282,8 @@ export default function VfpSyncActions({
   }, [currentPath, enabledFiles, initialAutoSync, initialAutoSyncInterval]);
 
   // Unified save config function
+  // NOTE: This only saves consoleSyncDir (the Sync Console's own path) and never
+  // touches dataDir, prgPath, vfpExePath or any other Settings-page-only fields.
   async function saveConfiguration(
     updatedDir: string, 
     updatedScope: "all" | "selected", 
@@ -291,14 +297,14 @@ export default function VfpSyncActions({
     
     const filesToSync = updatedFiles;
     
+    // Only write consoleSyncDir — do NOT overwrite dataDir which is owned
+    // by the Settings page (prgPath, vfpExePath, sourceDir, dataDir).
     const bodyPayload: any = {
       enabledFiles: filesToSync,
       autoSync: updatedAutoSync,
       autoSyncInterval: updatedInterval,
+      consoleSyncDir: updatedDir ? updatedDir.trim() : "",
     };
-    if (updatedDir && updatedDir.trim() && (updatedDir.includes(":") || updatedDir.startsWith("/"))) {
-      bodyPayload.consoleSyncDir = updatedDir.trim();
-    }
     
     try {
       const response = await fetch("/api/mabsolcrmsync/config", {
@@ -552,11 +558,24 @@ export default function VfpSyncActions({
                               setDataDir(newDir);
                               saveConfiguration(newDir, "selected", selectedFiles, autoSync, autoSyncInterval, true);
                             }}
-                            placeholder="Enter folder path (e.g. D:\Downloads\SKYLARK) or click Browse folder..."
+                            placeholder="Enter folder path or click Browse folder..."
                             className="w-full bg-transparent border-0 outline-none text-xs font-mono text-slate-800 placeholder:text-slate-400"
                             disabled={autoSync}
                             title="Directory path containing your selected DBF tables"
                           />
+                          {dataDir && !autoSync && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDataDir("");
+                                saveConfiguration("", "selected", selectedFiles, autoSync, autoSyncInterval, true);
+                              }}
+                              className="text-slate-400 hover:text-slate-600 p-0.5 shrink-0 cursor-pointer"
+                              title="Clear folder path"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
                         </div>
 
                         <button
@@ -572,6 +591,29 @@ export default function VfpSyncActions({
                           <FolderOpen size={13} className="text-slate-600" />
                           <span>Browse folder</span>
                         </button>
+
+                        {dataDir && (
+                          <button
+                            type="button"
+                            disabled={autoSync}
+                            onClick={() => {
+                              if (autoSync) {
+                                setMessage({ type: "info", text: "Please turn off Auto-sync below to clear folder path." });
+                                return;
+                              }
+                              setDataDir("");
+                              saveConfiguration("", "selected", selectedFiles, autoSync, autoSyncInterval, true);
+                            }}
+                            className={`inline-flex items-center gap-1 px-3 py-2 text-xs font-bold bg-white border border-red-200 text-red-600 transition-all shadow-2xs btn-pill shrink-0 ${
+                              autoSync ? "opacity-50 cursor-not-allowed" : "hover:bg-red-50 hover:border-red-300 cursor-pointer"
+                            }`}
+                            style={{ borderRadius: "10px" }}
+                            title={autoSync ? "Turn off Auto-sync to clear path" : "Clear folder path"}
+                          >
+                            <X size={13} className="text-red-500" />
+                            <span>Clear path</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -912,23 +954,10 @@ export default function VfpSyncActions({
             >
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">WORKER STATUS</span>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <div className="flex items-center gap-1 text-xs text-slate-500 font-mono">
-                    <Clock size={12} className="text-slate-400" />
-                    <span>Last sync:</span>
-                    <span className="font-bold text-slate-800">{formatDate(lastSyncedAt)}</span>
-                  </div>
-                  <span 
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 border btn-pill ${
-                      workerOnline 
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                        : "bg-red-50 text-red-700 border-red-200"
-                    }`}
-                    style={{ borderRadius: "9999px" }}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${workerOnline ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
-                    {workerOnline ? "Active" : "Offline"}
-                  </span>
+                <div className="flex items-center gap-1 text-xs text-slate-500 font-mono">
+                  <Clock size={12} className="text-slate-400" />
+                  <span>Last sync:</span>
+                  <span className="font-bold text-slate-800">{formatDate(lastSyncedAt)}</span>
                 </div>
               </div>
 

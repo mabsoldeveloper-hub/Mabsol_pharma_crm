@@ -50,7 +50,6 @@ export default function VfpSettingsPage() {
     _title: string
   ) => {
     activeFieldRef.current = fieldKey;
-
     if (filterType === "dir") {
       nativeFolderInputRef.current?.click();
     } else {
@@ -70,18 +69,12 @@ export default function VfpSettingsPage() {
       if (nativePath) {
         setForm((prev) => ({ ...prev, [fieldKey]: nativePath }));
       } else {
-        const currentVal = form[fieldKey] || "";
-        let exactPath = file.name;
-        if (currentVal && (currentVal.includes(":") || currentVal.startsWith("/"))) {
-          const lastSlash = Math.max(currentVal.lastIndexOf("/"), currentVal.lastIndexOf("\\"));
-          if (lastSlash !== -1) {
-            const dir = currentVal.substring(0, lastSlash);
-            exactPath = `${dir}\\${file.name}`;
-          } else {
-            exactPath = `${currentVal}\\${file.name}`;
-          }
+        const relPath = (file as any).webkitRelativePath || "";
+        if (relPath && relPath.includes("/")) {
+          setForm((prev) => ({ ...prev, [fieldKey]: relPath.replace(/\//g, "\\") }));
+        } else {
+          setForm((prev) => ({ ...prev, [fieldKey]: file.name }));
         }
-        setForm((prev) => ({ ...prev, [fieldKey]: exactPath }));
       }
     }
     e.target.value = "";

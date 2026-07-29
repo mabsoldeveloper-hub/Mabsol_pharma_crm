@@ -201,9 +201,10 @@ export default async function VfpDashboardPage({
         </div>
 
         {/* Control Panel Section */}
+        {/* currentPath uses ONLY consoleSyncDir — no fallback to Settings page fields (dataDir/sourceDir) */}
         <VfpSyncActions 
-          currentPath={status.consoleSyncDir || status.sourceDir || status.dataDir || ""} 
-          destinationPath={status.dataDir || status.sourceDir || ""}
+          currentPath={status.consoleSyncDir || ""} 
+          destinationPath={""}
           enabledFiles={status.enabledFiles}
           initialAutoSync={status.autoSync}
           initialAutoSyncInterval={status.autoSyncInterval}
