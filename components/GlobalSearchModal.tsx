@@ -729,7 +729,9 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                       <div className="flex items-start gap-3 min-w-0">
                         <div
                           className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 mt-0.5 shadow-2xs ${
-                            item.type === "product"
+                            item.type === "kpi"
+                              ? "bg-gradient-to-br from-indigo-500 to-emerald-600 text-white shadow-sm"
+                              : item.type === "product"
                               ? "bg-emerald-100 text-emerald-700"
                               : item.type === "customer"
                               ? "bg-amber-100 text-amber-700"
@@ -740,6 +742,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                               : "bg-slate-100 text-slate-700"
                           }`}
                         >
+                          {item.type === "kpi" && <TrendingUp className="w-4 h-4 text-white" />}
                           {item.type === "product" && <Package className="w-4 h-4" />}
                           {item.type === "customer" && <Users className="w-4 h-4" />}
                           {item.type === "voucher" && <FileText className="w-4 h-4" />}

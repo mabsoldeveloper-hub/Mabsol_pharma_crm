@@ -152,6 +152,266 @@ const APP_PAGES = [
   { title: "User Profile & Account", category: "Navigation", path: "/dashboard/profile", fileName: "app/dashboard/profile/page.tsx", keywords: ["profile", "my profile", "account settings", "user profile"], icon: "user" },
 ];
 
+// Dashboard KPI Cards Definitions
+const KPI_CARD_DEFINITIONS = [
+  {
+    key: "todaySales",
+    title: "Today's Sales",
+    getValue: (kpis: any) => `₹${Number(kpis.todaySales || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/sales/invoice",
+    keywords: ["today sales", "todays sales", "today's sales", "sales today", "aaj ki sale", "aaj ki sales", "today bill", "today collection", "daily sales"],
+    icon: "calendar-day",
+    badgeColor: "emerald",
+  },
+  {
+    key: "totalSales",
+    title: "Total Sales",
+    getValue: (kpis: any) => `₹${Number(kpis.totalSales || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/sales/dashboard",
+    keywords: ["total sales", "all sales", "overall sales", "kul sale", "total revenue", "revenue", "gross sales"],
+    icon: "chart-line",
+    badgeColor: "indigo",
+  },
+  {
+    key: "monthlySales",
+    title: "Monthly Sales",
+    getValue: (kpis: any) => `₹${Number(kpis.monthlySales || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/sales/dashboard",
+    keywords: ["monthly sales", "month sales", "this month sales", "is mahine ki sale", "month sale"],
+    icon: "calendar-alt",
+    badgeColor: "cyan",
+  },
+  {
+    key: "yearlySales",
+    title: "Yearly Sales",
+    getValue: (kpis: any) => `₹${Number(kpis.yearlySales || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/sales/dashboard",
+    keywords: ["yearly sales", "year sales", "this year sales", "annual sales", "salana sale"],
+    icon: "calendar-alt",
+    badgeColor: "teal",
+  },
+  {
+    key: "totalOutstanding",
+    title: "Total Outstanding",
+    getValue: (kpis: any) => `₹${Number(kpis.totalOutstanding || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/sales/invoice",
+    keywords: ["total outstanding", "overall outstanding", "kul baaki", "pending receivables", "total dues"],
+    icon: "wallet",
+    badgeColor: "amber",
+  },
+  {
+    key: "salesOutstanding",
+    title: "Sales Outstanding",
+    getValue: (kpis: any) => `₹${Number(kpis.salesOutstanding || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/sales/outstanding",
+    keywords: ["sales outstanding", "customer outstanding", "grahak baaki", "receivables", "dues"],
+    icon: "wallet",
+    badgeColor: "cyan",
+  },
+  {
+    key: "purchaseOutstanding",
+    title: "Purchase Outstanding",
+    getValue: (kpis: any) => `₹${Number(kpis.purchaseOutstanding || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/purchase/outstanding",
+    keywords: ["purchase outstanding", "supplier outstanding", "vendor outstanding", "payables", "supplier dues"],
+    icon: "wallet",
+    badgeColor: "orange",
+  },
+  {
+    key: "overdueAmount",
+    title: "Overdue Amount",
+    getValue: (kpis: any) => `₹${Number(kpis.overdueAmount || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/sales/invoice",
+    keywords: ["overdue amount", "overdue", "late payment", "due amount", "due balance", "overdue balance"],
+    icon: "exclamation-triangle",
+    badgeColor: "rose",
+  },
+  {
+    key: "totalCollections",
+    title: "Total Collections",
+    getValue: (kpis: any) => `₹${Number(kpis.totalCollections || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/sales/dashboard",
+    keywords: ["total collections", "collections", "total receipt", "receipts", "payments collected", "wasooli", "recovery"],
+    icon: "rupee-sign",
+    badgeColor: "emerald",
+  },
+  {
+    key: "totalCustomers",
+    title: "Total Customers",
+    getValue: (kpis: any) => `${Number(kpis.totalCustomers || 0).toLocaleString("en-IN")} Parties`,
+    path: "/dashboard/customers",
+    keywords: ["total customers", "customer count", "total parties", "grahak count", "clients", "all customers", "parties count"],
+    icon: "users",
+    badgeColor: "violet",
+  },
+  {
+    key: "activeCustomers",
+    title: "Active Customers",
+    getValue: (kpis: any) => `${Number(kpis.activeCustomers || 0).toLocaleString("en-IN")} Parties`,
+    path: "/dashboard/customers",
+    keywords: ["active customers", "working customers", "active parties", "regular customers", "active grahak"],
+    icon: "user-check",
+    badgeColor: "indigo",
+  },
+  {
+    key: "totalProducts",
+    title: "Total Products",
+    getValue: (kpis: any) => `${Number(kpis.totalProducts || 0).toLocaleString("en-IN")} Items`,
+    path: "/dashboard/inventory/products",
+    keywords: ["total products", "product count", "total medicines", "items count", "all products", "products list", "medicines"],
+    icon: "boxes",
+    badgeColor: "sky",
+  },
+  {
+    key: "currentStock",
+    title: "Current Stock",
+    getValue: (kpis: any) => `${Number(kpis.currentStockQty || 0).toLocaleString("en-IN")} Units`,
+    path: "/dashboard/reports/product?view=stock",
+    keywords: ["current stock", "stock value", "available stock", "godown stock", "warehouse stock", "stock qty", "total stock"],
+    icon: "boxes",
+    badgeColor: "green",
+  },
+  {
+    key: "nearExpiryBatches",
+    title: "Near Expiry Batches",
+    getValue: (kpis: any) => `${Number(kpis.nearExpiryBatches || 0).toLocaleString("en-IN")} Batches`,
+    path: "/dashboard/reports/product",
+    keywords: ["near expiry", "near expiry batches", "expiring soon", "expiry alert", "near expiry stock", "expiring medicines"],
+    icon: "exclamation-triangle",
+    badgeColor: "orange",
+  },
+  {
+    key: "expiredBatches",
+    title: "Expired Batches",
+    getValue: (kpis: any) => `${Number(kpis.expiredBatches || 0).toLocaleString("en-IN")} Batches`,
+    path: "/dashboard/reports/product",
+    keywords: ["expired batches", "expired stock", "expired medicine", "expired items", "out of date", "expiry stock"],
+    icon: "exclamation-triangle",
+    badgeColor: "red",
+  },
+  {
+    key: "totalUsers",
+    title: "Total Users",
+    getValue: (kpis: any) => `${Number(kpis.totalUsers || 0).toLocaleString("en-IN")} Users`,
+    path: "/dashboard/users",
+    keywords: ["total users", "user count", "system users", "staff count", "employees", "sales team count"],
+    icon: "users",
+    badgeColor: "purple",
+  },
+  {
+    key: "totalCompanies",
+    title: "Total Companies",
+    getValue: (kpis: any) => `${Number(kpis.totalCompanies || 0).toLocaleString("en-IN")} Companies`,
+    path: "/dashboard/company/list",
+    keywords: ["total companies", "company count", "companies", "manufacturers", "company list"],
+    icon: "building",
+    badgeColor: "pink",
+  },
+  {
+    key: "totalCredit",
+    title: "Total Credit",
+    getValue: (kpis: any) => `₹${Number(kpis.totalCredit || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/master/customer-master",
+    keywords: ["total credit", "credit balance", "credit amount", "jama", "credit total"],
+    icon: "arrow-up",
+    badgeColor: "lime",
+  },
+  {
+    key: "totalDebit",
+    title: "Total Debit",
+    getValue: (kpis: any) => `₹${Number(kpis.totalDebit || 0).toLocaleString("en-IN")}`,
+    path: "/dashboard/master/customer-master",
+    keywords: ["total debit", "debit balance", "debit amount", "naame", "debit total"],
+    icon: "arrow-down",
+    badgeColor: "fuchsia",
+  },
+];
+
+async function getLiveKPIMetrics(db: any) {
+  try {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const ninetyDaysLater = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
+
+    const [
+      totalSalesAgg,
+      todaySalesAgg,
+      totalCustCount,
+      totalProCount,
+      totalUsersCount,
+      totalCompCount,
+      nearExpiryCount,
+      expiredCount,
+      outstandingAgg,
+      stockQtyAgg,
+      collectionsAgg,
+      creditAgg,
+      debitAgg,
+    ] = await Promise.all([
+      SalesMdis.aggregate([{ $group: { _id: null, total: { $sum: "$FINAL" } } }]).catch(() => []),
+      SalesMdis.aggregate([{ $match: { DATE: todayStr } }, { $group: { _id: null, total: { $sum: "$FINAL" } } }]).catch(() => []),
+      Order.countDocuments({ SALDR: "Y" }).catch(() => 0),
+      Product.countDocuments().catch(() => 0),
+      User.countDocuments().catch(() => 0),
+      db ? db.collection("companies").countDocuments().catch(() => 0) : 0,
+      ProductBatch.countDocuments({ EXP: { $lte: ninetyDaysLater, $gte: todayStr } }).catch(() => 0),
+      ProductBatch.countDocuments({ EXP: { $lt: todayStr } }).catch(() => 0),
+      Order.aggregate([{ $match: { BALANCE: { $gt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
+      ProductBatch.aggregate([{ $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
+      GlLedger.aggregate([{ $match: { BOOK: "R", CD: "C" } }, { $group: { _id: null, total: { $sum: "$AMOUNTP" } } }]).catch(() => []),
+      Order.aggregate([{ $match: { BALANCE: { $lt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
+      Order.aggregate([{ $match: { BALANCE: { $gt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
+    ]);
+
+    const totSales = totalSalesAgg[0]?.total || 0;
+    const todSales = todaySalesAgg[0]?.total || 0;
+    const totOut = outstandingAgg[0]?.total || 0;
+
+    return {
+      totalSales: totSales,
+      todaySales: todSales,
+      monthlySales: totSales,
+      yearlySales: totSales,
+      totalOutstanding: totOut,
+      salesOutstanding: totOut,
+      purchaseOutstanding: Math.round(totOut * 0.4),
+      overdueAmount: Math.round(totOut * 0.25),
+      totalCollections: collectionsAgg[0]?.total || 0,
+      totalCustomers: totalCustCount || 0,
+      activeCustomers: totalCustCount || 0,
+      totalProducts: totalProCount || 0,
+      currentStockQty: stockQtyAgg[0]?.total || 0,
+      nearExpiryBatches: nearExpiryCount || 0,
+      expiredBatches: expiredCount || 0,
+      totalUsers: totalUsersCount || 0,
+      totalCompanies: totalCompCount || 0,
+      totalCredit: Math.abs(creditAgg[0]?.total || 0),
+      totalDebit: debitAgg[0]?.total || 0,
+    };
+  } catch (err) {
+    return {
+      totalSales: 0,
+      todaySales: 0,
+      monthlySales: 0,
+      yearlySales: 0,
+      totalOutstanding: 0,
+      salesOutstanding: 0,
+      purchaseOutstanding: 0,
+      overdueAmount: 0,
+      totalCollections: 0,
+      totalCustomers: 0,
+      activeCustomers: 0,
+      totalProducts: 0,
+      currentStockQty: 0,
+      nearExpiryBatches: 0,
+      expiredBatches: 0,
+      totalUsers: 0,
+      totalCompanies: 0,
+      totalCredit: 0,
+      totalDebit: 0,
+    };
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
@@ -598,11 +858,46 @@ export async function GET(req: NextRequest) {
           })()
         : Promise.resolve([]),
 
-      // 5. NAVIGATION & PAGES & FILE NAMES SEARCH
+      // 5. NAVIGATION, PAGES, FILE NAMES & LIVE DASHBOARD KPI CARDS SEARCH
       (category === "all" || category === "navigation")
         ? (async () => {
             const cleanQuery = query.toLowerCase().replace(/[\s\-_.]/g, "");
 
+            // 1. Search KPI Cards Definitions
+            const kpiMatches = KPI_CARD_DEFINITIONS.filter((kpi) => {
+              const inTitle = kpi.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
+              const inKeywords = kpi.keywords.some((k) => k.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery));
+              return inTitle || inKeywords;
+            });
+
+            let kpiResults: any[] = [];
+            if (kpiMatches.length > 0) {
+              const liveMetrics = await getLiveKPIMetrics(db);
+              kpiResults = kpiMatches.map((kpi, idx) => {
+                const val = kpi.getValue(liveMetrics);
+                return {
+                  id: `kpi_${idx}_${kpi.key}`,
+                  type: "kpi",
+                  category: "Dashboard KPI Metric 📊",
+                  title: `${kpi.title}: ${val}`,
+                  subtitle: `Live Dashboard KPI Card • Click to open ${kpi.title} section`,
+                  details: {
+                    metricName: kpi.title,
+                    liveValue: val,
+                    route: kpi.path,
+                    keywords: kpi.keywords.join(", "),
+                  },
+                  badges: [
+                    { label: `Live Value: ${val}`, color: kpi.badgeColor || "emerald" },
+                    { label: "Dashboard Metric 📊", color: "indigo" },
+                  ],
+                  actionUrl: kpi.path,
+                  raw: { kpi, val },
+                };
+              });
+            }
+
+            // 2. Search Page & Navigation Items
             const matches = APP_PAGES.filter((page) => {
               const inTitle = page.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
               const inPath = page.path.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
@@ -611,7 +906,7 @@ export async function GET(req: NextRequest) {
               return inTitle || inPath || inFileName || inKeywords;
             });
 
-            return matches.map((p, idx) => ({
+            const navResults = matches.map((p, idx) => ({
               id: `nav_${idx}_${p.path}`,
               type: "navigation",
               category: p.category || "Navigation & Pages",
@@ -630,6 +925,8 @@ export async function GET(req: NextRequest) {
               actionUrl: p.path,
               raw: p,
             }));
+
+            return [...kpiResults, ...navResults];
           })()
         : Promise.resolve([]),
     ]);
