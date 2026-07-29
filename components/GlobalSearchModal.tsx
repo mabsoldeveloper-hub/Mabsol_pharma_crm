@@ -147,11 +147,18 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           utterance.onstart = () => {
             setVocalSpeaking(true);
             setVocalText(text);
+            if (recognitionRef.current) {
+              try { recognitionRef.current.abort(); } catch (e) {}
+            }
           };
 
           utterance.onend = () => {
             setVocalSpeaking(false);
             setVocalText(null);
+            // Siri Two-Way Dialogue Loop: Automatically turn on microphone AFTER assistant finishes speaking!
+            setTimeout(() => {
+              toggleVoiceSearch();
+            }, 300);
           };
 
           utterance.onerror = () => {
@@ -597,25 +604,35 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           </div>
         </div>
 
-        {/* Holographic Siri Liquid Orb & Vocal Speaking Banner */}
-        {vocalSpeaking && (
+        {/* Holographic Siri Liquid Orb & Conversational State Banner */}
+        {(vocalSpeaking || isListening) && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-950 text-white text-xs font-semibold border-b border-indigo-800/80 shadow-2xl animate-fadeIn relative overflow-hidden">
             {/* Ambient Liquid Gradient Orb Glow Background */}
-            <div className="absolute -left-10 -top-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl animate-pulse" />
+            <div className="absolute -left-10 -top-10 w-32 h-32 bg-cyan-500/20 rounded-full blur-2xl animate-pulse" />
             <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl animate-pulse" />
 
             <div className="flex items-center gap-3.5 min-w-0 relative z-10">
               {/* Siri Liquid Orb */}
-              <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-pink-500 animate-spin [animation-duration:4s] shadow-lg shadow-indigo-500/50 p-0.5 shrink-0">
+              <div
+                className={`relative flex items-center justify-center w-8 h-8 rounded-full ${
+                  isListening
+                    ? "bg-gradient-to-tr from-rose-500 via-purple-500 to-cyan-400 animate-pulse scale-110 shadow-rose-500/50"
+                    : "bg-gradient-to-tr from-cyan-400 via-indigo-500 to-pink-500 animate-spin [animation-duration:4s] shadow-indigo-500/50"
+                } shadow-lg p-0.5 shrink-0`}
+              >
                 <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+                  {isListening ? (
+                    <Mic className="w-4 h-4 text-rose-400 animate-pulse" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+                  )}
                 </div>
               </div>
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 uppercase tracking-widest text-[10px]">
-                    Alexa AI Voice Assistant 🔊
+                    {vocalSpeaking ? "Alexa AI Speaking 🔊" : "Siri Listening... Speak Choice 🎙️"}
                   </span>
                   <span className="flex items-center gap-0.5 h-3">
                     <span className="w-1 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms] h-full" />
@@ -624,43 +641,30 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   </span>
                 </div>
                 <p className="truncate text-indigo-100 font-semibold italic text-xs mt-0.5">
-                  &ldquo;{vocalText}&rdquo;
+                  {vocalSpeaking
+                    ? `"${vocalText}"`
+                    : transcriptPreview
+                    ? `Hearing: "${transcriptPreview}"`
+                    : `Listening... Say "Pehla kholo" or "Open 1"`}
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={stopSpeaking}
-              className="px-3 py-1.5 rounded-xl bg-indigo-800/80 hover:bg-indigo-700 text-indigo-100 font-extrabold text-[11px] shrink-0 cursor-pointer shadow-md border border-indigo-600/50 transition-all relative z-10"
-            >
-              Mute 🔇
-            </button>
-          </div>
-        )}
-
-        {/* Live Audio Soundwave & Voice Recording Visualizer Banner */}
-        {isListening && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 text-white text-xs font-semibold border-b border-rose-800/80 shadow-inner animate-fadeIn">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-4 bg-rose-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-1.5 h-6 bg-rose-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-1.5 h-3 bg-rose-300 rounded-full animate-bounce" />
-                <span className="w-1.5 h-5 bg-rose-500 rounded-full animate-bounce [animation-delay:-0.4s]" />
-              </div>
-              <span className="font-extrabold text-rose-400 uppercase tracking-wider text-[11px]">
-                Listening (English)...
-              </span>
-              <span className="truncate text-rose-100 font-medium bg-rose-950/80 px-2.5 py-1 rounded-lg border border-rose-700/60 max-w-md">
-                &ldquo;{transcriptPreview || "Speak now in English..."}&rdquo;
-              </span>
-            </div>
-            <button
-              onClick={toggleVoiceSearch}
-              className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 shadow-2xs cursor-pointer"
-            >
-              Stop ⏹️
-            </button>
+            {vocalSpeaking ? (
+              <button
+                onClick={stopSpeaking}
+                className="px-3 py-1.5 rounded-xl bg-indigo-800/80 hover:bg-indigo-700 text-indigo-100 font-extrabold text-[11px] shrink-0 cursor-pointer shadow-md border border-indigo-600/50 transition-all relative z-10"
+              >
+                Mute 🔇
+              </button>
+            ) : (
+              <button
+                onClick={toggleVoiceSearch}
+                className="px-3 py-1.5 rounded-xl bg-rose-900/80 hover:bg-rose-800 text-rose-100 font-extrabold text-[11px] shrink-0 cursor-pointer shadow-md border border-rose-700/50 transition-all relative z-10"
+              >
+                Stop ⏹️
+              </button>
+            )}
           </div>
         )}
 
