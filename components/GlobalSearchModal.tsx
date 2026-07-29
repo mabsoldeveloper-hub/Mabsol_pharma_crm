@@ -77,36 +77,53 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
   const [vocalSpeaking, setVocalSpeaking] = useState(false);
   const [vocalText, setVocalText] = useState<string | null>(null);
 
-  // Female Voice Selector for Alexa Speech Synthesis
+  // Indian Female Voice Selector for Alexa Speech Synthesis
   const getFemaleVoice = () => {
     if (typeof window === "undefined" || !window.speechSynthesis) return null;
     const voices = window.speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return null;
 
-    const femaleNames = [
-      "zira",
-      "jenny",
-      "aria",
-      "samantha",
-      "victoria",
-      "karen",
-      "female",
-      "google us english",
-      "google uk english female",
-      "microsoft zira",
-      "microsoft jenny",
-      "microsoft aria",
-      "microsoft ava",
+    // Prioritize Indian Female Voice names (en-IN / hi-IN)
+    const indianFemaleNames = [
       "swara",
       "heera",
+      "neerja",
+      "kalpana",
+      "veena",
+      "aditi",
+      "google english (india)",
+      "google hindi",
+      "microsoft swara",
+      "microsoft heera",
+      "en-in",
+      "hi-in",
+      "india",
     ];
 
-    const found = voices.find((v) => {
+    // 1. Try finding explicit Indian female voice first
+    let found = voices.find((v) => {
       const name = v.name.toLowerCase();
-      return femaleNames.some((f) => name.includes(f));
+      const lang = v.lang.toLowerCase();
+      const isIndian = lang.includes("en-in") || lang.includes("hi-in") || name.includes("india");
+      const isFemale = indianFemaleNames.some((f) => name.includes(f));
+      return isIndian || isFemale;
     });
 
-    return found || voices.find((v) => v.lang.startsWith("en-IN") || v.lang.startsWith("en")) || voices[0];
+    // 2. Fallback to any en-IN voice
+    if (!found) {
+      found = voices.find((v) => v.lang.toLowerCase().includes("en-in"));
+    }
+
+    // 3. Fallback to general female voices
+    if (!found) {
+      const generalFemaleNames = ["zira", "jenny", "aria", "samantha", "victoria", "karen", "female"];
+      found = voices.find((v) => {
+        const name = v.name.toLowerCase();
+        return generalFemaleNames.some((f) => name.includes(f));
+      });
+    }
+
+    return found || voices.find((v) => v.lang.startsWith("en")) || voices[0];
   };
 
   const speakText = useCallback(
@@ -118,9 +135,9 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           window.speechSynthesis.cancel();
 
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 1.0;
-          utterance.pitch = 1.25; // Pleasant, natural female voice pitch
-          utterance.lang = "en-US";
+          utterance.rate = 0.95; // Natural Indian English cadence
+          utterance.pitch = 1.2; // Pleasant, friendly Indian female pitch
+          utterance.lang = "en-IN"; // Set Indian English locale
 
           const femaleVoice = getFemaleVoice();
           if (femaleVoice) {
