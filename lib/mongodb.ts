@@ -51,6 +51,21 @@ async function dbConnect() {
       if (colNames.includes("vfpfileassets")) {
         await db.collection("vfpfileassets").dropIndex("relativePath_1").catch(() => {});
       }
+      if (colNames.includes("vfp_new_folder_gledger")) {
+        await db.collection("vfp_new_folder_gledger").dropIndex("_vfpTable_1__vfpSourceKey_1").catch(() => {});
+      }
+      if (colNames.includes("gledger")) {
+        await db.collection("gledger").dropIndex("_vfpTable_1__vfpSourceKey_1").catch(() => {});
+      }
+      if (colNames.includes("vfp_new_folder_salesmdis")) {
+        await db.collection("vfp_new_folder_salesmdis").dropIndex("_vfpTable_1__vfpSourceKey_1").catch(() => {});
+      }
+      if (colNames.includes("vfp_new_folder_salesdis")) {
+        await db.collection("vfp_new_folder_salesdis").dropIndex("_vfpTable_1__vfpSourceKey_1").catch(() => {});
+      }
+      if (colNames.includes("vfp_new_folder_pendings")) {
+        await db.collection("vfp_new_folder_pendings").dropIndex("_vfpTable_1__vfpSourceKey_1").catch(() => {});
+      }
     }
   } catch (e) {
     console.error("Failed to drop legacy unique indexes:", e);

@@ -20,7 +20,7 @@ import {
 interface VoucherSeriesItem {
   _id: string;
   seriesName: string;
-  voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN";
+  voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT";
   prefix: string;
   suffix: string;
   nextNumber: number;
@@ -41,7 +41,7 @@ export default function VoucherSeriesMasterPage() {
 
   // Form State
   const [seriesName, setSeriesName] = useState("");
-  const [voucherType, setVoucherType] = useState<"SALES" | "PROFORMA" | "PURCHASE" | "RETURN">("SALES");
+  const [voucherType, setVoucherType] = useState<"SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT">("SALES");
   const [prefix, setPrefix] = useState("INV-");
   const [suffix, setSuffix] = useState("");
   const [nextNumber, setNextNumber] = useState<number | "">(1001);
@@ -71,7 +71,7 @@ export default function VoucherSeriesMasterPage() {
     }
   };
 
-  const handleVoucherTypeChange = (type: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN") => {
+  const handleVoucherTypeChange = (type: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT") => {
     setVoucherType(type);
     if (!editingId) {
       if (type === "SALES") {
@@ -86,6 +86,9 @@ export default function VoucherSeriesMasterPage() {
       } else if (type === "RETURN") {
         setSeriesName("Sales Return Series");
         setPrefix("RET-");
+      } else if (type === "RECEIPT") {
+        setSeriesName("Receipt Entry Series");
+        setPrefix("RCT-");
       }
     }
   };
@@ -264,7 +267,7 @@ export default function VoucherSeriesMasterPage() {
             {/* Voucher Type Selector */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Voucher Type</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => handleVoucherTypeChange("SALES")}
@@ -278,6 +281,28 @@ export default function VoucherSeriesMasterPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => handleVoucherTypeChange("RETURN")}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    voucherType === "RETURN"
+                      ? "bg-rose-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <FaReceipt size={12} /> Sales Return
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVoucherTypeChange("RECEIPT")}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    voucherType === "RECEIPT"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <FaFileInvoiceDollar size={12} /> Receipt Entry
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleVoucherTypeChange("PROFORMA")}
                   className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
                     voucherType === "PROFORMA"
@@ -286,6 +311,17 @@ export default function VoucherSeriesMasterPage() {
                   }`}
                 >
                   <FaFileInvoiceDollar size={12} /> Proforma (Kaccha)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVoucherTypeChange("PURCHASE")}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    voucherType === "PURCHASE"
+                      ? "bg-cyan-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <FaReceipt size={12} /> Purchase
                 </button>
               </div>
             </div>
@@ -457,13 +493,21 @@ export default function VoucherSeriesMasterPage() {
                             className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
                               item.voucherType === "SALES"
                                 ? "bg-indigo-100 text-indigo-800 border-indigo-300"
+                                : item.voucherType === "RETURN"
+                                ? "bg-rose-100 text-rose-800 border-rose-300"
+                                : item.voucherType === "RECEIPT"
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                                 : item.voucherType === "PROFORMA"
                                 ? "bg-amber-100 text-amber-900 border-amber-300"
-                                : "bg-slate-100 text-slate-700 border-slate-300"
+                                : "bg-cyan-100 text-cyan-800 border-cyan-300"
                             }`}
                           >
                             {item.voucherType === "SALES"
                               ? "Tax Invoice"
+                              : item.voucherType === "RETURN"
+                              ? "Sales Return"
+                              : item.voucherType === "RECEIPT"
+                              ? "Receipt Entry"
                               : item.voucherType === "PROFORMA"
                               ? "Proforma"
                               : item.voucherType}

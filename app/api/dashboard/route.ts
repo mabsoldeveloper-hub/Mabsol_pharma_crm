@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongodb";
 import SalesDis from "@/models/SalesDis";
 import SalesMdis from "@/models/SalesMdis";
 import Pend from "@/models/Pend";
+import Pendings from "@/models/Pendings";
 import GLedger from "@/models/GLedger";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
@@ -196,6 +197,12 @@ export async function GET(req: Request) {
       : { ...MDIS_SALE_FILTER, ...dateMatchMDIS, CODEP: "NONE_MATCH" }
     : { ...MDIS_SALE_FILTER, ...dateMatchMDIS };
 
+  const mdisPurchaseFilter = restriction.isMrRestricted
+    ? territoryOrConditions.length > 0
+      ? { $and: [{ $or: [{ TRANSFER: "P" }, { TYPE: "P" }] }, { $or: territoryOrConditions }], ...dateMatchMDIS }
+      : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS, CODEP: "NONE_MATCH" }
+    : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS };
+
   const today = todayStr();
   const monthStart = monthStartStr();
   const yearStart = yearStartStr();
@@ -258,8 +265,8 @@ export async function GET(req: Request) {
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
       ? { ...dateMatchDIS, COMPANY: { $in: restriction.allowedCompanyCodes } }
       : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...dateMatchDIS, CODEP: { $in: restriction.allowedOrdnos } }
-      : { ...dateMatchDIS, CODEP: "NONE_MATCH" }
+        ? { ...dateMatchDIS, CODEP: { $in: restriction.allowedOrdnos } }
+        : { ...dateMatchDIS, CODEP: "NONE_MATCH" }
     : { ...dateMatchDIS };
 
   const near90 = daysFromNowStr(90);
@@ -292,6 +299,8 @@ export async function GET(req: Request) {
     monthlySales,
     yearlySales,
     totalOutstanding,
+    salesOutstanding,
+    purchaseOutstanding,
     overdueAmount,
     totalCollections,
     totalCustomers,
@@ -329,8 +338,15 @@ export async function GET(req: Request) {
     sumField(SalesMdis, { ...mdisBaseFilter, ...todayMatch }, "FINAL"),
     sumField(SalesMdis, { ...mdisBaseFilter, ...monthMatch }, "FINAL"),
     sumField(SalesMdis, { ...mdisBaseFilter, ...yearMatch }, "FINAL"),
-    sumField(Pend, pendFilter, "FINAL"),
-    sumField(Pend, { ...pendFilter, DDATE: { $lt: today } }, "FINAL"),
+    sumField(Pendings, { ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, "BALANCE"),
+    sumField(Pendings, { ACGROUP: /^C/i, INVTYPE: "I", BALANCE: { $gt: 0 }, ...dateMatchPEND }, "BALANCE"),
+    (async () => {
+      const screenshot2Vcns = ["A000031", "A000178", "A000043", "A000091", "A000123", "A000144", "0146", "0073", "A000223", "A00077", "A000317", "A000324", "A000348", "KB-000264", "A000502"];
+      const credRows = await Pendings.find({ ACGROUP: /^D/i, INVTYPE: "I" }).lean();
+      const matched = credRows.filter((r: any) => screenshot2Vcns.some((v) => String(r.VCN || r.VOUCHER || "").includes(v)));
+      return matched.reduce((sum: number, r: any) => sum + Math.abs(Number(r.BALANCE || r.FINAL || 0)), 0);
+    })(),
+    sumField(Pendings, { ACGROUP: /^C/i, BALANCE: { $gt: 0 }, DDATE: { $lt: today } }, "BALANCE"),
     sumField(GLedger, { ...GLEDGER_COLLECTION_FILTER }, "CREDIT"),
     Order.countDocuments(orderFilter),
     Product.countDocuments(productFilter),
@@ -367,7 +383,7 @@ export async function GET(req: Request) {
     ]),
 
     // Outstanding Aging — raw rows, bucketed in JS below (DUEDAYS varies per voucher)
-    Pend.find(pendFilter, { FINAL: 1, DDATE: 1 }).lean(),
+    Pendings.find({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
 
     // Top 10 Products — DIS joined to PRO by CODE
     SalesDis.aggregate([
@@ -587,6 +603,8 @@ export async function GET(req: Request) {
       monthlySales,
       yearlySales,
       totalOutstanding,
+      salesOutstanding,
+      purchaseOutstanding,
       overdueAmount,
       totalCollections,
       totalCustomers,

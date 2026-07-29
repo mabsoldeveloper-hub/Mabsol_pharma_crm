@@ -20,7 +20,8 @@ export async function GET(req: Request) {
     const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
     const restriction = await getMrTerritoryRestriction();
 
-    let billMatch: any = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] } };
+    const saleFilterBase = { TRANSFER: { $ne: "P" }, TYPE: { $nin: ["PROFORMA", "ESTIMATE", "P"] } };
+    let billMatch: any = { ...dateMatch, ...saleFilterBase };
     if (restriction.isMrRestricted) {
       const orConditions: any[] = [];
       if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
@@ -30,9 +31,9 @@ export async function GET(req: Request) {
         orConditions.push({ COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } });
       }
       if (orConditions.length > 0) {
-        billMatch = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, $or: orConditions };
+        billMatch = { ...dateMatch, ...saleFilterBase, $or: orConditions };
       } else {
-        billMatch = { ...dateMatch, TYPE: { $nin: ["PROFORMA", "ESTIMATE"] }, CODEP: "NONE_MATCH" };
+        billMatch = { ...dateMatch, ...saleFilterBase, CODEP: "NONE_MATCH" };
       }
     }
 

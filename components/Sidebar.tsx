@@ -34,6 +34,9 @@ import {
   FaGift,
   FaTrophy,
   FaUserCheck,
+  FaFileInvoiceDollar,
+  FaUndo,
+  FaReceipt,
 } from "react-icons/fa";
 
 
@@ -791,10 +794,37 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                       </li>
                       <li>
                         <SubLink
+                          href="/dashboard/sales/outstanding"
+                          icon={<FaFileInvoiceDollar />}
+                          label="Sales Outstanding"
+                          active={pathname.startsWith("/dashboard/sales/outstanding")}
+                          color="blue"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
                           href="/dashboard/sales/invoice/create"
                           icon={<FaPlusCircle />}
                           label="Create Sale Invoice"
                           active={pathname.startsWith("/dashboard/sales/invoice/create")}
+                          color="blue"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/sales/sale-return"
+                          icon={<FaUndo />}
+                          label="Sales Return"
+                          active={pathname.startsWith("/dashboard/sales/sale-return")}
+                          color="blue"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/sales/receipt"
+                          icon={<FaReceipt />}
+                          label="Receipt Entry"
+                          active={pathname.startsWith("/dashboard/sales/receipt")}
                           color="blue"
                         />
                       </li>

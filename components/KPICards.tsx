@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
     FaRupeeSign,
     FaChartLine,
@@ -16,6 +17,10 @@ import {
     FaUserCheck,
 } from "react-icons/fa";
 import { useRouter } from "next/navigation";
+import CurrentStockModal from "@/components/CurrentStockModal";
+import NearExpiryModal from "@/components/NearExpiryModal";
+import ExpiredBatchesModal from "@/components/ExpiredBatchesModal";
+import LedgerDetailsModal from "@/components/LedgerDetailsModal";
 
 function formatCurrency(n: number) {
     return "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -23,6 +28,11 @@ function formatCurrency(n: number) {
 
 export default function KPICards({ kpis }: { kpis: any }) {
     const router = useRouter();
+    const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+    const [isNearExpiryModalOpen, setIsNearExpiryModalOpen] = useState(false);
+    const [isExpiredBatchesModalOpen, setIsExpiredBatchesModalOpen] = useState(false);
+    const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+    const [ledgerInitialType, setLedgerInitialType] = useState<"credit" | "debit">("credit");
 
     // Har card ka apna alag color — koi bhi 2 cards ka color repeat nahi hota
     const cards = [
@@ -55,11 +65,25 @@ export default function KPICards({ kpis }: { kpis: any }) {
             color: "teal",
         },
         {
-            title: "Outstanding",
+            title: "Total Outstanding",
             value: formatCurrency(kpis?.totalOutstanding),
             icon: <FaWallet size={20} />,
             url: "/dashboard/sales/invoice",
             color: "amber",
+        },
+        {
+            title: "Sales Outstanding",
+            value: formatCurrency(kpis?.salesOutstanding),
+            icon: <FaWallet size={20} />,
+            url: "/dashboard/sales/outstanding",
+            color: "cyan",
+        },
+        {
+            title: "Purchase Outstanding",
+            value: formatCurrency(kpis?.purchaseOutstanding),
+            icon: <FaWallet size={20} />,
+            url: "/dashboard/purchase/outstanding",
+            color: "orange",
         },
         {
             title: "Overdue Amount",
@@ -94,18 +118,21 @@ export default function KPICards({ kpis }: { kpis: any }) {
             value: (kpis?.currentStock ?? 0).toLocaleString("en-IN"),
             icon: <FaBoxes size={20} />,
             color: "green",
+            isStockModal: true,
         },
         {
             title: "Near Expiry Batches",
             value: kpis?.nearExpiryBatches ?? 0,
             icon: <FaExclamationTriangle size={20} />,
             color: "orange",
+            isNearExpiryModal: true,
         },
         {
             title: "Expired Batches",
             value: kpis?.expiredBatches ?? 0,
             icon: <FaExclamationTriangle size={20} />,
             color: "red",
+            isExpiredBatchesModal: true,
         },
 
         // ---- NEW: 5 new dashboard cards ----
@@ -128,12 +155,14 @@ export default function KPICards({ kpis }: { kpis: any }) {
             value: formatCurrency(kpis?.totalCredit),
             icon: <FaArrowUp size={20} />,
             color: "lime",
+            isCreditModal: true,
         },
         {
             title: "Total Debit",
             value: formatCurrency(kpis?.totalDebit),
             icon: <FaArrowDown size={20} />,
             color: "fuchsia",
+            isDebitModal: true,
         },
         {
             title: "Active Customers",
@@ -170,73 +199,139 @@ export default function KPICards({ kpis }: { kpis: any }) {
     };
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {cards.map((card, index) => {
-                const c = colorMap[card.color] ?? colorMap.indigo;
-                return (
-                    <div
-                        key={index}
-                        onClick={() => card.url && router.push(card.url)}
-                        style={{ animationDelay: `${index * 40}ms` }}
-                        className={`
-                            group relative isolate overflow-hidden rounded-2xl
-                            bg-white/40 backdrop-blur-xl backdrop-saturate-150
-                            border border-white/60
-                            shadow-[0_8px_32px_rgba(31,38,135,0.12)]
-                            ring-1 ${c.ring}
-                            animate-[fadeSlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
-                            transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                            hover:-translate-y-1.5 hover:scale-[1.02]
-                            hover:shadow-[0_16px_40px_rgba(31,38,135,0.18)]
-                            active:scale-[0.98] active:duration-150
-                            ${card.url ? "cursor-pointer" : "cursor-default"}
-                            p-4 sm:p-5
-                        `}
-                    >
-                        {/* liquid glass top-sheen */}
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/50 via-white/10 to-transparent" />
-
-                        {/* soft colored glow blob, apple-style, expands on hover */}
+        <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {cards.map((card, index) => {
+                    const c = colorMap[card.color] ?? colorMap.indigo;
+                    const isClickable = Boolean(
+                        card.url ||
+                        (card as any).isStockModal ||
+                        (card as any).isNearExpiryModal ||
+                        (card as any).isExpiredBatchesModal ||
+                        (card as any).isCreditModal ||
+                        (card as any).isDebitModal
+                    );
+                    return (
                         <div
+                            key={index}
+                            onClick={() => {
+                                if ((card as any).isStockModal || card.title === "Current Stock") {
+                                    setIsStockModalOpen(true);
+                                } else if ((card as any).isNearExpiryModal || card.title === "Near Expiry Batches") {
+                                    setIsNearExpiryModalOpen(true);
+                                } else if ((card as any).isExpiredBatchesModal || card.title === "Expired Batches") {
+                                    setIsExpiredBatchesModalOpen(true);
+                                } else if ((card as any).isCreditModal || card.title === "Total Credit") {
+                                    setLedgerInitialType("credit");
+                                    setIsLedgerModalOpen(true);
+                                } else if ((card as any).isDebitModal || card.title === "Total Debit") {
+                                    setLedgerInitialType("debit");
+                                    setIsLedgerModalOpen(true);
+                                } else if (card.url) {
+                                    router.push(card.url);
+                                }
+                            }}
+                            style={{ animationDelay: `${index * 40}ms` }}
                             className={`
-                                pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full
-                                bg-gradient-to-br ${c.glowFrom} to-transparent blur-2xl
-                                opacity-60 scale-90
-                                transition-all duration-700 ease-out
-                                group-hover:opacity-100 group-hover:scale-125
+                                group relative isolate overflow-hidden rounded-2xl
+                                bg-white/40 backdrop-blur-xl backdrop-saturate-150
+                                border border-white/60
+                                shadow-[0_8px_32px_rgba(31,38,135,0.12)]
+                                ring-1 ${c.ring}
+                                animate-[fadeSlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
+                                transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                hover:-translate-y-1.5 hover:scale-[1.02]
+                                hover:shadow-[0_16px_40px_rgba(31,38,135,0.18)]
+                                active:scale-[0.98] active:duration-150
+                                ${isClickable ? "cursor-pointer" : "cursor-default"}
+                                p-4 sm:p-5
                             `}
-                        />
+                        >
+                            {/* liquid glass top-sheen */}
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/50 via-white/10 to-transparent" />
 
-                        {/* faint inner top border for the "glass edge" highlight */}
-                        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
-
-                        <div className="relative flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-600/90 truncate mb-1 tracking-wide">
-                                    {card.title}
-                                </p>
-                                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 truncate transition-transform duration-500 group-hover:translate-x-0.5">
-                                    {card.value}
-                                </h3>
-                            </div>
-
+                            {/* soft colored glow blob, apple-style, expands on hover */}
                             <div
                                 className={`
-                                    flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
-                                    bg-white/60 backdrop-blur-md ${c.iconText}
-                                    border border-white/70
-                                    shadow-[0_2px_8px_rgba(0,0,0,0.06)]
-                                    transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                                    group-hover:scale-110 group-hover:rotate-6
-                                    group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]
+                                    pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full
+                                    bg-gradient-to-br ${c.glowFrom} to-transparent blur-2xl
+                                    opacity-60 scale-90
+                                    transition-all duration-700 ease-out
+                                    group-hover:opacity-100 group-hover:scale-125
                                 `}
-                            >
-                                {card.icon}
+                            />
+
+                            {/* faint inner top border for the "glass edge" highlight */}
+                            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
+
+                            <div className="relative flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-600/90 truncate mb-1 tracking-wide flex items-center gap-1.5">
+                                        {card.title}
+                                        {(
+                                            (card as any).isStockModal ||
+                                            (card as any).isNearExpiryModal ||
+                                            (card as any).isExpiredBatchesModal ||
+                                            (card as any).isCreditModal ||
+                                            (card as any).isDebitModal
+                                        ) && (
+                                            <span className={`inline-block w-1.5 h-1.5 rounded-full animate-pulse ${
+                                                (card as any).isDebitModal
+                                                    ? "bg-fuchsia-500"
+                                                    : (card as any).isCreditModal
+                                                    ? "bg-lime-500"
+                                                    : (card as any).isExpiredBatchesModal
+                                                    ? "bg-rose-500"
+                                                    : (card as any).isNearExpiryModal
+                                                    ? "bg-amber-500"
+                                                    : "bg-emerald-500"
+                                            }`} title="Click to view details" />
+                                        )}
+                                    </p>
+                                    <h3 className="text-xl sm:text-2xl font-bold text-gray-800 truncate transition-transform duration-500 group-hover:translate-x-0.5">
+                                        {card.value}
+                                    </h3>
+                                </div>
+
+                                <div
+                                    className={`
+                                        flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
+                                        bg-white/60 backdrop-blur-md ${c.iconText}
+                                        border border-white/70
+                                        shadow-[0_2px_8px_rgba(0,0,0,0.06)]
+                                        transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                        group-hover:scale-110 group-hover:rotate-6
+                                        group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]
+                                    `}
+                                >
+                                    {card.icon}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
+
+            <CurrentStockModal
+                isOpen={isStockModalOpen}
+                onClose={() => setIsStockModalOpen(false)}
+            />
+
+            <NearExpiryModal
+                isOpen={isNearExpiryModalOpen}
+                onClose={() => setIsNearExpiryModalOpen(false)}
+            />
+
+            <ExpiredBatchesModal
+                isOpen={isExpiredBatchesModalOpen}
+                onClose={() => setIsExpiredBatchesModalOpen(false)}
+            />
+
+            <LedgerDetailsModal
+                isOpen={isLedgerModalOpen}
+                onClose={() => setIsLedgerModalOpen(false)}
+                initialType={ledgerInitialType}
+            />
 
             <style jsx global>{`
                 @keyframes fadeSlideIn {
@@ -250,6 +345,6 @@ export default function KPICards({ kpis }: { kpis: any }) {
                     }
                 }
             `}</style>
-        </div>
+        </>
     );
 }

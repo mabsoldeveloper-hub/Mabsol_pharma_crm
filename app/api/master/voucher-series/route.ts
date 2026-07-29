@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const seriesName = String(body.seriesName || "").trim();
-    const voucherType = String(body.voucherType || "SALES").toUpperCase();
+    const voucherType = String(body.voucherType || "SALES").toUpperCase() as any;
     const prefix = String(body.prefix || "").trim();
     const suffix = String(body.suffix || "").trim();
     const nextNumber = Number(body.nextNumber || 1001);

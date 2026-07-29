@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
     FaFileInvoice,
     FaRupeeSign,
@@ -60,10 +61,10 @@ export default function InvoicePage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
     const pageSize = 10;
+    const { selectedFY } = useFinancialYear();
 
     useEffect(() => {
         loadMrTerritoryInfo();
-        loadInvoices();
     }, []);
 
     const loadMrTerritoryInfo = async () => {
@@ -84,11 +85,23 @@ export default function InvoicePage() {
         }
     };
 
-    const loadInvoices = async () => {
-
+    const loadInvoices = useCallback(async () => {
         try {
+            let url = "/api/sales/invoice";
+            if (selectedFY) {
+                if (selectedFY.isAll) {
+                    url += "?fyId=ALL";
+                } else if (selectedFY._id) {
+                    url += `?fyId=${selectedFY._id}`;
+                    if (selectedFY.startDate && selectedFY.endDate) {
+                        const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                        const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                        url += `&startDate=${s}&endDate=${e}`;
+                    }
+                }
+            }
 
-            const res = await fetch("/api/sales/invoice");
+            const res = await fetch(url);
             const data = await res.json();
 
             if (Array.isArray(data)) {
@@ -99,13 +112,18 @@ export default function InvoicePage() {
                 console.error("Invalid API Response", data);
                 setInvoices([]);
             }
-
         } catch (err) {
             console.error(err);
             setInvoices([]);
         }
+    }, [selectedFY]);
 
-    };
+    useEffect(() => {
+        loadInvoices();
+        const onFyChange = () => loadInvoices();
+        window.addEventListener("financial-year-changed", onFyChange);
+        return () => window.removeEventListener("financial-year-changed", onFyChange);
+    }, [loadInvoices]);
 
     // search & type filter (bill no, customer, city, billType)
     const filtered = useMemo(() => {
@@ -165,22 +183,27 @@ export default function InvoicePage() {
     // Dashboard Cards — based on filtered (search) results
     const totalBills = filtered.length;
 
-    const totalSale = filtered.reduce(
+    // Filter out Purchase bills (type === "P") and Proforma bills for Total Sale calculation
+    const saleInvoices = useMemo(() => {
+        return filtered.filter((r) => r.type === "S" || r.billType === "S" || (!r.billType && r.type !== "P" && r.type !== "PROFORMA" && r.type !== "ESTIMATE"));
+    }, [filtered]);
+
+    const totalSale = saleInvoices.reduce(
         (sum, row) => sum + Number(row.finalAmount || row.total || 0),
         0
     );
 
-    const totalTaxable = filtered.reduce(
+    const totalTaxable = saleInvoices.reduce(
         (sum, row) => sum + Number(row.taxable || 0),
         0
     );
 
-    const totalTax = filtered.reduce(
+    const totalTax = saleInvoices.reduce(
         (sum, row) => sum + Number(row.tax || (Number(row.cgst || 0) + Number(row.sgst || 0) + Number(row.igst || 0))),
         0
     );
 
-    const salesBills = filtered.filter((x) => x.type === "S").length;
+    const salesBills = filtered.filter((x) => x.type === "S" || x.billType === "S" || (!x.billType && x.type !== "P" && x.type !== "PROFORMA")).length;
     const purchaseBills = filtered.filter((x) => x.type === "P").length;
     const returnBills = filtered.filter((x) => x.type === "R").length;
 

@@ -10,6 +10,8 @@ import GLedger from "@/models/GLedger";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { consumeNextVoucherNumber } from "@/lib/voucherSeriesHelper";
 
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
+
 function formatInvoiceDate(rawDate: any): string {
   if (!rawDate) return "";
   if (typeof rawDate === "string") {
@@ -37,13 +39,18 @@ function formatInvoiceDate(rawDate: any): string {
   return String(rawDate).slice(0, 10);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await connectDB();
 
+    const { searchParams } = new URL(req.url);
+    const fyRange = await getFYDateRange(searchParams);
+    const { startDate, endDate } = fyRange;
+
+    const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
     const restriction = await getMrTerritoryRestriction();
 
-    let invoiceFilter: any = {};
+    let invoiceFilter: any = { ...dateMatch };
 
     if (restriction.isMrRestricted) {
       const orConditions: any[] = [];
@@ -61,9 +68,9 @@ export async function GET() {
       }
 
       if (orConditions.length > 0) {
-        invoiceFilter = { $or: orConditions };
+        invoiceFilter = { ...dateMatch, $or: orConditions };
       } else {
-        invoiceFilter = { CODEP: "NONE_MATCH" };
+        invoiceFilter = { ...dateMatch, CODEP: "NONE_MATCH" };
       }
     }
 
@@ -91,30 +98,35 @@ export async function GET() {
       .sort({ DATE: -1 })
       .lean();
 
-    // Customer Master
-    const customers = await Order.find(
-      {},
-      {
-        ORDNO: 1,
-        PARNAM: 1,
-        CITY: 1,
-        GSTNO: 1,
-        GSTHED: 1,
-        STATE: 1,
-        COMPANY: 1,
-        GCODE: 1,
-        SCODE: 1,
-        DSM: 1,
-      }
-    ).lean();
+    // Customer / Order Master
+    const [orders, customers] = await Promise.all([
+      Order.find({}, { ORDNO: 1, CODEP: 1, PARNAM: 1, NAME: 1, CITY: 1, GSTNO: 1, GSTHED: 1, STATE: 1 }).lean(),
+      Customer.find({}, { ORDNO: 1, CODEP: 1, PARNAM: 1, NAME: 1, CITY: 1, GSTNO: 1, GSTHED: 1, STATE: 1 }).lean(),
+    ]);
 
-    // Customer Map (ORDNO -> Customer)
+    // Customer Map (ORDNO / CODEP -> Customer Obj)
     const customerMap = new Map();
 
-    customers.forEach((c: any) => {
-      const key = String(c.ORDNO || "").trim().toUpperCase();
-      customerMap.set(key, c);
-    });
+    const addCustomerToMap = (c: any) => {
+      const obj = {
+        PARNAM: c.PARNAM || c.NAME || "",
+        CITY: c.CITY || "",
+        GSTNO: c.GSTNO || "",
+        GSTHED: c.GSTHED || "",
+        STATE: c.STATE || "",
+      };
+      [c.ORDNO, c.CODEP, c.CODE, c.SCODE].forEach((k) => {
+        if (k) {
+          const key = String(k).trim().toUpperCase();
+          if (key && !customerMap.has(key)) {
+            customerMap.set(key, obj);
+          }
+        }
+      });
+    };
+
+    orders.forEach(addCustomerToMap);
+    customers.forEach(addCustomerToMap);
 
     const result = invoices.map((bill: any) => {
       const code = String(bill.CODEP || "").trim().toUpperCase();
