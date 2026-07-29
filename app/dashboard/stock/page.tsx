@@ -18,6 +18,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import CurrentStockModal from "@/components/CurrentStockModal";
+import NearExpiryModal from "@/components/NearExpiryModal";
+import ExpiredBatchesModal from "@/components/ExpiredBatchesModal";
 import {
     Package,
     Boxes,
@@ -85,6 +88,9 @@ export default function StockDashboardPage() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
+    const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+    const [isNearExpiryModalOpen, setIsNearExpiryModalOpen] = useState(false);
+    const [isExpiredBatchesModalOpen, setIsExpiredBatchesModalOpen] = useState(false);
 
     useEffect(() => {
         loadMrTerritoryInfo();
@@ -361,20 +367,60 @@ export default function StockDashboardPage() {
 
                 {/* 1. KPI CARDS */}
                 <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                    {kpiCards.map((k) => (
-                        <div
-                            key={k.label}
-                            className="group relative rounded-2xl border border-white/60 bg-white/40 backdrop-blur-xl shadow-[0_8px_32px_rgba(31,38,135,0.10)] p-4 overflow-hidden hover:bg-white/55 transition-colors"
-                        >
+                    {kpiCards.map((k) => {
+                        const isCurrentStockCard = k.label.includes("Current Stock");
+                        const isNearExpiryCard = k.label.includes("Near Expiry");
+                        const isExpiredCard = k.label.includes("Expired");
+                        const isClickableCard = isCurrentStockCard || isNearExpiryCard || isExpiredCard;
+
+                        return (
                             <div
-                                className={`absolute -top-6 -right-6 h-16 w-16 rounded-full bg-gradient-to-br ${k.tint} opacity-25 blur-2xl group-hover:opacity-40 transition-opacity`}
-                            />
-                            <k.icon className="h-4 w-4 text-slate-500 mb-2" strokeWidth={1.75} />
-                            <p className="text-[11px] text-slate-500">{k.label}</p>
-                            <p className="text-xl font-semibold mt-0.5 text-slate-900">{k.value}</p>
-                        </div>
-                    ))}
+                                key={k.label}
+                                onClick={() => {
+                                    if (isCurrentStockCard) setIsStockModalOpen(true);
+                                    else if (isNearExpiryCard) setIsNearExpiryModalOpen(true);
+                                    else if (isExpiredCard) setIsExpiredBatchesModalOpen(true);
+                                }}
+                                className={`group relative rounded-2xl border border-white/60 bg-white/40 backdrop-blur-xl shadow-[0_8px_32px_rgba(31,38,135,0.10)] p-4 overflow-hidden hover:bg-white/55 transition-all ${
+                                    isClickableCard ? "cursor-pointer hover:scale-[1.02] hover:-translate-y-1" : ""
+                                }`}
+                            >
+                                <div
+                                    className={`absolute -top-6 -right-6 h-16 w-16 rounded-full bg-gradient-to-br ${k.tint} opacity-25 blur-2xl group-hover:opacity-40 transition-opacity`}
+                                />
+                                <k.icon className="h-4 w-4 text-slate-500 mb-2" strokeWidth={1.75} />
+                                <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                                    {k.label}
+                                    {isCurrentStockCard && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Click to view details" />
+                                    )}
+                                    {isNearExpiryCard && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" title="Click to view details" />
+                                    )}
+                                    {isExpiredCard && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" title="Click to view details" />
+                                    )}
+                                </p>
+                                <p className="text-xl font-semibold mt-0.5 text-slate-900">{k.value}</p>
+                            </div>
+                        );
+                    })}
                 </section>
+
+                <CurrentStockModal
+                    isOpen={isStockModalOpen}
+                    onClose={() => setIsStockModalOpen(false)}
+                />
+
+                <NearExpiryModal
+                    isOpen={isNearExpiryModalOpen}
+                    onClose={() => setIsNearExpiryModalOpen(false)}
+                />
+
+                <ExpiredBatchesModal
+                    isOpen={isExpiredBatchesModalOpen}
+                    onClose={() => setIsExpiredBatchesModalOpen(false)}
+                />
 
                 {/* 2. STOCK SUMMARY */}
                 <GlassPanel title="Stock Summary">
