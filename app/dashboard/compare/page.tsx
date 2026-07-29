@@ -103,7 +103,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
     return (
         <div className="relative rounded-[24px] sm:rounded-[28px] border border-white/60 bg-white/40 backdrop-blur-2xl shadow-[0_8px_32px_rgba(31,41,55,0.08)] p-4 sm:p-6 overflow-hidden">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
-            <h3 className="text-[14px] sm:text-[15px] font-semibold text-slate-800 mb-4 sm:mb-5 tracking-tight">{title}</h3>
+            <h3 className="text-[14px] sm:text-[15px] font-bold text-black mb-4 sm:mb-5 tracking-tight">{title}</h3>
             {children}
         </div>
     );
@@ -113,8 +113,8 @@ function StatCard({ label, value }: { label: string; value: string }) {
     return (
         <div className="relative rounded-[24px] sm:rounded-[28px] border border-white/60 bg-white/40 backdrop-blur-2xl shadow-[0_8px_32px_rgba(31,41,55,0.08)] p-4 sm:p-6 overflow-hidden">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
-            <p className="text-[12px] sm:text-[13px] text-slate-500 font-medium">{label}</p>
-            <p className="text-[20px] sm:text-[26px] font-bold text-slate-900 mt-1 tracking-tight break-words">{value}</p>
+            <p className="text-[12px] sm:text-[13px] text-slate-900 font-bold">{label}</p>
+            <p className="text-[20px] sm:text-[26px] font-black text-black mt-1 tracking-tight break-words">{value}</p>
         </div>
     );
 }
@@ -281,7 +281,7 @@ export default function ComparisonDashboardPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end items-stretch justify-between gap-4 rounded-[24px] sm:rounded-[28px] border border-white/60 bg-white/40 backdrop-blur-2xl shadow-[0_8px_32px_rgba(31,41,55,0.08)] p-4 sm:p-6 relative overflow-hidden">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Comparison Dashboard</h1>
+                <h1 className="text-xl sm:text-2xl font-black text-black tracking-tight">Comparison Dashboard</h1>
                 <div className="flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-end gap-2">
                     <div className="grid grid-cols-2 sm:flex sm:items-end gap-2">
                         <div>
