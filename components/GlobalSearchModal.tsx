@@ -71,6 +71,23 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
   const [transcriptPreview, setTranscriptPreview] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const isOpenRef = useRef(isOpen);
+
+  // Sync isOpenRef & cancel active speech/recognition when modal closes
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+    if (!isOpen) {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
+      setIsListening(false);
+      setVocalSpeaking(false);
+      setVocalText(null);
+    }
+  }, [isOpen]);
 
   // Alexa Speech Synthesis (TTS Vocal Replies)
   const [vocalEnabled, setVocalEnabled] = useState(true);
@@ -155,10 +172,12 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           utterance.onend = () => {
             setVocalSpeaking(false);
             setVocalText(null);
-            // Siri Two-Way Dialogue Loop: Automatically turn on microphone AFTER assistant finishes speaking!
+            // Siri Two-Way Dialogue Loop: Automatically turn on microphone AFTER assistant finishes speaking ONLY IF modal is still open!
             setTimeout(() => {
-              toggleVoiceSearch();
-            }, 300);
+              if (isOpenRef.current) {
+                toggleVoiceSearch();
+              }
+            }, 350);
           };
 
           utterance.onerror = () => {
@@ -457,7 +476,46 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     return flat;
   }, [results, activeCategory]);
 
+  // Global Escape key listener to close modal instantly
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (selectedItem) {
+          setSelectedItem(null);
+        } else {
+          if (typeof window !== "undefined" && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+          }
+          setVocalSpeaking(false);
+          setVocalText(null);
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [isOpen, selectedItem, onClose]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (selectedItem) {
+        setSelectedItem(null);
+      } else {
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+        setVocalSpeaking(false);
+        setVocalText(null);
+        onClose();
+      }
+      return;
+    }
+
     const flat = getFlatResults();
     if (flat.length === 0) return;
 
