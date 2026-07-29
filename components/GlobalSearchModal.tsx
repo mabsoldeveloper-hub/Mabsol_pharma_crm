@@ -42,6 +42,11 @@ import {
   Trash2,
   AlertTriangle,
   Database,
+  Mic,
+  MicOff,
+  Globe,
+  Volume2,
+  Radio,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -50,12 +55,32 @@ interface GlobalSearchModalProps {
   onClose: () => void;
 }
 
+const VOICE_LANGUAGES = [
+  { code: "hi-IN", label: "हिंदी (Hindi)" },
+  { code: "en-IN", label: "English (India)" },
+  { code: "en-US", label: "English (US)" },
+  { code: "ur-PK", label: "اردو (Urdu)" },
+  { code: "mr-IN", label: "मराठी (Marathi)" },
+  { code: "gu-IN", label: "ગુજરાતી (Gujarati)" },
+  { code: "bn-IN", label: "বাংলা (Bengali)" },
+  { code: "ta-IN", label: "தமிழ் (Tamil)" },
+  { code: "te-IN", label: "తెలుగు (Telugu)" },
+  { code: "kn-IN", label: "ಕನ್ನಡ (Kannada)" },
+];
+
 export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
-  const router = RouterHook();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
+
+  // Multi-lingual Voice Search State
+  const [selectedLang, setSelectedLang] = useState("hi-IN");
+  const [isListening, setIsListening] = useState(false);
+  const [transcriptPreview, setTranscriptPreview] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   // E-Commerce style filters
   const [inStockOnly, setInStockOnly] = useState(false);
@@ -65,6 +90,80 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
 
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
   const [dynamicTrending, setDynamicTrending] = useState<any[]>([]);
+
+  const toggleVoiceSearch = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
+      setIsListening(false);
+      return;
+    }
+
+    setVoiceError(null);
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceError("Voice search is not supported in this browser.");
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
+
+      const rec = new SpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.lang = selectedLang;
+
+      rec.onstart = () => {
+        setIsListening(true);
+        setTranscriptPreview("");
+      };
+
+      rec.onresult = (event: any) => {
+        let text = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          text += event.results[i][0].transcript;
+        }
+        setTranscriptPreview(text);
+        setQuery(text);
+        setSelectedIndex(0);
+      };
+
+      rec.onerror = (event: any) => {
+        setIsListening(false);
+        if (event.error === "no-speech" || event.error === "aborted") {
+          setVoiceError("No speech heard. Tap mic 🎙️ and speak again.");
+          setTimeout(() => {
+            setVoiceError((prev) => (prev?.includes("No speech heard") ? null : prev));
+          }, 4000);
+          return;
+        }
+
+        console.warn("Voice search notice:", event.error);
+        if (event.error === "not-allowed") {
+          setVoiceError("Microphone access denied. Please allow mic permissions in browser.");
+        } else {
+          setVoiceError(`Voice notice: ${event.error}`);
+        }
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = rec;
+      rec.start();
+    } catch (err: any) {
+      console.error("Failed voice search:", err);
+      setIsListening(false);
+      setVoiceError("Could not access microphone.");
+    }
+  };
 
   const [results, setResults] = useState<{
     products: any[];
@@ -301,7 +400,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Search products, stock, customers, vouchers, MRs, reports..."
+            placeholder="Search sidebar links, file names, products, stock, customers, vouchers, reports..."
             className="w-full text-base sm:text-lg font-semibold text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
           />
 
@@ -316,6 +415,46 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
               <X className="w-4 h-4" />
             </button>
           )}
+
+          {/* Multi-Lingual Voice Search Controls */}
+          <div className="flex items-center gap-1.5 shrink-0 border-l border-slate-200 pl-2">
+            {/* Language Selector */}
+            <div className="relative hidden sm:flex items-center">
+              <Globe className="w-3.5 h-3.5 text-slate-400 absolute left-2 pointer-events-none" />
+              <select
+                value={selectedLang}
+                onChange={(e) => setSelectedLang(e.target.value)}
+                className="bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl pl-7 pr-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs"
+                title="Select Speech Recognition Language"
+              >
+                {VOICE_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Microphone Button */}
+            <button
+              onClick={toggleVoiceSearch}
+              className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all cursor-pointer ${
+                isListening
+                  ? "bg-rose-600 text-white shadow-lg scale-105 animate-pulse"
+                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80"
+              }`}
+              title={isListening ? "Stop Voice Search" : "Speak to Search (Multi-Lingual)"}
+            >
+              {isListening ? (
+                <>
+                  <span className="absolute inset-0 rounded-xl bg-rose-500 animate-ping opacity-75" />
+                  <MicOff className="w-4 h-4 relative z-10" />
+                </>
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
+            </button>
+          </div>
 
           {/* Toggle Guide Sidebar Button */}
           <button
@@ -337,6 +476,48 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             </kbd>
           </div>
         </div>
+
+        {/* Live Audio Soundwave & Voice Recording Visualizer Banner */}
+        {isListening && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 text-white text-xs font-semibold border-b border-rose-800/80 shadow-inner animate-fadeIn">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-4 bg-rose-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-1.5 h-6 bg-rose-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-1.5 h-3 bg-rose-300 rounded-full animate-bounce" />
+                <span className="w-1.5 h-5 bg-rose-500 rounded-full animate-bounce [animation-delay:-0.4s]" />
+              </div>
+              <span className="font-extrabold text-rose-400 uppercase tracking-wider text-[11px]">
+                Listening ({VOICE_LANGUAGES.find((l) => l.code === selectedLang)?.label})...
+              </span>
+              <span className="truncate text-rose-100 font-medium bg-rose-950/80 px-2.5 py-1 rounded-lg border border-rose-700/60 max-w-md">
+                &ldquo;{transcriptPreview || "Speak now..."}&rdquo;
+              </span>
+            </div>
+            <button
+              onClick={toggleVoiceSearch}
+              className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 shadow-2xs cursor-pointer"
+            >
+              Stop ⏹️
+            </button>
+          </div>
+        )}
+
+        {/* Voice Error Notice */}
+        {voiceError && !isListening && (
+          <div className="flex items-center justify-between gap-2 px-4 py-2 bg-rose-50 border-b border-rose-200 text-xs font-bold text-rose-800">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{voiceError}</span>
+            </div>
+            <button
+              onClick={() => setVoiceError(null)}
+              className="text-rose-600 hover:underline text-[11px] font-extrabold"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Category Tabs Filter */}
         <div className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-100/90 border-b border-slate-200 overflow-x-auto text-xs font-semibold no-scrollbar">
@@ -723,12 +904,22 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
-                    <div className="flex items-center gap-2 font-bold text-purple-400">
-                      <Compass className="w-3.5 h-3.5" />
-                      <span>Direct Page Navigation</span>
+                    <div className="flex items-center gap-2 font-bold text-rose-400">
+                      <Mic className="w-3.5 h-3.5" />
+                      <span>Multi-Lingual Voice Search 🎙️</span>
                     </div>
                     <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Type any module name (e.g. GSTR-1, Current Stock, Near Expiry, Targets, VFP Sync, Settings) to jump straight to that section.
+                      Click the mic icon and speak in <strong>Hindi, English, Urdu, Marathi, Gujarati, etc.</strong> Speaks terms like <em>&quot;Paracetamol stock dikhao&quot;</em> or <em>&quot;Customer ledger kholo&quot;</em> for auto extraction.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
+                    <div className="flex items-center gap-2 font-bold text-cyan-400">
+                      <Compass className="w-3.5 h-3.5" />
+                      <span>Sidebar Links & File Names Search</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      Type any sidebar link, route or file name (e.g. <code className="text-cyan-300">Sidebar.tsx</code>, <code className="text-cyan-300">Topbar.tsx</code>, <code className="text-cyan-300">accounting-group-master</code>, <code className="text-cyan-300">voucher-series</code>, <code className="text-cyan-300">sale-return</code>, <code className="text-cyan-300">mabsolcrmsync</code>) to jump instantly to that module.
                     </p>
                   </div>
                 </div>

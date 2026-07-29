@@ -13,6 +13,32 @@ function escapeRegex(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Spoken Voice Search Cleaner - removes spoken filler words across English, Hindi, Urdu & Hinglish
+function cleanSpokenQuery(input: string): string {
+  if (!input) return "";
+  let text = input.trim();
+
+  const spokenFillers = [
+    /\b(dikhao|dikhaao|dikhaye|dikhayen)\b/gi,
+    /\b(kholo|kholiye|open|open page)\b/gi,
+    /\b(batao|bataiye|show me|show|find me|find)\b/gi,
+    /\b(mujhe|mujhko|please|plz)\b/gi,
+    /\b(search karo|search karain|search for)\b/gi,
+    /\b(check karo|check karain)\b/gi,
+    /\b(ka ledger|ki ledger|ka bill|ke bill|parchi|hisaab)\b/gi,
+    /\b(ka stock|ki stock|ka report|ki report)\b/gi,
+    /\b(list all|where is|par jao)\b/gi,
+  ];
+
+  let cleaned = text;
+  spokenFillers.forEach((pattern) => {
+    cleaned = cleaned.replace(pattern, "");
+  });
+
+  cleaned = cleaned.replace(/\s+/g, " ").trim();
+  return cleaned.length > 0 ? cleaned : text;
+}
+
 // Typo correction dictionary for common pharma terms & reports
 const TYPO_MAP: Record<string, string> = {
   paracitamol: "Paracetamol",
@@ -37,32 +63,93 @@ const TYPO_MAP: Record<string, string> = {
   targt: "Target vs Actual",
 };
 
-// Navigation items definition
+// Navigation & Sidebar Links & Component File Registry
 const APP_PAGES = [
-  { title: "Dashboard Overview", category: "Navigation", path: "/dashboard", keywords: ["home", "analytics", "dashboard", "kpi", "summary"], icon: "layout-dashboard" },
-  { title: "Product Master & Stock Report", category: "Navigation", path: "/dashboard/reports/product", keywords: ["products", "stock", "inventory", "mrp", "rate", "batches"], icon: "package" },
-  { title: "Current Stock Inventory", category: "Navigation", path: "/dashboard/reports/product?view=stock", keywords: ["current stock", "available stock", "godown", "warehouse"], icon: "boxes" },
-  { title: "Customer Master & Ledgers", category: "Navigation", path: "/dashboard/reports/customer", keywords: ["customers", "parties", "ledger", "dealers", "clients"], icon: "users" },
-  { title: "Outstanding Receivables Report", category: "Navigation", path: "/dashboard/reports/outstanding", keywords: ["outstanding", "pending", "due", "receivables", "credit"], icon: "clock" },
-  { title: "Sales Receipt Report", category: "Navigation", path: "/dashboard/reports/sales-receipt", keywords: ["sales receipt", "vouchers", "payment", "collection"], icon: "receipt" },
-  { title: "Sales Return Report", category: "Navigation", path: "/dashboard/reports/sales-return", keywords: ["sales return", "credit note", "return", "refund"], icon: "undo" },
-  { title: "GSTR-1 GST Tax Report", category: "Navigation", path: "/dashboard/gst-reports/gstr1", keywords: ["gst", "gstr1", "gstr-1", "tax", "b2b", "hsn", "export excel", "gst-reports"], icon: "file-spreadsheet" },
-  { title: "Target vs Actual Sales", category: "Navigation", path: "/dashboard/reports/target-vs-actual", keywords: ["target", "actual", "achievement", "mr target", "kpi"], icon: "target" },
-  { title: "MR Customer Assignment", category: "Navigation", path: "/dashboard/mr-customer-assignment", keywords: ["mr assignment", "assign customer", "territory mapping"], icon: "user-plus" },
-  { title: "MR Reporting (DCR / Call Logs)", category: "Navigation", path: "/dashboard/mr-reporting", keywords: ["dcr", "daily call report", "mr log", "field visit"], icon: "clipboard-list" },
-  { title: "MR Territory Management", category: "Navigation", path: "/dashboard/mr-territory", keywords: ["territory", "hq", "headquarter", "zone", "region"], icon: "map-pin" },
-  { title: "Sales Hierarchy & Organization", category: "Navigation", path: "/dashboard/sales-hierarchy", keywords: ["hierarchy", "mr", "asm", "rsm", "zsm", "team"], icon: "network" },
-  { title: "Targets Master", category: "Navigation", path: "/dashboard/targets", keywords: ["targets", "monthly target", "quarterly target", "quota"], icon: "trophy" },
-  { title: "User Permissions", category: "Navigation", path: "/dashboard/user-permissions", keywords: ["user permission", "access control", "privileges"], icon: "shield-check" },
-  { title: "Role Permissions", category: "Navigation", path: "/dashboard/role-permissions", keywords: ["role permission", "admin", "manager"], icon: "lock" },
-  { title: "Company Settings", category: "Navigation", path: "/dashboard/company-settings", keywords: ["company settings", "profile", "gstin", "address"], icon: "building" },
-  { title: "Division Master", category: "Navigation", path: "/dashboard/division-master", keywords: ["division", "pharma division"], icon: "layers" },
-  { title: "Sub-Division Master", category: "Navigation", path: "/dashboard/sub-division-master", keywords: ["sub division", "brand line"], icon: "git-branch" },
-  { title: "Category Master", category: "Navigation", path: "/dashboard/category-master", keywords: ["category", "group", "product group"], icon: "tag" },
-  { title: "Company Master", category: "Navigation", path: "/dashboard/company-master", keywords: ["company master", "manufacturers"], icon: "factory" },
-  { title: "VFP Config & Sync Center", category: "Navigation", path: "/dashboard/vfp-config", keywords: ["vfp", "sync", "marg", "dbf", "import"], icon: "refresh-cw" },
-  { title: "Financial Year Settings", category: "Navigation", path: "/dashboard/financial-year", keywords: ["financial year", "fy", "year"], icon: "calendar" },
-  { title: "My Profile", category: "Navigation", path: "/dashboard/profile", keywords: ["profile", "account", "user info", "avatar"], icon: "user" },
+  // Core Dashboards & Sidebar Components
+  { title: "Dashboard Overview", category: "Navigation", path: "/dashboard", fileName: "app/dashboard/page.tsx", keywords: ["home", "analytics", "dashboard", "kpi", "summary", "main", "sidebar", "sidebar links", "topbar", "file name", "filename"], icon: "layout-dashboard" },
+  { title: "Sidebar Navigation Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/Sidebar.tsx", keywords: ["sidebar", "side bar", "sidebar links", "navigation bar", "menu", "nav", "file name", "filename"], icon: "compass" },
+  { title: "Topbar Header Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/Topbar.tsx", keywords: ["topbar", "top bar", "header", "search bar", "global search", "file name", "filename"], icon: "compass" },
+  { title: "Global Search Modal Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/GlobalSearchModal.tsx", keywords: ["global search", "search modal", "command palette", "file name", "filename"], icon: "search" },
+
+  // Targets
+  { title: "Targets & Achievements", category: "Navigation", path: "/dashboard/targets", fileName: "app/dashboard/targets/page.tsx", keywords: ["target", "actual", "achievement", "mr target", "kpi", "monthly target", "quarterly target", "quota", "targets"], icon: "target" },
+
+  // Master Section
+  { title: "Master Dashboard", category: "Navigation", path: "/dashboard/master", fileName: "app/dashboard/master/page.tsx", keywords: ["master", "master dashboard", "masters", "configuration"], icon: "cog" },
+  { title: "Accounting Group Master", category: "Navigation", path: "/dashboard/master/accounting-group-master", fileName: "app/dashboard/master/accounting-group-master/page.tsx", keywords: ["accounting group", "accounting-group-master", "group master", "chart of accounts", "ledger group", "accounts"], icon: "layers" },
+  { title: "Ledger Master / Customer Master", category: "Navigation", path: "/dashboard/master/customer-master", fileName: "app/dashboard/master/customer-master/page.tsx", keywords: ["customer master", "customer-master", "ledger master", "party master", "dealers", "clients", "customers"], icon: "users" },
+  { title: "Area Master", category: "Navigation", path: "/dashboard/master/area-master", fileName: "app/dashboard/master/area-master/page.tsx", keywords: ["area master", "area-master", "city master", "location", "territory", "area"], icon: "building" },
+  { title: "Product Master", category: "Navigation", path: "/dashboard/master/product-master", fileName: "app/dashboard/master/product-master/page.tsx", keywords: ["product master", "product-master", "items master", "medicine master", "products", "mrp", "rate"], icon: "package" },
+  { title: "HSN Master", category: "Navigation", path: "/dashboard/master/hsn-master", fileName: "app/dashboard/master/hsn-master/page.tsx", keywords: ["hsn master", "hsn-master", "hsn code", "gst hsn", "tax rate", "sac code"], icon: "list-ul" },
+  { title: "Division Master", category: "Navigation", path: "/dashboard/master/division-master", fileName: "app/dashboard/master/division-master/page.tsx", keywords: ["division master", "division-master", "pharma division", "divisions", "brand division"], icon: "layers" },
+  { title: "Sub-Division Master", category: "Navigation", path: "/dashboard/sub-division-master", fileName: "app/dashboard/sub-division-master/page.tsx", keywords: ["sub division master", "sub-division-master", "subdivision", "brand line"], icon: "git-branch" },
+  { title: "Category Master", category: "Navigation", path: "/dashboard/category-master", fileName: "app/dashboard/category-master/page.tsx", keywords: ["category master", "category-master", "product category", "group"], icon: "tag" },
+  { title: "Target & Gift Master", category: "Navigation", path: "/dashboard/master/targets", fileName: "app/dashboard/master/targets/page.tsx", keywords: ["target & gift master", "target master", "gift master", "incentive", "reward"], icon: "trophy" },
+  { title: "MR Customer Master", category: "Navigation", path: "/dashboard/master/mr-customer", fileName: "app/dashboard/master/mr-customer/page.tsx", keywords: ["mr customer master", "mr-customer", "mr assignment", "assign party"], icon: "user-check" },
+  { title: "Bill Series / Voucher Series Master", category: "Navigation", path: "/dashboard/master/voucher-series", fileName: "app/dashboard/master/voucher-series/page.tsx", keywords: ["bill series master", "voucher series", "voucher-series", "invoice prefix", "numbering"], icon: "sliders" },
+  { title: "Sales Hierarchy & Organization", category: "Navigation", path: "/dashboard/master/sales-hierarchy", fileName: "app/dashboard/master/sales-hierarchy/page.tsx", keywords: ["sales hierarchy", "sales-hierarchy", "organization", "mr asm rsm zsm", "structure"], icon: "network" },
+  { title: "Company Master", category: "Navigation", path: "/dashboard/company-master", fileName: "app/dashboard/company-master/page.tsx", keywords: ["company master", "company-master", "manufacturers", "company list"], icon: "factory" },
+
+  // Area & Comparison
+  { title: "Area Management", category: "Navigation", path: "/dashboard/area", fileName: "app/dashboard/area/page.tsx", keywords: ["area", "locations", "zones", "stations"], icon: "building" },
+  { title: "Comparison Tool & Analytics", category: "Navigation", path: "/dashboard/compare", fileName: "app/dashboard/compare/page.tsx", keywords: ["comparison", "compare", "sales comparison", "period comparison", "analytics"], icon: "boxes" },
+
+  // Users & Permissions
+  { title: "User Management", category: "Navigation", path: "/dashboard/users", fileName: "app/dashboard/users/page.tsx", keywords: ["user management", "users", "employee list", "staff", "create user"], icon: "users" },
+  { title: "Permission Management", category: "Navigation", path: "/dashboard/permissions", fileName: "app/dashboard/permissions/page.tsx", keywords: ["permission", "permissions", "access control", "privileges", "module access"], icon: "shield-check" },
+  { title: "Roles & Role Permissions", category: "Navigation", path: "/dashboard/roles", fileName: "app/dashboard/roles/page.tsx", keywords: ["roles", "role permissions", "role-permissions", "admin role", "manager role"], icon: "lock" },
+  { title: "User Permissions Matrix", category: "Navigation", path: "/dashboard/user-permissions", fileName: "app/dashboard/user-permissions/page.tsx", keywords: ["user permissions", "user-permissions", "rights", "access matrix"], icon: "user-check" },
+
+  // Inventory
+  { title: "Inventory Dashboard", category: "Navigation", path: "/dashboard/inventory/dashboard", fileName: "app/dashboard/inventory/dashboard/page.tsx", keywords: ["inventory dashboard", "stock overview", "inventory analytics"], icon: "layout-dashboard" },
+  { title: "Inventory Products List", category: "Navigation", path: "/dashboard/inventory/products", fileName: "app/dashboard/inventory/products/page.tsx", keywords: ["inventory products", "stock items", "products list"], icon: "package" },
+  { title: "Current Stock & Warehouse", category: "Navigation", path: "/dashboard/stock", fileName: "app/dashboard/stock/page.tsx", keywords: ["stock", "current stock", "warehouse", "godown", "batch stock"], icon: "warehouse" },
+  { title: "Current Stock Inventory Report", category: "Navigation", path: "/dashboard/reports/product?view=stock", fileName: "app/dashboard/reports/product/page.tsx", keywords: ["current stock inventory", "available stock", "godown", "warehouse stock"], icon: "boxes" },
+
+  // Sales Module
+  { title: "Sales Dashboard", category: "Navigation", path: "/dashboard/sales/dashboard", fileName: "app/dashboard/sales/dashboard/page.tsx", keywords: ["sales dashboard", "sales analytics", "revenue dashboard"], icon: "layout-dashboard" },
+  { title: "Sales Invoices List", category: "Navigation", path: "/dashboard/sales/invoice", fileName: "app/dashboard/sales/invoice/page.tsx", keywords: ["invoices list", "sales invoice", "bills", "invoice history"], icon: "file-invoice" },
+  { title: "Sales Outstanding Balances", category: "Navigation", path: "/dashboard/sales/outstanding", fileName: "app/dashboard/sales/outstanding/page.tsx", keywords: ["sales outstanding", "due payment", "pending bill", "receivables"], icon: "clock" },
+  { title: "Create Sale Invoice", category: "Navigation", path: "/dashboard/sales/invoice/create", fileName: "app/dashboard/sales/invoice/create/page.tsx", keywords: ["create sale invoice", "new bill", "billing entry", "billing"], icon: "plus-circle" },
+  { title: "Sales Return Entry & Report", category: "Navigation", path: "/dashboard/sales/sale-return", fileName: "app/dashboard/sales/sale-return/page.tsx", keywords: ["sales return", "sale-return", "credit note", "return entry", "refund"], icon: "undo" },
+  { title: "Receipt Entry & Collection", category: "Navigation", path: "/dashboard/sales/receipt", fileName: "app/dashboard/sales/receipt/page.tsx", keywords: ["receipt entry", "receipt", "payment collection", "voucher receipt"], icon: "receipt" },
+  { title: "Orders List & Processing", category: "Navigation", path: "/dashboard/orders", fileName: "app/dashboard/orders/page.tsx", keywords: ["orders", "sales order", "pending orders"], icon: "clipboard-list" },
+
+  // Customers
+  { title: "Customer Master & Ledgers", category: "Navigation", path: "/dashboard/customers", fileName: "app/dashboard/customers/page.tsx", keywords: ["customers", "list customers", "customer list", "parties", "ledger", "dealers", "clients"], icon: "users" },
+
+  // Company Management
+  { title: "Create Company", category: "Navigation", path: "/dashboard/company/create", fileName: "app/dashboard/company/create/page.tsx", keywords: ["create company", "add company", "new firm"], icon: "plus-circle" },
+  { title: "List Companies", category: "Navigation", path: "/dashboard/company/list", fileName: "app/dashboard/company/list/page.tsx", keywords: ["list company", "company list", "companies"], icon: "building" },
+  { title: "Company Profile & Settings", category: "Navigation", path: "/dashboard/company-settings", fileName: "app/dashboard/company-settings/page.tsx", keywords: ["company settings", "company-settings", "profile", "gstin", "address", "settings"], icon: "building" },
+
+  // Financial Year
+  { title: "Create Financial Year", category: "Navigation", path: "/dashboard/financial-year/create", fileName: "app/dashboard/financial-year/create/page.tsx", keywords: ["create fy", "create financial year", "add fy"], icon: "calendar" },
+  { title: "List Financial Years", category: "Navigation", path: "/dashboard/financial-year/list", fileName: "app/dashboard/financial-year/list/page.tsx", keywords: ["list fy", "financial year list", "fy list", "financial-year"], icon: "calendar" },
+
+  // Migration & Sync
+  { title: "Sync Console (VFP / Marg Sync)", category: "Navigation", path: "/dashboard/mabsolcrmsync", fileName: "app/dashboard/mabsolcrmsync/page.tsx", keywords: ["mabsolcrmsync", "sync console", "vfp sync", "marg sync", "dbf import", "migration"], icon: "sync" },
+  { title: "Sync Settings & DB Configuration", category: "Navigation", path: "/dashboard/mabsolcrmsync/settings", fileName: "app/dashboard/mabsolcrmsync/settings/page.tsx", keywords: ["sync settings", "mabsolcrmsync settings", "vfp config", "db path"], icon: "sliders" },
+  { title: "VFP Config Wizard", category: "Navigation", path: "/dashboard/vfp-config", fileName: "app/dashboard/vfp-config/page.tsx", keywords: ["vfp config", "vfp-config", "vfp wizard", "sync setup"], icon: "refresh-cw" },
+
+  // Reports
+  { title: "Dashboard Reports Overview", category: "Navigation", path: "/dashboard/reports", fileName: "app/dashboard/reports/page.tsx", keywords: ["reports", "dash reports", "all reports", "analytics reports"], icon: "chart-bar" },
+  { title: "Product Master & Stock Report", category: "Navigation", path: "/dashboard/reports/product", fileName: "app/dashboard/reports/product/page.tsx", keywords: ["products report", "stock report", "inventory report", "mrp", "batches"], icon: "package" },
+  { title: "Customer Ledger Report", category: "Navigation", path: "/dashboard/reports/customer", fileName: "app/dashboard/reports/customer/page.tsx", keywords: ["customer ledger report", "party ledger", "customer report"], icon: "users" },
+  { title: "Outstanding Receivables Report", category: "Navigation", path: "/dashboard/reports/outstanding", fileName: "app/dashboard/reports/outstanding/page.tsx", keywords: ["outstanding report", "pending payment report", "due report"], icon: "clock" },
+  { title: "Sales Receipt Collection Report", category: "Navigation", path: "/dashboard/reports/sales-receipt", fileName: "app/dashboard/reports/sales-receipt/page.tsx", keywords: ["sales receipt report", "collection report", "payment report"], icon: "receipt" },
+  { title: "Sales Return Credit Note Report", category: "Navigation", path: "/dashboard/reports/sales-return", fileName: "app/dashboard/reports/sales-return/page.tsx", keywords: ["sales return report", "credit note report"], icon: "undo" },
+  { title: "Target vs Actual Sales Report", category: "Navigation", path: "/dashboard/reports/target-vs-actual", fileName: "app/dashboard/reports/target-vs-actual/page.tsx", keywords: ["target vs actual", "achievement report", "mr performance"], icon: "target" },
+  { title: "GSTR-1 GST Tax Report", category: "Navigation", path: "/dashboard/gst-reports/gstr1", fileName: "app/dashboard/gst-reports/gstr1/page.tsx", keywords: ["gst", "gstr1", "gstr-1", "tax report", "b2b", "hsn", "gst-reports"], icon: "file-spreadsheet" },
+
+  // MR Field Force
+  { title: "MR Customer Assignment", category: "Navigation", path: "/dashboard/mr-customer-assignment", fileName: "app/dashboard/mr-customer-assignment/page.tsx", keywords: ["mr assignment", "assign customer", "territory mapping", "mr-customer-assignment"], icon: "user-plus" },
+  { title: "MR Reporting (DCR / Call Logs)", category: "Navigation", path: "/dashboard/mr-reporting", fileName: "app/dashboard/mr-reporting/page.tsx", keywords: ["dcr", "daily call report", "mr log", "field visit", "mr-reporting"], icon: "clipboard-list" },
+  { title: "MR Territory Management", category: "Navigation", path: "/dashboard/mr-territory", fileName: "app/dashboard/mr-territory/page.tsx", keywords: ["territory", "hq", "headquarter", "zone", "region", "mr-territory"], icon: "map-pin" },
+
+  // General Settings & Profile
+  { title: "System & Company Settings", category: "Navigation", path: "/dashboard/settings", fileName: "app/dashboard/settings/page.tsx", keywords: ["settings", "general settings", "config", "system settings"], icon: "cog" },
+  { title: "User Profile & Account", category: "Navigation", path: "/dashboard/profile", fileName: "app/dashboard/profile/page.tsx", keywords: ["profile", "my profile", "account settings", "user profile"], icon: "user" },
 ];
 
 export async function GET(req: NextRequest) {
@@ -147,10 +234,11 @@ export async function GET(req: NextRequest) {
     const highBalanceOnly = searchParams.get("highBalance") === "true";
     const sortBy = searchParams.get("sortBy") || "relevance";
 
-    // Typo check ("Did You Mean?")
-    const lowerQuery = rawQuery.toLowerCase();
+    // Spoken query cleaning & Typo check ("Did You Mean?")
+    const cleanedQuery = cleanSpokenQuery(rawQuery);
+    const lowerQuery = cleanedQuery.toLowerCase();
     const suggestedQuery = TYPO_MAP[lowerQuery] || null;
-    const query = suggestedQuery || rawQuery;
+    const query = suggestedQuery || cleanedQuery;
 
     const regex = new RegExp(escapeRegex(query), "i");
     const isNumeric = !isNaN(Number(query));
@@ -510,27 +598,35 @@ export async function GET(req: NextRequest) {
           })()
         : Promise.resolve([]),
 
-      // 5. NAVIGATION & PAGES SEARCH
+      // 5. NAVIGATION & PAGES & FILE NAMES SEARCH
       (category === "all" || category === "navigation")
         ? (async () => {
+            const cleanQuery = query.toLowerCase().replace(/[\s\-_.]/g, "");
+
             const matches = APP_PAGES.filter((page) => {
-              const inTitle = page.title.toLowerCase().includes(query.toLowerCase());
-              const inKeywords = page.keywords.some((k) => k.toLowerCase().includes(query.toLowerCase()));
-              return inTitle || inKeywords;
+              const inTitle = page.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
+              const inPath = page.path.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
+              const inFileName = (page.fileName || "").toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
+              const inKeywords = page.keywords.some((k) => k.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery));
+              return inTitle || inPath || inFileName || inKeywords;
             });
 
             return matches.map((p, idx) => ({
               id: `nav_${idx}_${p.path}`,
               type: "navigation",
-              category: "Navigation & Pages",
+              category: p.category || "Navigation & Pages",
               title: p.title,
-              subtitle: `Quick Jump to route: ${p.path}`,
+              subtitle: `Route: ${p.path} • File: ${p.fileName || "Page Link"}`,
               details: {
                 title: p.title,
                 route: p.path,
+                fileName: p.fileName || "N/A",
                 keywords: p.keywords.join(", "),
               },
-              badges: [{ label: "Page Link", color: "cyan" }],
+              badges: [
+                { label: "Page Link", color: "cyan" },
+                p.fileName ? { label: p.fileName.split("/").pop() || p.fileName, color: "indigo" } : null,
+              ].filter(Boolean),
               actionUrl: p.path,
               raw: p,
             }));

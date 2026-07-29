@@ -227,11 +227,16 @@ export default function Topbar({
         >
           <div className="flex items-center gap-2 truncate">
             <Search size={15} className="text-indigo-600 group-hover:scale-110 transition-transform shrink-0" />
-            <span className="truncate text-slate-500 group-hover:text-indigo-900 font-medium">Search products, stock, customers, vouchers, MRs...</span>
+            <span className="truncate text-slate-500 group-hover:text-indigo-900 font-medium">Search sidebar links, products, stock, customers, vouchers...</span>
           </div>
-          <kbd className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-extrabold text-slate-400 bg-white border border-slate-200 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors shrink-0">
-            <span className="text-[9px]">Ctrl</span> K
-          </kbd>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 rounded-md shadow-2xs group-hover:bg-rose-100 transition-colors">
+              🎙️ Voice
+            </span>
+            <kbd className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-extrabold text-slate-400 bg-white border border-slate-200 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors">
+              <span className="text-[9px]">Ctrl</span> K
+            </kbd>
+          </div>
         </button>
       </div>
 
