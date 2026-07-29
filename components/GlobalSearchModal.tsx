@@ -55,18 +55,7 @@ interface GlobalSearchModalProps {
   onClose: () => void;
 }
 
-const VOICE_LANGUAGES = [
-  { code: "hi-IN", label: "हिंदी (Hindi)" },
-  { code: "en-IN", label: "English (India)" },
-  { code: "en-US", label: "English (US)" },
-  { code: "ur-PK", label: "اردو (Urdu)" },
-  { code: "mr-IN", label: "मराठी (Marathi)" },
-  { code: "gu-IN", label: "ગુજરાતી (Gujarati)" },
-  { code: "bn-IN", label: "বাংলা (Bengali)" },
-  { code: "ta-IN", label: "தமிழ் (Tamil)" },
-  { code: "te-IN", label: "తెలుగు (Telugu)" },
-  { code: "kn-IN", label: "ಕನ್ನಡ (Kannada)" },
-];
+
 
 export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
   const router = useRouter();
@@ -75,8 +64,8 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
 
-  // Multi-lingual Voice Search State
-  const [selectedLang, setSelectedLang] = useState("hi-IN");
+  // Voice Search State (Default English)
+  const [selectedLang] = useState("en-IN");
   const [isListening, setIsListening] = useState(false);
   const [transcriptPreview, setTranscriptPreview] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -416,26 +405,8 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             </button>
           )}
 
-          {/* Multi-Lingual Voice Search Controls */}
+          {/* Voice Search Mic Button */}
           <div className="flex items-center gap-1.5 shrink-0 border-l border-slate-200 pl-2">
-            {/* Language Selector */}
-            <div className="relative hidden sm:flex items-center">
-              <Globe className="w-3.5 h-3.5 text-slate-400 absolute left-2 pointer-events-none" />
-              <select
-                value={selectedLang}
-                onChange={(e) => setSelectedLang(e.target.value)}
-                className="bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl pl-7 pr-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs"
-                title="Select Speech Recognition Language"
-              >
-                {VOICE_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Microphone Button */}
             <button
               onClick={toggleVoiceSearch}
               className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all cursor-pointer ${
@@ -443,7 +414,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   ? "bg-rose-600 text-white shadow-lg scale-105 animate-pulse"
                   : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80"
               }`}
-              title={isListening ? "Stop Voice Search" : "Speak to Search (Multi-Lingual)"}
+              title={isListening ? "Stop Voice Search" : "Speak to Search (Voice Search)"}
             >
               {isListening ? (
                 <>
@@ -488,10 +459,10 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                 <span className="w-1.5 h-5 bg-rose-500 rounded-full animate-bounce [animation-delay:-0.4s]" />
               </div>
               <span className="font-extrabold text-rose-400 uppercase tracking-wider text-[11px]">
-                Listening ({VOICE_LANGUAGES.find((l) => l.code === selectedLang)?.label})...
+                Listening (English)...
               </span>
               <span className="truncate text-rose-100 font-medium bg-rose-950/80 px-2.5 py-1 rounded-lg border border-rose-700/60 max-w-md">
-                &ldquo;{transcriptPreview || "Speak now..."}&rdquo;
+                &ldquo;{transcriptPreview || "Speak now in English..."}&rdquo;
               </span>
             </div>
             <button
