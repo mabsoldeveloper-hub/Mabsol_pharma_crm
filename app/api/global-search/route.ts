@@ -651,7 +651,7 @@ export async function GET(req: NextRequest) {
           query: "",
           didYouMean: null,
           totalResults: 0,
-          vocalSummary: "Welcome to Alexa Voice Search. Speak or type to search products, customers, stock, and vouchers.",
+          vocalSummary: "Welcome to Salim Voice Search. Speak or type to search products, customers, stock, and vouchers.",
           trending: dynamicTrending,
           results: {
             products: [],
