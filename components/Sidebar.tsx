@@ -988,11 +988,21 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     href="/dashboard/settings"
                     icon={<FaCog />}
                     label="Company Settings"
-                    active={pathname.startsWith("/dashboard/settings")}
+                    active={pathname === "/dashboard/settings"}
                     color="cyan"
                   />
                 </li>
               </PermissionGate>
+
+              <li>
+                <NavLink
+                  href="/dashboard/voice-settings"
+                  icon={<FaSlidersH />}
+                  label="Voice AI 🎙️"
+                  active={pathname.startsWith("/dashboard/voice-settings")}
+                  color="rose"
+                />
+              </li>
             </ul>
           </div>
 

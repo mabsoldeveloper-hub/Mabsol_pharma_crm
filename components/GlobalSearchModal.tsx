@@ -1,6 +1,5 @@
-"use client";
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   X,
@@ -54,18 +53,23 @@ import { useRouter } from "next/navigation";
 interface GlobalSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
+  autoVoiceStart?: boolean;
+  onVoiceStartHandled?: () => void;
 }
 
-
-
-export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
+export default function GlobalSearchModal({
+  isOpen,
+  onClose,
+  autoVoiceStart = false,
+  onVoiceStartHandled,
+}: GlobalSearchModalProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(false);
-  const [showGuide, setShowGuide] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
 
-  // Alexa Voice Search & Vocal Response (TTS) State
+  // Salim Voice Search & Vocal Response (TTS) State
   const [selectedLang] = useState("en-IN");
   const [isListening, setIsListening] = useState(false);
   const [transcriptPreview, setTranscriptPreview] = useState("");
@@ -89,54 +93,41 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     }
   }, [isOpen]);
 
-  // Alexa Speech Synthesis (TTS Vocal Replies)
+  // Salim Speech Synthesis (TTS Vocal Replies)
   const [vocalEnabled, setVocalEnabled] = useState(true);
   const [vocalSpeaking, setVocalSpeaking] = useState(false);
   const [vocalText, setVocalText] = useState<string | null>(null);
 
-  // Indian Female Voice Selector for Alexa Speech Synthesis
-  const getFemaleVoice = () => {
+  // Voice Selector for Salim Speech Synthesis (Prefers Male/Neutral Voices)
+  const getSalimVoice = () => {
     if (typeof window === "undefined" || !window.speechSynthesis) return null;
     const voices = window.speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return null;
 
-    // Prioritize Indian Female Voice names (en-IN / hi-IN)
-    const indianFemaleNames = [
-      "swara",
-      "heera",
-      "neerja",
-      "kalpana",
-      "veena",
-      "aditi",
-      "google english (india)",
-      "google hindi",
-      "microsoft swara",
-      "microsoft heera",
-      "en-in",
-      "hi-in",
-      "india",
+    const maleKeywords = [
+      "ravi", "karan", "hemant", "harish", "gautam", "neel", "george", "david", "mark",
+      "microsoft ravi", "google hindi", "google english (india)", "male", "en-in", "hi-in"
     ];
 
-    // 1. Try finding explicit Indian female voice first
+    // 1. Try finding Indian male voice first
     let found = voices.find((v) => {
       const name = v.name.toLowerCase();
       const lang = v.lang.toLowerCase();
       const isIndian = lang.includes("en-in") || lang.includes("hi-in") || name.includes("india");
-      const isFemale = indianFemaleNames.some((f) => name.includes(f));
-      return isIndian || isFemale;
+      const isMale = maleKeywords.some((m) => name.includes(m)) && !name.includes("female") && !name.includes("zira") && !name.includes("swara");
+      return isIndian && isMale;
     });
 
-    // 2. Fallback to any en-IN voice
+    // 2. Fallback to any en-IN or hi-IN voice
     if (!found) {
-      found = voices.find((v) => v.lang.toLowerCase().includes("en-in"));
+      found = voices.find((v) => v.lang.toLowerCase().includes("en-in") || v.lang.toLowerCase().includes("hi-in"));
     }
 
-    // 3. Fallback to general female voices
+    // 3. Fallback to general male voices
     if (!found) {
-      const generalFemaleNames = ["zira", "jenny", "aria", "samantha", "victoria", "karen", "female"];
       found = voices.find((v) => {
         const name = v.name.toLowerCase();
-        return generalFemaleNames.some((f) => name.includes(f));
+        return maleKeywords.some((m) => name.includes(m));
       });
     }
 
@@ -152,13 +143,13 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           window.speechSynthesis.cancel();
 
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 0.95; // Natural Indian English cadence
-          utterance.pitch = 1.2; // Pleasant, friendly Indian female pitch
-          utterance.lang = "en-IN"; // Set Indian English locale
+          utterance.rate = 0.95; // Natural cadence
+          utterance.pitch = 1.0; // Friendly natural pitch for Salim
+          utterance.lang = "en-IN"; // Set locale
 
-          const femaleVoice = getFemaleVoice();
-          if (femaleVoice) {
-            utterance.voice = femaleVoice;
+          const salimVoice = getSalimVoice();
+          if (salimVoice) {
+            utterance.voice = salimVoice;
           }
 
           utterance.onstart = () => {
@@ -172,7 +163,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           utterance.onend = () => {
             setVocalSpeaking(false);
             setVocalText(null);
-            // Siri Two-Way Dialogue Loop: Automatically turn on microphone AFTER assistant finishes speaking ONLY IF modal is still open!
+            // Salim Dialogue Loop: Automatically turn on microphone AFTER assistant finishes speaking ONLY IF modal is still open!
             setTimeout(() => {
               if (isOpenRef.current) {
                 toggleVoiceSearch();
@@ -193,6 +184,33 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     },
     [vocalEnabled]
   );
+
+  const [assistantName, setAssistantName] = useState("Salim");
+  const [greetingText, setGreetingText] = useState("Haan ji! Main aapki kya help kar sakta hu?");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("mabsol_voice_settings");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.assistantName) setAssistantName(parsed.assistantName);
+        if (parsed.greetingText) setGreetingText(parsed.greetingText);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isOpen]);
+
+  // Auto Voice Start when opened via "Hey [Name]" wake-word
+  useEffect(() => {
+    if (isOpen && autoVoiceStart) {
+      if (onVoiceStartHandled) onVoiceStartHandled();
+      const timer = setTimeout(() => {
+        speakText(greetingText || "Haan ji! Main aapki kya help kar sakta hu?");
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, autoVoiceStart, onVoiceStartHandled, speakText, greetingText]);
 
   const stopSpeaking = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -378,6 +396,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
       setNearExpiryOnly(false);
       setHighBalanceOnly(false);
       setSortBy("relevance");
+      setShowGuide(false);
     }
   }, [isOpen]);
 
@@ -615,7 +634,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   ? "bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100"
                   : "bg-slate-100 text-slate-400 border-slate-200"
               }`}
-              title={vocalEnabled ? "Alexa Vocal Answers Enabled (Click to Mute)" : "Alexa Vocal Answers Muted (Click to Enable)"}
+              title={vocalEnabled ? `${assistantName} Vocal Answers Enabled (Click to Mute)` : `${assistantName} Vocal Answers Muted (Click to Enable)`}
             >
               {vocalEnabled ? <Volume2 className="w-4 h-4 text-indigo-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
             </button>
@@ -628,7 +647,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   ? "bg-rose-600 text-white shadow-lg scale-105 animate-pulse"
                   : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80"
               }`}
-              title={isListening ? "Stop Voice Search" : "Speak to Search (Alexa Voice Search)"}
+              title={isListening ? "Stop Voice Search" : `Speak to Search (${assistantName} Voice AI)`}
             >
               {isListening ? (
                 <>
@@ -662,7 +681,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
           </div>
         </div>
 
-        {/* Holographic Siri Liquid Orb & Conversational State Banner */}
+        {/* Holographic Voice Orb & Conversational State Banner */}
         {(vocalSpeaking || isListening) && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-950 text-white text-xs font-semibold border-b border-indigo-800/80 shadow-2xl animate-fadeIn relative overflow-hidden">
             {/* Ambient Liquid Gradient Orb Glow Background */}
@@ -670,7 +689,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl animate-pulse" />
 
             <div className="flex items-center gap-3.5 min-w-0 relative z-10">
-              {/* Siri Liquid Orb */}
+              {/* Voice Orb */}
               <div
                 className={`relative flex items-center justify-center w-8 h-8 rounded-full ${
                   isListening
@@ -690,7 +709,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 uppercase tracking-widest text-[10px]">
-                    {vocalSpeaking ? "Alexa AI Speaking 🔊" : "Siri Listening... Speak Choice 🎙️"}
+                    {vocalSpeaking ? `${assistantName} AI Speaking 🔊` : `${assistantName} Listening... Speak your request 🎙️`}
                   </span>
                   <span className="flex items-center gap-0.5 h-3">
                     <span className="w-1 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms] h-full" />
@@ -703,7 +722,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                     ? `"${vocalText}"`
                     : transcriptPreview
                     ? `Hearing: "${transcriptPreview}"`
-                    : `Listening... Say "Pehla kholo" or "Open 1"`}
+                    : `Listening... Speak request or say "Pehla kholo"`}
                 </p>
               </div>
             </div>
@@ -1064,7 +1083,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                                 speakText(`${item.title}. ${item.subtitle || ""}`);
                               }}
                               className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all shadow-2xs cursor-pointer"
-                              title="Read Aloud with Alexa Voice AI"
+                              title={`Read Aloud with ${assistantName} Voice AI`}
                             >
                               <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
                             </button>
@@ -1158,10 +1177,10 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
                     <div className="flex items-center gap-2 font-bold text-rose-400">
                       <Mic className="w-3.5 h-3.5" />
-                      <span>Multi-Lingual Voice Search 🎙️</span>
+                      <span>{assistantName} Voice AI & Wake-Word (&quot;Hey {assistantName}&quot;) 🎙️</span>
                     </div>
                     <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Click the mic icon and speak in <strong>Hindi, English, Urdu, Marathi, Gujarati, etc.</strong> Speaks terms like <em>&quot;Paracetamol stock dikhao&quot;</em> or <em>&quot;Customer ledger kholo&quot;</em> for auto extraction.
+                      Say <strong>&quot;Hey {assistantName}&quot;</strong> or <strong>&quot;{assistantName}&quot;</strong> anytime anywhere on the dashboard to automatically wake up {assistantName} Voice Assistant! Speaks and responds in <strong>Hindi, English & Urdu</strong> like Alexa or Siri.
                     </p>
                   </div>
 

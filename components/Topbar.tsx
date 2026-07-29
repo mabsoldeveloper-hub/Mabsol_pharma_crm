@@ -25,8 +25,123 @@ export default function Topbar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string>("");
 
+  // Dynamic Voice Assistant ("Hey [Name]") State & Listener
+  const [assistantName, setAssistantName] = useState("Salim");
+  const [autoVoiceStart, setAutoVoiceStart] = useState(false);
+  const [wakewordEnabled, setWakewordEnabled] = useState(true);
+  const [salimToast, setSalimToast] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const bgRecognitionRef = useRef<any>(null);
+
+  // Load voice settings from localStorage & subscribe to real-time setting updates
+  const loadVoiceSettings = () => {
+    try {
+      const saved = localStorage.getItem("mabsol_voice_settings");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.assistantName) setAssistantName(parsed.assistantName);
+        if (typeof parsed.wakewordEnabled === "boolean") setWakewordEnabled(parsed.wakewordEnabled);
+      }
+    } catch (e) {
+      console.error("Error loading voice settings:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadVoiceSettings();
+    window.addEventListener("mabsol_voice_settings_updated", loadVoiceSettings);
+    return () => window.removeEventListener("mabsol_voice_settings_updated", loadVoiceSettings);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !wakewordEnabled || searchOpen) {
+      if (bgRecognitionRef.current) {
+        try { bgRecognitionRef.current.abort(); } catch (e) {}
+      }
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) return;
+
+    let isMounted = true;
+
+    const startBgRecognition = () => {
+      if (!isMounted || searchOpen || !wakewordEnabled) return;
+
+      try {
+        if (bgRecognitionRef.current) {
+          try { bgRecognitionRef.current.abort(); } catch (e) {}
+        }
+
+        const rec = new SpeechRecognition();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = "hi-IN";
+
+        rec.onresult = (event: any) => {
+          let transcript = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+
+          const lower = transcript.toLowerCase();
+          const targetName = (assistantName || "Salim").toLowerCase().trim();
+
+          const isTriggered =
+            lower.includes(targetName) ||
+            lower.includes(`hey ${targetName}`) ||
+            lower.includes(`hi ${targetName}`) ||
+            lower.includes(`hello ${targetName}`) ||
+            (targetName === "salim" && (lower.includes("saliem") || lower.includes("saleem") || lower.includes("selim")));
+
+          if (isTriggered) {
+            console.log(`${assistantName} Wake-Word Triggered:`, transcript);
+            try { rec.abort(); } catch (e) {}
+
+            setSalimToast(true);
+            setTimeout(() => setSalimToast(false), 3500);
+
+            setAutoVoiceStart(true);
+            setSearchOpen(true);
+          }
+        };
+
+        rec.onerror = (event: any) => {
+          if (event.error === "not-allowed") {
+            console.warn(`Mic access denied for ${assistantName} Wake-Word background listener.`);
+          }
+        };
+
+        rec.onend = () => {
+          if (isMounted && wakewordEnabled && !searchOpen) {
+            setTimeout(() => {
+              if (isMounted && wakewordEnabled && !searchOpen) {
+                startBgRecognition();
+              }
+            }, 800);
+          }
+        };
+
+        bgRecognitionRef.current = rec;
+        rec.start();
+      } catch (e) {
+        console.warn("Background Salim listener error:", e);
+      }
+    };
+
+    startBgRecognition();
+
+    return () => {
+      isMounted = false;
+      if (bgRecognitionRef.current) {
+        try { bgRecognitionRef.current.abort(); } catch (e) {}
+      }
+    };
+  }, [wakewordEnabled, searchOpen, assistantName]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -230,8 +345,20 @@ export default function Topbar({
             <span className="truncate text-slate-500 group-hover:text-indigo-900 font-medium">Search sidebar links, products, stock, customers, vouchers...</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 rounded-md shadow-2xs group-hover:bg-rose-100 transition-colors">
-              🎙️ Voice
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                setAutoVoiceStart(true);
+                setSearchOpen(true);
+              }}
+              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold border rounded-md shadow-2xs transition-colors cursor-pointer ${
+                wakewordEnabled
+                  ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100"
+                  : "text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200"
+              }`}
+              title={wakewordEnabled ? `Click or say 'Hey ${assistantName}' to activate ${assistantName} AI` : `${assistantName} Wake-Word Disabled (Click to open Voice AI)`}
+            >
+              🎙️ {assistantName} AI {wakewordEnabled ? `("Hey ${assistantName}")` : "(Off)"}
             </span>
             <kbd className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-extrabold text-slate-400 bg-white border border-slate-200 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors">
               <span className="text-[9px]">Ctrl</span> K
@@ -444,7 +571,20 @@ export default function Topbar({
         </div>
       </div>
 
-      <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+      {/* Voice Assistant Activated Toast Banner */}
+      {salimToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100000] flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-slate-950 text-white text-xs font-bold shadow-2xl border border-indigo-500/50 animate-bounce">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+          <span>🎙️ {assistantName} Voice Assistant Activated! (&quot;Hey {assistantName}&quot; detected)</span>
+        </div>
+      )}
+
+      <GlobalSearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        autoVoiceStart={autoVoiceStart}
+        onVoiceStartHandled={() => setAutoVoiceStart(false)}
+      />
     </div>
   );
 }
