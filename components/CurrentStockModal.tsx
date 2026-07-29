@@ -49,6 +49,7 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
     const [statusFilter, setStatusFilter] = useState("all"); // all, in_stock, low_stock, out_of_stock
     const [selectedCompany, setSelectedCompany] = useState("");
     const [viewMode, setViewMode] = useState<"product" | "batch">("product");
+    const [rateType, setRateType] = useState<"prate" | "lprate" | "mrp" | "ratef">("prate");
 
     // Debounce search query
     useEffect(() => {
@@ -91,6 +92,7 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                 page: pagination.page.toString(),
                 limit: pagination.limit.toString(),
                 filter: statusFilter,
+                rateType: rateType,
             });
 
             if (debouncedSearch) params.append("q", debouncedSearch);
@@ -117,7 +119,7 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
         } finally {
             setLoading(false);
         }
-    }, [isOpen, viewMode, pagination.page, pagination.limit, statusFilter, debouncedSearch, selectedCompany]);
+    }, [isOpen, viewMode, pagination.page, pagination.limit, statusFilter, debouncedSearch, selectedCompany, rateType]);
 
     useEffect(() => {
         fetchStockData();
@@ -139,8 +141,10 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
         let headers = [];
         let rows = [];
 
+        const rateLabel = rateType === "prate" ? "Rate (PRATE)" : rateType === "lprate" ? "Rate (LPRATE)" : rateType === "mrp" ? "Rate (MRP)" : "Rate (RATEF)";
+
         if (viewMode === "product") {
-            headers = ["Product Code", "Product Name", "Company", "Packing", "Unit", "MRP", "Rate", "Stock Qty", "Min Level", "Stock Value (₹)", "Status"];
+            headers = ["Product Code", "Product Name", "Company", "Packing", "Unit", "MRP", rateLabel, "Stock Qty", "Min Level", "Stock Value (₹)", "Status"];
             rows = items.map((i) => [
                 i.code,
                 `"${(i.product || "").replace(/"/g, '""')}"`,
@@ -148,14 +152,14 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                 `"${(i.packing || "").replace(/"/g, '""')}"`,
                 `"${(i.unit || "").replace(/"/g, '""')}"`,
                 i.mrp,
-                i.prate,
+                i.selectedRate ?? i.prate,
                 i.balance,
                 i.minimum,
                 i.stockValue,
                 i.status,
             ]);
         } else {
-            headers = ["Product Code", "Product Name", "Batch No", "Expiry Date", "Company", "Packing", "MRP", "Rate", "Batch Qty", "Batch Stock Value (₹)", "Status"];
+            headers = ["Product Code", "Product Name", "Batch No", "Expiry Date", "Company", "Packing", "MRP", rateLabel, "Batch Qty", "Batch Stock Value (₹)", "Status"];
             rows = items.map((i) => [
                 i.code,
                 `"${(i.product || "").replace(/"/g, '""')}"`,
@@ -164,7 +168,7 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                 `"${(i.companyName || "").replace(/"/g, '""')}"`,
                 `"${(i.packing || "").replace(/"/g, '""')}"`,
                 i.mrp,
-                i.prate,
+                i.selectedRate ?? i.prate,
                 i.balance,
                 i.stockValue,
                 i.status,
@@ -251,10 +255,15 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[120px]">
-                        <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaRupeeSign className="text-teal-500 flex-shrink-0" size={11} /> Stock Value
-                        </span>
+                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[130px]">
+                        <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
+                                <FaRupeeSign className="text-teal-500 flex-shrink-0" size={11} /> Stock Value
+                            </span>
+                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/50">
+                                {rateType}
+                            </span>
+                        </div>
                         <span className="text-sm sm:text-base md:text-lg font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate">
                             {formatINR(summary.totalStockValue)}
                         </span>
@@ -347,6 +356,26 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                             </button>
                         </div>
 
+                        {/* Rate Type Selector Dropdown */}
+                        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg sm:rounded-xl border border-slate-200 dark:border-slate-700 flex-shrink-0">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                Rate:
+                            </span>
+                            <select
+                                value={rateType}
+                                onChange={(e) => {
+                                    setRateType(e.target.value as any);
+                                    setPagination((p) => ({ ...p, page: 1 }));
+                                }}
+                                className="bg-transparent text-[11px] sm:text-xs font-semibold text-teal-700 dark:text-teal-300 focus:outline-none cursor-pointer"
+                            >
+                                <option value="prate">Purchase Rate (PRATE)</option>
+                                <option value="lprate">Landed/Cost Rate (LPRATE)</option>
+                                <option value="mrp">M.R.P. (MRP)</option>
+                                <option value="ratef">Sale/Retail Rate (RATEF)</option>
+                            </select>
+                        </div>
+
                         {/* Status Filter Pills */}
                         <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 sm:p-1 rounded-lg sm:rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] sm:text-xs flex-shrink-0">
                             {[
@@ -417,7 +446,9 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 min-w-[120px]">Company</th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 min-w-[100px]">Packing / Unit</th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right">MRP</th>
-                                            <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right">Sale Rate</th>
+                                            <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right">
+                                                Rate ({rateType === "prate" ? "PRATE" : rateType === "lprate" ? "LPRATE" : rateType === "mrp" ? "MRP" : "RATEF"})
+                                            </th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right">Stock Qty</th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right min-w-[110px]">Stock Value (₹)</th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-center w-24 sm:w-28">Status</th>
@@ -430,6 +461,9 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 min-w-[100px]">Expiry Date</th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 min-w-[120px]">Company</th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right">MRP</th>
+                                            <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right">
+                                                Rate ({rateType === "prate" ? "PRATE" : rateType === "lprate" ? "LPRATE" : rateType === "mrp" ? "MRP" : "RATEF"})
+                                            </th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right">Batch Qty</th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-right min-w-[110px]">Stock Value (₹)</th>
                                             <th className="py-2.5 px-3 sm:py-3 sm:px-4 text-center w-24 sm:w-28">Status</th>
@@ -476,7 +510,7 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                                                         </td>
 
                                                         <td className="py-2 px-3 sm:py-2.5 sm:px-4 text-right font-mono text-slate-700 dark:text-slate-200 font-medium whitespace-nowrap">
-                                                            ₹{formatNum(row.prate)}
+                                                            ₹{formatNum(row.selectedRate ?? row.prate)}
                                                         </td>
 
                                                         <td className="py-2 px-3 sm:py-2.5 sm:px-4 text-right whitespace-nowrap">
@@ -520,6 +554,10 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
 
                                                         <td className="py-2 px-3 sm:py-2.5 sm:px-4 text-right font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">
                                                             ₹{formatNum(row.mrp)}
+                                                        </td>
+
+                                                        <td className="py-2 px-3 sm:py-2.5 sm:px-4 text-right font-mono text-slate-700 dark:text-slate-200 font-medium whitespace-nowrap">
+                                                            ₹{formatNum(row.selectedRate ?? row.prate)}
                                                         </td>
 
                                                         <td className="py-2 px-3 sm:py-2.5 sm:px-4 text-right whitespace-nowrap">

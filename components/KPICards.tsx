@@ -114,7 +114,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
             color: "sky",
         },
         {
-            title: "Current Stock",
+            title: "Current Stock (Qty)",
             value: (kpis?.currentStock ?? 0).toLocaleString("en-IN"),
             icon: <FaBoxes size={20} />,
             color: "green",
