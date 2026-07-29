@@ -44,7 +44,7 @@ export default function VfpSettingsPage() {
   const nativeFolderInputRef = useRef<HTMLInputElement>(null);
   const activeFieldRef = useRef<"vfpExePath" | "prgPath" | "sourceDir" | "dataDir" | null>(null);
 
-  const openFileBrowser = async (
+  const openFileBrowser = (
     fieldKey: "vfpExePath" | "prgPath" | "sourceDir" | "dataDir",
     filterType: "exe" | "prg" | "dir",
     _title: string
@@ -52,25 +52,6 @@ export default function VfpSettingsPage() {
     activeFieldRef.current = fieldKey;
 
     if (filterType === "dir") {
-      if ("showDirectoryPicker" in window) {
-        try {
-          const handle = await (window as any).showDirectoryPicker();
-          if (handle && handle.name) {
-            const folderName = handle.name;
-            const currentVal = form[fieldKey];
-            const finalPath = prompt(
-              `Selected directory: "${folderName}".\nPlease confirm or enter full Windows path (e.g. C:\\Users\\...\\${folderName}):`,
-              currentVal || `C:\\${folderName}`
-            );
-            if (finalPath) {
-              setForm((prev) => ({ ...prev, [fieldKey]: finalPath }));
-            }
-            return;
-          }
-        } catch (e: any) {
-          if (e.name === "AbortError") return;
-        }
-      }
       nativeFolderInputRef.current?.click();
     } else {
       if (nativeFileInputRef.current) {
@@ -89,13 +70,18 @@ export default function VfpSettingsPage() {
       if (nativePath) {
         setForm((prev) => ({ ...prev, [fieldKey]: nativePath }));
       } else {
-        const finalPath = prompt(
-          `Selected file: "${file.name}".\nConfirm full Windows path:`,
-          form[fieldKey] || `C:\\${file.name}`
-        );
-        if (finalPath) {
-          setForm((prev) => ({ ...prev, [fieldKey]: finalPath }));
+        const currentVal = form[fieldKey] || "";
+        let exactPath = file.name;
+        if (currentVal && (currentVal.includes(":") || currentVal.startsWith("/"))) {
+          const lastSlash = Math.max(currentVal.lastIndexOf("/"), currentVal.lastIndexOf("\\"));
+          if (lastSlash !== -1) {
+            const dir = currentVal.substring(0, lastSlash);
+            exactPath = `${dir}\\${file.name}`;
+          } else {
+            exactPath = `${currentVal}\\${file.name}`;
+          }
         }
+        setForm((prev) => ({ ...prev, [fieldKey]: exactPath }));
       }
     }
     e.target.value = "";
@@ -105,19 +91,32 @@ export default function VfpSettingsPage() {
     const files = e.target.files;
     const fieldKey = activeFieldRef.current;
     if (files && files.length > 0 && fieldKey) {
-      const relPath = files[0].webkitRelativePath || "";
-      const folderName = relPath.split("/")[0] || relPath.split("\\")[0] || "SelectedFolder";
-      let nativePath = (files[0] as any).path;
+      const firstFile = files[0] as any;
+      let nativePath = firstFile.path;
       if (nativePath) {
         const lastSlash = Math.max(nativePath.lastIndexOf("/"), nativePath.lastIndexOf("\\"));
         if (lastSlash !== -1) nativePath = nativePath.substring(0, lastSlash);
-      }
-      const finalPath = nativePath || prompt(
-        `Selected folder: "${folderName}".\nConfirm Windows path:`,
-        form[fieldKey] || `C:\\${folderName}`
-      );
-      if (finalPath) {
-        setForm((prev) => ({ ...prev, [fieldKey]: finalPath }));
+        setForm((prev) => ({ ...prev, [fieldKey]: nativePath }));
+      } else {
+        const relPath = firstFile.webkitRelativePath || "";
+        let relFolder = "";
+        if (relPath) {
+          const firstSlash = relPath.indexOf("/");
+          if (firstSlash !== -1) relFolder = relPath.substring(0, firstSlash);
+        }
+        const folderName = relFolder || firstFile.name || "";
+        const currentVal = form[fieldKey] || "";
+        let exactPath = folderName;
+        if (currentVal && (currentVal.includes(":") || currentVal.startsWith("/"))) {
+          const lastSlash = Math.max(currentVal.lastIndexOf("/"), currentVal.lastIndexOf("\\"));
+          if (lastSlash !== -1) {
+            const parentDir = currentVal.substring(0, lastSlash);
+            exactPath = `${parentDir}\\${folderName}`;
+          } else {
+            exactPath = `${currentVal}\\${folderName}`;
+          }
+        }
+        setForm((prev) => ({ ...prev, [fieldKey]: exactPath }));
       }
     }
     e.target.value = "";
@@ -448,7 +447,7 @@ export default function VfpSettingsPage() {
                     type="text"
                     className="w-full bg-slate-50/60 border border-slate-200/80 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-slate-400 focus:bg-white disabled:bg-slate-100/60 disabled:text-slate-500 disabled:cursor-not-allowed shadow-2xs transition-all"
                     style={{ borderRadius: "12px" }}
-                    placeholder="e.g. Rahul Sharma"
+                    placeholder="Enter Operator name"
                     value={form.userName}
                     onChange={(e) => setForm({ ...form, userName: e.target.value })}
                     disabled={!isEditing}
@@ -464,7 +463,7 @@ export default function VfpSettingsPage() {
                     type="text"
                     className="w-full bg-slate-50/60 border border-slate-200/80 px-3.5 py-2 text-xs sm:text-sm font-mono text-slate-900 focus:outline-none focus:border-slate-400 focus:bg-white disabled:bg-slate-100/60 disabled:text-slate-500 disabled:cursor-not-allowed shadow-2xs transition-all"
                     style={{ borderRadius: "12px" }}
-                    placeholder="89H-1233-XXXX-XXXX"
+                    placeholder="Enter License Key"
                     value={form.license}
                     onChange={(e) => setForm({ ...form, license: e.target.value })}
                     disabled={!isEditing}
@@ -508,7 +507,7 @@ export default function VfpSettingsPage() {
                       type="text"
                       className="w-full sm:flex-1 min-w-0 bg-slate-50/60 border border-slate-200/80 px-3.5 py-2 text-xs sm:text-sm font-mono text-slate-900 focus:outline-none focus:border-slate-400 focus:bg-white disabled:bg-slate-100/60 disabled:text-slate-500 disabled:cursor-not-allowed shadow-2xs transition-all"
                       style={{ borderRadius: "12px" }}
-                      placeholder="C:\Users\Administrator\Downloads\VfpNet\VfpNet.exe"
+                      placeholder="C:\abc.exe"
                       value={form.vfpExePath}
                       onChange={(e) => setForm({ ...form, vfpExePath: e.target.value })}
                       disabled={!isEditing}
@@ -536,7 +535,7 @@ export default function VfpSettingsPage() {
                       type="text"
                       className="w-full sm:flex-1 min-w-0 bg-slate-50/60 border border-slate-200/80 px-3.5 py-2 text-xs sm:text-sm font-mono text-slate-900 focus:outline-none focus:border-slate-400 focus:bg-white disabled:bg-slate-100/60 disabled:text-slate-500 disabled:cursor-not-allowed shadow-2xs transition-all"
                       style={{ borderRadius: "12px" }}
-                      placeholder="e.g. D:\Sync_Logs\sync_log.log"
+                      placeholder="e.g. D:\01.prg"
                       value={form.prgPath}
                       onChange={(e) => setForm({ ...form, prgPath: e.target.value })}
                       disabled={!isEditing}
@@ -565,7 +564,7 @@ export default function VfpSettingsPage() {
                       type="text"
                       className="w-full sm:flex-1 min-w-0 bg-slate-50/60 border border-slate-200/80 px-3.5 py-2 text-xs sm:text-sm font-mono text-slate-900 focus:outline-none focus:border-slate-400 focus:bg-white disabled:bg-slate-100/60 disabled:text-slate-500 disabled:cursor-not-allowed shadow-2xs transition-all"
                       style={{ borderRadius: "12px" }}
-                      placeholder="e.g. C:\MargWin\DATA"
+                      placeholder="e.g. C:\Select"
                       value={form.sourceDir}
                       onChange={(e) => setForm({ ...form, sourceDir: e.target.value })}
                       disabled={!isEditing}

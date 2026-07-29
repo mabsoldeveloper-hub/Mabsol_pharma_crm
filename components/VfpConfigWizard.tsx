@@ -73,29 +73,8 @@ export default function VfpConfigWizard({
   const activeFieldRef = useRef<"source" | "dest">("dest");
 
   // Directly trigger native Windows Explorer directory picker
-  async function handleBrowseFolder(field: "source" | "dest") {
+  function handleBrowseFolder(field: "source" | "dest") {
     activeFieldRef.current = field;
-
-    if ("showDirectoryPicker" in window) {
-      try {
-        const handle = await (window as any).showDirectoryPicker();
-        if (handle && handle.name) {
-          const folderName = handle.name;
-          const currentVal = field === "source" ? sourceDir : dataDir;
-          const finalPath = prompt(
-            `Selected directory: "${folderName}".\nPlease confirm or enter full Windows path (e.g. C:\\Users\\...\\${folderName}):`,
-            currentVal || `C:\\${folderName}`
-          );
-          if (finalPath) {
-            if (field === "source") setSourceDir(finalPath);
-            else setDataDir(finalPath);
-          }
-          return;
-        }
-      } catch (e: any) {
-        if (e.name === "AbortError") return;
-      }
-    }
     nativeFolderInputRef.current?.click();
   }
 
