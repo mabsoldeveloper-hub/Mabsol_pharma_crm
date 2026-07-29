@@ -25,13 +25,34 @@ export default function Topbar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string>("");
 
-  // Salim Voice Assistant Wake-Word ("Hey Salim") Background Listener State
+  // Dynamic Voice Assistant ("Hey [Name]") State & Listener
+  const [assistantName, setAssistantName] = useState("Salim");
   const [autoVoiceStart, setAutoVoiceStart] = useState(false);
   const [wakewordEnabled, setWakewordEnabled] = useState(true);
   const [salimToast, setSalimToast] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const bgRecognitionRef = useRef<any>(null);
+
+  // Load voice settings from localStorage & subscribe to real-time setting updates
+  const loadVoiceSettings = () => {
+    try {
+      const saved = localStorage.getItem("mabsol_voice_settings");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.assistantName) setAssistantName(parsed.assistantName);
+        if (typeof parsed.wakewordEnabled === "boolean") setWakewordEnabled(parsed.wakewordEnabled);
+      }
+    } catch (e) {
+      console.error("Error loading voice settings:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadVoiceSettings();
+    window.addEventListener("mabsol_voice_settings_updated", loadVoiceSettings);
+    return () => window.removeEventListener("mabsol_voice_settings_updated", loadVoiceSettings);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !wakewordEnabled || searchOpen) {
@@ -68,20 +89,17 @@ export default function Topbar({
           }
 
           const lower = transcript.toLowerCase();
-          const isSalimTriggered =
-            lower.includes("salim") ||
-            lower.includes("hey salim") ||
-            lower.includes("hay salim") ||
-            lower.includes("hi salim") ||
-            lower.includes("hello salim") ||
-            lower.includes("saliem") ||
-            lower.includes("hey saliem") ||
-            lower.includes("saleem") ||
-            lower.includes("hey saleem") ||
-            lower.includes("selim");
+          const targetName = (assistantName || "Salim").toLowerCase().trim();
 
-          if (isSalimTriggered) {
-            console.log("Salim Wake-Word Triggered:", transcript);
+          const isTriggered =
+            lower.includes(targetName) ||
+            lower.includes(`hey ${targetName}`) ||
+            lower.includes(`hi ${targetName}`) ||
+            lower.includes(`hello ${targetName}`) ||
+            (targetName === "salim" && (lower.includes("saliem") || lower.includes("saleem") || lower.includes("selim")));
+
+          if (isTriggered) {
+            console.log(`${assistantName} Wake-Word Triggered:`, transcript);
             try { rec.abort(); } catch (e) {}
 
             setSalimToast(true);
@@ -94,7 +112,7 @@ export default function Topbar({
 
         rec.onerror = (event: any) => {
           if (event.error === "not-allowed") {
-            console.warn("Mic access denied for Salim Wake-Word background listener.");
+            console.warn(`Mic access denied for ${assistantName} Wake-Word background listener.`);
           }
         };
 
@@ -123,7 +141,7 @@ export default function Topbar({
         try { bgRecognitionRef.current.abort(); } catch (e) {}
       }
     };
-  }, [wakewordEnabled, searchOpen]);
+  }, [wakewordEnabled, searchOpen, assistantName]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -333,10 +351,14 @@ export default function Topbar({
                 setAutoVoiceStart(true);
                 setSearchOpen(true);
               }}
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 rounded-md shadow-2xs hover:bg-rose-100 transition-colors cursor-pointer"
-              title="Click or say 'Hey Salim' to activate Salim Voice Assistant"
+              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold border rounded-md shadow-2xs transition-colors cursor-pointer ${
+                wakewordEnabled
+                  ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100"
+                  : "text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200"
+              }`}
+              title={wakewordEnabled ? `Click or say 'Hey ${assistantName}' to activate ${assistantName} AI` : `${assistantName} Wake-Word Disabled (Click to open Voice AI)`}
             >
-              🎙️ Salim AI (&quot;Hey Salim&quot;)
+              🎙️ {assistantName} AI {wakewordEnabled ? `("Hey ${assistantName}")` : "(Off)"}
             </span>
             <kbd className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-extrabold text-slate-400 bg-white border border-slate-200 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors">
               <span className="text-[9px]">Ctrl</span> K
@@ -549,11 +571,11 @@ export default function Topbar({
         </div>
       </div>
 
-      {/* Salim Voice Assistant Activated Toast Banner */}
+      {/* Voice Assistant Activated Toast Banner */}
       {salimToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100000] flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-slate-950 text-white text-xs font-bold shadow-2xl border border-indigo-500/50 animate-bounce">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-          <span>🎙️ Salim Voice Assistant Activated! (&quot;Hey Salim&quot; detected)</span>
+          <span>🎙️ {assistantName} Voice Assistant Activated! (&quot;Hey {assistantName}&quot; detected)</span>
         </div>
       )}
 
