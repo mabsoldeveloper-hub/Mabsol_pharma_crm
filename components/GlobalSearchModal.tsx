@@ -46,6 +46,7 @@ import {
   MicOff,
   Globe,
   Volume2,
+  VolumeX,
   Radio,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -64,12 +65,62 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
 
-  // Voice Search State (Default English)
+  // Alexa Voice Search & Vocal Response (TTS) State
   const [selectedLang] = useState("en-IN");
   const [isListening, setIsListening] = useState(false);
   const [transcriptPreview, setTranscriptPreview] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Alexa Speech Synthesis (TTS Vocal Replies)
+  const [vocalEnabled, setVocalEnabled] = useState(true);
+  const [vocalSpeaking, setVocalSpeaking] = useState(false);
+  const [vocalText, setVocalText] = useState<string | null>(null);
+
+  const speakText = useCallback(
+    (text: string) => {
+      if (!vocalEnabled || !text || typeof window === "undefined") return;
+
+      try {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          utterance.lang = "en-US";
+
+          utterance.onstart = () => {
+            setVocalSpeaking(true);
+            setVocalText(text);
+          };
+
+          utterance.onend = () => {
+            setVocalSpeaking(false);
+            setVocalText(null);
+          };
+
+          utterance.onerror = () => {
+            setVocalSpeaking(false);
+            setVocalText(null);
+          };
+
+          window.speechSynthesis.speak(utterance);
+        }
+      } catch (e) {
+        console.error("Speech synthesis error:", e);
+      }
+    },
+    [vocalEnabled]
+  );
+
+  const stopSpeaking = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setVocalSpeaking(false);
+    setVocalText(null);
+  };
 
   // E-Commerce style filters
   const [inStockOnly, setInStockOnly] = useState(false);
@@ -232,13 +283,14 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     }
   };
 
-  // Focus input when modal opens
+  // Focus input & handle vocal speech cleanup when modal state changes
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
     } else {
+      stopSpeaking();
       setQuery("");
       setSelectedItem(null);
       setSelectedIndex(0);
@@ -249,7 +301,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     }
   }, [isOpen]);
 
-  // Debounced search API fetch with filters
+  // Debounced search API fetch with filters & Alexa Speech Synthesis trigger
   useEffect(() => {
     if (!query.trim()) {
       setResults({
@@ -262,6 +314,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
       setTotalResults(0);
       setDidYouMean(null);
       setLoading(false);
+      stopSpeaking();
       return;
     }
 
@@ -283,6 +336,9 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             setResults(data.results);
             setTotalResults(data.totalResults);
             setDidYouMean(data.didYouMean || null);
+            if (data.vocalSummary && vocalEnabled) {
+              speakText(data.vocalSummary);
+            }
           }
         })
         .catch((err) => {
@@ -294,7 +350,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     }, 280);
 
     return () => clearTimeout(timer);
-  }, [query, activeCategory, inStockOnly, nearExpiryOnly, highBalanceOnly, sortBy]);
+  }, [query, activeCategory, inStockOnly, nearExpiryOnly, highBalanceOnly, sortBy, vocalEnabled, speakText]);
 
   // Flatten active results for keyboard navigation
   const getFlatResults = useCallback(() => {
@@ -405,8 +461,25 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             </button>
           )}
 
-          {/* Voice Search Mic Button */}
+          {/* Voice Search Mic & Alexa Vocal Response Controls */}
           <div className="flex items-center gap-1.5 shrink-0 border-l border-slate-200 pl-2">
+            {/* Vocal Toggle (TTS) */}
+            <button
+              onClick={() => {
+                if (vocalSpeaking) stopSpeaking();
+                setVocalEnabled((v) => !v);
+              }}
+              className={`p-2 rounded-xl border text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                vocalEnabled
+                  ? "bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100"
+                  : "bg-slate-100 text-slate-400 border-slate-200"
+              }`}
+              title={vocalEnabled ? "Alexa Vocal Answers Enabled (Click to Mute)" : "Alexa Vocal Answers Muted (Click to Enable)"}
+            >
+              {vocalEnabled ? <Volume2 className="w-4 h-4 text-indigo-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+            </button>
+
+            {/* Microphone Button */}
             <button
               onClick={toggleVoiceSearch}
               className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all cursor-pointer ${
@@ -414,7 +487,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   ? "bg-rose-600 text-white shadow-lg scale-105 animate-pulse"
                   : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80"
               }`}
-              title={isListening ? "Stop Voice Search" : "Speak to Search (Voice Search)"}
+              title={isListening ? "Stop Voice Search" : "Speak to Search (Alexa Voice Search)"}
             >
               {isListening ? (
                 <>
@@ -447,6 +520,29 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
             </kbd>
           </div>
         </div>
+
+        {/* Ambient Alexa Vocal Speaking Banner & Liquid Orb UI */}
+        {vocalSpeaking && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-r from-indigo-950 via-purple-950 to-indigo-950 text-white text-xs font-semibold border-b border-indigo-800/80 shadow-inner animate-fadeIn">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 animate-pulse shadow-md shrink-0">
+                <Sparkles className="w-3.5 h-3.5 text-white animate-spin [animation-duration:3s]" />
+              </div>
+              <span className="font-extrabold text-indigo-300 uppercase tracking-wider text-[11px] shrink-0">
+                Alexa AI Speaking 🔊
+              </span>
+              <span className="truncate text-indigo-100 font-medium italic">
+                &ldquo;{vocalText}&rdquo;
+              </span>
+            </div>
+            <button
+              onClick={stopSpeaking}
+              className="px-2 py-1 rounded-lg bg-indigo-800 hover:bg-indigo-700 text-indigo-200 font-bold text-[11px] shrink-0 cursor-pointer shadow-2xs"
+            >
+              Mute 🔇
+            </button>
+          </div>
+        )}
 
         {/* Live Audio Soundwave & Voice Recording Visualizer Banner */}
         {isListening && (
@@ -793,14 +889,26 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                       </div>
 
                       {/* Right Quick E-Commerce Action Buttons */}
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Read Aloud Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            speakText(`${item.title}. ${item.subtitle || ""}`);
+                          }}
+                          className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all shadow-2xs cursor-pointer"
+                          title="Read Aloud with Alexa Voice AI"
+                        >
+                          <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
+                        </button>
+
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedItem(item);
                           }}
-                          className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-all shadow-2xs flex items-center gap-1"
-                          title="View Full Raw Details"
+                          className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                          title="View Full Details"
                         >
                           <Info className="w-3.5 h-3.5 text-indigo-500" />
                           <span className="hidden sm:inline">Details</span>
