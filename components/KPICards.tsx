@@ -55,11 +55,25 @@ export default function KPICards({ kpis }: { kpis: any }) {
             color: "teal",
         },
         {
-            title: "Outstanding",
+            title: "Total Outstanding",
             value: formatCurrency(kpis?.totalOutstanding),
             icon: <FaWallet size={20} />,
             url: "/dashboard/sales/invoice",
             color: "amber",
+        },
+        {
+            title: "Sales Outstanding",
+            value: formatCurrency(kpis?.salesOutstanding),
+            icon: <FaWallet size={20} />,
+            url: "/dashboard/sales/outstanding",
+            color: "cyan",
+        },
+        {
+            title: "Purchase Outstanding",
+            value: formatCurrency(kpis?.purchaseOutstanding),
+            icon: <FaWallet size={20} />,
+            url: "/dashboard/purchase/outstanding",
+            color: "orange",
         },
         {
             title: "Overdue Amount",

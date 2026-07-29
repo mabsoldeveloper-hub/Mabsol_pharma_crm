@@ -98,30 +98,35 @@ export async function GET(req: Request) {
       .sort({ DATE: -1 })
       .lean();
 
-    // Customer Master
-    const customers = await Order.find(
-      {},
-      {
-        ORDNO: 1,
-        PARNAM: 1,
-        CITY: 1,
-        GSTNO: 1,
-        GSTHED: 1,
-        STATE: 1,
-        COMPANY: 1,
-        GCODE: 1,
-        SCODE: 1,
-        DSM: 1,
-      }
-    ).lean();
+    // Customer / Order Master
+    const [orders, customers] = await Promise.all([
+      Order.find({}, { ORDNO: 1, CODEP: 1, PARNAM: 1, NAME: 1, CITY: 1, GSTNO: 1, GSTHED: 1, STATE: 1 }).lean(),
+      Customer.find({}, { ORDNO: 1, CODEP: 1, PARNAM: 1, NAME: 1, CITY: 1, GSTNO: 1, GSTHED: 1, STATE: 1 }).lean(),
+    ]);
 
-    // Customer Map (ORDNO -> Customer)
+    // Customer Map (ORDNO / CODEP -> Customer Obj)
     const customerMap = new Map();
 
-    customers.forEach((c: any) => {
-      const key = String(c.ORDNO || "").trim().toUpperCase();
-      customerMap.set(key, c);
-    });
+    const addCustomerToMap = (c: any) => {
+      const obj = {
+        PARNAM: c.PARNAM || c.NAME || "",
+        CITY: c.CITY || "",
+        GSTNO: c.GSTNO || "",
+        GSTHED: c.GSTHED || "",
+        STATE: c.STATE || "",
+      };
+      [c.ORDNO, c.CODEP, c.CODE, c.SCODE].forEach((k) => {
+        if (k) {
+          const key = String(k).trim().toUpperCase();
+          if (key && !customerMap.has(key)) {
+            customerMap.set(key, obj);
+          }
+        }
+      });
+    };
+
+    orders.forEach(addCustomerToMap);
+    customers.forEach(addCustomerToMap);
 
     const result = invoices.map((bill: any) => {
       const code = String(bill.CODEP || "").trim().toUpperCase();

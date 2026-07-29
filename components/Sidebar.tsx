@@ -34,6 +34,7 @@ import {
   FaGift,
   FaTrophy,
   FaUserCheck,
+  FaFileInvoiceDollar,
 } from "react-icons/fa";
 
 
@@ -786,6 +787,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           icon={<FaFileInvoice />}
                           label="Invoices List"
                           active={pathname === "/dashboard/sales/invoice"}
+                          color="blue"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/sales/outstanding"
+                          icon={<FaFileInvoiceDollar />}
+                          label="Sales Outstanding"
+                          active={pathname.startsWith("/dashboard/sales/outstanding")}
                           color="blue"
                         />
                       </li>
