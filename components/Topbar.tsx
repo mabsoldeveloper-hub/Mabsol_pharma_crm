@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, List, PersonCircle, Trash, CalendarEvent } from "react-bootstrap-icons";
+import { Bell, List, PersonCircle, Trash, CalendarEvent, Search } from "react-bootstrap-icons";
 
 import { useUser } from "@/context/UserContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import LogoutButton from "./LogoutButton";
+import GlobalSearchModal from "./GlobalSearchModal";
 
 export default function Topbar({
   collapsed,
@@ -21,10 +22,30 @@ export default function Topbar({
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string>("");
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      } else if (
+        e.key === "/" &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const raw = user?.companyId as any;
@@ -198,8 +219,38 @@ export default function Topbar({
         )}
       </div>
 
+      {/* CENTER GLOBAL SEARCH TRIGGER (Desktop / Tablet) */}
+      <div className="hidden md:flex flex-1 max-w-md mx-4">
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50/60 hover:border-indigo-200 text-slate-500 transition-all text-xs font-semibold shadow-2xs group cursor-pointer"
+        >
+          <div className="flex items-center gap-2 truncate">
+            <Search size={15} className="text-indigo-600 group-hover:scale-110 transition-transform shrink-0" />
+            <span className="truncate text-slate-500 group-hover:text-indigo-900 font-medium">Search sidebar links, products, stock, customers, vouchers...</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 rounded-md shadow-2xs group-hover:bg-rose-100 transition-colors">
+              🎙️ Voice
+            </span>
+            <kbd className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-extrabold text-slate-400 bg-white border border-slate-200 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors">
+              <span className="text-[9px]">Ctrl</span> K
+            </kbd>
+          </div>
+        </button>
+      </div>
+
       {/* RIGHT */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* MOBILE GLOBAL SEARCH ICON BUTTON */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          aria-label="Global Search"
+          className="flex md:hidden items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors duration-200 shrink-0 cursor-pointer shadow-2xs"
+          title="Search Anything (Products, Customers, Invoices, MRs...)"
+        >
+          <Search size={18} />
+        </button>
         {/* NOTIFICATIONS */}
         <div className="relative" ref={notifRef}>
           <button
@@ -392,6 +443,8 @@ export default function Topbar({
           )}
         </div>
       </div>
+
+      <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

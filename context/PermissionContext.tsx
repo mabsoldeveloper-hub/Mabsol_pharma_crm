@@ -102,10 +102,15 @@ can,
 
 }
 
-export function usePermission(){
-
-return useContext(
-PermissionContext
-);
-
+export function usePermission() {
+  const context = useContext(PermissionContext);
+  if (!context) {
+    return {
+      permissions: [],
+      loading: false,
+      reload: async () => {},
+      can: (_key: string) => true,
+    };
+  }
+  return context;
 }
