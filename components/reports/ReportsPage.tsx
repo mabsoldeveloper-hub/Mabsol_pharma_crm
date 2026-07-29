@@ -9,6 +9,8 @@ import {
     FaReceipt,
     FaArrowRight,
     FaBullseye,
+    FaUndoAlt,
+    FaHandHoldingUsd,
 } from "react-icons/fa";
 
 export default function ReportsPage() {
@@ -20,6 +22,20 @@ export default function ReportsPage() {
             icon: <FaBullseye size={16} />,
             link: "/dashboard/reports/target-vs-actual",
             color: "rose",
+        },
+        {
+            title: "Sales Return Report",
+            desc: "Credit note & return analysis by Area, Route, Salesman & Party",
+            icon: <FaUndoAlt size={16} />,
+            link: "/dashboard/reports/sales-return",
+            color: "rose",
+        },
+        {
+            title: "Sales Receipt Report",
+            desc: "Payment collections & discount report with executive filters",
+            icon: <FaHandHoldingUsd size={16} />,
+            link: "/dashboard/reports/sales-receipt",
+            color: "emerald",
         },
         {
             title: "Customer Report",

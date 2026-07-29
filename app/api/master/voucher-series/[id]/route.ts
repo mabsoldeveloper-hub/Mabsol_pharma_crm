@@ -17,7 +17,7 @@ export async function PUT(
     }
 
     if (body.seriesName !== undefined) series.seriesName = String(body.seriesName).trim();
-    if (body.voucherType !== undefined) series.voucherType = String(body.voucherType).toUpperCase();
+    if (body.voucherType !== undefined) series.voucherType = String(body.voucherType).toUpperCase() as any;
     if (body.prefix !== undefined) series.prefix = String(body.prefix).trim();
     if (body.suffix !== undefined) series.suffix = String(body.suffix).trim();
     if (body.nextNumber !== undefined) series.nextNumber = Number(body.nextNumber);

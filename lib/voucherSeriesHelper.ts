@@ -9,10 +9,12 @@ export function formatVoucherNumber(prefix: string, num: number, padding: number
   return `${prefix || ""}${padded}${suffix || ""}`;
 }
 
+export type VoucherType = "SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT";
+
 /**
  * Gets or initializes default series for a given voucher type
  */
-export async function getActiveVoucherSeries(voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN") {
+export async function getActiveVoucherSeries(voucherType: VoucherType) {
   await connectDB();
 
   let series = await VoucherSeries.findOne({
@@ -30,11 +32,12 @@ export async function getActiveVoucherSeries(voucherType: "SALES" | "PROFORMA" |
 
   // Seed default if none exists
   if (!series) {
-    const defaults = {
+    const defaults: Record<VoucherType, { seriesName: string; prefix: string; nextNumber: number; padding: number }> = {
       SALES: { seriesName: "Default Tax Invoice Series", prefix: "INV-", nextNumber: 1001, padding: 5 },
       PROFORMA: { seriesName: "Default Proforma Series", prefix: "PRF-", nextNumber: 1001, padding: 5 },
       PURCHASE: { seriesName: "Default Purchase Series", prefix: "PUR-", nextNumber: 1001, padding: 5 },
-      RETURN: { seriesName: "Default Return Series", prefix: "RET-", nextNumber: 1001, padding: 5 },
+      RETURN: { seriesName: "Default Sales Return Series", prefix: "RET-", nextNumber: 1001, padding: 5 },
+      RECEIPT: { seriesName: "Default Receipt Series", prefix: "RCT-", nextNumber: 1001, padding: 5 },
     };
 
     const d = defaults[voucherType] || defaults.SALES;
@@ -57,7 +60,7 @@ export async function getActiveVoucherSeries(voucherType: "SALES" | "PROFORMA" |
 /**
  * Previews the next voucher number without incrementing
  */
-export async function peekNextVoucherNumber(voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN"): Promise<string> {
+export async function peekNextVoucherNumber(voucherType: VoucherType): Promise<string> {
   const series = await getActiveVoucherSeries(voucherType);
   return formatVoucherNumber(series.prefix, series.nextNumber, series.padding, series.suffix);
 }
@@ -65,7 +68,7 @@ export async function peekNextVoucherNumber(voucherType: "SALES" | "PROFORMA" | 
 /**
  * Atomically generates and increments the next voucher number for given type
  */
-export async function consumeNextVoucherNumber(voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN"): Promise<string> {
+export async function consumeNextVoucherNumber(voucherType: VoucherType): Promise<string> {
   await connectDB();
   const series = await getActiveVoucherSeries(voucherType);
 
