@@ -412,6 +412,51 @@ async function getLiveKPIMetrics(db: any) {
   }
 }
 
+function generateVocalSummary(query: string, results: any): string | null {
+  if (!query) return null;
+  const q = query.toLowerCase();
+
+  // 1. Check for KPI match
+  const navResults = results.navigation || [];
+  const kpiMatch = navResults.find((r: any) => r.type === "kpi");
+  if (kpiMatch) {
+    return `${kpiMatch.title}. Click to view details.`;
+  }
+
+  // 2. Intent: Top Outstanding / Dues
+  if (q.includes("who owes") || q.includes("highest outstanding") || q.includes("top outstanding") || q.includes("sabse jyada baaki")) {
+    const topCust = (results.customers || [])[0];
+    if (topCust) {
+      return `Found ${results.customers.length} party records. The party with highest balance is ${topCust.title} with ${topCust.details.outstandingBalance}.`;
+    }
+  }
+
+  // 3. Products result
+  if (results.products && results.products.length > 0) {
+    const topProd = results.products[0];
+    return `Found ${results.products.length} products matching ${query}. Top result is ${topProd.title}, stock is ${topProd.details.currentStock} units.`;
+  }
+
+  // 4. Customers result
+  if (results.customers && results.customers.length > 0) {
+    const topCust = results.customers[0];
+    return `Found ${results.customers.length} customers matching ${query}. Top result is ${topCust.title}.`;
+  }
+
+  // 5. Invoices / Vouchers result
+  if (results.vouchers && results.vouchers.length > 0) {
+    const topV = results.vouchers[0];
+    return `Found ${results.vouchers.length} vouchers matching ${query}. ${topV.title} for amount ${topV.details.netAmount || topV.details.debitAmount || ""}.`;
+  }
+
+  // 6. Navigation page match
+  if (navResults.length > 0) {
+    return `Opening ${navResults[0].title}.`;
+  }
+
+  return `No records found for ${query}.`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
@@ -474,6 +519,7 @@ export async function GET(req: NextRequest) {
           query: "",
           didYouMean: null,
           totalResults: 0,
+          vocalSummary: "Welcome to Alexa Voice Search. Speak or type to search products, customers, stock, and vouchers.",
           trending: dynamicTrending,
           results: {
             products: [],
@@ -938,12 +984,21 @@ export async function GET(req: NextRequest) {
       usersRes.length +
       navRes.length;
 
+    const vocalSummary = generateVocalSummary(query, {
+      products: productsRes,
+      customers: customersRes,
+      vouchers: vouchersRes,
+      users: usersRes,
+      navigation: navRes,
+    });
+
     return NextResponse.json({
       success: true,
       query: rawQuery,
       didYouMean: suggestedQuery ? suggestedQuery : null,
       category,
       totalResults: totalCount,
+      vocalSummary,
       results: {
         products: productsRes,
         customers: customersRes,
