@@ -55,14 +55,8 @@ export default function FileSelectorModal({
         try {
           const handle = await (window as any).showDirectoryPicker();
           if (handle && handle.name) {
-            const pathGuess = prompt(
-              `Selected local folder: "${handle.name}".\nEnter or confirm full Windows path (e.g. C:\\${handle.name} or D:\\${handle.name}):`,
-              `C:\\${handle.name}`
-            );
-            if (pathGuess) {
-              onSelect(pathGuess);
-              onClose();
-            }
+            onSelect(handle.name);
+            onClose();
           }
         } catch (e: any) {
           if (e.name !== "AbortError") {
@@ -80,16 +74,18 @@ export default function FileSelectorModal({
   const handleLocalFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (selectedFiles && selectedFiles.length > 0) {
-      const relPath = selectedFiles[0].webkitRelativePath || "";
-      const folderName = relPath.split("/")[0] || "SelectedFolder";
-      const fullPath = prompt(
-        `Selected local PC folder: "${folderName}".\nEnter or confirm full Windows path (e.g. C:\\${folderName} or D:\\${folderName}):`,
-        `C:\\${folderName}`
-      );
-      if (fullPath) {
-        onSelect(fullPath);
-        onClose();
+      const firstFile = selectedFiles[0] as any;
+      const nativePath = firstFile.path;
+      if (nativePath) {
+        const lastSlash = Math.max(nativePath.lastIndexOf("/"), nativePath.lastIndexOf("\\"));
+        const parentPath = lastSlash !== -1 ? nativePath.substring(0, lastSlash) : nativePath;
+        onSelect(parentPath);
+      } else {
+        const relPath = firstFile.webkitRelativePath || "";
+        const folderName = relPath.split("/")[0] || firstFile.name || "";
+        onSelect(folderName);
       }
+      onClose();
     }
   };
 
@@ -97,13 +93,13 @@ export default function FileSelectorModal({
     const selectedFilesList = e.target.files;
     if (selectedFilesList && selectedFilesList.length > 0) {
       const selectedPathsList: string[] = [];
-      Array.from(selectedFilesList).forEach((f) => {
-        const fullPath = prompt(
-          `Selected local PC file: "${f.name}".\nEnter or confirm full Windows path (e.g. C:\\VfpData\\${f.name}):`,
-          `C:\\${f.name}`
-        );
-        if (fullPath) {
-          selectedPathsList.push(fullPath);
+      Array.from(selectedFilesList).forEach((f: any) => {
+        if (f.path) {
+          selectedPathsList.push(f.path);
+        } else if (f.webkitRelativePath) {
+          selectedPathsList.push(f.webkitRelativePath.replace(/\//g, "\\"));
+        } else {
+          selectedPathsList.push(f.name);
         }
       });
       if (selectedPathsList.length > 0) {

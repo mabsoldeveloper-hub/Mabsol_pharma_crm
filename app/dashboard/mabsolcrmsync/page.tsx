@@ -193,17 +193,18 @@ export default async function VfpDashboardPage({
               <div className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">CRM DBF Table</div>
               <div className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
                 {status.enabledFiles && status.enabledFiles.length > 0 
-                  ? status.enabledFiles[0] 
-                  : "All tables"}
+                  ? (status.enabledFiles.length === 1 ? status.enabledFiles[0] : `${status.enabledFiles.length} selected tables`) 
+                  : "Selected tables"}
               </div>
             </div>
           </div>
         </div>
 
         {/* Control Panel Section */}
+        {/* currentPath uses ONLY consoleSyncDir — no fallback to Settings page fields (dataDir/sourceDir) */}
         <VfpSyncActions 
           currentPath={status.consoleSyncDir || ""} 
-          destinationPath={status.dataDir || ""}
+          destinationPath={""}
           enabledFiles={status.enabledFiles}
           initialAutoSync={status.autoSync}
           initialAutoSyncInterval={status.autoSyncInterval}

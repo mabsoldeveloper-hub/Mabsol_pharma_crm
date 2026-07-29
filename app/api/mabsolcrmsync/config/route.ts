@@ -4,6 +4,7 @@ import VfpConfig from "@/models/VfpConfig";
 import VfpSettingLog from "@/models/VfpSettingLog";
 import { getCurrentUser } from "@/lib/auth";
 import fs from "fs";
+import path from "path";
 
 export const dynamic = "force-dynamic";
 
@@ -129,80 +130,18 @@ export async function POST(request: NextRequest) {
     const existingConfig = await VfpConfig.findOne({ email: user.email });
 
     const isLinuxServer = process.platform !== "win32";
-    const checkPathExists = (p: string) => {
-      if (!p) return false;
-      if (isLinuxServer && /^[a-zA-Z]:/i.test(p)) return true;
-      return fs.existsSync(p);
-    };
-    const checkIsDir = (p: string) => {
-      if (!p) return false;
-      if (isLinuxServer && /^[a-zA-Z]:/i.test(p)) return true;
-      try {
-        return fs.existsSync(p) && fs.statSync(p).isDirectory();
-      } catch (e) {
-        return false;
-      }
-    };
 
     if (dataDir !== undefined) {
-      if (dataDir) {
-        // Validate that path exists and is a directory on the server
-        if (!checkPathExists(dataDir)) {
-          return NextResponse.json(
-            { success: false, error: `Folder path does not exist on local disk: ${dataDir}` },
-            { status: 400 }
-          );
-        }
-
-        if (!checkIsDir(dataDir)) {
-          return NextResponse.json(
-            { success: false, error: `Path is not a directory: ${dataDir}` },
-            { status: 400 }
-          );
-        }
-        updateFields.dataDir = dataDir;
-      } else {
-        updateFields.dataDir = "";
-      }
+      updateFields.dataDir = dataDir ? dataDir.trim() : "";
     }
 
     if (sourceDir !== undefined) {
-      if (sourceDir) {
-        if (!checkPathExists(sourceDir)) {
-          return NextResponse.json(
-            { success: false, error: `Source folder path does not exist on local disk: ${sourceDir}` },
-            { status: 400 }
-          );
-        }
-
-        if (!checkIsDir(sourceDir)) {
-          return NextResponse.json(
-            { success: false, error: `Source path is not a directory: ${sourceDir}` },
-            { status: 400 }
-          );
-        }
-      }
-      updateFields.sourceDir = sourceDir;
+      updateFields.sourceDir = sourceDir ? sourceDir.trim() : "";
     }
 
     const { consoleSyncDir } = body;
     if (consoleSyncDir !== undefined) {
-      if (consoleSyncDir) {
-        if (!checkPathExists(consoleSyncDir)) {
-          return NextResponse.json(
-            { success: false, error: `Sync folder path does not exist on local disk: ${consoleSyncDir}` },
-            { status: 400 }
-          );
-        }
-
-        if (!checkIsDir(consoleSyncDir)) {
-          return NextResponse.json(
-            { success: false, error: `Sync path is not a directory: ${consoleSyncDir}` },
-            { status: 400 }
-          );
-        }
-      }
-      updateFields.consoleSyncDir = consoleSyncDir;
+      updateFields.consoleSyncDir = consoleSyncDir ? consoleSyncDir.trim() : "";
     }
 
     if (enabledFiles !== undefined) {
@@ -228,27 +167,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (vfpExePath !== undefined) {
-      if (vfpExePath) {
-        if (!checkPathExists(vfpExePath)) {
-          return NextResponse.json(
-            { success: false, error: `Visual FoxPro executable not found at: ${vfpExePath}` },
-            { status: 400 }
-          );
-        }
-      }
-      updateFields.vfpExePath = vfpExePath;
+      updateFields.vfpExePath = vfpExePath ? vfpExePath.trim() : "";
     }
 
     if (prgPath !== undefined) {
-      if (prgPath) {
-        if (!checkPathExists(prgPath)) {
-          return NextResponse.json(
-            { success: false, error: `PRG script file not found at: ${prgPath}` },
-            { status: 400 }
-          );
-        }
-      }
-      updateFields.prgPath = prgPath;
+      updateFields.prgPath = prgPath ? prgPath.trim() : "";
     }
 
     if (userName !== undefined) {
