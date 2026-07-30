@@ -54,9 +54,7 @@ export default function VfpSyncActions({
   const router = useRouter();
 
   const [dataDir, setDataDir] = useState(currentPath);
-  const [syncScope, setSyncScope] = useState<"all" | "selected">(
-    enabledFiles.length > 0 ? "selected" : "all"
-  );
+  const [syncScope, setSyncScope] = useState<"selected">("selected");
   const [selectedFiles, setSelectedFiles] = useState<string[]>(enabledFiles);
   const [autoSync, setAutoSync] = useState(initialAutoSync);
   const [autoSyncInterval, setAutoSyncInterval] = useState(initialAutoSyncInterval);
@@ -107,62 +105,84 @@ export default function VfpSyncActions({
   const prevProps = useRef({ currentPath, enabledFiles });
   const lastUserEditTimeRef = useRef<number>(0);
 
-  // Trigger native Windows folder browser dialog
-  const handleOpenNativeFolderPicker = async () => {
+  // Directly trigger native browser folder picker
+  const handleOpenNativeFolderPicker = () => {
     if (autoSync) {
       setMessage({ type: "info", text: "Please turn off Auto-sync below to change folder." });
       return;
     }
-
-    try {
-      const res = await fetch("/api/mabsolcrmsync/select-folder-dialog", { method: "POST" });
-      const data = await res.json();
-      if (data.success && data.path) {
-        setDataDir(data.path);
-        saveConfiguration(data.path, syncScope, selectedFiles, autoSync, autoSyncInterval);
-        return;
-      }
-    } catch (e) {
-      setMessage({ type: "error", text: "Unable to open Windows folder dialog." });
-    }
+    nativeFolderInputRef.current?.click();
   };
 
   const handleNativeFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const relPath = files[0].webkitRelativePath || "";
-      const folderName = relPath.split("/")[0] || relPath.split("\\")[0] || "SelectedFolder";
-      
-      let detectedPath = (files[0] as any).path ? (files[0] as any).path : "";
-      if (detectedPath) {
-        const lastSlash = Math.max(detectedPath.lastIndexOf("/"), detectedPath.lastIndexOf("\\"));
+      const firstFile = files[0] as any;
+
+      // 1. Extract full disk path if available from Electron/local browser
+      let selectedPath = "";
+      if (firstFile && firstFile.path) {
+        const lastSlash = Math.max(firstFile.path.lastIndexOf("/"), firstFile.path.lastIndexOf("\\"));
         if (lastSlash !== -1) {
-          detectedPath = detectedPath.substring(0, lastSlash);
+          selectedPath = firstFile.path.substring(0, lastSlash);
         }
       }
 
-      const finalPath = detectedPath || prompt(
-        `Selected folder: "${folderName}".\nConfirm Windows path:`,
-        `C:\\${folderName}`
-      );
-
-      if (finalPath) {
-        setDataDir(finalPath);
-        const dbfNames: string[] = [];
-        Array.from(files).forEach((f) => {
-          if (f.name.toLowerCase().endsWith(".dbf")) {
-            if (!dbfNames.includes(f.name)) dbfNames.push(f.name);
+      // 2. Fallback: resolve relative folder name against current parent directory
+      if (!selectedPath || (!selectedPath.includes(":") && !selectedPath.startsWith("/"))) {
+        const relPath = firstFile.webkitRelativePath || "";
+        let relFolder = "";
+        if (relPath) {
+          const firstSlash = relPath.indexOf("/");
+          if (firstSlash !== -1) {
+            relFolder = relPath.substring(0, firstSlash);
           }
-        });
-        const updatedFiles = dbfNames.length > 0 ? Array.from(new Set([...selectedFiles, ...dbfNames])) : selectedFiles;
-        if (dbfNames.length > 0) setSelectedFiles(updatedFiles);
-        saveConfiguration(finalPath, syncScope, updatedFiles, autoSync, autoSyncInterval);
+        }
+
+        const folderName = relFolder || firstFile.name || "";
+        
+        // Only use the console's own dataDir as base — do NOT fall back to
+        // destinationPath which comes from the Settings page.
+        const activeBase = (dataDir && (dataDir.includes(":") || dataDir.startsWith("/")))
+          ? dataDir
+          : "";
+
+        if (activeBase && folderName) {
+          const lastSlash = Math.max(activeBase.lastIndexOf("/"), activeBase.lastIndexOf("\\"));
+          if (lastSlash !== -1) {
+            const parentDir = activeBase.substring(0, lastSlash);
+            selectedPath = `${parentDir}\\${folderName}`;
+          } else {
+            selectedPath = `${activeBase}\\${folderName}`;
+          }
+        } else if (folderName) {
+          selectedPath = folderName;
+        }
       }
+
+      if (selectedPath) {
+        setDataDir(selectedPath);
+      }
+
+      // Extract all .dbf files from the selected folder and populate them in the list
+      const dbfNames: string[] = [];
+      Array.from(files).forEach((f) => {
+        if (f.name.toLowerCase().endsWith(".dbf")) {
+          if (!dbfNames.includes(f.name)) dbfNames.push(f.name);
+        }
+      });
+
+      const updatedFiles = dbfNames.length > 0 ? Array.from(new Set([...selectedFiles, ...dbfNames])) : selectedFiles;
+      if (dbfNames.length > 0) {
+        setSelectedFiles(updatedFiles);
+      }
+      setSyncScope("selected");
+      saveConfiguration(selectedPath || dataDir, "selected", updatedFiles, autoSync, autoSyncInterval, true);
     }
     e.target.value = "";
   };
 
-  // Directly trigger native Windows Explorer file picker for DBF tables
+  // Directly trigger native file picker for DBF tables
   const handleOpenNativeFilePicker = () => {
     if (autoSync) {
       setMessage({ type: "info", text: "Please turn off Auto-sync below to add DBF tables." });
@@ -189,10 +209,18 @@ export default function VfpSyncActions({
           if (lastSlash !== -1) {
             detectedFolderPath = fullPath.substring(0, lastSlash);
           }
+        } else if (!detectedFolderPath) {
+          const relPath = (file as any).webkitRelativePath || "";
+          if (relPath) {
+            const firstSlash = relPath.indexOf("/");
+            if (firstSlash !== -1) {
+              detectedFolderPath = relPath.substring(0, firstSlash);
+            }
+          }
         }
       });
 
-      if (detectedFolderPath !== dataDir) {
+      if (detectedFolderPath && detectedFolderPath !== dataDir) {
         setDataDir(detectedFolderPath);
       }
 
@@ -231,7 +259,12 @@ export default function VfpSyncActions({
 
   // Sync state values when props change
   useEffect(() => {
-    setDataDir(currentPath);
+    // Only set dataDir from props on first mount — after that the user owns
+    // this field locally.  This prevents Settings-page data from ghosting
+    // back into the Sync Console path after a router.refresh().
+    if (!isMounted.current) {
+      setDataDir(currentPath);
+    }
     setAutoSync(initialAutoSync);
     setAutoSyncInterval(initialAutoSyncInterval);
     setPresetInterval([10, 30, 60].includes(initialAutoSyncInterval) ? String(initialAutoSyncInterval) : "custom");
@@ -241,11 +274,7 @@ export default function VfpSyncActions({
 
     if (!isMounted.current || (enabledFilesChanged && !userRecentlyEdited)) {
       setSelectedFiles(enabledFiles);
-      if (enabledFiles.length > 0) {
-        setSyncScope("selected");
-      } else {
-        setSyncScope("all");
-      }
+      setSyncScope("selected");
       isMounted.current = true;
     }
 
@@ -253,6 +282,8 @@ export default function VfpSyncActions({
   }, [currentPath, enabledFiles, initialAutoSync, initialAutoSyncInterval]);
 
   // Unified save config function
+  // NOTE: This only saves consoleSyncDir (the Sync Console's own path) and never
+  // touches dataDir, prgPath, vfpExePath or any other Settings-page-only fields.
   async function saveConfiguration(
     updatedDir: string, 
     updatedScope: "all" | "selected", 
@@ -264,18 +295,22 @@ export default function VfpSyncActions({
     lastUserEditTimeRef.current = Date.now();
     setMessage({ type: "info", text: "Saving configuration..." });
     
-    const filesToSync = updatedScope === "selected" ? updatedFiles : [];
+    const filesToSync = updatedFiles;
+    
+    // Only write consoleSyncDir — do NOT overwrite dataDir which is owned
+    // by the Settings page (prgPath, vfpExePath, sourceDir, dataDir).
+    const bodyPayload: any = {
+      enabledFiles: filesToSync,
+      autoSync: updatedAutoSync,
+      autoSyncInterval: updatedInterval,
+      consoleSyncDir: updatedDir ? updatedDir.trim() : "",
+    };
     
     try {
       const response = await fetch("/api/mabsolcrmsync/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          consoleSyncDir: updatedDir,
-          enabledFiles: filesToSync,
-          autoSync: updatedAutoSync,
-          autoSyncInterval: updatedInterval,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
       const data = await response.json();
 
@@ -362,7 +397,7 @@ export default function VfpSyncActions({
 
   // Client-side Auto Sync Scheduler Effect
   useEffect(() => {
-    if (!autoSync || !dataDir) return;
+    if (!autoSync || selectedFiles.length === 0) return;
 
     const intervalMins = Math.max(1, autoSyncInterval);
     const intervalMs = intervalMins * 60 * 1000;
@@ -378,7 +413,7 @@ export default function VfpSyncActions({
 
   // Trigger manual or auto sync now
   async function triggerSyncNow(isAuto: boolean = false) {
-    if (!dataDir) return;
+    if (selectedFiles.length === 0) return;
     setBusyAction("sync");
     setMessage({ 
       type: "info", 
@@ -485,74 +520,116 @@ export default function VfpSyncActions({
           {/* Left Column: Scope & Path Settings */}
           <div className="space-y-5 min-w-0">
             
-            {/* TOP ITEM: SYNC RANGE SCOPE */}
-            <div>
-              <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                SYNC RANGE SCOPE
-              </span>
-              <div 
-                className="flex items-center bg-slate-100/90 p-1 border-0 w-full box-border shadow-2xs overflow-hidden"
-                style={{ borderRadius: "9999px" }}
-              >
-                <button 
-                  type="button" 
-                  disabled={autoSync}
-                  className={`flex-1 min-w-0 py-2 px-2 sm:px-4 text-[11px] sm:text-xs font-bold transition-all duration-200 ease-in-out text-center truncate btn-pill ${
-                    autoSync ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                  } ${
-                    syncScope === "all" ? "bg-black text-white shadow-xs" : "text-slate-600 hover:text-slate-900 bg-transparent"
-                  }`}
-                  style={{ borderRadius: "9999px" }}
-                  onClick={() => {
-                    if (autoSync) {
-                      setMessage({ type: "info", text: "Please turn off Auto-sync below to change sync scope." });
-                      return;
-                    }
-                    setSyncScope("all");
-                    saveConfiguration(dataDir, "all", selectedFiles, autoSync, autoSyncInterval);
-                  }}
-                  title={autoSync ? "Turn off Auto-sync to change sync scope" : "Switch to All tables"}
-                >
-                  All tables
-                </button>
-                <button 
-                  type="button" 
-                  disabled={autoSync}
-                  className={`flex-1 min-w-0 py-2 px-2 sm:px-4 text-[11px] sm:text-xs font-bold transition-all duration-200 ease-in-out text-center truncate btn-pill ${
-                    autoSync ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                  } ${
-                    syncScope === "selected" ? "bg-black text-white shadow-xs" : "text-slate-600 hover:text-slate-900 bg-transparent"
-                  }`}
-                  style={{ borderRadius: "9999px" }}
-                  onClick={() => {
-                    if (autoSync) {
-                      setMessage({ type: "info", text: "Please turn off Auto-sync below to change sync scope." });
-                      return;
-                    }
-                    setSyncScope("selected");
-                    saveConfiguration(dataDir, "selected", selectedFiles, autoSync, autoSyncInterval);
-                  }}
-                  title={autoSync ? "Turn off Auto-sync to change sync scope" : "Switch to Selected tables"}
-                >
-                  Selected tables {selectedFiles.length > 0 ? `(${selectedFiles.length})` : ""}
-                </button>
-              </div>
-
-              {/* SHOW DBF TABLES CONTAINER ONLY WHEN 'Selected tables' IS ACTIVE */}
-              {syncScope === "selected" && (() => {
-                const allClipsList = Array.from(new Set([...folderDbfFiles, ...selectedFiles]));
+            {/* TOP ITEM: SELECT DBF TABLES TO SYNC */}
+            <div className="space-y-4">
+              {/* SELECT DBF TABLES CONTAINER */}
+              {(() => {
+                const allClipsList = Array.from(new Set([...selectedFiles, ...folderDbfFiles]));
                 return (
-                  <div className="mt-3 p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl space-y-3 shadow-2xs animate-in slide-in-from-top-2 duration-150">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl space-y-3.5 shadow-2xs">
+                    
+                    {/* SELECTED FILES FOLDER LOCATION FIELD (PLACED AT TOP WITH BROWSE BUTTON) */}
+                    <div className="space-y-1.5 pb-3 border-b border-slate-200/80">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                          <FolderOpen size={13} className="text-teal-600" />
+                          <span>SELECTED FILES FOLDER LOCATION</span>
+                        </span>
+                        {dataDir ? (
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full font-bold font-mono truncate max-w-[220px]" title={dataDir}>
+                            ✓ Folder set
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full font-bold font-mono">
+                            ⚠️ Folder path empty
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 w-full">
+                        <div 
+                          className="flex-1 flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200/90 text-xs font-mono text-slate-800 overflow-hidden box-border shadow-2xs focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-400 transition-all"
+                          style={{ borderRadius: "10px" }}
+                        >
+                          <input
+                            type="text"
+                            value={dataDir}
+                            onChange={(e) => {
+                              const newDir = e.target.value;
+                              setDataDir(newDir);
+                              saveConfiguration(newDir, "selected", selectedFiles, autoSync, autoSyncInterval, true);
+                            }}
+                            placeholder="Enter folder path or click Browse folder..."
+                            className="w-full bg-transparent border-0 outline-none text-xs font-mono text-slate-800 placeholder:text-slate-400"
+                            disabled={autoSync}
+                            title="Directory path containing your selected DBF tables"
+                          />
+                          {dataDir && !autoSync && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDataDir("");
+                                saveConfiguration("", "selected", selectedFiles, autoSync, autoSyncInterval, true);
+                              }}
+                              className="text-slate-400 hover:text-slate-600 p-0.5 shrink-0 cursor-pointer"
+                              title="Clear folder path"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={autoSync}
+                          onClick={handleOpenNativeFolderPicker}
+                          className={`inline-flex items-center gap-1 px-3 py-2 text-xs font-bold bg-white border border-slate-200 text-slate-800 transition-all shadow-2xs btn-pill shrink-0 ${
+                            autoSync ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-100 cursor-pointer"
+                          }`}
+                          style={{ borderRadius: "10px" }}
+                          title={autoSync ? "Turn off Auto-sync to change folder" : "Browse Windows folder for DBF files"}
+                        >
+                          <FolderOpen size={13} className="text-slate-600" />
+                          <span>Browse folder</span>
+                        </button>
+
+                        {dataDir && (
+                          <button
+                            type="button"
+                            disabled={autoSync}
+                            onClick={() => {
+                              if (autoSync) {
+                                setMessage({ type: "info", text: "Please turn off Auto-sync below to clear folder path." });
+                                return;
+                              }
+                              setDataDir("");
+                              saveConfiguration("", "selected", selectedFiles, autoSync, autoSyncInterval, true);
+                            }}
+                            className={`inline-flex items-center gap-1 px-3 py-2 text-xs font-bold bg-white border border-red-200 text-red-600 transition-all shadow-2xs btn-pill shrink-0 ${
+                              autoSync ? "opacity-50 cursor-not-allowed" : "hover:bg-red-50 hover:border-red-300 cursor-pointer"
+                            }`}
+                            style={{ borderRadius: "10px" }}
+                            title={autoSync ? "Turn off Auto-sync to clear path" : "Clear folder path"}
+                          >
+                            <X size={13} className="text-red-500" />
+                            <span>Clear path</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
                         <Database size={13} className="text-teal-600" />
                         <span>SELECT DBF TABLES TO SYNC</span>
                         {selectedFiles.length > 0 && (
                           <span className="text-teal-600 font-bold font-mono">({selectedFiles.length} active)</span>
                         )}
+                        {scanningFolder && (
+                          <span className="text-slate-400 text-[10px] animate-pulse">Scanning folder...</span>
+                        )}
                       </span>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3 shrink-0">
                         <button 
                           type="button"
                           disabled={autoSync}
@@ -567,30 +644,50 @@ export default function VfpSyncActions({
                           <span>Add DBF table(s)</span>
                         </button>
 
-                        {selectedFiles.length > 0 && (
-                          <button 
-                            type="button"
-                            disabled={autoSync}
-                            onClick={() => {
-                              if (autoSync) {
-                                setMessage({ type: "info", text: "Please turn off Auto-sync below to clear tables." });
-                                return;
-                              }
-                              handleClearAllFiles();
-                            }}
-                            className={`text-[11px] font-bold px-2 py-0.5 ${
-                              autoSync ? "text-slate-400 cursor-not-allowed" : "text-red-500 hover:text-red-700 cursor-pointer"
-                            }`}
-                          >
-                            Clear all
-                          </button>
-                        )}
+                        <button 
+                          type="button"
+                          disabled={autoSync || allClipsList.length === 0 || selectedFiles.length === allClipsList.length}
+                          onClick={() => {
+                            if (autoSync) {
+                              setMessage({ type: "info", text: "Please turn off Auto-sync below to select all." });
+                              return;
+                            }
+                            setSelectedFiles(allClipsList);
+                            saveConfiguration(dataDir, "selected", allClipsList, autoSync, autoSyncInterval, true);
+                          }}
+                          className={`text-[11px] font-bold px-1.5 py-0.5 transition-colors ${
+                            autoSync || allClipsList.length === 0 || selectedFiles.length === allClipsList.length
+                              ? "text-slate-300 cursor-not-allowed"
+                              : "text-teal-600 hover:text-teal-800 cursor-pointer"
+                          }`}
+                        >
+                          Select all
+                        </button>
+
+                        <button 
+                          type="button"
+                          disabled={autoSync || selectedFiles.length === 0}
+                          onClick={() => {
+                            if (autoSync) {
+                              setMessage({ type: "info", text: "Please turn off Auto-sync below to clear tables." });
+                              return;
+                            }
+                            handleClearAllFiles();
+                          }}
+                          className={`text-[11px] font-bold px-1.5 py-0.5 transition-colors ${
+                            autoSync || selectedFiles.length === 0
+                              ? "text-slate-300 cursor-not-allowed"
+                              : "text-red-500 hover:text-red-700 cursor-pointer"
+                          }`}
+                        >
+                          Deselect all
+                        </button>
                       </div>
                     </div>
 
                     {/* Auto-sync Locked Warning Banner */}
                     {autoSync && (
-                      <div className="text-[11px] font-bold text-amber-800 bg-amber-50/90 border border-amber-200/80 px-3 py-1.5 rounded-xl flex items-center gap-2 animate-in fade-in duration-150">
+                      <div className="text-[11px] font-bold text-amber-800 bg-amber-50/90 border border-amber-200/80 px-3 py-1.5 rounded-xl flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                         <span>🔒 Table selection is locked while Auto-sync is enabled. Turn off Auto-sync below to select or deselect tables.</span>
                       </div>
@@ -643,7 +740,7 @@ export default function VfpSyncActions({
                       </div>
                     ) : (
                       <div className="text-xs text-slate-500 font-mono italic">
-                        No DBF tables detected. Click "Add DBF table(s)" to select files.
+                        No DBF tables selected. Click "Add DBF table(s)" to select files.
                       </div>
                     )}
                   </div>
@@ -651,90 +748,11 @@ export default function VfpSyncActions({
               })()}
             </div>
 
-            {/* SHOW SELECT SOURCE FOLDER ONLY WHEN 'All tables' IS ACTIVE */}
-            {syncScope === "all" && (
-              <div className="animate-in slide-in-from-top-2 duration-150 space-y-2">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    SELECT SOURCE DATA FOLDER (FOR DBF TABLES TO SYNC)
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <div 
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 bg-slate-50/60 border border-slate-200/80 text-xs font-mono text-slate-700 w-full overflow-hidden box-border shadow-2xs focus-within:bg-white focus-within:border-slate-400 transition-all"
-                    style={{ borderRadius: "12px" }}
-                  >
-                    <FolderOpen size={15} className="text-slate-400 shrink-0" />
-                    <input
-                      type="text"
-                      value={dataDir}
-                      onChange={(e) => {
-                        const newDir = e.target.value;
-                        setDataDir(newDir);
-                        saveConfiguration(newDir, syncScope, selectedFiles, autoSync, autoSyncInterval, true);
-                      }}
-                      placeholder="Enter or browse folder path (e.g. C:\ or D:\SHYLARK 2026-27)"
-                      className="w-full bg-transparent border-0 outline-none text-xs font-mono text-slate-800 placeholder:text-slate-400"
-                      disabled={autoSync}
-                      title="Directly edit directory path"
-                    />
-                  </div>
-
-                  {dataDir && (
-                    <div className="px-1 text-[11px] text-slate-500 font-mono flex items-center gap-1.5 flex-wrap">
-                      {scanningFolder ? (
-                        <span className="text-slate-400 italic">Scanning folder for .DBF files...</span>
-                      ) : folderDbfFiles.length > 0 ? (
-                        <>
-                          <span className="font-bold text-slate-700">✓ Detected {folderDbfFiles.length} DBF table(s):</span>
-                          <span className="text-slate-500 font-mono truncate max-w-full">
-                            {folderDbfFiles.slice(0, 4).join(", ")}{folderDbfFiles.length > 4 ? ` +${folderDbfFiles.length - 4} more` : ""}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-amber-600 font-sans">⚠️ No .DBF files found in this directory.</span>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2.5 w-full">
-                    <button 
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-4 text-xs font-bold border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 active:scale-[0.99] transition-all cursor-pointer shadow-2xs btn-pill" 
-                      style={{ borderRadius: "9999px" }}
-                      onClick={handleOpenNativeFolderPicker} 
-                      type="button"
-                      title="Open Windows Explorer to select source folder"
-                    >
-                      <FolderOpen size={13} className="text-slate-500" />
-                      <span>Browse</span>
-                    </button>
-                    
-                    <button 
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-4 text-xs font-bold border border-slate-200 bg-white text-red-600 hover:bg-red-50/50 hover:border-red-200 active:scale-[0.99] transition-all cursor-pointer shadow-2xs btn-pill" 
-                      style={{ borderRadius: "9999px" }}
-                      onClick={() => {
-                        setDataDir("");
-                        saveConfiguration("", syncScope, selectedFiles, autoSync, autoSyncInterval);
-                      }} 
-                      type="button"
-                      title="Remove selected path"
-                    >
-                      <span className="text-red-500 font-bold text-xs leading-none">✕</span>
-                      <span>Clear</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {(() => {
-              const isNoFolderSelected = syncScope === "all" && !dataDir.trim();
-              const isNoFilesSelected = syncScope === "selected" && selectedFiles.length === 0;
-              const isAutoSyncDisabled = isNoFolderSelected || isNoFilesSelected;
+              const isNoFilesSelected = selectedFiles.length === 0;
+              const isAutoSyncDisabled = isNoFilesSelected;
 
-              const disabledReason = isNoFolderSelected
-                ? "Please select a source folder in 'All tables' before enabling Auto-sync."
-                : isNoFilesSelected
+              const disabledReason = isNoFilesSelected
                 ? "Please select at least 1 DBF table before enabling Auto-sync."
                 : "";
 
@@ -748,7 +766,7 @@ export default function VfpSyncActions({
                     <div className="text-[11px] text-slate-400 leading-tight mt-0.5">Run background synchronization on a schedule</div>
                     {isAutoSyncDisabled && (
                       <span className="text-[11px] font-bold text-amber-600 block mt-1">
-                        ⚠️ {isNoFolderSelected ? "Select a source folder to enable auto-sync" : "Select at least 1 DBF table to enable auto-sync"}
+                        ⚠️ Select at least 1 DBF table to enable auto-sync
                       </span>
                     )}
                   </div>
@@ -774,7 +792,7 @@ export default function VfpSyncActions({
                       } else if (busyAction === "sync") {
                         triggerCancelSync();
                       }
-                      saveConfiguration(dataDir, syncScope, selectedFiles, newAutoSync, autoSyncInterval);
+                      saveConfiguration(dataDir, "selected", selectedFiles, newAutoSync, autoSyncInterval);
                     }}
                   >
                     <div 
@@ -936,23 +954,10 @@ export default function VfpSyncActions({
             >
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">WORKER STATUS</span>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <div className="flex items-center gap-1 text-xs text-slate-500 font-mono">
-                    <Clock size={12} className="text-slate-400" />
-                    <span>Last sync:</span>
-                    <span className="font-bold text-slate-800">{formatDate(lastSyncedAt)}</span>
-                  </div>
-                  <span 
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 border btn-pill ${
-                      workerOnline 
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                        : "bg-red-50 text-red-700 border-red-200"
-                    }`}
-                    style={{ borderRadius: "9999px" }}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${workerOnline ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
-                    {workerOnline ? "Active" : "Offline"}
-                  </span>
+                <div className="flex items-center gap-1 text-xs text-slate-500 font-mono">
+                  <Clock size={12} className="text-slate-400" />
+                  <span>Last sync:</span>
+                  <span className="font-bold text-slate-800">{formatDate(lastSyncedAt)}</span>
                 </div>
               </div>
 
@@ -966,9 +971,9 @@ export default function VfpSyncActions({
                   style={{ borderRadius: "9999px" }}
                   id="sync-btn" 
                   onClick={() => triggerSyncNow(false)}
-                  disabled={!dataDir || Boolean(busyAction) || autoSync}
+                  disabled={selectedFiles.length === 0 || Boolean(busyAction) || autoSync}
                   type="button"
-                  title={autoSync ? "Auto-sync is running on a schedule. Click 'Cancel sync' below to stop." : "Click to trigger immediate manual sync"}
+                  title={autoSync ? "Auto-sync is running on a schedule. Click 'Cancel sync' below to stop." : selectedFiles.length === 0 ? "Please select at least 1 DBF table to sync" : "Click to trigger immediate manual sync"}
                 >
                   {busyAction === "sync" ? (
                     <RefreshCw size={14} className="animate-spin text-white" />

@@ -1,6 +1,5 @@
-"use client";
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   X,
@@ -68,7 +67,7 @@ export default function GlobalSearchModal({
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(false);
-  const [showGuide, setShowGuide] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
 
   // Salim Voice Search & Vocal Response (TTS) State
   const [selectedLang] = useState("en-IN");
@@ -397,6 +396,7 @@ export default function GlobalSearchModal({
       setNearExpiryOnly(false);
       setHighBalanceOnly(false);
       setSortBy("relevance");
+      setShowGuide(false);
     }
   }, [isOpen]);
 

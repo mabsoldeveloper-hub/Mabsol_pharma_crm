@@ -14,15 +14,33 @@ export async function performDirectServerSync(userEmail: string) {
   await dbConnect();
 
   const email = userEmail || "global";
-  const config =
+  let config: any =
     (await VfpConfig.findOne({ email }).lean()) ||
     (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean());
 
-  const dataDir = (config as any).consoleSyncDir || (config as any).sourceDir || (config as any).dataDir;
-  const enabledFiles: string[] = (config as any).enabledFiles || [];
+  if (!config) {
+    config = (await VfpConfig.findOne({}).sort({ updatedAt: -1 }).lean()) || {};
+  }
+
+  let dataDir: string = config?.consoleSyncDir || config?.sourceDir || config?.dataDir || process.env.VFP_DATA_DIR || "";
+  const enabledFiles: string[] = config?.enabledFiles || [];
+
+  // Fallback: search all stored configurations in database for a valid existing directory path
+  if (!dataDir || !fs.existsSync(dataDir)) {
+    const allConfigs = await VfpConfig.find({}).lean();
+    for (const c of allConfigs) {
+      const candidate = (c as any).consoleSyncDir || (c as any).sourceDir || (c as any).dataDir;
+      if (candidate && fs.existsSync(candidate)) {
+        dataDir = candidate;
+        break;
+      }
+    }
+  }
 
   if (!dataDir || !fs.existsSync(dataDir)) {
-    throw new Error(`Configured directory does not exist on server: ${dataDir || "None"}`);
+    throw new Error(
+      `No valid DBF data directory path configured on server (${dataDir || "None"}). Please verify the folder path in the 'SELECTED FILES FOLDER LOCATION' field.`
+    );
   }
 
   const runId = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
