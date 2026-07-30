@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, type ReactElement } from "react";
 import Link from "next/link";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
@@ -53,11 +53,48 @@ type InvoiceRow = {
     status?: string;
 };
 
+// Human-friendly label + color for a raw type code. Falls back to the raw
+// code itself for any type not explicitly known, so new/unexpected types
+// still show up correctly instead of being hidden.
+const TYPE_META: Record<string, { label: string; activeClass: string }> = {
+    S: { label: "Tax Invoices", activeClass: "bg-emerald-500 text-white shadow-sm" },
+    PROFORMA: { label: "Proforma (Kaccha)", activeClass: "bg-amber-500 text-white shadow-sm" },
+    ESTIMATE: { label: "Proforma (Kaccha)", activeClass: "bg-amber-500 text-white shadow-sm" },
+    P: { label: "Purchase", activeClass: "bg-blue-500 text-white shadow-sm" },
+    R: { label: "Return", activeClass: "bg-red-500 text-white shadow-sm" },
+};
+
+const FALLBACK_COLORS = [
+    "bg-purple-500 text-white shadow-sm",
+    "bg-cyan-500 text-white shadow-sm",
+    "bg-pink-500 text-white shadow-sm",
+    "bg-lime-500 text-white shadow-sm",
+    "bg-fuchsia-500 text-white shadow-sm",
+];
+
+// Normalize PROFORMA/ESTIMATE into one bucket key so they share a single tab.
+function normalizeTypeKey(row: InvoiceRow): string {
+    const t = (row.type || row.billType || "").toUpperCase();
+    if (t === "ESTIMATE") return "PROFORMA";
+    return t || "UNKNOWN";
+}
+
+function typeLabel(key: string): string {
+    return TYPE_META[key]?.label || key.charAt(0) + key.slice(1).toLowerCase();
+}
+
+function typeActiveClass(key: string, fallbackIndex: number): string {
+    return TYPE_META[key]?.activeClass || FALLBACK_COLORS[fallbackIndex % FALLBACK_COLORS.length];
+}
+
 export default function InvoicePage() {
 
     const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
     const [search, setSearch] = useState("");
-    const [typeTabFilter, setTypeTabFilter] = useState<"ALL" | "S" | "PROFORMA">("ALL");
+    // "ALL" or a normalized type key discovered dynamically from the data (e.g. "S", "P", "R", "PROFORMA", or any new type)
+    const [typeTabFilter, setTypeTabFilter] = useState<string>("ALL");
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
     const pageSize = 10;
@@ -125,15 +162,44 @@ export default function InvoicePage() {
         return () => window.removeEventListener("financial-year-changed", onFyChange);
     }, [loadInvoices]);
 
-    // search & type filter (bill no, customer, city, billType)
+    // Distinct type keys present in the loaded data, in a stable, sensible order.
+    // Tabs are generated from this list, so any type in the data (S, P, R,
+    // PROFORMA, or something new tomorrow) automatically gets its own tab.
+    const availableTypes = useMemo(() => {
+        const preferredOrder = ["S", "PROFORMA", "P", "R"];
+        const found = new Set<string>();
+        invoices.forEach((r) => found.add(normalizeTypeKey(r)));
+
+        const ordered = preferredOrder.filter((k) => found.has(k));
+        const rest = Array.from(found)
+            .filter((k) => !preferredOrder.includes(k))
+            .sort();
+
+        return [...ordered, ...rest];
+    }, [invoices]);
+
+    // If the currently selected tab's type disappears from the data (e.g. after
+    // a reload), fall back to "ALL" instead of showing an empty dead tab.
+    useEffect(() => {
+        if (typeTabFilter !== "ALL" && !availableTypes.includes(typeTabFilter)) {
+            setTypeTabFilter("ALL");
+        }
+    }, [availableTypes, typeTabFilter]);
+
+    // search, type filter (bill no, customer, city, billType) & date range filter
     const filtered = useMemo(() => {
         const s = search.trim().toLowerCase();
         let list = invoices;
 
-        if (typeTabFilter === "S") {
-            list = list.filter((r) => r.type === "S" || r.billType === "S" || (!r.billType && r.type !== "PROFORMA"));
-        } else if (typeTabFilter === "PROFORMA") {
-            list = list.filter((r) => r.type === "PROFORMA" || r.billType === "PROFORMA");
+        if (typeTabFilter !== "ALL") {
+            list = list.filter((r) => normalizeTypeKey(r) === typeTabFilter);
+        }
+
+        if (dateFrom) {
+            list = list.filter((r) => r.date && r.date >= dateFrom);
+        }
+        if (dateTo) {
+            list = list.filter((r) => r.date && r.date <= dateTo);
         }
 
         if (!s) return list;
@@ -143,12 +209,12 @@ export default function InvoicePage() {
             String(row.customer || "").toLowerCase().includes(s) ||
             String(row.city || "").toLowerCase().includes(s)
         );
-    }, [invoices, search, typeTabFilter]);
+    }, [invoices, search, typeTabFilter, dateFrom, dateTo]);
 
-    // reset to page 1 whenever search OR type filter changes
+    // reset to page 1 whenever search, type filter, or date range changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, typeTabFilter]);
+    }, [search, typeTabFilter, dateFrom, dateTo]);
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 
@@ -180,12 +246,12 @@ export default function InvoicePage() {
         return pages;
     }, [currentPage, totalPages]);
 
-    // Dashboard Cards — based on filtered (search) results
+    // Dashboard Cards — based on filtered (search + type + date) results
     const totalBills = filtered.length;
 
     // Filter out Purchase bills (type === "P") and Proforma bills for Total Sale calculation
     const saleInvoices = useMemo(() => {
-        return filtered.filter((r) => r.type === "S" || r.billType === "S" || (!r.billType && r.type !== "P" && r.type !== "PROFORMA" && r.type !== "ESTIMATE"));
+        return filtered.filter((r) => r.type === "S" || r.billType === "S" || (!r.billType && r.type !== "P" && r.type !== "PROFORMA" && r.type !== "ESTIMATE" && r.type !== "R"));
     }, [filtered]);
 
     const totalSale = saleInvoices.reduce(
@@ -203,9 +269,46 @@ export default function InvoicePage() {
         0
     );
 
-    const salesBills = filtered.filter((x) => x.type === "S" || x.billType === "S" || (!x.billType && x.type !== "P" && x.type !== "PROFORMA")).length;
-    const purchaseBills = filtered.filter((x) => x.type === "P").length;
-    const returnBills = filtered.filter((x) => x.type === "R").length;
+    // Count of bills per type key, built dynamically from whatever types exist in the filtered data
+    const countsByType = useMemo(() => {
+        const map = new Map<string, number>();
+        filtered.forEach((r) => {
+            const key = normalizeTypeKey(r);
+            map.set(key, (map.get(key) || 0) + 1);
+        });
+        return map;
+    }, [filtered]);
+
+    const typeCardIcon: Record<string, ReactElement> = {
+        S: <FaCheckCircle size={16} />,
+        PROFORMA: <FaFileInvoice size={16} />,
+        P: <FaTruck size={16} />,
+        R: <FaUndo size={16} />,
+    };
+    const typeCardRing: Record<string, string> = {
+        S: "from-green-400/40 to-emerald-500/40",
+        PROFORMA: "from-amber-400/40 to-orange-500/40",
+        P: "from-blue-400/40 to-sky-500/40",
+        R: "from-red-400/40 to-rose-500/40",
+    };
+    const typeCardIconBg: Record<string, string> = {
+        S: "bg-green-500/15 text-green-600",
+        PROFORMA: "bg-amber-500/15 text-amber-600",
+        P: "bg-blue-500/15 text-blue-600",
+        R: "bg-red-500/15 text-red-600",
+    };
+    const typeCardGlow: Record<string, string> = {
+        S: "group-hover:shadow-green-400/30",
+        PROFORMA: "group-hover:shadow-amber-400/30",
+        P: "group-hover:shadow-blue-400/30",
+        R: "group-hover:shadow-red-400/30",
+    };
+    const fallbackCardRings = [
+        "from-purple-400/40 to-fuchsia-500/40",
+        "from-cyan-400/40 to-sky-500/40",
+        "from-pink-400/40 to-rose-500/40",
+        "from-lime-400/40 to-green-500/40",
+    ];
 
     const typeBadge = (row: InvoiceRow) => {
         const t = row.type || row.billType;
@@ -283,30 +386,15 @@ export default function InvoicePage() {
             iconBg: "bg-rose-500/15 text-rose-600",
             glow: "group-hover:shadow-rose-400/30",
         },
-        {
-            title: "Sales Bills",
-            value: salesBills,
-            icon: <FaCheckCircle size={16} />,
-            ring: "from-green-400/40 to-emerald-500/40",
-            iconBg: "bg-green-500/15 text-green-600",
-            glow: "group-hover:shadow-green-400/30",
-        },
-        {
-            title: "Purchase Bills",
-            value: purchaseBills,
-            icon: <FaTruck size={16} />,
-            ring: "from-blue-400/40 to-sky-500/40",
-            iconBg: "bg-blue-500/15 text-blue-600",
-            glow: "group-hover:shadow-blue-400/30",
-        },
-        {
-            title: "Return Bills",
-            value: returnBills,
-            icon: <FaUndo size={16} />,
-            ring: "from-red-400/40 to-rose-500/40",
-            iconBg: "bg-red-500/15 text-red-600",
-            glow: "group-hover:shadow-red-400/30",
-        },
+        // One "<Type> Bills" card per distinct type found in the data — fully dynamic
+        ...availableTypes.map((key, i) => ({
+            title: `${typeLabel(key)} Bills`,
+            value: countsByType.get(key) || 0,
+            icon: typeCardIcon[key] || <FaFileInvoice size={16} />,
+            ring: typeCardRing[key] || fallbackCardRings[i % fallbackCardRings.length],
+            iconBg: typeCardIconBg[key] || "bg-purple-500/15 text-purple-600",
+            glow: typeCardGlow[key] || "group-hover:shadow-purple-400/30",
+        })),
     ];
 
     return (
@@ -447,52 +535,15 @@ export default function InvoicePage() {
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/50 to-transparent" />
 
                 {/* header */}
-                <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 bg-gradient-to-r from-gray-800/90 to-gray-700/90 backdrop-blur-md">
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-white/15 text-white">
-                            <FaFileInvoiceDollar size={14} />
-                        </div>
-                        <h5 className="text-sm font-semibold text-white tracking-wide m-0">
-                            Invoice Register
-                        </h5>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        {/* TYPE FILTER TABS */}
-                        <div className="flex items-center bg-white/10 p-0.5 rounded-lg border border-white/20 text-xs">
-                            <button
-                                type="button"
-                                onClick={() => setTypeTabFilter("ALL")}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
-                                    typeTabFilter === "ALL"
-                                        ? "bg-white text-slate-900 shadow-sm"
-                                        : "text-white/80 hover:text-white"
-                                }`}
-                            >
-                                All
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setTypeTabFilter("S")}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
-                                    typeTabFilter === "S"
-                                        ? "bg-emerald-500 text-white shadow-sm"
-                                        : "text-white/80 hover:text-white"
-                                }`}
-                            >
-                                Tax Invoices
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setTypeTabFilter("PROFORMA")}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
-                                    typeTabFilter === "PROFORMA"
-                                        ? "bg-amber-500 text-white shadow-sm"
-                                        : "text-white/80 hover:text-white"
-                                }`}
-                            >
-                                Proforma (Kaccha)
-                            </button>
+                <div className="relative flex flex-col gap-3 px-4 py-3 bg-gradient-to-r from-gray-800/90 to-gray-700/90 backdrop-blur-md">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-white/15 text-white">
+                                <FaFileInvoiceDollar size={14} />
+                            </div>
+                            <h5 className="text-sm font-semibold text-white tracking-wide m-0">
+                                Invoice Register
+                            </h5>
                         </div>
 
                         <Link
@@ -503,24 +554,86 @@ export default function InvoicePage() {
                         </Link>
                     </div>
 
-                    <div className="relative w-full sm:w-80">
-                        <FaSearch
-                            size={12}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
-                        />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search Bill No, Customer, City..."
-                            className="
-                w-full pl-8 pr-3 py-1.5 rounded-lg text-xs
-                bg-white/15 text-white placeholder-white/60
-                ring-1 ring-white/25 focus:ring-white/50
-                outline-none backdrop-blur-md
-                transition-all duration-200
-              "
-                        />
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                        {/* TYPE FILTER TABS */}
+                        <div className="flex items-center bg-white/10 p-0.5 rounded-lg border border-white/20 text-xs flex-wrap gap-0.5">
+                            <button
+                                type="button"
+                                onClick={() => setTypeTabFilter("ALL")}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${typeTabFilter === "ALL"
+                                    ? "bg-white text-slate-900 shadow-sm"
+                                    : "text-white/80 hover:text-white"
+                                    }`}
+                            >
+                                All
+                            </button>
+                            {/* Tabs generated dynamically from whatever types actually exist in the data */}
+                            {availableTypes.map((key, i) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => setTypeTabFilter(key)}
+                                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition whitespace-nowrap ${typeTabFilter === key
+                                        ? typeActiveClass(key, i)
+                                        : "text-white/80 hover:text-white"
+                                        }`}
+                                >
+                                    {typeLabel(key)}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* DATE RANGE FILTER */}
+                            <div className="flex items-center gap-1.5">
+                                <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/15 text-white ring-1 ring-white/25 focus:ring-white/50 outline-none backdrop-blur-md [color-scheme:dark]"
+                                />
+                                <span className="text-white/50 text-xs">to</span>
+                                <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/15 text-white ring-1 ring-white/25 focus:ring-white/50 outline-none backdrop-blur-md [color-scheme:dark]"
+                                />
+                                {(dateFrom || dateTo) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDateFrom("");
+                                            setDateTo("");
+                                        }}
+                                        className="text-white/60 hover:text-white text-[11px] underline whitespace-nowrap"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* SEARCH BOX */}
+                            <div className="relative w-full sm:w-72">
+                                <FaSearch
+                                    size={12}
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
+                                />
+                                <input
+                                    type="text"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Search Bill No, Customer, City..."
+                                    className="
+                    w-full pl-8 pr-3 py-1.5 rounded-lg text-xs
+                    bg-white/15 text-white placeholder-white/60
+                    ring-1 ring-white/25 focus:ring-white/50
+                    outline-none backdrop-blur-md
+                    transition-all duration-200
+                  "
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 

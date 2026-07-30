@@ -10,9 +10,9 @@ import CustomerWiseSales from "@/components/sales/CustomerWiseSales";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 
 type MrTerritoryInfo = {
-    isMrRestricted: boolean;
-    territories: any[];
-    allowedCompanyCodes: string[];
+  isMrRestricted: boolean;
+  territories: any[];
+  allowedCompanyCodes: string[];
 };
 
 export default function SalesDashboard() {
