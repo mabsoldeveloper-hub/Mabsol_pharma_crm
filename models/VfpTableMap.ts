@@ -10,6 +10,41 @@ const VfpTableMapSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      required: false,
+    },
+    companyCode: {
+      type: String,
+      required: false,
+    },
+    companyName: {
+      type: String,
+      required: false,
+    },
+    companyEmail: {
+      type: String,
+      required: false,
+    },
+    financialYear: {
+      type: String,
+      required: false,
+    },
+    financialYearId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FinancialYear",
+      required: false,
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+    },
+    tenantId: {
+      type: String,
+      default: "TENANT001",
+    },
     filePath: {
       type: String,
       required: true,
@@ -49,7 +84,7 @@ const VfpTableMapSchema = new mongoose.Schema(
   }
 );
 
-VfpTableMapSchema.index({ fileName: 1, email: 1 }, { unique: true });
+VfpTableMapSchema.index({ fileName: 1, email: 1, companyId: 1 }, { unique: true });
 
 if (mongoose.models.VfpTableMap) {
   delete mongoose.models.VfpTableMap;

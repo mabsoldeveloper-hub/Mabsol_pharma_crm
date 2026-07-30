@@ -10,10 +10,61 @@ import VfpSyncLog from "@/models/VfpSyncLog";
 
 const VFP_ENCODING = process.env.VFP_ENCODING || "latin1";
 
-export async function performDirectServerSync(userEmail: string) {
+export interface SyncUserContext {
+  userId?: string;
+  companyId?: string;
+  companyName?: string;
+  companyEmail?: string;
+  companyCode?: string;
+  financialYear?: string;
+  financialYearId?: string;
+  tenantId?: string;
+  email?: string;
+}
+
+export async function purgeSyncedCollections() {
+  await dbConnect();
+  const db = mongoose.connection.db;
+  if (!db) return;
+  const collections = await db.listCollections().toArray();
+  for (const col of collections) {
+    if (col.name.startsWith("vfp_new_folder_")) {
+      try {
+        await db.collection(col.name).drop();
+      } catch {
+        // Ignore if collection drop fails
+      }
+    }
+  }
+  await VfpSyncState.deleteMany({});
+  await VfpTableMap.deleteMany({});
+}
+
+export async function performDirectServerSync(
+  userOrContext: string | SyncUserContext,
+  options?: { resetCollections?: boolean }
+) {
   await dbConnect();
 
-  const email = userEmail || "global";
+  const ctx: SyncUserContext =
+    typeof userOrContext === "string"
+      ? { email: userOrContext }
+      : userOrContext || {};
+
+  const email = ctx.email || "global";
+  const companyId = ctx.companyId || null;
+  const companyName = ctx.companyName || "";
+  const companyEmail = ctx.companyEmail || "";
+  const companyCode = ctx.companyCode || "";
+  const financialYear = ctx.financialYear || "";
+  const financialYearId = ctx.financialYearId || null;
+  const userId = ctx.userId || null;
+  const tenantId = ctx.tenantId || "TENANT001";
+
+  if (options?.resetCollections) {
+    await purgeSyncedCollections();
+  }
+
   let config: any =
     (await VfpConfig.findOne({ email }).lean()) ||
     (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean());
@@ -49,9 +100,17 @@ export async function performDirectServerSync(userEmail: string) {
   await VfpSyncLog.create({
     runId,
     email,
+    companyId,
+    companyName,
+    companyEmail,
+    companyCode,
+    financialYear,
+    financialYearId,
+    userId,
+    tenantId,
     action: "sync",
     status: "running",
-    message: `Direct server DBF sync started for user ${email}`,
+    message: `Direct server DBF sync started for user ${email} (Company: ${companyName || companyCode || companyId || "N/A"}, FY: ${financialYear || "N/A"})`,
     startedAt,
   });
 
@@ -82,7 +141,7 @@ export async function performDirectServerSync(userEmail: string) {
   let totalImportedRows = 0;
 
   for (const filePath of dbfFiles) {
-    const importedRows = await importSingleDbfFile(filePath, runId, email, dataDir);
+    const importedRows = await importSingleDbfFile(filePath, runId, ctx, dataDir);
     totalImportedRows += importedRows;
     totalImportedTables++;
   }
@@ -94,14 +153,20 @@ export async function performDirectServerSync(userEmail: string) {
     fName.replace(/\.[^.]+$/, "")
   );
 
-  // Preserve existing metadata for all tables without deleting unscanned table states
-
   await VfpSyncLog.create({
     runId,
     email,
+    companyId,
+    companyName,
+    companyEmail,
+    companyCode,
+    financialYear,
+    financialYearId,
+    userId,
+    tenantId,
     action: "sync",
     status: "success",
-    message: `Direct server sync completed successfully. ${totalImportedTables} DBF table(s), ${totalImportedRows} row(s) synced.`,
+    message: `Direct server sync completed successfully. ${totalImportedTables} DBF table(s), ${totalImportedRows} row(s) synced for company ${companyName || companyCode || companyId || "default"} (FY: ${financialYear || "default"}).`,
     finishedAt: new Date(),
   });
 
@@ -116,9 +181,19 @@ export async function performDirectServerSync(userEmail: string) {
 async function importSingleDbfFile(
   filePath: string,
   runId: string,
-  email: string,
+  ctx: SyncUserContext,
   dataDir: string
 ) {
+  const email = ctx.email || "global";
+  const companyId = ctx.companyId || null;
+  const companyName = ctx.companyName || "";
+  const companyEmail = ctx.companyEmail || "";
+  const companyCode = ctx.companyCode || "";
+  const financialYear = ctx.financialYear || "";
+  const financialYearId = ctx.financialYearId || null;
+  const userId = ctx.userId || null;
+  const tenantId = ctx.tenantId || "TENANT001";
+
   const relativePath = path.relative(dataDir, filePath).replace(/\\/g, "/");
   const fileName = relativePath;
   const tableName = relativePath.replace(/\.[^.]+$/, "");
@@ -128,11 +203,19 @@ async function importSingleDbfFile(
   const startedAt = new Date();
 
   await VfpSyncState.updateOne(
-    { tableName, email },
+    { tableName, email, ...(companyId ? { companyId } : {}) },
     {
       $set: {
         tableName,
         email,
+        companyId,
+        companyName,
+        companyEmail,
+        companyCode,
+        financialYear,
+        financialYearId,
+        userId,
+        tenantId,
         fileName,
         filePath,
         targetCollection,
@@ -149,11 +232,19 @@ async function importSingleDbfFile(
     const primaryKeyFields = guessPrimaryKeyFields(dbf.fields, dbf.rows);
 
     await VfpTableMap.updateOne(
-      { fileName, email },
+      { fileName, email, ...(companyId ? { companyId } : {}) },
       {
         $set: {
           fileName,
           email,
+          companyId,
+          companyName,
+          companyEmail,
+          companyCode,
+          financialYear,
+          financialYearId,
+          userId,
+          tenantId,
           filePath,
           targetCollection,
           primaryKeyFields,
@@ -168,10 +259,18 @@ async function importSingleDbfFile(
     );
 
     const collection = mongoose.connection.collection(targetCollection);
-    await collection.createIndex(
-      { _vfpTable: 1, _vfpSourceKey: 1 },
-      { unique: true }
-    );
+
+    if (companyId) {
+      await collection.createIndex(
+        { companyId: 1, _vfpTable: 1, _vfpSourceKey: 1 },
+        { unique: true }
+      );
+    } else {
+      await collection.createIndex(
+        { _vfpTable: 1, _vfpSourceKey: 1 },
+        { unique: true }
+      );
+    }
 
     let importedCount = 0;
     let tableHash = "";
@@ -182,12 +281,28 @@ async function importSingleDbfFile(
       const rowHash = hashJson(row.data);
       tableHash = hashJson(`${tableHash}:${rowHash}`);
 
+      const filterKey: any = {
+        _vfpTable: tableName,
+        _vfpSourceKey: sourceKey,
+      };
+      if (companyId) {
+        filterKey.companyId = companyId;
+      }
+
       bulkOps.push({
         updateOne: {
-          filter: { _vfpTable: tableName, _vfpSourceKey: sourceKey },
+          filter: filterKey,
           update: {
             $set: {
               ...row.data,
+              companyId,
+              companyName,
+              companyEmail,
+              companyCode,
+              financialYear,
+              financialYearId,
+              userId,
+              tenantId,
               _vfpTable: tableName,
               _vfpSourceKey: sourceKey,
               _vfpRowNumber: row.rowNumber,
@@ -215,11 +330,9 @@ async function importSingleDbfFile(
       importedCount += bulkOps.length;
     }
 
-    // Previously synced records are preserved; upsert appends new records and updates existing ones without deleting old data
-
     const syncDateLabel = getSyncDateLabel(new Date());
     await VfpSyncState.updateOne(
-      { tableName, email },
+      { tableName, email, ...(companyId ? { companyId } : {}) },
       {
         $set: {
           status: "success",
@@ -239,6 +352,14 @@ async function importSingleDbfFile(
     await VfpSyncLog.create({
       runId,
       email,
+      companyId,
+      companyName,
+      companyEmail,
+      companyCode,
+      financialYear,
+      financialYearId,
+      userId,
+      tenantId,
       tableName,
       fileName,
       action: "dbf_to_crm",
@@ -252,7 +373,7 @@ async function importSingleDbfFile(
     return importedCount;
   } catch (error: any) {
     await VfpSyncState.updateOne(
-      { tableName, email },
+      { tableName, email, ...(companyId ? { companyId } : {}) },
       {
         $set: {
           status: "failed",
@@ -265,6 +386,14 @@ async function importSingleDbfFile(
     await VfpSyncLog.create({
       runId,
       email,
+      companyId,
+      companyName,
+      companyEmail,
+      companyCode,
+      financialYear,
+      financialYearId,
+      userId,
+      tenantId,
       tableName,
       fileName,
       action: "dbf_to_crm",

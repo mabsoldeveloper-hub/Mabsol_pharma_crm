@@ -448,12 +448,34 @@ async function importDbfFile(filePath, runId, email, dataDir) {
   const targetCollection = `vfp_new_folder_${sanitizedTableName}`;
   const startedAt = new Date();
 
+  // Resolve user and company info for worker sync
+  let companyId = null;
+  let companyCode = "MABSOL";
+  let userId = null;
+  let tenantId = "TENANT001";
+  try {
+    const User = mongoose.models.User || mongoose.model("User", new mongoose.Schema({}, { strict: false }));
+    const user = await User.findOne({ email }).lean();
+    if (user) {
+      userId = user._id ? user._id.toString() : null;
+      companyId = user.companyId ? user.companyId.toString() : null;
+      companyCode = user.companyCode || "MABSOL";
+      tenantId = user.tenantId || "TENANT001";
+    }
+  } catch (err) {
+    // Ignore lookup errors
+  }
+
   await SyncState.updateOne(
-    { tableName, email },
+    { tableName, email, ...(companyId ? { companyId } : {}) },
     {
       $set: {
         tableName,
         email,
+        companyId,
+        companyCode,
+        userId,
+        tenantId,
         fileName,
         filePath,
         targetCollection,
@@ -470,11 +492,15 @@ async function importDbfFile(filePath, runId, email, dataDir) {
     const primaryKeyFields = guessPrimaryKeyFields(dbf.fields, dbf.rows);
 
     await TableMap.updateOne(
-      { fileName, email },
+      { fileName, email, ...(companyId ? { companyId } : {}) },
       {
         $set: {
           fileName,
           email,
+          companyId,
+          companyCode,
+          userId,
+          tenantId,
           filePath,
           targetCollection,
           primaryKeyFields,
@@ -489,10 +515,17 @@ async function importDbfFile(filePath, runId, email, dataDir) {
     );
 
     const collection = mongoose.connection.collection(targetCollection);
-    await collection.createIndex(
-      { _vfpTable: 1, _vfpSourceKey: 1 },
-      { unique: true }
-    );
+    if (companyId) {
+      await collection.createIndex(
+        { companyId: 1, _vfpTable: 1, _vfpSourceKey: 1 },
+        { unique: true }
+      );
+    } else {
+      await collection.createIndex(
+        { _vfpTable: 1, _vfpSourceKey: 1 },
+        { unique: true }
+      );
+    }
 
     let importedCount = 0;
     let tableHash = "";
@@ -503,12 +536,24 @@ async function importDbfFile(filePath, runId, email, dataDir) {
       const rowHash = hashJson(row.data);
       tableHash = hashJson(`${tableHash}:${rowHash}`);
 
+      const filterKey = {
+        _vfpTable: tableName,
+        _vfpSourceKey: sourceKey,
+      };
+      if (companyId) {
+        filterKey.companyId = companyId;
+      }
+
       bulkOps.push({
         updateOne: {
-          filter: { _vfpTable: tableName, _vfpSourceKey: sourceKey },
+          filter: filterKey,
           update: {
             $set: {
               ...row.data,
+              companyId,
+              companyCode,
+              userId,
+              tenantId,
               _vfpTable: tableName,
               _vfpSourceKey: sourceKey,
               _vfpRowNumber: row.rowNumber,

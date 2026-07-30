@@ -17,7 +17,18 @@ export async function POST() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const syncResult = await performDirectServerSync(user.email);
+    const userId = user._id ? user._id.toString() : "";
+    const companyId = user.companyId?._id ? user.companyId._id.toString() : (user.companyId ? user.companyId.toString() : "");
+    const companyCode = user.companyId?.companyCode || "MABSOL";
+    const tenantId = user.tenantId || "TENANT001";
+
+    const syncResult = await performDirectServerSync({
+      userId,
+      companyId,
+      companyCode,
+      tenantId,
+      email: user.email,
+    });
 
     return NextResponse.json({
       success: true,

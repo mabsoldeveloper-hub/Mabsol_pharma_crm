@@ -11,6 +11,41 @@ const VfpSyncLogSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      required: false,
+    },
+    companyCode: {
+      type: String,
+      required: false,
+    },
+    companyName: {
+      type: String,
+      required: false,
+    },
+    companyEmail: {
+      type: String,
+      required: false,
+    },
+    financialYear: {
+      type: String,
+      required: false,
+    },
+    financialYearId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FinancialYear",
+      required: false,
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+    },
+    tenantId: {
+      type: String,
+      default: "TENANT001",
+    },
     tableName: String,
     fileName: String,
     action: {
@@ -40,5 +75,8 @@ const VfpSyncLogSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.models.VfpSyncLog ||
-  mongoose.model("VfpSyncLog", VfpSyncLogSchema, "vfpsynclogs");
+if (mongoose.models.VfpSyncLog) {
+  delete mongoose.models.VfpSyncLog;
+}
+
+export default mongoose.model("VfpSyncLog", VfpSyncLogSchema, "vfpsynclogs");

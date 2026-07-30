@@ -11,7 +11,7 @@ import VfpConfig from "@/models/VfpConfig";
 import fs from "fs";
 
 type SyncStateSummary = {
-  lastSyncedAt?: Date;
+  lastSyncedAt?: Date | null;
   status?: string;
   lastImportedCount?: number;
 };
@@ -187,14 +187,14 @@ export async function getVfpStatus(filter: VfpStatusFilter = {}, email?: string)
     ["failed", "locked"].includes(state.status || "")
   );
 
-  const importedRows = states.reduce(
+  const importedRows = typedStates.reduce(
     (total: number, state: SyncStateSummary) =>
       total + (state.lastImportedCount || 0),
     0
   );
 
   const filteredImportedRows = rangeFrom
-    ? states.reduce((total: number, state: SyncStateSummary) => {
+    ? typedStates.reduce((total: number, state: SyncStateSummary) => {
         const date = state.lastSyncedAt ? new Date(state.lastSyncedAt) : null;
         return total + (date && date >= rangeFrom ? state.lastImportedCount || 0 : 0);
       }, 0)

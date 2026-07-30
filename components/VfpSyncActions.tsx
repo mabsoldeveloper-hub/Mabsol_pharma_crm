@@ -411,18 +411,63 @@ export default function VfpSyncActions({
     };
   }, [autoSync, autoSyncInterval, dataDir, syncScope, selectedFiles]);
 
+  // Financial Year Selection State before sync
+  const [isFyModalOpen, setIsFyModalOpen] = useState(false);
+  const [fyList, setFyList] = useState<{ _id: string; fyName: string; isCurrent?: boolean }[]>([]);
+  const [selectedFyName, setSelectedFyName] = useState<string>("2025-26");
+  const [selectedFyId, setSelectedFyId] = useState<string>("");
+  const [loadingFy, setLoadingFy] = useState(false);
+
+  function handleOpenSyncModal() {
+    if (selectedFiles.length === 0 || autoSync) return;
+    setIsFyModalOpen(true);
+    setLoadingFy(true);
+    fetch("/api/financial-year")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setFyList(data);
+          const currentFy = data.find((f: any) => f.isCurrent) || data[0];
+          setSelectedFyName(currentFy.fyName || "2025-26");
+          setSelectedFyId(currentFy._id || "");
+        } else {
+          setFyList([
+            { _id: "", fyName: "2025-26", isCurrent: true },
+            { _id: "", fyName: "2024-25" },
+            { _id: "", fyName: "2026-27" },
+          ]);
+          setSelectedFyName("2025-26");
+        }
+      })
+      .catch(() => {
+        setFyList([
+          { _id: "", fyName: "2025-26", isCurrent: true },
+          { _id: "", fyName: "2024-25" },
+          { _id: "", fyName: "2026-27" },
+        ]);
+        setSelectedFyName("2025-26");
+      })
+      .finally(() => setLoadingFy(false));
+  }
+
   // Trigger manual or auto sync now
-  async function triggerSyncNow(isAuto: boolean = false) {
+  async function triggerSyncNow(isAuto: boolean = false, fyName: string = selectedFyName, fyId: string = selectedFyId) {
     if (selectedFiles.length === 0) return;
+    setIsFyModalOpen(false);
     setBusyAction("sync");
     setMessage({ 
       type: "info", 
-      text: isAuto ? "Running scheduled background auto-sync..." : "Queuing immediate data sync..." 
+      text: isAuto ? "Running scheduled background auto-sync..." : `Queuing data sync for Financial Year ${fyName || "Default"}...` 
     });
 
     try {
       const response = await fetch("/api/mabsolcrmsync/sync-now", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          financialYear: fyName,
+          financialYearId: fyId,
+        }),
       });
       const data = await response.json();
 
@@ -431,7 +476,7 @@ export default function VfpSyncActions({
           type: "success", 
           text: isAuto 
             ? `Auto-sync completed! Synced ${data.result?.importedTables || 0} table(s), ${data.result?.importedRows || 0} row(s).` 
-            : `Sync completed! Synced ${data.result?.importedTables || 0} table(s), ${data.result?.importedRows || 0} row(s).`
+            : `Sync completed! Synced ${data.result?.importedTables || 0} table(s), ${data.result?.importedRows || 0} row(s) for FY ${fyName}.`
         });
         router.refresh();
       } else {
@@ -970,10 +1015,10 @@ export default function VfpSyncActions({
                   } disabled:cursor-not-allowed`} 
                   style={{ borderRadius: "9999px" }}
                   id="sync-btn" 
-                  onClick={() => triggerSyncNow(false)}
+                  onClick={handleOpenSyncModal}
                   disabled={selectedFiles.length === 0 || Boolean(busyAction) || autoSync}
                   type="button"
-                  title={autoSync ? "Auto-sync is running on a schedule. Click 'Cancel sync' below to stop." : selectedFiles.length === 0 ? "Please select at least 1 DBF table to sync" : "Click to trigger immediate manual sync"}
+                  title={autoSync ? "Auto-sync is running on a schedule. Click 'Cancel sync' below to stop." : selectedFiles.length === 0 ? "Please select at least 1 DBF table to sync" : "Click to select Financial Year and trigger immediate sync"}
                 >
                   {busyAction === "sync" ? (
                     <RefreshCw size={14} className="animate-spin text-white" />
@@ -1039,6 +1084,98 @@ export default function VfpSyncActions({
         >
           <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-current" />
           <span>{message.text}</span>
+        </div>
+      )}
+
+      {/* Financial Year Selection Modal */}
+      {isFyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150 relative" style={{ borderRadius: "24px" }}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-base">
+                <Database className="w-5 h-5 text-teal-600" />
+                <span>Select Financial Year</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFyModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed m-0">
+              Select which Financial Year data you want to sync. The selected year will be stamped into every document across all synced collections.
+            </p>
+
+            {loadingFy ? (
+              <div className="py-6 text-center text-xs text-slate-500 font-mono flex items-center justify-center gap-2">
+                <RefreshCw size={14} className="animate-spin text-teal-600" />
+                <span>Loading available Financial Years...</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Select Financial Year:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {fyList.map((fy) => {
+                    const isSelected = selectedFyName === fy.fyName;
+                    return (
+                      <button
+                        key={fy.fyName}
+                        type="button"
+                        onClick={() => {
+                          setSelectedFyName(fy.fyName);
+                          setSelectedFyId(fy._id || "");
+                        }}
+                        className={`px-3 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all text-left flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span>{fy.fyName}</span>
+                        {isSelected && <Check size={14} className="text-emerald-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-2 space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-500">
+                    Or type custom Financial Year:
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedFyName}
+                    onChange={(e) => setSelectedFyName(e.target.value)}
+                    placeholder="e.g. 2025-26"
+                    className="w-full px-3.5 py-2 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-slate-400 text-slate-800"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsFyModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => triggerSyncNow(false, selectedFyName, selectedFyId)}
+                disabled={!selectedFyName}
+                className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-black rounded-full shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                Confirm & Start Sync
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

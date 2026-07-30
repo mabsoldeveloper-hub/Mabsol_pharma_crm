@@ -10,6 +10,41 @@ const VfpSyncStateSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      required: false,
+    },
+    companyCode: {
+      type: String,
+      required: false,
+    },
+    companyName: {
+      type: String,
+      required: false,
+    },
+    companyEmail: {
+      type: String,
+      required: false,
+    },
+    financialYear: {
+      type: String,
+      required: false,
+    },
+    financialYearId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FinancialYear",
+      required: false,
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+    },
+    tenantId: {
+      type: String,
+      default: "TENANT001",
+    },
     fileName: String,
     filePath: String,
     targetCollection: String,
@@ -47,7 +82,10 @@ const VfpSyncStateSchema = new mongoose.Schema(
   }
 );
 
-VfpSyncStateSchema.index({ tableName: 1, email: 1 }, { unique: true });
+VfpSyncStateSchema.index({ tableName: 1, email: 1, companyId: 1 }, { unique: true });
 
-export default mongoose.models.VfpSyncState ||
-  mongoose.model("VfpSyncState", VfpSyncStateSchema, "vfpsyncstates");
+if (mongoose.models.VfpSyncState) {
+  delete mongoose.models.VfpSyncState;
+}
+
+export default mongoose.model("VfpSyncState", VfpSyncStateSchema, "vfpsyncstates");
