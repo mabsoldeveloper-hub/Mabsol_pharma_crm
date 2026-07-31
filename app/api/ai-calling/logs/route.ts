@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const logId = searchParams.get("logId") || "";
 
     if (logId) {
-      // if (!mongoose.Types.ObjectId.isValid(logId)) {
+      if (!mongoose.Types.ObjectId.isValid(logId)) {
         return NextResponse.json({ success: false, error: "Invalid log ID" }, { status: 400 });
       }
       let singleLog = await AiCallLog.findById(logId);
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         singleLog.awsMetadata?.transcribeJobName?.startsWith("CA")
       ) {
         const callSid = singleLog.awsMetadata.transcribeJobName;
-        // const recData = await fetchTwilioRecordingForCall(callSid);
+        const recData = await fetchTwilioRecordingForCall(callSid);
 
         if (recData?.recordingUrl) {
           try {
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
             singleLog.callStatus = "COMPLETED";
 
             const ownerEmail = singleLog.ownerEmail || process.env.COMPANY_OWNER_EMAIL || process.env.SMTP_USER || "rahulavashist@gmail.com";
-            // const emailRes = await sendCallTranscriptToOwner({
+            const emailRes = await sendCallTranscriptToOwner({
               ownerEmail,
               partyName: singleLog.partyName,
               partyType: singleLog.partyType,
