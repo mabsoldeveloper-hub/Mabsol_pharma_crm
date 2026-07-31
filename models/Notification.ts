@@ -30,6 +30,7 @@ const NotificationSchema = new mongoose.Schema(
         "NEW_ORDER",
         "ORDER_APPROVAL",
         "SYNC_ALERT",
+        "AI_CALL_COMPLETED",
         "GENERAL",
       ],
       default: "GENERAL",

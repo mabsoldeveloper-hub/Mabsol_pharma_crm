@@ -37,6 +37,7 @@ import {
   FaFileInvoiceDollar,
   FaUndo,
   FaReceipt,
+  FaPhoneAlt,
 } from "react-icons/fa";
 
 
@@ -541,6 +542,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     label="Targets & Achievements"
                     active={pathname === "/dashboard/targets" || pathname.startsWith("/dashboard/targets")}
                     color="rose"
+                  />
+                </li>
+                <li>
+                  <NavLink
+                    href="/dashboard/ai-calling"
+                    icon={<FaPhoneAlt />}
+                    label="AI Voice Calling"
+                    active={pathname.startsWith("/dashboard/ai-calling")}
+                    color="amber"
                   />
                 </li>
               </PermissionGate>
