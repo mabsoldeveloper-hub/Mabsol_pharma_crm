@@ -222,8 +222,12 @@ const STYLES = `
   .gstr1-error,.gstr1-warn{margin:0 12px 12px}
 }
 `;
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 export default function Gstr1Page() {
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [year, setYear] = useState(CURRENT_YEAR);
     const [loading, setLoading] = useState(false);
@@ -248,9 +252,9 @@ export default function Gstr1Page() {
                 const json = await res.json();
                 if (json.success) {
                     setMrTerritoryInfo({
-                        isMrRestricted: json.isMrRestricted,
-                        territories: json.territories || [],
-                        allowedCompanyCodes: json.allowedCompanyCodes || [],
+                        isMrRestricted: json.data?.isMrRestricted || false,
+                        territories: json.data?.territories || [],
+                        allowedCompanyCodes: json.data?.allowedCompanyCodes || [],
                     });
                 }
             }
@@ -259,7 +263,12 @@ export default function Gstr1Page() {
         }
     };
 
-    const buildParams = () => new URLSearchParams({ month: String(month), year: String(year) });
+    const buildParams = () => {
+        const p = new URLSearchParams({ month: String(month), year: String(year) });
+        if (selectedCompany?._id) p.set("companyId", selectedCompany._id);
+        if (selectedFY?._id) p.set("fyId", selectedFY._id);
+        return p;
+    };
 
     const loadPreview = async () => {
         setLoading(true); setError(""); setMeta(null); setGstJson(null); setInvoiceDetail([]); setActiveTab("summary");

@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import { useCompany } from "@/context/CompanyContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 
 interface BatchInfo {
@@ -229,6 +230,7 @@ export default function ProductReportPage() {
     };
 
     const { selectedFY } = useFinancialYear();
+    const { selectedCompany } = useCompany();
 
     const fetchReport = useCallback(
         async (targetPage: number, activeFilters: typeof DEFAULT_FILTERS) => {
@@ -265,6 +267,8 @@ export default function ProductReportPage() {
                     if (value) params.set(key, value);
                 });
 
+                if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
                 const res = await fetch(`/api/reports/product?${params.toString()}`, {
                     signal: controller.signal,
                 });
@@ -291,7 +295,7 @@ export default function ProductReportPage() {
                 }
             }
         },
-        [selectedFY]
+        [selectedFY, selectedCompany]
     );
 
     useEffect(() => {
@@ -560,14 +564,15 @@ export default function ProductReportPage() {
                                                         {row.PACKING ? ` / ${row.PACKING}` : ""}
                                                     </td>
                                                     <td>
-                                                        <span
-                                                            className={`badge ${row.STATUS === "Y"
-                                                                ? "bg-success"
-                                                                : "bg-secondary"
-                                                                }`}
-                                                        >
-                                                            {row.STATUS === "Y" ? "Active" : "Inactive"}
-                                                        </span>
+                                                        {(() => {
+                                                            const st = String(row.STATUS || "").trim().toUpperCase();
+                                                            const isActive = !st || st === "Y" || st === "C" || st === "CONTINUE" || st === "ACTIVE";
+                                                            return (
+                                                                <span className={`badge ${isActive ? "bg-success" : "bg-secondary"}`}>
+                                                                    {isActive ? "Active" : st ? `Inactive (${st})` : "Inactive"}
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="text-end">{formatCurrency(row.MRP)}</td>
                                                     <td className="text-end">

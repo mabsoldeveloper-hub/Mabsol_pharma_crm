@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import SearchableSelect, { OptionItem } from "@/components/SearchableSelect";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
     FaArrowLeft,
     FaReceipt,
@@ -40,6 +42,8 @@ interface PendingInvoice {
 }
 
 export default function ReceiptEntryPage() {
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [activeTab, setActiveTab] = useState<"new" | "history">("new");
 
     // Common State
@@ -86,22 +90,31 @@ export default function ReceiptEntryPage() {
     const [historyPage, setHistoryPage] = useState(1);
     const [historyTotalPages, setHistoryTotalPages] = useState(1);
 
+    const getCompanyParams = () => {
+        const p = new URLSearchParams();
+        if (selectedCompany?._id) p.set("companyId", selectedCompany._id);
+        if (selectedFY?._id) p.set("fyId", selectedFY._id);
+        return p;
+    };
+
     // Initial Load
     useEffect(() => {
         fetchNextVcn();
         fetchCustomers();
         fetchMetrics();
-    }, []);
+    }, [selectedCompany?._id, selectedFY?._id]);
 
     useEffect(() => {
         if (activeTab === "history") {
             fetchHistory();
         }
-    }, [activeTab, historyPage, historySearch]);
+    }, [activeTab, historyPage, historySearch, selectedCompany?._id, selectedFY?._id]);
 
     const fetchNextVcn = async () => {
         try {
-            const res = await fetch("/api/sales/receipt?action=nextNumber");
+            const p = getCompanyParams();
+            p.set("action", "nextNumber");
+            const res = await fetch(`/api/sales/receipt?${p.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 if (data.success && data.nextVcn) {
@@ -115,7 +128,9 @@ export default function ReceiptEntryPage() {
 
     const fetchMetrics = async () => {
         try {
-            const res = await fetch("/api/sales/receipt?action=metrics");
+            const p = getCompanyParams();
+            p.set("action", "metrics");
+            const res = await fetch(`/api/sales/receipt?${p.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 if (data.success) {
@@ -134,7 +149,8 @@ export default function ReceiptEntryPage() {
 
     const fetchCustomers = async () => {
         try {
-            const res = await fetch("/api/master/customer");
+            const p = getCompanyParams();
+            const res = await fetch(`/api/master/customer?${p.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 const list = Array.isArray(data) ? data : (data.data || data.customers || []);
@@ -157,9 +173,17 @@ export default function ReceiptEntryPage() {
         setFetchingCustProfile(true);
 
         try {
+            const p1 = getCompanyParams();
+            p1.set("action", "customerDetails");
+            p1.set("partyCode", code);
+
+            const p2 = getCompanyParams();
+            p2.set("action", "pendingInvoices");
+            p2.set("partyCode", code);
+
             const [profileRes, invoicesRes] = await Promise.all([
-                fetch(`/api/sales/receipt?action=customerDetails&partyCode=${code}`),
-                fetch(`/api/sales/receipt?action=pendingInvoices&partyCode=${code}`),
+                fetch(`/api/sales/receipt?${p1.toString()}`),
+                fetch(`/api/sales/receipt?${p2.toString()}`),
             ]);
 
             if (profileRes.ok) {
@@ -189,11 +213,11 @@ export default function ReceiptEntryPage() {
     const fetchHistory = async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({
-                page: historyPage.toString(),
-                limit: "25",
-                search: historySearch,
-            });
+            const params = getCompanyParams();
+            params.set("page", historyPage.toString());
+            params.set("limit", "25");
+            if (historySearch) params.set("search", historySearch);
+
             const res = await fetch(`/api/sales/receipt?${params.toString()}`);
             if (res.ok) {
                 const data = await res.json();

@@ -6,6 +6,7 @@ import Product from "@/models/Product";
 import GlLedger from "@/models/GlLedger";
 import SaleType from "@/models/SaleType";
 import { buildFYDateQuery } from "@/lib/financialYearHelper";
+import { combineFilters } from "@/lib/companyVfpHelper";
 
 export interface GstReportFilter {
     search?: string;        // party name / GST no / voucher
@@ -17,6 +18,9 @@ export interface GstReportFilter {
     type?: string;          // MDIS.TYPE  (S = Sale, P = Purchase etc)
     dateFrom?: string;      // "YYYY-MM-DD"
     dateTo?: string;        // "YYYY-MM-DD"
+
+    companyId?: string;
+    companyVfpMatch?: Record<string, any>;
 
     page?: number;
     limit?: number;
@@ -84,7 +88,8 @@ async function buildMdisMatch(filter: GstReportFilter) {
         if (gstNo) orderMatch.GSTNO = { $regex: escapeRegex(gstNo), $options: "i" };
         if (city) orderMatch.CITY = { $regex: escapeRegex(city), $options: "i" };
 
-        const codes = await Order.distinct("ORDNO", orderMatch);
+        const compFilter = filter.companyVfpMatch || {};
+        const codes = await Order.distinct("ORDNO", combineFilters(orderMatch, compFilter));
         const set = new Set((codes as string[]).filter(Boolean));
 
         restrictCodeps = restrictCodeps
@@ -96,7 +101,8 @@ async function buildMdisMatch(filter: GstReportFilter) {
         match.CODEP = { $in: restrictCodeps.length ? restrictCodeps : ["__NO_MATCH__"] };
     }
 
-    return match;
+    const compFilter = filter.companyVfpMatch || {};
+    return combineFilters(match, compFilter);
 }
 
 export default class GstReport {
@@ -150,9 +156,11 @@ export default class GstReport {
         const vouchers = rows.map((r: any) => r.VOUCHER).filter((v: any) => v !== undefined && v !== null);
         const codeps = [...new Set(rows.map((r: any) => r.CODEP).filter(Boolean))];
 
+        const compFilter = filter.companyVfpMatch || {};
+
         const [orders, disLines] = await Promise.all([
-            codeps.length ? Order.find({ ORDNO: { $in: codeps } }).lean() : Promise.resolve([]),
-            vouchers.length ? Dis.find({ VOUCHER: { $in: vouchers } }).lean() : Promise.resolve([]),
+            codeps.length ? Order.find(combineFilters({ ORDNO: { $in: codeps } }, compFilter)).lean() : Promise.resolve([]),
+            vouchers.length ? Dis.find(combineFilters({ VOUCHER: { $in: vouchers } }, compFilter)).lean() : Promise.resolve([]),
         ]);
 
         const taxCodes = [...new Set((disLines as any[]).map((d) => d.TAXCODE).filter(Boolean))];
@@ -236,7 +244,7 @@ export default class GstReport {
 
         const summaryAgg = summaryHeader.voucherList.length
             ? await Dis.aggregate([
-                { $match: { VOUCHER: { $in: summaryHeader.voucherList } } },
+                { $match: combineFilters({ VOUCHER: { $in: summaryHeader.voucherList } }, compFilter) },
                 {
                     $group: {
                         _id: null,
@@ -470,17 +478,20 @@ export default class GstReport {
             if (!isNaN(asNum)) match.VOUCHER = asNum;
         }
 
+        const compFilter = filter.companyVfpMatch || {};
+        const finalMatch = combineFilters(match, compFilter);
+
         const [rows, total] = await Promise.all([
-            GlLedger.find(match).sort({ DATE: -1, _id: -1 }).skip(skip).limit(pageLimit).lean(),
-            GlLedger.countDocuments(match),
+            GlLedger.find(finalMatch).sort({ DATE: -1, _id: -1 }).skip(skip).limit(pageLimit).lean(),
+            GlLedger.countDocuments(finalMatch),
         ]);
 
         const codeps = [...new Set(rows.map((r: any) => r.CODE1).filter(Boolean))];
         const vouchers = [...new Set(rows.map((r: any) => r.VOUCHER).filter(Boolean))];
 
         const [orders, mdisRows] = await Promise.all([
-            codeps.length ? Order.find({ ORDNO: { $in: codeps } }).lean() : Promise.resolve([]),
-            vouchers.length ? Mdis.find({ VOUCHER: { $in: vouchers } }).lean() : Promise.resolve([]),
+            codeps.length ? Order.find(combineFilters({ ORDNO: { $in: codeps } }, compFilter)).lean() : Promise.resolve([]),
+            vouchers.length ? Mdis.find(combineFilters({ VOUCHER: { $in: vouchers } }, compFilter)).lean() : Promise.resolve([]),
         ]);
 
         const orderByCode = new Map((orders as any[]).map((o) => [o.ORDNO, o]));

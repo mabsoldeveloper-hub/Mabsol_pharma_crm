@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import connectDB from "@/lib/mongodb";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 import AccountGroup from "@/models/AccountGroup";
 import Customer from "@/models/Customer"; // ORDER collection (parties/customers)
@@ -14,11 +15,13 @@ import GLedger from "@/models/GLedger"; // GLEDGER collection
 //   - LEDGERDEBIT / LEDGERCREDIT / LEDGERBALANCE / LEDGERTXNCOUNT
 //         (sum of GLedger rows for every customer that falls under the group)
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     await connectDB();
+    const { searchParams } = new URL(req.url);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
     // ---- Base account-group records --------------------------------------
-    const groups: any[] = await AccountGroup.find({}).sort({ ORDNO: 1 }).lean();
+    const groups: any[] = await AccountGroup.find(combineFilters({}, companyVfpMatch)).sort({ ORDNO: 1 }).lean();
 
     // ---- Self-join map: ORDNO -> group (resolve parent/child names) -------
     const byOrdno = new Map<string, any>();
@@ -35,7 +38,7 @@ export async function GET() {
 
     // ---- Customers per group: Customer.SCODE -> AccountGroup.ORDNO --------
     const customers: any[] = await Customer.find(
-        {},
+        combineFilters({}, companyVfpMatch),
         { ORDNO: 1, SCODE: 1, BALANCE: 1, STATUS: 1, PARNAM: 1 }
     ).lean();
 
@@ -59,24 +62,29 @@ export async function GET() {
         new Set(customers.map((c: any) => (c.ORDNO ? String(c.ORDNO).trim() : "")).filter(Boolean))
     );
 
-    const gledgerAgg = allCustomerCodes.length
-        ? await GLedger.aggregate([
-            { $match: { CODE: { $in: allCustomerCodes } } },
+    let ledgerMap = new Map<string, { debit: number; credit: number; count: number }>();
+    if (allCustomerCodes.length) {
+        const ledgerAgg = await GLedger.aggregate([
+            {
+                $match: combineFilters(
+                    { CODE: { $in: allCustomerCodes } },
+                    companyVfpMatch
+                ),
+            },
             {
                 $group: {
                     _id: "$CODE",
-                    totalDebit: { $sum: { $ifNull: ["$DEBIT", 0] } },
-                    totalCredit: { $sum: { $ifNull: ["$CREDIT", 0] } },
-                    txnCount: { $sum: 1 },
+                    debit: { $sum: { $ifNull: ["$DEBIT", 0] } },
+                    credit: { $sum: { $ifNull: ["$CREDIT", 0] } },
+                    count: { $sum: 1 },
                 },
             },
-        ])
-        : [];
+        ]);
 
-    const gledgerMap = new Map<string, any>();
-    gledgerAgg.forEach((d: any) => {
-        if (d._id) gledgerMap.set(String(d._id).trim(), d);
-    });
+        ledgerAgg.forEach((d: any) => {
+            if (d._id) ledgerMap.set(String(d._id).trim(), { debit: d.debit, credit: d.credit, count: d.count });
+        });
+    }
 
     // ---- Merge everything against each account group -----------------------
     const result = groups.map((g: any) => {
@@ -91,11 +99,11 @@ export async function GET() {
         let ledgerCredit = 0;
         let ledgerTxnCount = 0;
         custCodes.forEach((code) => {
-            const gl = gledgerMap.get(code);
+            const gl = ledgerMap.get(code);
             if (gl) {
-                ledgerDebit += gl.totalDebit || 0;
-                ledgerCredit += gl.totalCredit || 0;
-                ledgerTxnCount += gl.txnCount || 0;
+                ledgerDebit += gl.debit || 0;
+                ledgerCredit += gl.credit || 0;
+                ledgerTxnCount += gl.count || 0;
             }
         });
 

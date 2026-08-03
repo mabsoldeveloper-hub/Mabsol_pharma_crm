@@ -8,6 +8,8 @@ import Company from "@/models/Company";
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export async function GET(req: Request) {
   try {
     await connectDB();
@@ -17,10 +19,11 @@ export async function GET(req: Request) {
     const { startDate, endDate } = fyRange;
 
     const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
     const restriction = await getMrTerritoryRestriction();
 
     const saleFilterBase = { TRANSFER: { $ne: "P" }, TYPE: { $nin: ["PROFORMA", "ESTIMATE", "P"] } };
-    let disFilter: any = { ...dateMatch, ...saleFilterBase };
+    let disFilter: any = combineFilters(dateMatch, saleFilterBase, companyVfpMatch);
     if (restriction.isMrRestricted) {
       const orConditions: any[] = [];
       if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
@@ -30,15 +33,15 @@ export async function GET(req: Request) {
         orConditions.push({ COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } });
       }
       if (orConditions.length > 0) {
-        disFilter = { ...dateMatch, ...saleFilterBase, $or: orConditions };
+        disFilter = combineFilters(dateMatch, saleFilterBase, companyVfpMatch, { $or: orConditions });
       } else {
-        disFilter = { ...dateMatch, ...saleFilterBase, CODEP: "NONE_MATCH" };
+        disFilter = combineFilters(dateMatch, saleFilterBase, companyVfpMatch, { CODEP: "NONE_MATCH" });
       }
     }
 
     // Fetch Product Master
     const products = await Product.find(
-      {},
+      combineFilters(companyVfpMatch),
       {
         CODE: 1,
         PRODUCT: 1,

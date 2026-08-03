@@ -5,6 +5,8 @@ import SalesDis from "@/models/SalesDis";
 import Order from "@/models/Order";
 import Customer from "@/models/Customer";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,8 @@ export async function GET(req: NextRequest) {
         await connectDB();
 
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+        const fyRange = await getFYDateRange(searchParams);
         const startDate = searchParams.get("startDate");
         const endDate = searchParams.get("endDate");
         const search = (searchParams.get("q") || searchParams.get("search") || "").trim();
@@ -32,8 +36,8 @@ export async function GET(req: NextRequest) {
 
         // 1. Fetch Customer / Order party map with full metadata
         const [orders, mainCustomers] = await Promise.all([
-            Order.find({}, { ORDNO: 1, CODEP: 1, SCODE: 1, PARNAM: 1, NAME: 1, CITY: 1, AREA: 1, ROUT: 1, ROUTE: 1, COMPANY: 1, DIVISION: 1, DSM: 1, SALESMAN: 1, PHONE: 1, MOBILE: 1, GSTIN: 1, GST: 1 }).lean(),
-            Customer.find({}, { ORDNO: 1, CODEP: 1, SCODE: 1, PARNAM: 1, NAME: 1, CITY: 1, AREA: 1, ROUT: 1, ROUTE: 1, COMPANY: 1, DIVISION: 1, DSM: 1, SALESMAN: 1, PHONE: 1, MOBILE: 1, GSTIN: 1, GST: 1, GSTNO: 1 }).lean(),
+            Order.find(combineFilters(companyVfpMatch), { ORDNO: 1, CODEP: 1, SCODE: 1, PARNAM: 1, NAME: 1, CITY: 1, AREA: 1, ROUT: 1, ROUTE: 1, COMPANY: 1, DIVISION: 1, DSM: 1, SALESMAN: 1, PHONE: 1, MOBILE: 1, GSTIN: 1, GST: 1 }).lean(),
+            Customer.find(combineFilters(companyVfpMatch), { ORDNO: 1, CODEP: 1, SCODE: 1, PARNAM: 1, NAME: 1, CITY: 1, AREA: 1, ROUT: 1, ROUTE: 1, COMPANY: 1, DIVISION: 1, DSM: 1, SALESMAN: 1, PHONE: 1, MOBILE: 1, GSTIN: 1, GST: 1, GSTNO: 1 }).lean(),
         ]);
 
         const partyMap = new Map<string, any>();
@@ -49,9 +53,9 @@ export async function GET(req: NextRequest) {
                 phone: item.PHONE || item.MOBILE || "",
                 gstin: item.GSTIN || item.GST || item.GSTNO || "",
             };
-            [item.ORDNO, item.CODEP, item.SCODE, item.CODE].forEach((k) => {
+            [item.ORDNO, item.CODEP, item.SCODE].forEach((k) => {
                 if (k) {
-                    const key = String(k).trim();
+                    const key = String(k).trim().toUpperCase();
                     if (key && !partyMap.has(key)) partyMap.set(key, partyObj);
                 }
             });
@@ -76,55 +80,71 @@ export async function GET(req: NextRequest) {
         });
 
         // 2. Build filter for Sales Returns (SalesMdis)
-        const filter: any = {
-            $or: [
-                { TYPE: "SR" },
-                { INVTYPE: "R" },
-                { VCN: { $regex: "^(RET|SR|CN)-", $options: "i" } },
-            ],
-        };
+        // Marg ERP structure:
+        //   TYPE="B" = both Credit Notes (CN prefix = Sales Returns ✅) and Debit Notes (DN prefix = Purchase Returns ❌)
+        //   Solution: match TYPE="B" OR other return patterns, then exclude VCN starting with "DN"
+        const returnTypeFilter = combineFilters(
+            // Must match one of these type patterns
+            {
+                $or: [
+                    { TYPE: "B" },     // Primary Marg Credit Note / Return type
+                    { TYPE: "SR" },    // Explicit sales return
+                    { INVTYPE: "SR" },
+                    { INVTYPE: "CN" },
+                    { VCN: { $regex: "^CN", $options: "i" } },
+                ],
+            },
+            // Hard exclusion: NEVER show Debit Notes (DN) in Sales Return report
+            {
+                $nor: [
+                    { VCN: { $regex: "^DN", $options: "i" } },
+                ],
+            }
+        );
+
+        let filter: any = combineFilters(companyVfpMatch, returnTypeFilter);
 
         if (restriction.isMrRestricted && restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
-            filter.CODEP = { $in: restriction.allowedOrdnos };
+            filter = combineFilters(filter, { CODEP: { $in: restriction.allowedOrdnos } });
         }
 
-        if (startDate || endDate) {
-            filter.DATE = {};
-            if (startDate) filter.DATE.$gte = startDate;
-            if (endDate) filter.DATE.$lte = endDate;
+        const effStart = startDate || fyRange.startDate;
+        const effEnd = endDate || fyRange.endDate;
+
+        if (!fyRange.isAll && (effStart || effEnd)) {
+            const dateQuery = buildFYDateQuery("DATE", effStart, effEnd);
+            filter = combineFilters(filter, dateQuery);
         }
 
         if (reason) {
-            filter.$and = filter.$and || [];
             const rRegex = new RegExp(reason.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), "i");
-            filter.$and.push({
+            filter = combineFilters(filter, {
                 $or: [{ REASON: rRegex }, { REMARKS: rRegex }],
             });
         }
 
         if (minAmount !== null || maxAmount !== null) {
-            filter.FINAL = {};
-            if (minAmount !== null) filter.FINAL.$gte = minAmount;
-            if (maxAmount !== null) filter.FINAL.$lte = maxAmount;
+            const amtFilter: any = {};
+            if (minAmount !== null) amtFilter.$gte = minAmount;
+            if (maxAmount !== null) amtFilter.$lte = maxAmount;
+            filter = combineFilters(filter, { FINAL: amtFilter });
         }
 
         // Apply party matching
         if (partyCode) {
-            filter.$and = filter.$and || [];
             const isNum = !isNaN(Number(partyCode));
             const pConds: any[] = [{ CODEP: partyCode }, { CODE: partyCode }];
             if (isNum) {
                 pConds.push({ CODEP: Number(partyCode) });
                 pConds.push({ CODE: Number(partyCode) });
             }
-            filter.$and.push({ $or: pConds });
+            filter = combineFilters(filter, { $or: pConds });
         }
 
         // Apply Particular Search (VCN, Remarks, Reason, Original VCN)
         if (search) {
             const searchRegex = new RegExp(search.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), "i");
-            filter.$and = filter.$and || [];
-            filter.$and.push({
+            filter = combineFilters(filter, {
                 $or: [
                     { VCN: searchRegex },
                     { VOUCHER: searchRegex },
@@ -149,8 +169,7 @@ export async function GET(req: NextRequest) {
                 matchedCodes.push(code);
             });
 
-            filter.$and = filter.$and || [];
-            filter.$and.push({
+            filter = combineFilters(filter, {
                 $or: [
                     { CODEP: { $in: matchedCodes } },
                     { CODE: { $in: matchedCodes } },

@@ -13,15 +13,19 @@ import { getCurrentUser } from "@/lib/auth";
 
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
     await connectDB();
 
+    const { searchParams } = new URL(req.url);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
     const restriction = await getMrTerritoryRestriction();
 
     // ---- Base customer records (every field on the Customer/Order table) ----
-    const allCustomers: any[] = await Customer.find({}).sort({ PARNAM: 1 }).lean();
+    const allCustomers: any[] = await Customer.find(combineFilters(companyVfpMatch)).sort({ PARNAM: 1 }).lean();
 
     const customers = restriction.isMrRestricted
         ? allCustomers.filter((c: any) => restriction.isPartyAllowed(c))

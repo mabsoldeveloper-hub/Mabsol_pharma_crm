@@ -1,8 +1,31 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
-import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useCompany } from "@/context/CompanyContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
+import SearchableSelect, { OptionItem } from "@/components/SearchableSelect";
+import {
+    FaArrowLeft,
+    FaSearch,
+    FaSync,
+    FaFileInvoiceDollar,
+    FaFileCsv,
+    FaPrint,
+    FaChevronLeft,
+    FaChevronRight,
+    FaBoxes,
+    FaChevronDown,
+    FaChevronUp,
+    FaFilter,
+    FaExclamationTriangle,
+    FaUsers,
+    FaIdCard,
+    FaPhoneAlt,
+    FaReceipt,
+    FaClock,
+    FaCalendarAlt,
+} from "react-icons/fa";
 
 interface LedgerDetail {
     CODE?: string | null;
@@ -81,203 +104,135 @@ interface OutstandingRow {
     items?: ItemDetail[];
 }
 
-interface OutstandingReportData {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    totalOutstanding: number;
-    rows: OutstandingRow[];
-}
-
-interface ApiResponse {
-    success: boolean;
-    data?: OutstandingReportData;
-    message?: string;
-}
-
 const DEFAULT_FILTERS = {
     search: "",
+    partyCode: "",
     city: "",
-    status: "",
-
     area: "",
     route: "",
     dsm: "",
-    asm: "",
-    rsm: "",
-
     type: "",
     mr: "",
-    voucher: "",
-    vcn: "",
     dueFrom: "",
     dueTo: "",
     minAmount: "",
     maxAmount: "",
     onlyOutstanding: "Y",
-
-    book: "",
-    cd: "",
-    ledgerCode: "",
-
-    godown: "",
-    transport: "",
-    form: "",
-    challan: "",
-    account: "",
-
-    batch: "",
-    company: "",
-};
-
-type FilterState = typeof DEFAULT_FILTERS;
-
-type MrTerritoryInfo = {
-    isMrRestricted: boolean;
-    territories: {
-        companyCode: string;
-        companyName: string;
-        divisionCode: string;
-        divisionName: string;
-        subDivisionCode: string;
-        subDivisionName: string;
-        categoryCode: string;
-        categoryName: string;
-    }[];
-    allowedCompanyCodes: string[];
-};
-
-const LIMIT = 500;
-
-const formatCurrency = (value?: number) =>
-    (value ?? 0).toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    });
-
-const formatDate = (value?: string | null) => {
-    if (!value) return "-";
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return "-";
-    return d.toLocaleDateString("en-IN");
 };
 
 export default function OutstandingReportPage() {
-    const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS });
-    const [appliedFilters, setAppliedFilters] = useState<FilterState>({
-        ...DEFAULT_FILTERS,
-    });
-
+    const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
+    const [appliedFilters, setAppliedFilters] = useState({ ...DEFAULT_FILTERS });
     const [page, setPage] = useState(1);
-
-    const [rows, setRows] = useState<OutstandingRow[]>([]);
-    const [total, setTotal] = useState(0);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalOutstanding, setTotalOutstanding] = useState(0);
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [rows, setRows] = useState<OutstandingRow[]>([]);
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-    const [expanded, setExpanded] = useState<Set<string>>(new Set());
-    const [showMoreFilters, setShowMoreFilters] = useState(false);
+    const [summary, setSummary] = useState({
+        totalCount: 0,
+        totalOutstandingAmount: 0,
+        criticalOverdueAmount: 0,
+        criticalOverdueCount: 0,
+        customerCount: 0,
+        avgOutstandingAmount: 0,
+    });
 
-    const { selectedFY } = useFinancialYear();
-
-    useEffect(() => {
-        const updateFYFilters = () => {
-            if (selectedFY && !selectedFY.isAll && selectedFY.startDate && selectedFY.endDate) {
-                const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
-                const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
-                setFilters((prev) => ({ ...prev, dueFrom: s, dueTo: e }));
-                setAppliedFilters((prev) => ({ ...prev, dueFrom: s, dueTo: e }));
-            } else if (selectedFY?.isAll) {
-                setFilters((prev) => ({ ...prev, dueFrom: "", dueTo: "" }));
-                setAppliedFilters((prev) => ({ ...prev, dueFrom: "", dueTo: "" }));
-            }
-        };
-        updateFYFilters();
-        window.addEventListener("financial-year-changed", updateFYFilters);
-        return () => window.removeEventListener("financial-year-changed", updateFYFilters);
-    }, [selectedFY]);
-
-    // MR Territory state
-    const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
+    const [customers, setCustomers] = useState<any[]>([]);
+    const [totalPages, setTotalPages] = useState(1);
 
     useEffect(() => {
-        loadMrTerritoryInfo();
+        fetchCustomers();
     }, []);
 
-    const loadMrTerritoryInfo = async () => {
+    const fetchCustomers = async () => {
         try {
-            const res = await fetch("/api/mr-territory/my-territories");
+            const res = await fetch("/api/master/customer");
             if (res.ok) {
                 const data = await res.json();
-                if (data.success) {
-                    setMrTerritoryInfo({
-                        isMrRestricted: data.isMrRestricted,
-                        territories: data.territories || [],
-                        allowedCompanyCodes: data.allowedCompanyCodes || [],
-                    });
-                }
+                const list = Array.isArray(data) ? data : (data.data || data.customers || []);
+                setCustomers(list);
             }
-        } catch {
-            // Silently ignore — territory info is cosmetic only; actual filtering is server-side
+        } catch (err) {
+            console.error("Failed to fetch customer options:", err);
         }
     };
 
-    const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-    ) => {
-        setFilters((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    };
+    const customerOptions: OptionItem[] = customers.map((c, idx) => {
+        const code = String(c.CODEP || c.ORDNO || c.CODE || `cust-${idx}`);
+        const name = String(c.PARNAM || c.NAME || c.MAILNAM || code);
+        return {
+            value: code,
+            label: name,
+            subLabel: `#${code}${c.CITY ? ` • ${c.CITY}` : ""}`,
+        };
+    });
 
-    const fetchReport = useCallback(
-        async (targetPage: number, activeFilters: FilterState) => {
-            setLoading(true);
-            setError("");
+    const fetchReport = useCallback(async () => {
+        setLoading(true);
+        setError("");
+        try {
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: "50",
+            });
 
-            try {
-                const params = new URLSearchParams({
-                    page: String(targetPage),
-                    limit: String(LIMIT),
-                });
+            Object.entries(appliedFilters).forEach(([key, val]) => {
+                if (val) params.set(key, val);
+            });
 
-                Object.entries(activeFilters).forEach(([key, value]) => {
-                    if (value) params.set(key, value);
-                });
-
-                const res = await fetch(`/api/reports/outstanding?${params.toString()}`);
-                const json: ApiResponse = await res.json();
-
-                if (!res.ok || !json.success || !json.data) {
-                    throw new Error(json.message || "Failed to load report");
+            if (selectedFY) {
+                if (selectedFY.isAll) {
+                    params.set("fyId", "ALL");
+                } else if (selectedFY._id) {
+                    params.set("fyId", selectedFY._id);
+                    if (selectedFY.startDate && selectedFY.endDate && !appliedFilters.dueFrom && !appliedFilters.dueTo) {
+                        params.set("dueFrom", new Date(selectedFY.startDate).toISOString().slice(0, 10));
+                        params.set("dueTo", new Date(selectedFY.endDate).toISOString().slice(0, 10));
+                    }
                 }
-
-                setRows(json.data.rows || []);
-                setTotal(json.data.total || 0);
-                setTotalPages(json.data.totalPages || 1);
-                setTotalOutstanding(json.data.totalOutstanding || 0);
-                setExpanded(new Set());
-            } catch (err: any) {
-                setError(err?.message || "Something went wrong");
-                setRows([]);
-                setTotal(0);
-                setTotalPages(1);
-                setTotalOutstanding(0);
-            } finally {
-                setLoading(false);
             }
-        },
-        []
-    );
+
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
+            const res = await fetch(`/api/reports/outstanding?${params.toString()}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.data) {
+                    setRows(json.data.rows || []);
+                    setSummary({
+                        totalCount: json.data.total || 0,
+                        totalOutstandingAmount: json.data.totalOutstanding || 0,
+                        criticalOverdueAmount: json.data.criticalOverdueAmount || 0,
+                        criticalOverdueCount: json.data.criticalOverdueCount || 0,
+                        customerCount: json.data.customerCount || 0,
+                        avgOutstandingAmount: json.data.avgOutstandingAmount || 0,
+                    });
+                    setTotalPages(json.data.totalPages || 1);
+                } else {
+                    setError(json.message || "Failed to load outstanding report");
+                }
+            }
+        } catch (err: any) {
+            console.error("Failed to load outstanding report:", err);
+            setError(err?.message || "Something went wrong");
+        } finally {
+            setLoading(false);
+        }
+    }, [page, appliedFilters, selectedCompany, selectedFY]);
 
     useEffect(() => {
-        fetchReport(page, appliedFilters);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, appliedFilters]);
+        fetchReport();
+    }, [fetchReport]);
 
-    const searchReport = () => {
+    const handleFilterChange = (field: string, value: string) => {
+        setFilters((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const applyFilters = () => {
         setPage(1);
         setAppliedFilters({ ...filters });
     };
@@ -288,753 +243,543 @@ export default function OutstandingReportPage() {
         setPage(1);
     };
 
-    const toggleExpand = (id: string) => {
-        setExpanded((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
+    const toggleRow = (id: string) => {
+        const updated = new Set(expandedRows);
+        if (updated.has(id)) updated.delete(id);
+        else updated.add(id);
+        setExpandedRows(updated);
+    };
+
+    // CSV Export
+    const exportCSV = () => {
+        if (rows.length === 0) return;
+        const headers = [
+            "Customer Code", "Customer Name", "City", "Area", "Route", "DSM",
+            "VCN", "Voucher", "Due Date", "Due Days", "Pending Amount (₹)", "Remarks",
+        ];
+        const csvRows = [headers.join(",")];
+        rows.forEach((r) => {
+            csvRows.push([
+                `"${r.CODEP || r.ORD}"`,
+                `"${(r.PARNAM || "").replace(/"/g, '""')}"`,
+                `"${r.CITY || ""}"`,
+                `"${r.AREA || ""}"`,
+                `"${r.ROUT || ""}"`,
+                `"${r.DSM || ""}"`,
+                `"${r.VCN || ""}"`,
+                r.VOUCHER || "",
+                r.DDATE || "",
+                r.DUEDAYS ?? 0,
+                r.FINAL ?? 0,
+                `"${(r.REMARK || "").replace(/"/g, '""')}"`,
+            ].join(","));
         });
+
+        const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Outstanding_Executive_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
     };
 
     return (
-        <div className="container-fluid py-3">
-            {/* ==================== MR TERRITORY BANNER ==================== */}
-            {mrTerritoryInfo?.isMrRestricted && (
-                <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm mb-3">
-                    <div className="flex-shrink-0 mt-0.5">
-                        <FaMapMarkerAlt size={16} className="text-amber-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-amber-800 mb-0.5">Territory Restricted View</p>
-                        <p className="text-[11px] text-amber-700 leading-relaxed">
-                            Aap sirf apni assigned territory ka outstanding data dekh sakte hain.
-                            {mrTerritoryInfo.territories.length > 0 && (
-                                <>
-                                    {" "}Assigned:
-                                    {" "}
-                                    {Array.from(
-                                        new Set(
-                                            mrTerritoryInfo.territories.map(
-                                                (t) => t.companyName || t.companyCode
-                                            )
-                                        )
-                                    ).join(", ")}
-                                </>
-                            )}
+        <div className="p-3 sm:p-6 space-y-4 max-w-[1600px] mx-auto print:p-0">
+
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm print:hidden">
+                <div className="flex items-center gap-3">
+                    <Link
+                        href="/dashboard/reports"
+                        className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 transition"
+                    >
+                        <FaArrowLeft size={14} />
+                    </Link>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                                Outstanding Executive Report
+                            </h1>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50">
+                                Receivables &amp; Aging Analytics
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Comprehensive ledger receivables tracking with multi-table cross-join analytics across Customer, Pend, Invoice &amp; Batches.
                         </p>
-                        {mrTerritoryInfo.territories.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                {mrTerritoryInfo.territories.map((t, i) => (
-                                    <span
-                                        key={i}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium border border-amber-200"
-                                    >
-                                        <FaBuilding size={8} />
-                                        {t.companyName || t.companyCode}
-                                        {t.divisionName ? (
-                                            <>
-                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
-                                                {t.divisionName}
-                                            </>
-                                        ) : null}
-                                        {t.subDivisionName ? (
-                                            <>
-                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
-                                                {t.subDivisionName}
-                                            </>
-                                        ) : null}
-                                        {t.categoryName ? (
-                                            <>
-                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
-                                                {t.categoryName}
-                                            </>
-                                        ) : null}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
                     </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={exportCSV}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition border border-slate-200 dark:border-slate-700"
+                    >
+                        <FaFileCsv className="text-emerald-600" size={13} /> Export CSV
+                    </button>
+                    <button
+                        onClick={() => window.print()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 transition shadow-sm"
+                    >
+                        <FaPrint size={12} /> Print Executive Report
+                    </button>
+                </div>
+            </div>
+
+            {/* Top Executive KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 print:grid-cols-5 print:gap-2">
+
+                {/* Card 1 */}
+                <div className="bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/40 dark:to-slate-900 p-4 rounded-2xl border border-rose-200/80 dark:border-rose-900/50 shadow-xs flex items-center justify-between">
+                    <div>
+                        <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
+                            Total Outstanding
+                        </span>
+                        <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                            ₹{summary.totalOutstandingAmount.toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                            {summary.totalCount} Pending Vouchers
+                        </span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
+                        <FaFileInvoiceDollar size={18} />
+                    </div>
+                </div>
+
+                {/* Card 2 */}
+                <div className="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-slate-900 p-4 rounded-2xl border border-amber-200/80 dark:border-amber-900/50 shadow-xs flex items-center justify-between">
+                    <div>
+                        <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">
+                            Total Pending Bills
+                        </span>
+                        <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                            {summary.totalCount} Bills
+                        </span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                            Active Vouchers
+                        </span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                        <FaReceipt size={17} />
+                    </div>
+                </div>
+
+                {/* Card 3 */}
+                <div className="bg-gradient-to-br from-red-50 to-white dark:from-red-950/40 dark:to-slate-900 p-4 rounded-2xl border border-red-200/80 dark:border-red-900/50 shadow-xs flex items-center justify-between">
+                    <div>
+                        <span className="text-[11px] font-semibold text-red-700 dark:text-red-400 uppercase tracking-wider block">
+                            Critical Overdue (&gt;30 Days)
+                        </span>
+                        <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                            ₹{summary.criticalOverdueAmount.toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                            {summary.criticalOverdueCount} Overdue Vouchers
+                        </span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0">
+                        <FaExclamationTriangle size={18} />
+                    </div>
+                </div>
+
+                {/* Card 4 */}
+                <div className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/40 dark:to-slate-900 p-4 rounded-2xl border border-blue-200/80 dark:border-blue-900/50 shadow-xs flex items-center justify-between">
+                    <div>
+                        <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                            Pending Customers
+                        </span>
+                        <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                            {summary.customerCount} Parties
+                        </span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                            With Outstanding Dues
+                        </span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                        <FaUsers size={18} />
+                    </div>
+                </div>
+
+                {/* Card 5 */}
+                <div className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/40 dark:to-slate-900 p-4 rounded-2xl border border-purple-200/80 dark:border-purple-900/50 shadow-xs flex items-center justify-between">
+                    <div>
+                        <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
+                            Avg Pending Amount
+                        </span>
+                        <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                            ₹{summary.avgOutstandingAmount.toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                            Average Ticket Size
+                        </span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center flex-shrink-0">
+                        <FaClock size={16} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Standard Executive Filter Panel */}
+            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 print:hidden">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <FaFilter className="text-rose-500" /> Standard Executive Filters
+                    </span>
+                    <button
+                        onClick={resetFilters}
+                        className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline"
+                    >
+                        Reset All Filters
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+                    {/* Search */}
+                    <div className="space-y-1 sm:col-span-2">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Particular / Search</label>
+                        <div className="relative">
+                            <FaSearch size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search Customer, Code, VCN, Voucher, GST..."
+                                value={filters.search}
+                                onChange={(e) => handleFilterChange("search", e.target.value)}
+                                className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Party */}
+                    <div className="space-y-1 sm:col-span-2">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Party / Customer</label>
+                        <SearchableSelect
+                            options={customerOptions}
+                            value={filters.partyCode}
+                            onChange={(val) => handleFilterChange("partyCode", val)}
+                            placeholder="All Parties"
+                        />
+                    </div>
+
+                    {/* City */}
+                    <div className="space-y-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">City</label>
+                        <input
+                            type="text"
+                            placeholder="All Cities"
+                            value={filters.city}
+                            onChange={(e) => handleFilterChange("city", e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* Area */}
+                    <div className="space-y-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Area</label>
+                        <input
+                            type="text"
+                            placeholder="All Areas"
+                            value={filters.area}
+                            onChange={(e) => handleFilterChange("area", e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* Route */}
+                    <div className="space-y-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Route</label>
+                        <input
+                            type="text"
+                            placeholder="All Routes"
+                            value={filters.route}
+                            onChange={(e) => handleFilterChange("route", e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* DSM */}
+                    <div className="space-y-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Salesman (DSM)</label>
+                        <input
+                            type="text"
+                            placeholder="All Salesmen"
+                            value={filters.dsm}
+                            onChange={(e) => handleFilterChange("dsm", e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* Min Amount */}
+                    <div className="space-y-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Min Amount (₹)</label>
+                        <input
+                            type="number"
+                            placeholder="0"
+                            value={filters.minAmount}
+                            onChange={(e) => handleFilterChange("minAmount", e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* Max Amount */}
+                    <div className="space-y-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Max Amount (₹)</label>
+                        <input
+                            type="number"
+                            placeholder="Unlimited"
+                            value={filters.maxAmount}
+                            onChange={(e) => handleFilterChange("maxAmount", e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* Due From */}
+                    <div className="space-y-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Due From</label>
+                        <input
+                            type="date"
+                            value={filters.dueFrom}
+                            onChange={(e) => handleFilterChange("dueFrom", e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                    </div>
+
+                    {/* Due To */}
+                    <div className="space-y-1">
+                        <label className="font-semibold text-slate-700 dark:text-slate-300">Due To</label>
+                        <input
+                            type="date"
+                            value={filters.dueTo}
+                            onChange={(e) => handleFilterChange("dueTo", e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <button
+                        onClick={applyFilters}
+                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 transition shadow-sm"
+                    >
+                        <FaFilter size={11} /> Apply Filters
+                    </button>
+                </div>
+            </div>
+
+            {/* Error Banner */}
+            {error && (
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                    {error}
                 </div>
             )}
 
-            <div className="card shadow-sm">
-                <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <h4 className="mb-0">Outstanding Report</h4>
-                    <div className="d-flex gap-2">
-                        <span className="badge bg-light text-dark">
-                            {total} voucher{total === 1 ? "" : "s"}
-                        </span>
-                        <span className="badge bg-warning text-dark">
-                            Total: {formatCurrency(totalOutstanding)}
-                        </span>
-                    </div>
+            {/* Main Table */}
+            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 print:hidden">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        Outstanding Vouchers List ({summary.totalCount})
+                    </span>
+                    <button
+                        onClick={fetchReport}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white"
+                    >
+                        <FaSync className={loading ? "animate-spin text-rose-500" : ""} size={13} />
+                    </button>
                 </div>
 
-                <div className="card-body">
-                    <div className="row g-3">
-                        <div className="col-md-3">
-                            <label className="form-label">Search</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="search"
-                                value={filters.search}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                placeholder="Customer Name / Code / GST"
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">Area</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="area"
-                                value={filters.area}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">Route</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="route"
-                                value={filters.route}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">DSM</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="dsm"
-                                value={filters.dsm}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-3">
-                            <label className="form-label">City</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="city"
-                                value={filters.city}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">ASM</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="asm"
-                                value={filters.asm}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">RSM</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="rsm"
-                                value={filters.rsm}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">Status</label>
-                            <select
-                                className="form-select"
-                                name="status"
-                                value={filters.status}
-                                onChange={handleChange}
-                            >
-                                <option value="">All</option>
-                                <option value="Y">Active</option>
-                                <option value="N">Inactive</option>
-                            </select>
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">Type</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="type"
-                                value={filters.type}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                placeholder="A / S / C..."
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">MR</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                name="mr"
-                                value={filters.mr}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">Due From</label>
-                            <input
-                                type="date"
-                                className="form-control"
-                                name="dueFrom"
-                                value={filters.dueFrom}
-                                onChange={handleChange}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">Due To</label>
-                            <input
-                                type="date"
-                                className="form-control"
-                                name="dueTo"
-                                value={filters.dueTo}
-                                onChange={handleChange}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">Min Amount</label>
-                            <input
-                                type="number"
-                                className="form-control"
-                                name="minAmount"
-                                value={filters.minAmount}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-2">
-                            <label className="form-label">Max Amount</label>
-                            <input
-                                type="number"
-                                className="form-control"
-                                name="maxAmount"
-                                value={filters.maxAmount}
-                                onChange={handleChange}
-                                onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                            />
-                        </div>
-
-                        <div className="col-md-2 d-flex align-items-end">
-                            <div className="form-check">
-                                <input
-                                    type="checkbox"
-                                    className="form-check-input"
-                                    id="onlyOutstanding"
-                                    checked={filters.onlyOutstanding === "Y"}
-                                    onChange={(e) =>
-                                        setFilters((prev) => ({
-                                            ...prev,
-                                            onlyOutstanding: e.target.checked ? "Y" : "",
-                                        }))
-                                    }
-                                />
-                                <label className="form-check-label" htmlFor="onlyOutstanding">
-                                    Only Non-Zero
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-3">
-                        <button
-                            type="button"
-                            className="btn btn-sm btn-outline-dark"
-                            onClick={() => setShowMoreFilters((s) => !s)}
-                        >
-                            {showMoreFilters ? "Hide" : "More"} Filters (Voucher / Ledger / Invoice / Batch)
-                        </button>
-                    </div>
-
-                    {showMoreFilters && (
-                        <div className="row g-3 mt-1 p-3 bg-light rounded">
-                            <div className="col-12">
-                                <h6 className="text-muted mb-2">Voucher (Pend)</h6>
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">Voucher No</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="voucher"
-                                    value={filters.voucher}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                    placeholder="matches VOUCHER/SVOUCHER/ADJVOUCHER"
-                                />
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">VCN</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="vcn"
-                                    value={filters.vcn}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-
-                            <div className="col-12 mt-3">
-                                <h6 className="text-muted mb-2">Ledger (GlLedger)</h6>
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">Book</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="book"
-                                    value={filters.book}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">C/D</label>
-                                <select
-                                    className="form-select"
-                                    name="cd"
-                                    value={filters.cd}
-                                    onChange={handleChange}
-                                >
-                                    <option value="">All</option>
-                                    <option value="C">Credit</option>
-                                    <option value="D">Debit</option>
-                                </select>
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">Ledger Code</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="ledgerCode"
-                                    value={filters.ledgerCode}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-
-                            <div className="col-12 mt-3">
-                                <h6 className="text-muted mb-2">Invoice (SalesMdis)</h6>
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">Godown</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="godown"
-                                    value={filters.godown}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-                            <div className="col-md-3">
-                                <label className="form-label">Transport</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="transport"
-                                    value={filters.transport}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">Form</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="form"
-                                    value={filters.form}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">Challan</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="challan"
-                                    value={filters.challan}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-                            <div className="col-md-2">
-                                <label className="form-label">Account</label>
-                                <select
-                                    className="form-select"
-                                    name="account"
-                                    value={filters.account}
-                                    onChange={handleChange}
-                                >
-                                    <option value="">All</option>
-                                    <option value="Y">Y</option>
-                                    <option value="N">N</option>
-                                </select>
-                            </div>
-
-                            <div className="col-12 mt-3">
-                                <h6 className="text-muted mb-2">Item / Batch (SalesDis)</h6>
-                            </div>
-                            <div className="col-md-3">
-                                <label className="form-label">Batch</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="batch"
-                                    value={filters.batch}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-                            <div className="col-md-3">
-                                <label className="form-label">Company</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="company"
-                                    value={filters.company}
-                                    onChange={handleChange}
-                                    onKeyDown={(e) => e.key === "Enter" && searchReport()}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="d-flex gap-2 mt-3">
-                        <button className="btn btn-primary" onClick={searchReport} disabled={loading}>
-                            {loading ? "Loading..." : "Search"}
-                        </button>
-
-                        <button className="btn btn-secondary" onClick={resetFilters} disabled={loading}>
-                            Reset
-                        </button>
-                    </div>
-
-                    <hr />
-
-                    {error && (
-                        <div className="alert alert-danger" role="alert">
-                            {error}
-                        </div>
-                    )}
-
-                    <div className="table-responsive">
-                        <table className="table table-bordered table-hover align-middle">
-                            <thead className="table-dark">
+                <div className="overflow-x-auto min-h-[350px]">
+                    <table className="w-full text-left text-xs border-collapse min-w-[1100px]">
+                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th className="p-2.5 w-8"></th>
+                                <th className="p-2.5 font-mono">Party Code</th>
+                                <th className="p-2.5">Customer / Party Name</th>
+                                <th className="p-2.5">City &amp; Area</th>
+                                <th className="p-2.5">Route &amp; DSM</th>
+                                <th className="p-2.5 font-mono">Type &amp; VCN</th>
+                                <th className="p-2.5 font-mono text-center">Voucher #</th>
+                                <th className="p-2.5 font-mono">Due Date</th>
+                                <th className="p-2.5 font-mono text-center">Overdue Days</th>
+                                <th className="p-2.5 font-mono text-right">Pending Amount (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
+                            {loading ? (
                                 <tr>
-                                    <th style={{ width: 40 }}></th>
-                                    <th style={{ width: 40 }}>#</th>
-                                    <th>Customer Code</th>
-                                    <th>Customer Name</th>
-                                    <th>City</th>
-                                    <th>Area</th>
-                                    <th>Route</th>
-                                    <th>DSM</th>
-                                    <th>Type</th>
-                                    <th>Voucher</th>
-                                    <th>VCN</th>
-                                    <th>MR</th>
-                                    <th>Due Date</th>
-                                    <th>Due Days</th>
-                                    <th className="text-end">Amount</th>
+                                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                                        <FaSync size={18} className="animate-spin text-rose-500 mx-auto mb-2" />
+                                        Loading outstanding executive report...
+                                    </td>
                                 </tr>
-                            </thead>
+                            ) : rows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                                        No outstanding records found matching executive filters.
+                                    </td>
+                                </tr>
+                            ) : (
+                                rows.map((r) => {
+                                    const isExpanded = expandedRows.has(r.id);
+                                    const isOverdue30 = (r.DUEDAYS ?? 0) > 30;
 
-                            <tbody>
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan={15} className="text-center py-4">
-                                            Loading...
-                                        </td>
-                                    </tr>
-                                ) : rows.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={15} className="text-center py-4">
-                                            No Data Found
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    rows.map((row, idx) => {
-                                        const isOpen = expanded.has(row.id);
-                                        const hasDetail =
-                                            row.ledger ||
-                                            row.invoice ||
-                                            (row.items && row.items.length > 0) ||
-                                            row.GSTNO ||
-                                            row.DLNO ||
-                                            row.PHONE1 ||
-                                            row.ASM ||
-                                            row.RSM;
-
-                                        return (
-                                            <Fragment key={row.id}>
-                                                <tr>
-                                                    <td>
-                                                        {hasDetail && (
-                                                            <button
-                                                                className="btn btn-sm btn-outline-secondary"
-                                                                onClick={() => toggleExpand(row.id)}
-                                                                title="Show full details"
-                                                            >
-                                                                {isOpen ? "-" : "+"}
-                                                            </button>
+                                    return (
+                                        <React.Fragment key={r.id}>
+                                            <tr
+                                                className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition cursor-pointer"
+                                                onClick={() => toggleRow(r.id)}
+                                            >
+                                                <td className="p-2.5 text-center text-slate-400">
+                                                    {isExpanded ? <FaChevronUp size={10} /> : <FaChevronDown size={10} />}
+                                                </td>
+                                                <td className="p-2.5 font-mono font-bold text-slate-700 dark:text-slate-300">
+                                                    #{r.CODEP || r.ORD}
+                                                </td>
+                                                <td className="p-2.5 font-semibold text-slate-900 dark:text-white">
+                                                    {r.PARNAM || r.MAILNAM || "Unknown Party"}
+                                                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-normal mt-0.5">
+                                                        {r.GSTNO && (
+                                                            <span className="text-slate-500 font-mono">
+                                                                <FaIdCard size={8} className="inline mr-0.5" />{r.GSTNO}
+                                                            </span>
                                                         )}
-                                                    </td>
-                                                    <td>{(page - 1) * LIMIT + idx + 1}</td>
-                                                    <td>{row.ORD}</td>
-                                                    <td>{row.PARNAM || row.MAILNAM || "-"}</td>
-                                                    <td>{row.CITY || "-"}</td>
-                                                    <td>{row.AREA || "-"}</td>
-                                                    <td>{row.ROUT || "-"}</td>
-                                                    <td>{row.DSM || "-"}</td>
-                                                    <td>{row.TYPE || "-"}</td>
-                                                    <td>{row.VOUCHER || "-"}</td>
-                                                    <td>{row.VCN || "-"}</td>
-                                                    <td>{row.MR || "-"}</td>
-                                                    <td>{formatDate(row.DDATE)}</td>
-                                                    <td>{row.DUEDAYS ?? 0}</td>
-                                                    <td className="text-end">
-                                                        <span
-                                                            className={
-                                                                (row.FINAL ?? 0) < 0
-                                                                    ? "text-danger fw-semibold"
-                                                                    : "fw-semibold"
-                                                            }
-                                                        >
-                                                            {formatCurrency(row.FINAL)}
+                                                        {r.PHONE1 && (
+                                                            <span>
+                                                                <FaPhoneAlt size={8} className="inline mr-0.5" />{r.PHONE1}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-2.5 text-slate-600 dark:text-slate-400">
+                                                    {r.CITY || "—"}
+                                                    {r.AREA && <span className="text-[10px] text-slate-400 block">{r.AREA}</span>}
+                                                </td>
+                                                <td className="p-2.5 text-slate-600 dark:text-slate-400">
+                                                    {r.ROUT || "—"}
+                                                    {r.DSM && <span className="text-[10px] text-slate-400 block">DSM: {r.DSM}</span>}
+                                                </td>
+                                                <td className="p-2.5 font-mono font-bold text-rose-600 dark:text-rose-400">
+                                                    {r.VCN || "—"}
+                                                    {r.TYPE && (
+                                                        <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 ml-1">
+                                                            {r.TYPE}
                                                         </span>
-                                                    </td>
-                                                </tr>
+                                                    )}
+                                                </td>
+                                                <td className="p-2.5 text-center font-mono text-slate-600 dark:text-slate-400">
+                                                    {r.VOUCHER || "—"}
+                                                </td>
+                                                <td className="p-2.5 font-mono text-slate-600 dark:text-slate-400">
+                                                    {r.DDATE || "—"}
+                                                </td>
+                                                <td className="p-2.5 text-center font-mono">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isOverdue30
+                                                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+                                                        : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                                        }`}>
+                                                        {r.DUEDAYS ?? 0} days
+                                                    </span>
+                                                </td>
+                                                <td className="p-2.5 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                                                    ₹{(r.FINAL ?? 0).toLocaleString("en-IN")}
+                                                </td>
+                                            </tr>
 
-                                                {isOpen && (
-                                                    <tr key={`${row.id}-detail`}>
-                                                        <td></td>
-                                                        <td colSpan={14} className="bg-light">
-                                                            <div className="row g-3 py-2">
-                                                                <div className="col-md-3">
-                                                                    <h6 className="text-primary">
-                                                                        Customer (Order)
-                                                                    </h6>
-                                                                    <div>Code: {row.CODEP || "-"}</div>
-                                                                    <div>SCODE: {row.SCODE || "-"}</div>
-                                                                    <div>GST No: {row.GSTNO || "-"}</div>
-                                                                    <div>DL No: {row.DLNO || "-"}</div>
-                                                                    <div>
-                                                                        Phone: {row.PHONE1 || "-"}
-                                                                        {row.PHONE2 ? `, ${row.PHONE2}` : ""}
-                                                                    </div>
-                                                                    <div>ASM: {row.ASM || "-"}</div>
-                                                                    <div>RSM: {row.RSM || "-"}</div>
-                                                                    <div>
-                                                                        Advance: {row.ADVANCE ?? "-"}
-                                                                    </div>
-                                                                    <div>Remark: {row.REMARK || "-"}</div>
-                                                                </div>
+                                            {/* Expandable Line Item & Voucher Detail Drawer */}
+                                            {isExpanded && (
+                                                <tr className="bg-slate-50 dark:bg-slate-800/50">
+                                                    <td colSpan={10} className="p-3">
+                                                        <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3 shadow-inner">
 
-                                                                <div className="col-md-3">
-                                                                    <h6 className="text-primary">
-                                                                        Ledger (GlLedger)
-                                                                    </h6>
-                                                                    {row.ledger ? (
-                                                                        <>
-                                                                            <div>
-                                                                                Code: {row.ledger.CODE || "-"}
-                                                                            </div>
-                                                                            <div>
-                                                                                Book: {row.ledger.BOOK || "-"}
-                                                                            </div>
-                                                                            <div>
-                                                                                C/D: {row.ledger.CD || "-"}
-                                                                            </div>
-                                                                            <div>
-                                                                                Credit:{" "}
-                                                                                {formatCurrency(row.ledger.CREDIT)}
-                                                                            </div>
-                                                                            <div>
-                                                                                Debit:{" "}
-                                                                                {formatCurrency(row.ledger.DEBIT)}
-                                                                            </div>
-                                                                            <div>
-                                                                                Date:{" "}
-                                                                                {formatDate(row.ledger.DATE)}
-                                                                            </div>
-                                                                            {row.ledger.REMARK1 && (
-                                                                                <div className="small text-muted">
-                                                                                    {row.ledger.REMARK1}
-                                                                                </div>
-                                                                            )}
-                                                                        </>
-                                                                    ) : (
-                                                                        <small className="text-muted">
-                                                                            No matching ledger record.
-                                                                        </small>
-                                                                    )}
-                                                                </div>
-
-                                                                <div className="col-md-3">
-                                                                    <h6 className="text-primary">
-                                                                        Invoice (SalesMdis)
-                                                                    </h6>
-                                                                    {row.invoice ? (
-                                                                        <>
-                                                                            <div>
-                                                                                Voucher: {row.invoice.VOUCHER || "-"}
-                                                                            </div>
-                                                                            <div>VCN: {row.invoice.VCN || "-"}</div>
-                                                                            <div>
-                                                                                Date: {formatDate(row.invoice.DATE)}
-                                                                            </div>
-                                                                            <div>
-                                                                                Amount:{" "}
-                                                                                {formatCurrency(row.invoice.FINAL)}
-                                                                            </div>
-                                                                            <div>
-                                                                                Godown: {row.invoice.GODWON || "-"}
-                                                                            </div>
-                                                                            <div>
-                                                                                Transport:{" "}
-                                                                                {row.invoice.TRANSPORT || "-"}
-                                                                            </div>
-                                                                            <div>
-                                                                                LR No: {row.invoice.LRNO || "-"} (
-                                                                                {formatDate(row.invoice.LRDA)})
-                                                                            </div>
-                                                                            <div>
-                                                                                Form: {row.invoice.FORM || "-"}
-                                                                            </div>
-                                                                            <div>
-                                                                                Challan:{" "}
-                                                                                {row.invoice.CHALLAN || "-"}
-                                                                            </div>
-                                                                            <div>
-                                                                                Account:{" "}
-                                                                                {row.invoice.ACCOUNT || "-"}
-                                                                            </div>
-                                                                        </>
-                                                                    ) : (
-                                                                        <small className="text-muted">
-                                                                            No linked invoice found for this
-                                                                            voucher.
-                                                                        </small>
-                                                                    )}
-                                                                </div>
-
-                                                                <div className="col-md-3">
-                                                                    <h6 className="text-primary">
-                                                                        Items / Batches (SalesDis)
-                                                                    </h6>
-                                                                    {row.items && row.items.length > 0 ? (
-                                                                        <div
-                                                                            className="table-responsive"
-                                                                            style={{ maxHeight: 220, overflowY: "auto" }}
-                                                                        >
-                                                                            <table className="table table-sm table-bordered mb-0">
-                                                                                <thead>
-                                                                                    <tr>
-                                                                                        <th>Batch</th>
-                                                                                        <th>Qty</th>
-                                                                                        <th>Rate</th>
-                                                                                        <th>MRP</th>
-                                                                                        <th>Exp</th>
-                                                                                        <th className="text-end">
-                                                                                            Amount
-                                                                                        </th>
-                                                                                    </tr>
-                                                                                </thead>
-                                                                                <tbody>
-                                                                                    {row.items.map((it, i) => (
-                                                                                        <tr key={i}>
-                                                                                            <td>{it.BATCH || "-"}</td>
-                                                                                            <td>{it.QTY ?? 0}</td>
-                                                                                            <td>{it.RATE ?? 0}</td>
-                                                                                            <td>{it.MRP ?? 0}</td>
-                                                                                            <td>
-                                                                                                {formatDate(it.EXP)}
-                                                                                            </td>
-                                                                                            <td className="text-end">
-                                                                                                {formatCurrency(
-                                                                                                    it.AMMMOUNT
-                                                                                                )}
-                                                                                            </td>
-                                                                                        </tr>
-                                                                                    ))}
-                                                                                </tbody>
-                                                                            </table>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <small className="text-muted">
-                                                                            No batch/item records found for this
-                                                                            invoice.
-                                                                        </small>
-                                                                    )}
+                                                            {/* Invoice Metadata Header */}
+                                                            <div className="flex flex-wrap items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 pb-2 border-b border-slate-200 dark:border-slate-800 gap-2">
+                                                                <span className="flex items-center gap-2">
+                                                                    <FaBoxes className="text-rose-500" />
+                                                                    Voucher #{r.VOUCHER} — Full Cross-Table Breakdown
+                                                                </span>
+                                                                <div className="flex items-center gap-4 text-[11px] font-normal text-slate-500">
+                                                                    {r.invoice?.GODWON && <span>Godown: <strong>{r.invoice.GODWON}</strong></span>}
+                                                                    {r.invoice?.TRANSPORT && <span>Transport: <strong>{r.invoice.TRANSPORT}</strong></span>}
+                                                                    {r.invoice?.LRNO && <span>LR No: <strong>{r.invoice.LRNO}</strong></span>}
+                                                                    {r.invoice?.CHALLAN && <span>Challan: <strong>{r.invoice.CHALLAN}</strong></span>}
                                                                 </div>
                                                             </div>
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </Fragment>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
+
+                                                            {/* Line Items Table */}
+                                                            {r.items && r.items.length > 0 ? (
+                                                                <div>
+                                                                    <span className="text-[11px] font-bold text-slate-500 mb-1 block">Line-Item Batch Breakdown</span>
+                                                                    <table className="w-full text-left text-xs border-collapse">
+                                                                        <thead className="text-slate-500 font-semibold bg-slate-100 dark:bg-slate-800">
+                                                                            <tr>
+                                                                                <th className="p-2 font-mono">Batch No</th>
+                                                                                <th className="p-2 font-mono text-center">Qty</th>
+                                                                                <th className="p-2 font-mono text-right">Rate (₹)</th>
+                                                                                <th className="p-2 font-mono text-right">MRP (₹)</th>
+                                                                                <th className="p-2 font-mono">Expiry</th>
+                                                                                <th className="p-2 font-mono text-right">Amount (₹)</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                                            {r.items.map((it, idx) => (
+                                                                                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                                                    <td className="p-2 font-mono font-semibold">{it.BATCH || "N/A"}</td>
+                                                                                    <td className="p-2 font-mono text-center font-bold text-rose-600">{it.QTY ?? 1}</td>
+                                                                                    <td className="p-2 font-mono text-right">₹{it.RATE ?? 0}</td>
+                                                                                    <td className="p-2 font-mono text-right">₹{it.MRP ?? 0}</td>
+                                                                                    <td className="p-2 font-mono text-slate-500">{it.EXP || "N/A"}</td>
+                                                                                    <td className="p-2 font-mono text-right font-bold text-slate-900 dark:text-white">
+                                                                                        ₹{(it.AMMMOUNT ?? 0).toLocaleString("en-IN")}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-xs text-slate-400">
+                                                                    No specific line-item batch records linked to this pending voucher.
+                                                                </p>
+                                                            )}
+
+                                                            {/* Ledger remark fallback */}
+                                                            {r.REMARK && (
+                                                                <div className="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                                                                    <strong>Voucher Remarks:</strong> {r.REMARK}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between pt-2 text-xs print:hidden">
+                    <span className="text-slate-500">
+                        Page {page} of {totalPages} ({summary.totalCount} total outstanding vouchers)
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            disabled={page <= 1 || loading}
+                            onClick={() => setPage((p) => p - 1)}
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40"
+                        >
+                            <FaChevronLeft size={10} />
+                        </button>
+                        <button
+                            disabled={page >= totalPages || loading}
+                            onClick={() => setPage((p) => p + 1)}
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40"
+                        >
+                            <FaChevronRight size={10} />
+                        </button>
                     </div>
-
-                    {totalPages > 1 && (
-                        <div className="d-flex justify-content-between align-items-center mt-3">
-                            <span className="text-muted">
-                                Page {page} of {totalPages}
-                            </span>
-
-                            <div className="btn-group">
-                                <button
-                                    className="btn btn-outline-primary"
-                                    disabled={page <= 1 || loading}
-                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    className="btn btn-outline-primary"
-                                    disabled={page >= totalPages || loading}
-                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

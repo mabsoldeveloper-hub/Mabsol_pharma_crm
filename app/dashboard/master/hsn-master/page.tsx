@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
     useReactTable,
     getCoreRowModel,
@@ -139,6 +141,8 @@ export default function HsnMasterPage() {
     const [loading, setLoading] = useState(true);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [pageSize, setPageSize] = useState<number>(10);
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
 
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
         const state: VisibilityState = {};
@@ -166,20 +170,27 @@ export default function HsnMasterPage() {
     const [minGst, setMinGst] = useState("");
     const [maxGst, setMaxGst] = useState("");
 
-    useEffect(() => {
-        loadHsn();
-    }, []);
-
-    const loadHsn = async () => {
+    const loadHsn = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/master/hsn");
+            const params = new URLSearchParams();
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+            if (selectedFY?._id) params.set("fyId", selectedFY._id);
+
+            const res = await fetch(`/api/master/hsn?${params.toString()}`);
             const data = await res.json();
             setRows(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error("Failed to load HSN master:", err);
+            setRows([]);
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedCompany, selectedFY]);
+
+    useEffect(() => {
+        loadHsn();
+    }, [loadHsn]);
 
     const resetFilters = () => {
         setSearch("");

@@ -21,6 +21,7 @@ import CurrentStockModal from "@/components/CurrentStockModal";
 import NearExpiryModal from "@/components/NearExpiryModal";
 import ExpiredBatchesModal from "@/components/ExpiredBatchesModal";
 import LedgerDetailsModal from "@/components/LedgerDetailsModal";
+import TotalSalesModal from "@/components/TotalSalesModal";
 
 function formatCurrency(n: number) {
     return "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -32,6 +33,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
     const [isNearExpiryModalOpen, setIsNearExpiryModalOpen] = useState(false);
     const [isExpiredBatchesModalOpen, setIsExpiredBatchesModalOpen] = useState(false);
     const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+    const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
     const [ledgerInitialType, setLedgerInitialType] = useState<"credit" | "debit">("credit");
 
     // Har card ka apna alag color — koi bhi 2 cards ka color repeat nahi hota
@@ -40,8 +42,8 @@ export default function KPICards({ kpis }: { kpis: any }) {
             title: "Total Sales",
             value: formatCurrency(kpis?.totalSales),
             icon: <FaChartLine size={20} />,
-            url: "/dashboard/sales/dashboard",
             color: "indigo",
+            isSalesModal: true,
         },
         {
             title: "Today's Sales",
@@ -61,8 +63,8 @@ export default function KPICards({ kpis }: { kpis: any }) {
             title: "Yearly Sales",
             value: formatCurrency(kpis?.yearlySales),
             icon: <FaCalendarAlt size={20} />,
-            url: "/dashboard/sales/dashboard",
             color: "teal",
+            isSalesModal: true,
         },
         {
             title: "Total Outstanding",
@@ -72,14 +74,14 @@ export default function KPICards({ kpis }: { kpis: any }) {
             color: "amber",
         },
         {
-            title: "Sales Outstanding",
+            title: "Current Year Sales Outstanding",
             value: formatCurrency(kpis?.salesOutstanding),
             icon: <FaWallet size={20} />,
             url: "/dashboard/sales/outstanding",
             color: "cyan",
         },
         {
-            title: "Purchase Outstanding",
+            title: "Current Year Purchase Outstanding",
             value: formatCurrency(kpis?.purchaseOutstanding),
             icon: <FaWallet size={20} />,
             url: "/dashboard/purchase/outstanding",
@@ -114,7 +116,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
             color: "sky",
         },
         {
-            title: "Current Stock",
+            title: "Current Stock (Qty)",
             value: (kpis?.currentStock ?? 0).toLocaleString("en-IN"),
             icon: <FaBoxes size={20} />,
             color: "green",
@@ -151,14 +153,14 @@ export default function KPICards({ kpis }: { kpis: any }) {
             color: "pink",
         },
         {
-            title: "Total Credit",
+            title: "Total Credit (Receipt/ Collections)",
             value: formatCurrency(kpis?.totalCredit),
             icon: <FaArrowUp size={20} />,
             color: "lime",
             isCreditModal: true,
         },
         {
-            title: "Total Debit",
+            title: "Total Debit (Payment)",
             value: formatCurrency(kpis?.totalDebit),
             icon: <FaArrowDown size={20} />,
             color: "fuchsia",
@@ -205,6 +207,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
                     const c = colorMap[card.color] ?? colorMap.indigo;
                     const isClickable = Boolean(
                         card.url ||
+                        (card as any).isSalesModal ||
                         (card as any).isStockModal ||
                         (card as any).isNearExpiryModal ||
                         (card as any).isExpiredBatchesModal ||
@@ -215,7 +218,9 @@ export default function KPICards({ kpis }: { kpis: any }) {
                         <div
                             key={index}
                             onClick={() => {
-                                if ((card as any).isStockModal || card.title === "Current Stock") {
+                                if ((card as any).isSalesModal || card.title === "Total Sales" || card.title === "Yearly Sales") {
+                                    setIsSalesModalOpen(true);
+                                } else if ((card as any).isStockModal || card.title === "Current Stock") {
                                     setIsStockModalOpen(true);
                                 } else if ((card as any).isNearExpiryModal || card.title === "Near Expiry Batches") {
                                     setIsNearExpiryModalOpen(true);
@@ -275,18 +280,17 @@ export default function KPICards({ kpis }: { kpis: any }) {
                                             (card as any).isCreditModal ||
                                             (card as any).isDebitModal
                                         ) && (
-                                            <span className={`inline-block w-1.5 h-1.5 rounded-full animate-pulse ${
-                                                (card as any).isDebitModal
+                                                <span className={`inline-block w-1.5 h-1.5 rounded-full animate-pulse ${(card as any).isDebitModal
                                                     ? "bg-fuchsia-500"
                                                     : (card as any).isCreditModal
-                                                    ? "bg-lime-500"
-                                                    : (card as any).isExpiredBatchesModal
-                                                    ? "bg-rose-500"
-                                                    : (card as any).isNearExpiryModal
-                                                    ? "bg-amber-500"
-                                                    : "bg-emerald-500"
-                                            }`} title="Click to view details" />
-                                        )}
+                                                        ? "bg-lime-500"
+                                                        : (card as any).isExpiredBatchesModal
+                                                            ? "bg-rose-500"
+                                                            : (card as any).isNearExpiryModal
+                                                                ? "bg-amber-500"
+                                                                : "bg-emerald-500"
+                                                    }`} title="Click to view details" />
+                                            )}
                                     </p>
                                     <h3 className="text-xl sm:text-2xl font-bold text-gray-800 truncate transition-transform duration-500 group-hover:translate-x-0.5">
                                         {card.value}
@@ -331,6 +335,11 @@ export default function KPICards({ kpis }: { kpis: any }) {
                 isOpen={isLedgerModalOpen}
                 onClose={() => setIsLedgerModalOpen(false)}
                 initialType={ledgerInitialType}
+            />
+
+            <TotalSalesModal
+                isOpen={isSalesModalOpen}
+                onClose={() => setIsSalesModalOpen(false)}
             />
 
             <style jsx global>{`

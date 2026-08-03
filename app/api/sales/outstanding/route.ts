@@ -6,6 +6,8 @@ import Customer from "@/models/Customer";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export async function GET(req: Request) {
   try {
     await connectDB();
@@ -15,15 +17,15 @@ export async function GET(req: Request) {
     const { startDate, endDate } = fyRange;
 
     const dateMatch = buildFYDateQuery("DDATE", startDate, endDate);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
     const restriction = await getMrTerritoryRestriction();
 
     // Sales Outstanding (Debtors) = ACGROUP starts with 'C' (e.g. C6), INVTYPE='I', positive BALANCE in Pendings
-    let filter: any = {
+    let filter: any = combineFilters({
       ACGROUP: /^C/i,
       INVTYPE: "I",
       BALANCE: { $gt: 0 },
-      ...dateMatch,
-    };
+    }, dateMatch, companyVfpMatch);
 
     if (restriction.isMrRestricted) {
       if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {

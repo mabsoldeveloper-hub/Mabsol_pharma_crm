@@ -52,18 +52,24 @@ import {
  */
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export async function GET(req: Request) {
     try {
         await connectDB();
 
-        const restriction = await getMrTerritoryRestriction();
-        const orderFilter = restriction.isMrRestricted
-            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { ORDNO: { $in: restriction.allowedOrdnos } }
-                : { ORDNO: "NONE_MATCH" }
-            : {};
-
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+        const restriction = await getMrTerritoryRestriction();
+        const orderFilter = combineFilters(
+          companyVfpMatch,
+          restriction.isMrRestricted
+              ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                  ? { ORDNO: { $in: restriction.allowedOrdnos } }
+                  : { ORDNO: "NONE_MATCH" }
+              : {}
+        );
+
         const q = (searchParams.get("q") || "").trim().toUpperCase();
         const stateParam = (searchParams.get("state") || "").trim();
         const sort = searchParams.get("sort") || "balance";
@@ -71,7 +77,7 @@ export async function GET(req: Request) {
         const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get("pageSize") || "25", 10) || 25));
 
         const rows = await OrderParty.find(
-            {},
+            orderFilter,
             {
                 PARNAM: 1,
                 CITY: 1,

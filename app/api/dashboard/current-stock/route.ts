@@ -4,6 +4,8 @@ import { Product, ProductBatch } from "@/models/StockModels";
 import SaleType from "@/models/SaleType";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -11,14 +13,24 @@ export async function GET(req: NextRequest) {
         await dbConnect();
 
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const search = (searchParams.get("q") || searchParams.get("search") || "").trim();
         const filter = (searchParams.get("filter") || "all").toLowerCase(); // all, in_stock, low_stock, out_of_stock
         const company = (searchParams.get("company") || "").trim();
         const view = (searchParams.get("view") || "product").toLowerCase(); // product, batch
+        const rateType = (searchParams.get("rateType") || "prate").toLowerCase(); // prate, lprate, mrp, ratef
         const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
         const limit = Math.max(1, Math.min(500, parseInt(searchParams.get("limit") || "50", 10)));
         const sortBy = searchParams.get("sortBy") || "PRODUCT";
         const sortOrder = searchParams.get("sortOrder") === "desc" ? -1 : 1;
+
+        // Dynamic rate expression builder for MongoDB aggregation
+        const getRateExpr = (rType: string) => {
+            if (rType === "mrp") return { $ifNull: ["$MRP", 0] };
+            if (rType === "lprate") return { $ifNull: ["$LPRATE", { $ifNull: ["$PRATE", { $ifNull: ["$MRP", 0] }] }] };
+            if (rType === "ratef" || rType === "sale") return { $ifNull: ["$RATEF", { $ifNull: ["$RATE", { $ifNull: ["$PRATE", { $ifNull: ["$MRP", 0] }] }] }] };
+            return { $ifNull: ["$PRATE", { $ifNull: ["$RATEF", { $ifNull: ["$MRP", 0] }] }] };
+        };
 
         // 1. Resolve MR Territory restrictions
         const restriction = await getMrTerritoryRestriction();
@@ -34,7 +46,7 @@ export async function GET(req: NextRequest) {
 
         if (view === "batch") {
             // Batch-level query logic
-            const batchFilter: any = {};
+            let batchFilter: any = { ...companyVfpMatch };
 
             if (restriction.isMrRestricted) {
                 if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
@@ -105,7 +117,7 @@ export async function GET(req: NextRequest) {
                                 $sum: {
                                     $multiply: [
                                         { $ifNull: ["$BALANCE", 0] },
-                                        { $ifNull: ["$MRP", 0] }
+                                        getRateExpr(rateType)
                                     ]
                                 }
                             },
@@ -129,8 +141,15 @@ export async function GET(req: NextRequest) {
                 const bal = Number(b.BALANCE || 0);
                 const mrp = Number(b.MRP || 0);
                 const prate = Number(b.PRATE || 0);
-                const rate = prate > 0 ? prate : mrp;
-                const value = Math.round(bal * rate);
+                const lprate = Number(b.LPRATE || 0);
+                const ratef = Number(b.RATEF || b.RATE || 0);
+
+                let selectedRate = prate > 0 ? prate : mrp;
+                if (rateType === "mrp") selectedRate = mrp;
+                else if (rateType === "lprate") selectedRate = lprate > 0 ? lprate : (prate > 0 ? prate : mrp);
+                else if (rateType === "ratef" || rateType === "sale") selectedRate = ratef > 0 ? ratef : (prate > 0 ? prate : mrp);
+
+                const value = Math.round(bal * selectedRate);
                 const exp = b.EXP || null;
 
                 let status = "in_stock";
@@ -148,6 +167,9 @@ export async function GET(req: NextRequest) {
                     packing: b.PACKING || "",
                     mrp,
                     prate,
+                    lprate,
+                    ratef,
+                    selectedRate,
                     balance: bal,
                     stockValue: value,
                     status,
@@ -177,7 +199,7 @@ export async function GET(req: NextRequest) {
 
         } else {
             // Product-level query logic (Default)
-            const productFilter: any = {};
+            let productFilter: any = { ...companyVfpMatch };
 
             if (restriction.isMrRestricted) {
                 if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
@@ -242,12 +264,7 @@ export async function GET(req: NextRequest) {
                                 $sum: {
                                     $multiply: [
                                         { $ifNull: ["$BALANCE", 0] },
-                                        {
-                                            $ifNull: [
-                                                "$PRATE",
-                                                { $ifNull: ["$RATEF", { $ifNull: ["$MRP", 0] }] }
-                                            ]
-                                        }
+                                        getRateExpr(rateType)
                                     ]
                                 }
                             },
@@ -295,11 +312,18 @@ export async function GET(req: NextRequest) {
             const items = productDocs.map((p: any) => {
                 const bal = Number(p.BALANCE || 0);
                 const mrp = Number(p.MRP || 0);
-                const prate = Number(p.PRATE || p.RATEF || 0);
-                const rate = prate > 0 ? prate : mrp;
+                const prate = Number(p.PRATE || 0);
+                const lprate = Number(p.LPRATE || 0);
+                const ratef = Number(p.RATEF || p.RATE || 0);
+
+                let selectedRate = prate > 0 ? prate : mrp;
+                if (rateType === "mrp") selectedRate = mrp;
+                else if (rateType === "lprate") selectedRate = lprate > 0 ? lprate : (prate > 0 ? prate : mrp);
+                else if (rateType === "ratef" || rateType === "sale") selectedRate = ratef > 0 ? ratef : (prate > 0 ? prate : mrp);
+
                 const min = Number(p.MINIMUM || 0);
                 const gcode = p.GCODE ? String(p.GCODE).trim() : "";
-                const value = Math.round(bal * rate);
+                const value = Math.round(bal * selectedRate);
 
                 let status = "in_stock";
                 if (bal <= 0) {
@@ -318,6 +342,9 @@ export async function GET(req: NextRequest) {
                     unit: p.UNIT || "",
                     mrp,
                     prate,
+                    lprate,
+                    ratef,
+                    selectedRate,
                     minimum: min,
                     balance: bal,
                     stockValue: value,

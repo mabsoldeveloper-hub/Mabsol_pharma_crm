@@ -39,6 +39,8 @@ function formatInvoiceDate(rawDate: any): string {
   return String(rawDate).slice(0, 10);
 }
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export async function GET(req: Request) {
   try {
     await connectDB();
@@ -48,9 +50,20 @@ export async function GET(req: Request) {
     const { startDate, endDate } = fyRange;
 
     const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
     const restriction = await getMrTerritoryRestriction();
 
-    let invoiceFilter: any = { ...dateMatch };
+    const rawType = (searchParams.get("type") || "S").toUpperCase();
+    let typeFilter: any = {};
+    if (rawType === "ALL") {
+      typeFilter = {};
+    } else if (rawType === "NET_SALE" || rawType === "S_AND_R" || rawType === "S_R" || rawType === "SALE_NET") {
+      typeFilter = { TYPE: { $in: ["S", "R"] } };
+    } else {
+      typeFilter = { TYPE: rawType };
+    }
+
+    let invoiceFilter: any = combineFilters(typeFilter, dateMatch, companyVfpMatch);
 
     if (restriction.isMrRestricted) {
       const orConditions: any[] = [];
@@ -68,9 +81,9 @@ export async function GET(req: Request) {
       }
 
       if (orConditions.length > 0) {
-        invoiceFilter = { ...dateMatch, $or: orConditions };
+        invoiceFilter = combineFilters(dateMatch, companyVfpMatch, { $or: orConditions });
       } else {
-        invoiceFilter = { ...dateMatch, CODEP: "NONE_MATCH" };
+        invoiceFilter = combineFilters(dateMatch, companyVfpMatch, { CODEP: "NONE_MATCH" });
       }
     }
 

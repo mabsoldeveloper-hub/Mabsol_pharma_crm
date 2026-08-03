@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, List, PersonCircle, Trash, CalendarEvent, Search } from "react-bootstrap-icons";
+import { Bell, List, PersonCircle, Trash, CalendarEvent, Search, Building } from "react-bootstrap-icons";
 
 import { useUser } from "@/context/UserContext";
+import { useCompany } from "@/context/CompanyContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import LogoutButton from "./LogoutButton";
 import GlobalSearchModal from "./GlobalSearchModal";
@@ -18,6 +19,7 @@ export default function Topbar({
   mobile: boolean;
 }) {
   const { user } = useUser();
+  const { companies, selectedCompany, setSelectedCompany } = useCompany();
   const { fyList, selectedFY, setSelectedFY } = useFinancialYear();
 
   const [notifOpen, setNotifOpen] = useState(false);
@@ -285,13 +287,32 @@ export default function Topbar({
 
         {!mobile && (
           <div className="flex items-center gap-2 min-w-0">
-            <span className="inline-flex items-center rounded-lg bg-blue-100 text-blue-700 px-3 py-1.5 text-[13px] font-semibold truncate max-w-[220px]">
-              {companyName || "Select Company"}
-            </span>
+            {/* COMPANY SELECTOR DROPDOWN */}
+            <div className="relative inline-flex items-center">
+              <div className="absolute left-2.5 text-blue-600 pointer-events-none">
+                <Building size={13} />
+              </div>
+              <select
+                value={selectedCompany?._id || ""}
+                onChange={(e) => {
+                  const comp = companies.find((c) => c._id === e.target.value);
+                  if (comp) setSelectedCompany(comp);
+                }}
+                className="pl-8 pr-3 py-1.5 rounded-lg bg-blue-50 text-blue-800 text-[13px] font-bold border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm transition-all max-w-[230px] truncate"
+                title="Select Active Company"
+              >
+                {companies.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.companyName} ({c.companyCode || "Code"})
+                  </option>
+                ))}
+              </select>
+            </div>
 
+            {/* FINANCIAL YEAR SELECTOR DROPDOWN */}
             <div className="relative inline-flex items-center">
               <div className="absolute left-2.5 text-emerald-600 pointer-events-none">
-                <CalendarEvent size={14} />
+                <CalendarEvent size={13} />
               </div>
               <select
                 value={selectedFY?._id || ""}
@@ -299,12 +320,16 @@ export default function Topbar({
                   const fy = fyList.find((x) => x._id === e.target.value);
                   if (fy) setSelectedFY(fy);
                 }}
-                className="pl-8 pr-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-[13px] font-semibold border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm transition-all"
+                className="pl-8 pr-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-[13px] font-bold border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm transition-all max-w-[240px] truncate"
                 title="Select Financial Year"
               >
                 {fyList.map((fy) => (
                   <option key={fy._id} value={fy._id}>
-                    {fy.isAll ? "All Financial Years" : `FY ${fy.fyName}`}
+                    {fy.isAll
+                      ? fy.fyName
+                      : fy.fyCode
+                      ? `${fy.fyCode} - FY ${fy.fyName}`
+                      : `FY ${fy.fyName}`}
                   </option>
                 ))}
               </select>
@@ -312,21 +337,36 @@ export default function Topbar({
           </div>
         )}
         {mobile && (
-          <div className="relative inline-flex items-center ml-1">
-            <div className="absolute left-2 text-emerald-600 pointer-events-none">
-              <CalendarEvent size={12} />
-            </div>
+          <div className="flex items-center gap-1 min-w-0">
+            <select
+              value={selectedCompany?._id || ""}
+              onChange={(e) => {
+                const comp = companies.find((c) => c._id === e.target.value);
+                if (comp) setSelectedCompany(comp);
+              }}
+              className="px-2 py-1 rounded-md bg-blue-50 text-blue-800 text-[11px] font-bold border border-blue-200 focus:outline-none cursor-pointer max-w-[120px] truncate"
+            >
+              {companies.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.companyName}
+                </option>
+              ))}
+            </select>
             <select
               value={selectedFY?._id || ""}
               onChange={(e) => {
                 const fy = fyList.find((x) => x._id === e.target.value);
                 if (fy) setSelectedFY(fy);
               }}
-              className="pl-6 pr-2 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-semibold border border-emerald-200 focus:outline-none cursor-pointer"
+              className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 focus:outline-none cursor-pointer max-w-[120px] truncate"
             >
               {fyList.map((fy) => (
                 <option key={fy._id} value={fy._id}>
-                  {fy.isAll ? "All FYs" : `FY ${fy.fyName}`}
+                  {fy.isAll
+                    ? "All FYs"
+                    : fy.fyCode
+                    ? `${fy.fyCode}`
+                    : `FY ${fy.fyName}`}
                 </option>
               ))}
             </select>

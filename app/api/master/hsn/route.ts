@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import connectDB from "@/lib/mongodb";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 import Product from "@/models/Product";     // PRO collection
 import SaleType from "@/models/SaleType";   // SALETYPE collection
@@ -35,20 +36,25 @@ import Rate from "@/models/Rate";           // RATE collection
 //                     as a separate "Scheme Rate" range so it isn't confused
 //                     with the actual GST% above.
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     await connectDB();
+    const { searchParams } = new URL(req.url);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
     const products = await Product.find(
-        {},
+        combineFilters({}, companyVfpMatch),
         { CODE: 1, PRODUCT: 1, BILLNAME: 1, GCODE6: 1, STATUS: 1 }
     ).lean();
 
     const saleTypes = await SaleType.find(
-        {},
+        combineFilters({}, companyVfpMatch),
         { SCODE: 1, SNAME: 1, SGCODE: 1, PARNAM: 1, CGST: 1, IGST: 1 }
     ).lean();
 
-    const rates = await Rate.find({}, { PCODE: 1, RATE: 1, DATE: 1 }).lean();
+    const rates = await Rate.find(
+        combineFilters({}, companyVfpMatch),
+        { PCODE: 1, RATE: 1, DATE: 1 }
+    ).lean();
 
     // ---- Latest scheme rate per product code (RATE.PCODE -> PRO.CODE) ------
     const latestRateMap = new Map<string, { rate: number; date: string }>();

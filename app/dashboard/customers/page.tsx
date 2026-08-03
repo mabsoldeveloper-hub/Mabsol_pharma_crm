@@ -32,6 +32,8 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import AddCustomerModal from "@/components/customer/AddCustomerModal";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 
 type MrTerritoryInfo = {
@@ -113,6 +115,8 @@ function KpiCard({
 const columnHelper = createColumnHelper<Customer>();
 
 export default function CustomerPage() {
+  const { selectedCompany } = useCompany();
+  const { selectedFY } = useFinancialYear();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -125,8 +129,11 @@ export default function CustomerPage() {
 
   useEffect(() => {
     loadMrTerritoryInfo();
-    loadCustomers();
   }, []);
+
+  useEffect(() => {
+    loadCustomers();
+  }, [selectedCompany?._id, selectedFY?._id]);
 
   const loadMrTerritoryInfo = async () => {
     try {
@@ -149,7 +156,10 @@ export default function CustomerPage() {
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/customers");
+      const params = new URLSearchParams();
+      if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+      if (selectedFY?._id) params.set("fyId", selectedFY._id);
+      const res = await fetch(`/api/customers?${params.toString()}`);
       const data = await res.json();
       setCustomers(Array.isArray(data) ? data : []);
     } catch (error) {

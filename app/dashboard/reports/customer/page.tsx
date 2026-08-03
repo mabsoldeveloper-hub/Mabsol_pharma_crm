@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
+import { useCompany } from "@/context/CompanyContext";
 
 interface CustomerRow {
     ORDNO: string;
@@ -141,6 +142,7 @@ export default function CustomerReportPage() {
     };
 
     const { selectedFY } = useFinancialYear();
+    const { selectedCompany } = useCompany();
 
     const fetchReport = useCallback(
         async (targetPage: number, activeFilters: typeof DEFAULT_FILTERS) => {
@@ -170,6 +172,8 @@ export default function CustomerReportPage() {
                     if (value) params.set(key, value);
                 });
 
+                if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
                 const res = await fetch(`/api/reports/customer?${params.toString()}`);
                 const json: ApiResponse = await res.json();
 
@@ -190,7 +194,7 @@ export default function CustomerReportPage() {
                 setLoading(false);
             }
         },
-        [selectedFY]
+        [selectedFY, selectedCompany]
     );
 
     useEffect(() => {

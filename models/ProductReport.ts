@@ -7,6 +7,7 @@ import SalesMdis from "@/models/SalesMdis";
 import GlLedger from "@/models/GlLedger";
 import SubDis from "@/models/SubDis";
 import SaleType from "@/models/SaleType";
+import { combineFilters } from "@/lib/companyVfpHelper";
 
 export interface ProductReportFilter {
     search?: string;
@@ -17,6 +18,9 @@ export interface ProductReportFilter {
     batchNo?: string;  // PROBAT.BATCHNO
 
     nearExpiryDays?: number; // used by nearExpiryProducts()
+
+    companyId?: string;
+    companyVfpMatch?: Record<string, any>;
 
     page?: number;
     limit?: number;
@@ -128,6 +132,8 @@ export default class ProductReport {
         const page = Math.max(1, Math.floor(rawPage) || 1);
         const limit = Math.min(MAX_LIMIT, Math.max(1, Math.floor(rawLimit) || 20));
 
+        const compFilter = filter.companyVfpMatch || {};
+
         const match: any = {};
 
         if (search) {
@@ -142,14 +148,30 @@ export default class ProductReport {
         }
 
         if (category) match.GCODE = category;
-        if (status) match.STATUS = status;
 
+        if (status) {
+            const st = status.trim().toUpperCase();
+            if (st === "Y" || st === "ACTIVE") {
+                match.$or = [
+                    { STATUS: { $in: ["Y", "C", "CONTINUE", "ACTIVE", "Y ", "C "] } },
+                    { STATUS: { $exists: false } },
+                    { STATUS: null },
+                    { STATUS: "" },
+                ];
+            } else if (st === "N" || st === "INACTIVE") {
+                match.STATUS = { $in: ["N", "D", "DISCONTINUE", "CLOSE", "HOLD", "INACTIVE", "N ", "D "] };
+            } else {
+                match.STATUS = { $regex: status, $options: "i" };
+            }
+        }
+
+        const finalMatch = combineFilters(match, compFilter);
         const skip = (page - 1) * limit;
 
         // ---------------------------------------------------------------
         // PHASE 1: cheap filter + sort + paginate -> just the CODEs we need
         // ---------------------------------------------------------------
-        const phase1: any[] = [{ $match: match }];
+        const phase1: any[] = [{ $match: finalMatch }];
 
         if (batchNo) {
             // Lightweight existence check instead of pulling full batch docs
@@ -278,7 +300,12 @@ export default class ProductReport {
                     from: SalesDis.collection.collectionName,
                     let: { batchNos: "$batchRecords.BATCHNO" },
                     pipeline: [
-                        { $match: { $expr: { $in: ["$BATCH", "$$batchNos"] } } },
+                        {
+                            $match: combineFilters(
+                                { $expr: { $in: ["$BATCH", "$$batchNos"] } },
+                                compFilter
+                            ),
+                        },
                         {
                             $lookup: {
                                 from: SalesMdis.collection.collectionName,

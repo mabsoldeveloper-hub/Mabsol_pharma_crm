@@ -4,6 +4,8 @@ import { ProductBatch } from "@/models/StockModels";
 import SaleType from "@/models/SaleType";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export const dynamic = "force-dynamic";
 
 function todayStr() {
@@ -23,6 +25,7 @@ export async function GET(req: NextRequest) {
         await dbConnect();
 
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const search = (searchParams.get("q") || searchParams.get("search") || "").trim();
         const company = (searchParams.get("company") || "").trim();
         const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -45,10 +48,10 @@ export async function GET(req: NextRequest) {
         });
 
         // 2. Build Query Filters for Expired Batches
-        const batchFilter: any = {
+        let batchFilter: any = combineFilters({
             BALANCE: { $gt: 0 },
             EXP: { $lt: today, $ne: null },
-        };
+        }, companyVfpMatch);
 
         if (restriction.isMrRestricted) {
             if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {

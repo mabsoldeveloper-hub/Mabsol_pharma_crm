@@ -6,6 +6,7 @@ import DashboardCharts from "@/components/DashboardCharts";
 import AnalyticsCards from "@/components/AnalyticsCards";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
+import { useCompany } from "@/context/CompanyContext";
 
 type MrTerritoryInfo = {
     isMrRestricted: boolean;
@@ -18,6 +19,7 @@ export default function DashboardContent() {
     const [loading, setLoading] = useState(true);
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
 
+    const { selectedCompany } = useCompany();
     const { selectedFY } = useFinancialYear();
 
     const loadMrTerritoryInfo = async () => {
@@ -41,19 +43,26 @@ export default function DashboardContent() {
     const loadDashboard = useCallback(async () => {
         setLoading(true);
         try {
-            let url = "/api/dashboard";
+            const params = new URLSearchParams();
+            if (selectedCompany?._id) {
+                params.set("companyId", selectedCompany._id);
+            }
             if (selectedFY) {
                 if (selectedFY.isAll) {
-                    url += "?fyId=ALL";
+                    params.set("fyId", "ALL");
                 } else if (selectedFY._id) {
-                    url += `?fyId=${selectedFY._id}`;
+                    params.set("fyId", selectedFY._id);
                     if (selectedFY.startDate && selectedFY.endDate) {
                         const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
                         const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
-                        url += `&startDate=${s}&endDate=${e}`;
+                        params.set("startDate", s);
+                        params.set("endDate", e);
                     }
                 }
             }
+
+            const queryString = params.toString();
+            const url = queryString ? `/api/dashboard?${queryString}` : "/api/dashboard";
 
             const res = await fetch(url);
             if (!res.ok) {
@@ -67,7 +76,7 @@ export default function DashboardContent() {
         } finally {
             setLoading(false);
         }
-    }, [selectedFY]);
+    }, [selectedCompany, selectedFY]);
 
     useEffect(() => {
         loadMrTerritoryInfo();
@@ -81,8 +90,15 @@ export default function DashboardContent() {
         const onFyChange = () => {
             loadDashboard();
         };
+        const onCompanyChange = () => {
+            loadDashboard();
+        };
         window.addEventListener("financial-year-changed", onFyChange);
-        return () => window.removeEventListener("financial-year-changed", onFyChange);
+        window.addEventListener("company-changed", onCompanyChange);
+        return () => {
+            window.removeEventListener("financial-year-changed", onFyChange);
+            window.removeEventListener("company-changed", onCompanyChange);
+        };
     }, [loadDashboard]);
 
     if (loading && !data) {

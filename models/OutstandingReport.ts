@@ -5,6 +5,7 @@ import GlLedger from "@/models/GlLedger";
 import SalesMdis from "@/models/SalesMdis";
 import SalesDis from "@/models/SalesDis";
 import { buildFYDateQuery } from "@/lib/financialYearHelper";
+import { combineFilters } from "@/lib/companyVfpHelper";
 
 export interface OutstandingReportFilter {
     // customer-level (Order)
@@ -46,6 +47,9 @@ export interface OutstandingReportFilter {
     // item/batch-level (SalesDis)
     batch?: string;
     company?: string;
+
+    companyId?: string;
+    companyVfpMatch?: Record<string, any>;
 
     page?: number;
     limit?: number;
@@ -157,6 +161,8 @@ export default class OutstandingReport {
         const pageLimit = Math.max(1, Number(limit) || 20);
         const skip = (pageNum - 1) * pageLimit;
 
+        const compFilter = filter.companyVfpMatch || {};
+
         // ---- 1. Resolve search/city/status against Order ----
         let restrictToOrdnos: string[] | null = customerCode ? [customerCode] : null;
 
@@ -176,7 +182,7 @@ export default class OutstandingReport {
             if (city) orderMatch.CITY = { $regex: escapeRegex(city), $options: "i" };
             if (status) orderMatch.STATUS = status;
 
-            const orderCodes = await Order.distinct("ORDNO", orderMatch);
+            const orderCodes = await Order.distinct("ORDNO", combineFilters(orderMatch, compFilter));
             const set = new Set((orderCodes as string[]).filter(Boolean));
 
             restrictToOrdnos = restrictToOrdnos
@@ -196,12 +202,14 @@ export default class OutstandingReport {
                 return m;
             };
 
+            const geoMatch = buildGeoMatch();
+
             const [pendOrds, orderOrds, glOrds, mdisVouchers, disVouchers] = await Promise.all([
-                Pend.distinct("ORD", buildGeoMatch()),
-                Order.distinct("ORDNO", buildGeoMatch()),
-                GlLedger.distinct("CODE1", buildGeoMatch()),
-                SalesMdis.distinct("VOUCHER", buildGeoMatch()),
-                SalesDis.distinct("VOUCHER", buildGeoMatch()),
+                Pend.distinct("ORD", combineFilters(geoMatch, compFilter)),
+                Order.distinct("ORDNO", combineFilters(geoMatch, compFilter)),
+                GlLedger.distinct("CODE1", combineFilters(geoMatch, compFilter)),
+                SalesMdis.distinct("VOUCHER", combineFilters(geoMatch, compFilter)),
+                SalesDis.distinct("VOUCHER", combineFilters(geoMatch, compFilter)),
             ]);
 
             // MDIS/DIS matches are invoice-level (VOUCHER), map them back to Pend ORDs
@@ -212,11 +220,11 @@ export default class OutstandingReport {
 
             let invoiceOrds: string[] = [];
             if (allInvoiceVouchers.length) {
-                invoiceOrds = await Pend.distinct("ORD", {
+                invoiceOrds = await Pend.distinct("ORD", combineFilters({
                     $or: this.invoiceVoucherFields.map((f) => ({
                         [f]: { $in: allInvoiceVouchers },
                     })),
-                } as any);
+                }, compFilter) as any);
             }
 
             const unionSet = new Set(
@@ -240,7 +248,7 @@ export default class OutstandingReport {
             if (cd) glMatch.CD = cd.toUpperCase();
             if (ledgerCode) glMatch.CODE = { $regex: escapeRegex(ledgerCode), $options: "i" };
 
-            const glOrds = await GlLedger.distinct("CODE1", glMatch);
+            const glOrds = await GlLedger.distinct("CODE1", combineFilters(glMatch, compFilter));
             const set = new Set((glOrds as string[]).filter(Boolean));
 
             restrictToOrdnos = restrictToOrdnos
@@ -260,7 +268,7 @@ export default class OutstandingReport {
             if (challan) mdisMatch.CHALLAN = { $regex: escapeRegex(challan), $options: "i" };
             if (account) mdisMatch.ACCOUNT = account.toUpperCase();
 
-            const vouchers = await SalesMdis.distinct("VOUCHER", mdisMatch);
+            const vouchers = await SalesMdis.distinct("VOUCHER", combineFilters(mdisMatch, compFilter));
             restrictToInvoiceVouchers = (vouchers as number[]).filter((v) => v != null);
         }
 
@@ -270,7 +278,7 @@ export default class OutstandingReport {
             if (batch) disMatch.BATCH = { $regex: escapeRegex(batch), $options: "i" };
             if (company) disMatch.COMPANY = { $regex: escapeRegex(company), $options: "i" };
 
-            const vouchers = await SalesDis.distinct("VOUCHER", disMatch);
+            const vouchers = await SalesDis.distinct("VOUCHER", combineFilters(disMatch, compFilter));
             const batchSet = new Set((vouchers as number[]).filter((v) => v != null));
 
             restrictToInvoiceVouchers = restrictToInvoiceVouchers
@@ -332,9 +340,11 @@ export default class OutstandingReport {
             pendMatch.FINAL = { ...(pendMatch.FINAL || {}), $ne: 0 };
         }
 
-        if (pendAndClauses.length) {
-            pendMatch.$and = pendAndClauses;
-        }
+        const finalPendMatch = combineFilters(
+            pendMatch,
+            pendAndClauses.length ? { $and: pendAndClauses } : {},
+            compFilter
+        );
 
         // ---- 7. Paginate on Pend + aggregate total sum over full filtered set ----
         const sortStage: Record<string, 1 | -1> = {
@@ -342,20 +352,41 @@ export default class OutstandingReport {
                 sortOrder === 1 ? 1 : -1,
         };
 
-        const [pendRows, total, totalAgg] = await Promise.all([
-            Pend.find(pendMatch).sort(sortStage).skip(skip).limit(pageLimit).lean(),
-            Pend.countDocuments(pendMatch),
+        const [pendRows, total, aggSummary] = await Promise.all([
+            Pend.find(finalPendMatch).sort(sortStage).skip(skip).limit(pageLimit).lean(),
+            Pend.countDocuments(finalPendMatch),
             Pend.aggregate([
-                { $match: pendMatch },
-                { $group: { _id: null, totalOutstanding: { $sum: "$FINAL" } } },
+                { $match: finalPendMatch },
+                {
+                    $group: {
+                        _id: null,
+                        totalOutstanding: { $sum: "$FINAL" },
+                        distinctCustomers: { $addToSet: "$ORD" },
+                        criticalOverdueAmount: {
+                            $sum: {
+                                $cond: [{ $gt: ["$DUEDAYS", 30] }, "$FINAL", 0],
+                            },
+                        },
+                        criticalOverdueCount: {
+                            $sum: {
+                                $cond: [{ $gt: ["$DUEDAYS", 30] }, 1, 0],
+                            },
+                        },
+                    },
+                },
             ]),
         ]);
+
+        const summary = aggSummary[0] || {
+            totalOutstanding: 0,
+            distinctCustomers: [],
+            criticalOverdueAmount: 0,
+            criticalOverdueCount: 0,
+        };
 
         // ---- 8. Join Order + GlLedger + SalesMdis + SalesDis, only for this page ----
         const ordCodes = [...new Set(pendRows.map((r: any) => r.ORD).filter(Boolean))];
 
-        // Collect invoice voucher candidates from BOTH linking fields (not just one),
-        // so we don't under-fetch SalesMdis/SalesDis records.
         const invoiceVouchers = [
             ...new Set(
                 pendRows.flatMap((r: any) =>
@@ -367,19 +398,18 @@ export default class OutstandingReport {
         ];
 
         const [orderRecords, glRecords, mdisRecords, disRecords] = await Promise.all([
-            ordCodes.length ? Order.find({ ORDNO: { $in: ordCodes } }).lean() : Promise.resolve([]),
-            ordCodes.length ? GlLedger.find({ CODE1: { $in: ordCodes } }).lean() : Promise.resolve([]),
+            ordCodes.length ? Order.find(combineFilters({ ORDNO: { $in: ordCodes } }, compFilter)).lean() : Promise.resolve([]),
+            ordCodes.length ? GlLedger.find(combineFilters({ CODE1: { $in: ordCodes } }, compFilter)).lean() : Promise.resolve([]),
             invoiceVouchers.length
-                ? SalesMdis.find({ VOUCHER: { $in: invoiceVouchers } }).lean()
+                ? SalesMdis.find(combineFilters({ VOUCHER: { $in: invoiceVouchers } }, compFilter)).lean()
                 : Promise.resolve([]),
             invoiceVouchers.length
-                ? SalesDis.find({ VOUCHER: { $in: invoiceVouchers } }).lean()
+                ? SalesDis.find(combineFilters({ VOUCHER: { $in: invoiceVouchers } }, compFilter)).lean()
                 : Promise.resolve([]),
         ]);
 
         const orderByOrdno = new Map(orderRecords.map((o: any) => [o.ORDNO, o]));
 
-        // Group GlLedger entries per ORDNO so we can pull geo/team fallback fields
         const glByOrdno = new Map<string, any[]>();
         for (const g of glRecords as any[]) {
             if (!g.CODE1) continue;
@@ -407,9 +437,6 @@ export default class OutstandingReport {
             const glList = glByOrdno.get(p.ORD) || [];
             const gl = glList[0] || {};
 
-            // FIX: try each linking field in priority order (SVOUCHER, then VOUCHER)
-            // and use whichever one actually resolves to a real SalesMdis record,
-            // instead of only ever checking a single hardcoded field.
             let invoice: any = null;
             let matchedInvoiceVoucher: number | undefined;
             for (const f of this.invoiceVoucherFields) {
@@ -431,7 +458,6 @@ export default class OutstandingReport {
                 id: String(p._id),
                 ORD: p.ORD,
 
-                // customer display (Order)
                 PARNAM: order.PARNAM ? String(order.PARNAM).trim() : null,
                 MAILNAM: order.MAILNAM ?? null,
                 CITY: order.CITY ?? null,
@@ -443,14 +469,12 @@ export default class OutstandingReport {
                 GSTNO: order.GSTNO ?? null,
                 DLNO: order.DLNO ?? null,
 
-                // geo/team — priority: Pend -> Order -> GlLedger -> invoice -> item
                 AREA: firstNonNull(p.AREA, order.AREA, gl.AREA, invoice?.AREA, firstItem.AREA),
                 ROUT: firstNonNull(p.ROUT, order.ROUT, gl.ROUT, invoice?.ROUT, firstItem.ROUT),
                 DSM: firstNonNull(p.DSM, order.DSM, gl.DSM, invoice?.DSM, firstItem.DSM),
                 ASM: firstNonNull(p.ASM, gl.ASM, invoice?.ASM, firstItem.ASM),
                 RSM: firstNonNull(p.RSM, gl.RSM, invoice?.RSM, firstItem.RSM),
 
-                // Pend (report subject)
                 VOUCHER: p.VOUCHER,
                 SVOUCHER: p.SVOUCHER,
                 ADJVOUCHER: p.ADJVOUCHER,
@@ -463,7 +487,6 @@ export default class OutstandingReport {
                 FINAL: p.FINAL,
                 REMARK: p.REMARK,
 
-                // GlLedger detail (first matching record for this customer)
                 ledger: gl.CODE1
                     ? {
                         CODE: gl.CODE,
@@ -477,7 +500,6 @@ export default class OutstandingReport {
                     }
                     : null,
 
-                // Invoice (SalesMdis)
                 invoice: invoice
                     ? {
                         VOUCHER: invoice.VOUCHER,
@@ -496,7 +518,6 @@ export default class OutstandingReport {
                     }
                     : null,
 
-                // Line items / batches (SalesDis)
                 items: items.map((it: any) => ({
                     BATCH: it.BATCH,
                     QTY: it.QTY,
@@ -516,7 +537,11 @@ export default class OutstandingReport {
             page: pageNum,
             limit: pageLimit,
             totalPages: Math.max(1, Math.ceil(total / pageLimit)),
-            totalOutstanding: totalAgg[0]?.totalOutstanding || 0,
+            totalOutstanding: Number(summary.totalOutstanding || 0),
+            criticalOverdueAmount: Number(summary.criticalOverdueAmount || 0),
+            criticalOverdueCount: Number(summary.criticalOverdueCount || 0),
+            customerCount: (summary.distinctCustomers || []).length,
+            avgOutstandingAmount: total > 0 ? Math.round(Number(summary.totalOutstanding || 0) / total) : 0,
             rows,
         };
     }

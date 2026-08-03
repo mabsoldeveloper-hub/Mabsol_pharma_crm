@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import connectDB from "@/lib/mongodb";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 import AccountGroup from "@/models/AccountGroup";
 import Customer from "@/models/Customer";
@@ -15,9 +16,11 @@ import GLedger from "@/models/GLedger";
 //   - customers         : parties whose SCODE == group.ORDNO, each with its own ledger totals
 //   - totals            : rollups across the customers above
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     await connectDB();
+    const { searchParams } = new URL(req.url);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
     let group: any = null;
     try {
@@ -32,7 +35,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         return NextResponse.json({ error: "Account group not found" }, { status: 404 });
     }
 
-    const allGroups: any[] = await AccountGroup.find({}).lean();
+    const allGroups: any[] = await AccountGroup.find(combineFilters({}, companyVfpMatch)).lean();
     const byOrdno = new Map<string, any>();
     allGroups.forEach((g) => {
         if (g.ORDNO) byOrdno.set(String(g.ORDNO).trim(), g);

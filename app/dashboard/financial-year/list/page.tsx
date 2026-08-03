@@ -81,10 +81,37 @@ export default function FYListPage() {
           </span>
         ),
       }),
+      columnHelper.accessor((row: any) => row.fyCode, {
+        id: "fyCode",
+        header: "Marg Code",
+        cell: (info) => {
+          const val = info.getValue();
+          const row = info.row.original;
+          return (
+            <button
+              onClick={async () => {
+                const newCode = prompt("Enter Marg FY Code (e.g. I05, I06, I04):", val || "");
+                if (newCode !== null && newCode.trim() !== (val || "")) {
+                  await fetch(`/api/financial-year/${row._id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ fyCode: newCode.toUpperCase().trim() }),
+                  });
+                  loadData();
+                }
+              }}
+              title="Click to edit Marg FY Code"
+              className="font-mono text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-0.5 rounded-md cursor-pointer transition-colors shadow-2xs"
+            >
+              {val || "+ Set Code"}
+            </button>
+          );
+        },
+      }),
       columnHelper.accessor("fyName", {
-        header: "FY",
+        header: "FY Name",
         cell: (info) => (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-600 border border-indigo-400/20">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-600 border border-indigo-400/20">
             {info.getValue() || "—"}
           </span>
         ),

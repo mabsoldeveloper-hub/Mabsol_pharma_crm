@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 import { INDIA_LOCATIONS, INDIA_VIEWBOX, type StatePath } from "./india-map-data";
 import { useFinancialYear } from "@/context/FinancialYearContext";
+import { useCompany } from "@/context/CompanyContext";
 
 type MrTerritoryInfo = {
     isMrRestricted: boolean;
@@ -179,6 +180,7 @@ export default function IndiaMapPage() {
     const mapCardRef = useRef<HTMLDivElement | null>(null);
 
     const { selectedFY } = useFinancialYear();
+    const { selectedCompany } = useCompany();
 
     useEffect(() => {
         if (selectedFY && !selectedFY.isAll && selectedFY.fyName) {
@@ -214,6 +216,7 @@ export default function IndiaMapPage() {
         setLoading(true);
         setError(null);
         const params = new URLSearchParams({ fy, month });
+        if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
         fetch(`/api/dashboard/india-map?${params.toString()}`)
             .then((res) => {
                 if (!res.ok) throw new Error(`Request failed: ${res.status}`);
@@ -226,7 +229,7 @@ export default function IndiaMapPage() {
             })
             .catch((err) => setError(err.message || "Failed to load dashboard"))
             .finally(() => setLoading(false));
-    }, [fy, month]);
+    }, [fy, month, selectedCompany]);
 
     useEffect(() => {
         if (!selected) {
@@ -235,12 +238,13 @@ export default function IndiaMapPage() {
         }
         setDrillLoading(true);
         const params = new URLSearchParams({ fy, month });
+        if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
         fetch(`/api/dashboard/india-map/${selected.stateId}?${params.toString()}`)
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => setDrillDown(data))
             .catch(() => setDrillDown(null))
             .finally(() => setDrillLoading(false));
-    }, [selected, fy, month]);
+    }, [selected, fy, month, selectedCompany]);
 
     useEffect(() => {
         if (mobileFiltersOpen) {

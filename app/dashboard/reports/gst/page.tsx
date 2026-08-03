@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import { useCompany } from "@/context/CompanyContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 
 interface RegisterRow {
@@ -149,6 +150,7 @@ export default function GstReportPage() {
     };
 
     const { selectedFY } = useFinancialYear();
+    const { selectedCompany } = useCompany();
 
     const fetchReport = useCallback(
         async (targetPage: number, activeFilters: typeof DEFAULT_FILTERS, type: ReportType) => {
@@ -178,6 +180,8 @@ export default function GstReportPage() {
                     if (value) params.set(key, value);
                 });
 
+                if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
                 const res = await fetch(`/api/reports/gst?${params.toString()}`);
                 const json = await res.json();
 
@@ -199,15 +203,10 @@ export default function GstReportPage() {
             } finally {
                 setLoading(false);
             }
-        },
-        [selectedFY]
-    );
+    }, [selectedFY, selectedCompany]);
 
     useEffect(() => {
         fetchReport(page, appliedFilters, reportType);
-        const onFyChange = () => fetchReport(page, appliedFilters, reportType);
-        window.addEventListener("financial-year-changed", onFyChange);
-        return () => window.removeEventListener("financial-year-changed", onFyChange);
     }, [page, appliedFilters, reportType, fetchReport]);
 
     const searchReport = () => {

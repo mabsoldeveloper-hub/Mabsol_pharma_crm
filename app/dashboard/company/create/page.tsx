@@ -272,7 +272,7 @@ export default function CreateCompanyPage() {
           </div>
 
           {/* Invoice Prefix */}
-          <div className="md:col-span-4">
+          {/* <div className="md:col-span-4">
             <label className={labelClass}>Invoice Prefix</label>
             <input
               className={inputClass}
@@ -281,10 +281,10 @@ export default function CreateCompanyPage() {
                 setForm({ ...form, invoicePrefix: e.target.value })
               }
             />
-          </div>
+          </div> */}
 
           {/* Purchase Prefix */}
-          <div className="md:col-span-4">
+          {/* <div className="md:col-span-4">
             <label className={labelClass}>Purchase Prefix</label>
             <input
               className={inputClass}
@@ -293,10 +293,10 @@ export default function CreateCompanyPage() {
                 setForm({ ...form, purchasePrefix: e.target.value })
               }
             />
-          </div>
+          </div> */}
 
           {/* Currency */}
-          <div className="md:col-span-4">
+          {/* <div className="md:col-span-4">
             <label className={labelClass}>Currency</label>
             <select
               className={inputClass}
@@ -309,7 +309,7 @@ export default function CreateCompanyPage() {
               <option value="USD">USD</option>
               <option value="AED">AED</option>
             </select>
-          </div>
+          </div> */}
         </div>
 
         {/* Actions */}

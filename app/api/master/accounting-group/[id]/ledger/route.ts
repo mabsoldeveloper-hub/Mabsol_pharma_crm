@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import connectDB from "@/lib/mongodb";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 import AccountGroup from "@/models/AccountGroup";
 import Customer from "@/models/Customer";
@@ -11,9 +12,11 @@ import GLedger from "@/models/GLedger";
 // Returns every GLEDGER entry belonging to any customer/party whose
 // SCODE equals this group's ORDNO, newest first, with a running balance.
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     await connectDB();
+    const { searchParams } = new URL(req.url);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
     let group: any = null;
     try {
@@ -30,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     const ordno = group.ORDNO ? String(group.ORDNO).trim() : "";
 
-    const customers: any[] = await Customer.find({ SCODE: ordno }, { ORDNO: 1, PARNAM: 1 }).lean();
+    const customers: any[] = await Customer.find(combineFilters({ SCODE: ordno }, companyVfpMatch), { ORDNO: 1, PARNAM: 1 }).lean();
     const codeToName = new Map<string, string>();
     customers.forEach((c) => {
         if (c.ORDNO) codeToName.set(String(c.ORDNO).trim(), c.PARNAM || "");
@@ -46,7 +49,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         });
     }
 
-    const rows: any[] = await GLedger.find({ CODE: { $in: customerCodes } })
+    const rows: any[] = await GLedger.find(combineFilters({ CODE: { $in: customerCodes } }, companyVfpMatch))
         .sort({ DATE: 1, _id: 1 })
         .lean();
 

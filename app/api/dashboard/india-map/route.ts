@@ -72,43 +72,61 @@ import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 import FinancialYear from "@/models/FinancialYear";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export async function GET(req: Request) {
     try {
         await connectDB();
 
+        const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const restriction = await getMrTerritoryRestriction();
 
-        const codepFilter = restriction.isMrRestricted
-            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: restriction.allowedOrdnos } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        const codepFilter = combineFilters(
+          companyVfpMatch,
+          restriction.isMrRestricted
+              ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                  ? { CODEP: { $in: restriction.allowedOrdnos } }
+                  : { CODEP: "NONE_MATCH" }
+              : {}
+        );
 
-        const pendFilter = restriction.isMrRestricted
-            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { ORD: { $in: restriction.allowedOrdnos } }
-                : { ORD: "NONE_MATCH" }
-            : {};
+        const pendFilter = combineFilters(
+          companyVfpMatch,
+          restriction.isMrRestricted
+              ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                  ? { ORD: { $in: restriction.allowedOrdnos } }
+                  : { ORD: "NONE_MATCH" }
+              : {}
+        );
 
-        const glFilter = restriction.isMrRestricted
+        const glFilter = combineFilters(
+          companyVfpMatch,
+          restriction.isMrRestricted
             ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
                 ? { BOOK: { $in: ["R", "P"] }, CODE: { $in: restriction.allowedOrdnos } }
                 : { BOOK: { $in: ["R", "P"] }, CODE: "NONE_MATCH" }
-            : { BOOK: { $in: ["R", "P"] } };
+            : { BOOK: { $in: ["R", "P"] } }
+        );
 
-        const productFilter = restriction.isMrRestricted
+        const productFilter = combineFilters(
+          companyVfpMatch,
+          restriction.isMrRestricted
             ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
                 ? { GCODE: { $in: restriction.allowedCompanyCodes } }
                 : { GCODE: "NONE_MATCH" }
-            : {};
+            : {}
+        );
 
-        const orderFilter = restriction.isMrRestricted
+        const orderFilter = combineFilters(
+          companyVfpMatch,
+          restriction.isMrRestricted
             ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
                 ? { ORDNO: { $in: restriction.allowedOrdnos } }
                 : { ORDNO: "NONE_MATCH" }
-            : {};
+            : {}
+        );
 
-        const { searchParams } = new URL(req.url);
         let fy = searchParams.get("fy");
         const month = searchParams.get("month");
         const fyId = searchParams.get("fyId");
@@ -252,7 +270,7 @@ export async function GET(req: Request) {
 
         // ---- 8. Batch-wise stock cost value + expiry alerts, from PROBAT. ----
         const probatRows = await ProBat.find(
-            {},
+            combineFilters(companyVfpMatch),
             { CODE: 1, BATCHNO: 1, BILLNAME: 1, EXP: 1, BALANCE: 1, LPRATE: 1 }
         ).lean();
         let stockValueAtCost = 0;
@@ -292,7 +310,7 @@ export async function GET(req: Request) {
         // cleaned via cleanPartyName() to strip VFP fixed-width padding and
         // the duplicated trailing city text some rows have.
         const orderRows = await OrderParty.find(
-            {},
+            orderFilter,
             { PARNAM: 1, CITY: 1, GSTNO: 1, BALANCE: 1, SALCR: 1, SALDR: 1, PURCR: 1, PURDR: 1, PARADD: 1, PARADD1: 1, PARADD2: 1, PHONE1: 1, PHONE2: 1, ORDNO: 1, COMPANY: 1, GCODE: 1, SCODE: 1, DSM: 1 }
         ).lean();
         const partyRows = orderRows

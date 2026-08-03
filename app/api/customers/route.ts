@@ -4,11 +4,15 @@ import Customer from "@/models/Customer";
 import AccountGroup from "@/models/AccountGroup";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   await connectDB();
 
+  const { searchParams } = new URL(req.url);
+  const companyVfpMatch = await getCompanyVfpFilter(searchParams);
   const restriction = await getMrTerritoryRestriction();
 
   // Load all account groups
@@ -30,7 +34,7 @@ export async function GET() {
 
   // Base customer records
   const allCustomers: any[] = await Customer.find(
-    {},
+    combineFilters(companyVfpMatch),
     {
       PARNAM: 1,
       ORDNO: 1,
@@ -48,6 +52,7 @@ export async function GET() {
       GSTHED: 1,
       STATE: 1,
       PRICE: 1,
+      SALDR: 1,
     }
   )
     .sort({ PARNAM: 1 })
@@ -57,13 +62,15 @@ export async function GET() {
     ? allCustomers.filter((c: any) => restriction.isPartyAllowed(c))
     : allCustomers;
 
-  // Merge Group Information
+  // Merge Group Information & Format Active/Inactive Status
   const result = customers.map((c: any) => {
     const scode = String(c.SCODE || "").trim();
     const grp = groupMap.get(scode);
+    const isActive = c.STATUS === "N" || c.SALDR === "N" ? "N" : "Y";
 
     return {
       ...c,
+      STATUS: isActive,
       GROUPCODE: scode,
       GROUPNAME: grp?.PARNAM || "",
       MAINGROUP: grp?.GROUP || "",

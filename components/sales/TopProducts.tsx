@@ -21,6 +21,7 @@ import {
     FaChevronRight,
 } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
+import { useCompany } from "@/context/CompanyContext";
 
 type TopProduct = {
     code: string;
@@ -40,21 +41,28 @@ export default function TopProducts() {
     ]);
     const [globalFilter, setGlobalFilter] = useState("");
     const { selectedFY } = useFinancialYear();
+    const { selectedCompany } = useCompany();
 
     const loadProducts = useCallback(async () => {
-        let url = "/api/sales/top-products";
+        const params = new URLSearchParams();
+        if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
         if (selectedFY) {
             if (selectedFY.isAll) {
-                url += "?fyId=ALL";
+                params.set("fyId", "ALL");
             } else if (selectedFY._id) {
-                url += `?fyId=${selectedFY._id}`;
+                params.set("fyId", selectedFY._id);
                 if (selectedFY.startDate && selectedFY.endDate) {
                     const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
                     const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
-                    url += `&startDate=${s}&endDate=${e}`;
+                    params.set("startDate", s);
+                    params.set("endDate", e);
                 }
             }
         }
+
+        const url = `/api/sales/top-products?${params.toString()}`;
+
         try {
             const res = await fetch(url);
             const data = await res.json();
@@ -62,13 +70,17 @@ export default function TopProducts() {
         } catch {
             setProducts([]);
         }
-    }, [selectedFY]);
+    }, [selectedFY, selectedCompany?._id]);
 
     useEffect(() => {
         loadProducts();
         const onFyChange = () => loadProducts();
         window.addEventListener("financial-year-changed", onFyChange);
-        return () => window.removeEventListener("financial-year-changed", onFyChange);
+        window.addEventListener("company-changed", onFyChange);
+        return () => {
+            window.removeEventListener("financial-year-changed", onFyChange);
+            window.removeEventListener("company-changed", onFyChange);
+        };
     }, [loadProducts]);
 
     const columns = useMemo(

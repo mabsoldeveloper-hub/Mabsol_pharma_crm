@@ -9,6 +9,8 @@ import SalesMdis from "@/models/SalesMdis";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { consumeNextVoucherNumber, peekNextVoucherNumber } from "@/lib/voucherSeriesHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export const dynamic = "force-dynamic";
 
 function todayStr() {
@@ -40,6 +42,7 @@ export async function GET(req: NextRequest) {
         await connectDB();
 
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const action = searchParams.get("action");
         const partyCode = (searchParams.get("partyCode") || searchParams.get("customer") || "").trim();
 
@@ -53,12 +56,12 @@ export async function GET(req: NextRequest) {
         if (action === "metrics") {
             const [pendingAgg, todayAgg] = await Promise.all([
                 Pendings.aggregate([
-                    { $match: { BALANCE: { $gt: 0 } } },
+                    { $match: combineFilters({ BALANCE: { $gt: 0 } }, companyVfpMatch) },
                     { $group: { _id: null, totalOutstanding: { $sum: "$BALANCE" }, count: { $sum: 1 } } }
                 ]),
                 GLedger.aggregate([
                     {
-                        $match: {
+                        $match: combineFilters({
                             $or: [
                                 { BOOK: "R" },
                                 { TYPE: "CR" },
@@ -68,7 +71,7 @@ export async function GET(req: NextRequest) {
                             ],
                             CREDIT: { $gt: 0 },
                             DATE: todayStr(),
-                        }
+                        }, companyVfpMatch)
                     },
                     { $group: { _id: null, totalCollected: { $sum: "$CREDIT" }, count: { $sum: 1 } } }
                 ])
@@ -88,18 +91,18 @@ export async function GET(req: NextRequest) {
             const partyConds = buildPartyConds(partyCode);
 
             const [orderCust, mainCust, pendingsAgg, glAgg, salesAgg] = await Promise.all([
-                Order.findOne({ $or: partyConds }).lean(),
-                Customer.findOne({ $or: partyConds }).lean(),
+                Order.findOne(combineFilters({ $or: partyConds }, companyVfpMatch)).lean(),
+                Customer.findOne(combineFilters({ $or: partyConds }, companyVfpMatch)).lean(),
                 Pendings.aggregate([
-                    { $match: { $or: partyConds, BALANCE: { $gt: 0 } } },
+                    { $match: combineFilters({ $or: partyConds, BALANCE: { $gt: 0 } }, companyVfpMatch) },
                     { $group: { _id: null, totalPending: { $sum: "$BALANCE" }, count: { $sum: 1 } } }
                 ]),
                 GLedger.aggregate([
-                    { $match: { $or: partyConds } },
+                    { $match: combineFilters({ $or: partyConds }, companyVfpMatch) },
                     { $group: { _id: null, totalDebit: { $sum: "$DEBIT" }, totalCredit: { $sum: "$CREDIT" } } }
                 ]),
                 SalesMdis.aggregate([
-                    { $match: { $or: partyConds, TYPE: { $ne: "SR" }, INVTYPE: { $ne: "R" } } },
+                    { $match: combineFilters({ $or: partyConds, TYPE: { $ne: "SR" }, INVTYPE: { $ne: "R" } }, companyVfpMatch) },
                     { $group: { _id: null, totalSales: { $sum: "$FINAL" }, count: { $sum: 1 } } }
                 ])
             ]);
@@ -131,7 +134,7 @@ export async function GET(req: NextRequest) {
             const partyConds = buildPartyConds(partyCode);
 
             let pendingDocs = await Pendings.find(
-                { $or: partyConds, BALANCE: { $gt: 0 } },
+                combineFilters({ $or: partyConds, BALANCE: { $gt: 0 } }, companyVfpMatch),
                 { VCN: 1, VOUCHER: 1, BILLNO: 1, DATE: 1, BALANCE: 1, FINAL: 1, DDATE: 1 }
             )
                 .sort({ DATE: 1 })
@@ -140,11 +143,11 @@ export async function GET(req: NextRequest) {
             // Fallback: If no Pendings documents found, search SalesMdis for past sale invoices
             if (pendingDocs.length === 0) {
                 const salesDocs = await SalesMdis.find(
-                    {
+                    combineFilters({
                         $or: partyConds,
                         TYPE: { $ne: "SR" },
                         INVTYPE: { $ne: "R" },
-                    },
+                    }, companyVfpMatch),
                     { VCN: 1, VOUCHER: 1, BILLNO: 1, DATE: 1, FINAL: 1, AMOUNTT: 1 }
                 )
                     .sort({ DATE: -1 })
@@ -183,7 +186,7 @@ export async function GET(req: NextRequest) {
         const restriction = await getMrTerritoryRestriction();
 
         // Build filter for Receipts (BOOK: "R" or TYPE: "CR" or VCN starts with RCT)
-        const filter: any = {
+        let filter: any = combineFilters({
             $or: [
                 { BOOK: "R" },
                 { TYPE: "CR" },
@@ -192,7 +195,7 @@ export async function GET(req: NextRequest) {
                 { VCN: /^RCT/i },
             ],
             CREDIT: { $gt: 0 },
-        };
+        }, companyVfpMatch);
 
         if (restriction.isMrRestricted && restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
             filter.CODE = { $in: restriction.allowedOrdnos };

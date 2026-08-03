@@ -32,6 +32,8 @@ import {
   FaPlus,
 } from "react-icons/fa";
 import AddProductModal from "@/components/product/AddProductModal";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 
 type MrTerritoryInfo = {
@@ -135,9 +137,9 @@ function SummaryCard({
 
 /* ---------------------------------------------------------- */
 /* Main page                                                    */
-/* ---------------------------------------------------------- */
-
 export default function ProductsPage() {
+  const { selectedCompany } = useCompany();
+  const { selectedFY } = useFinancialYear();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -147,8 +149,11 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadMrTerritoryInfo();
-    loadProducts();
   }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [selectedCompany?._id, selectedFY?._id]);
 
   const loadMrTerritoryInfo = async () => {
     try {
@@ -169,9 +174,13 @@ export default function ProductsPage() {
   };
 
   const loadProducts = async () => {
-    const res = await fetch("/api/products");
+    const params = new URLSearchParams();
+    if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+    if (selectedFY?._id) params.set("fyId", selectedFY._id);
+
+    const res = await fetch(`/api/products?${params.toString()}`);
     const data = await res.json();
-    setProducts(data);
+    setProducts(Array.isArray(data) ? data : []);
   };
 
   const filtered = useMemo(() => {

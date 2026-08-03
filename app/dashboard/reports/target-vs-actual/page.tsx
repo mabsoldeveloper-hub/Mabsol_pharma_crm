@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useCompany } from "@/context/CompanyContext";
 import {
   FaBullseye,
   FaCalendarAlt,
@@ -129,6 +130,7 @@ export default function TargetVsActualReportPage() {
   const [rows, setRows] = useState<TargetVsActualRow[]>([]);
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [isMrRestricted, setIsMrRestricted] = useState(false);
+  const { selectedCompany } = useCompany();
 
   // Accordion expanded rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -149,6 +151,7 @@ export default function TargetVsActualReportPage() {
         frequency,
         search,
       });
+      if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
 
       const res = await fetch(`/api/reports/target-vs-actual?${params.toString()}`, {
         signal: controller.signal,
@@ -179,7 +182,7 @@ export default function TargetVsActualReportPage() {
       clearTimeout(timeoutId);
       setLoading(false);
     }
-  }, [periodMonth, targetType, frequency, search]);
+  }, [periodMonth, targetType, frequency, search, selectedCompany]);
 
   const [mounted, setMounted] = useState(false);
   const [showCharts, setShowCharts] = useState(true);
