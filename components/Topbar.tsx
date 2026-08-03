@@ -272,20 +272,22 @@ export default function Topbar({
 
   return (
     <div
-      className="flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-gray-200 shadow-sm sticky top-0"
+      className="flex items-center justify-between gap-1.5 sm:gap-3 px-2.5 sm:px-4 py-2 sm:py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200/80 dark:border-slate-800 shadow-xs sticky top-0 transition-all"
       style={{ zIndex: 999 }}
     >
-      {/* LEFT */}
-      <div className="flex items-center gap-3 min-w-0">
+      {/* LEFT: Sidebar Toggle & Company/FY Selectors */}
+      <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 sm:flex-initial">
         <button
           onClick={() => setCollapsed(!collapsed)}
           aria-label="Toggle sidebar"
-          className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shrink-0"
+          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shrink-0 cursor-pointer shadow-xs"
         >
-          <List size={18} />
+          <List size={16} className="sm:hidden" />
+          <List size={18} className="hidden sm:block" />
         </button>
 
-        {!mobile && (
+        {/* DESKTOP COMPANY & FY SELECTORS */}
+        {!mobile ? (
           <div className="flex items-center gap-2 min-w-0">
             {/* COMPANY SELECTOR DROPDOWN */}
             <div className="relative inline-flex items-center">
@@ -298,11 +300,11 @@ export default function Topbar({
                   const comp = companies.find((c) => c._id === e.target.value);
                   if (comp) setSelectedCompany(comp);
                 }}
-                className="pl-8 pr-3 py-1.5 rounded-lg bg-blue-50 text-blue-800 text-[13px] font-bold border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm transition-all max-w-[230px] truncate"
+                className="pl-8 pr-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-200 text-[13px] font-bold border border-blue-200 dark:border-blue-800/60 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs transition-all max-w-[210px] lg:max-w-[240px] truncate"
                 title="Select Active Company"
               >
                 {companies.map((c) => (
-                  <option key={c._id} value={c._id}>
+                  <option key={c._id} value={c._id} className="text-slate-900 font-medium">
                     {c.companyName} ({c.companyCode || "Code"})
                   </option>
                 ))}
@@ -320,11 +322,11 @@ export default function Topbar({
                   const fy = fyList.find((x) => x._id === e.target.value);
                   if (fy) setSelectedFY(fy);
                 }}
-                className="pl-8 pr-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-[13px] font-bold border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm transition-all max-w-[240px] truncate"
+                className="pl-8 pr-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 text-[13px] font-bold border border-emerald-200 dark:border-emerald-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-xs transition-all max-w-[210px] lg:max-w-[240px] truncate"
                 title="Select Financial Year"
               >
                 {fyList.map((fy) => (
-                  <option key={fy._id} value={fy._id}>
+                  <option key={fy._id} value={fy._id} className="text-slate-900 font-medium">
                     {fy.isAll
                       ? fy.fyName
                       : fy.fyCode
@@ -335,41 +337,54 @@ export default function Topbar({
               </select>
             </div>
           </div>
-        )}
-        {mobile && (
-          <div className="flex items-center gap-1 min-w-0">
-            <select
-              value={selectedCompany?._id || ""}
-              onChange={(e) => {
-                const comp = companies.find((c) => c._id === e.target.value);
-                if (comp) setSelectedCompany(comp);
-              }}
-              className="px-2 py-1 rounded-md bg-blue-50 text-blue-800 text-[11px] font-bold border border-blue-200 focus:outline-none cursor-pointer max-w-[120px] truncate"
-            >
-              {companies.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.companyName}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedFY?._id || ""}
-              onChange={(e) => {
-                const fy = fyList.find((x) => x._id === e.target.value);
-                if (fy) setSelectedFY(fy);
-              }}
-              className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 focus:outline-none cursor-pointer max-w-[120px] truncate"
-            >
-              {fyList.map((fy) => (
-                <option key={fy._id} value={fy._id}>
-                  {fy.isAll
-                    ? "All FYs"
-                    : fy.fyCode
-                    ? `${fy.fyCode}`
-                    : `FY ${fy.fyName}`}
-                </option>
-              ))}
-            </select>
+        ) : (
+          /* MOBILE COMPACT COMPANY & FY SELECTORS */
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            {/* Mobile Company Select */}
+            <div className="relative inline-flex items-center flex-1 min-w-0 max-w-[130px] xs:max-w-[150px]">
+              <div className="absolute left-1.5 text-blue-600 pointer-events-none">
+                <Building size={11} />
+              </div>
+              <select
+                value={selectedCompany?._id || ""}
+                onChange={(e) => {
+                  const comp = companies.find((c) => c._id === e.target.value);
+                  if (comp) setSelectedCompany(comp);
+                }}
+                className="w-full pl-5 pr-1.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/80 text-blue-900 dark:text-blue-200 text-[10px] font-bold border border-blue-200 dark:border-blue-800/60 focus:outline-none cursor-pointer truncate"
+              >
+                {companies.map((c) => (
+                  <option key={c._id} value={c._id} className="text-slate-900">
+                    {c.companyName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Mobile FY Select */}
+            <div className="relative inline-flex items-center flex-1 min-w-0 max-w-[110px] xs:max-w-[130px]">
+              <div className="absolute left-1.5 text-emerald-600 pointer-events-none">
+                <CalendarEvent size={11} />
+              </div>
+              <select
+                value={selectedFY?._id || ""}
+                onChange={(e) => {
+                  const fy = fyList.find((x) => x._id === e.target.value);
+                  if (fy) setSelectedFY(fy);
+                }}
+                className="w-full pl-5 pr-1.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800/60 focus:outline-none cursor-pointer truncate"
+              >
+                {fyList.map((fy) => (
+                  <option key={fy._id} value={fy._id} className="text-slate-900">
+                    {fy.isAll
+                      ? "All FYs"
+                      : fy.fyCode
+                      ? `${fy.fyCode}`
+                      : `FY ${fy.fyName}`}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
       </div>
@@ -378,11 +393,11 @@ export default function Topbar({
       <div className="hidden md:flex flex-1 max-w-md mx-4">
         <button
           onClick={() => setSearchOpen(true)}
-          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50/60 hover:border-indigo-200 text-slate-500 transition-all text-xs font-semibold shadow-2xs group cursor-pointer"
+          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50/60 hover:border-indigo-200 text-slate-500 transition-all text-xs font-semibold shadow-xs group cursor-pointer"
         >
           <div className="flex items-center gap-2 truncate">
             <Search size={15} className="text-indigo-600 group-hover:scale-110 transition-transform shrink-0" />
-            <span className="truncate text-slate-500 group-hover:text-indigo-900 font-medium">Search sidebar links, products, stock, customers, vouchers...</span>
+            <span className="truncate text-slate-500 dark:text-slate-300 group-hover:text-indigo-900 dark:group-hover:text-indigo-200 font-medium">Search links, products, stock, customers, invoices...</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span
@@ -407,17 +422,18 @@ export default function Topbar({
         </button>
       </div>
 
-      {/* RIGHT */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* RIGHT: Search Icon, Notifications & Profile */}
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* MOBILE GLOBAL SEARCH ICON BUTTON */}
         <button
           onClick={() => setSearchOpen(true)}
           aria-label="Global Search"
-          className="flex md:hidden items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors duration-200 shrink-0 cursor-pointer shadow-2xs"
+          className="flex md:hidden items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors duration-200 shrink-0 cursor-pointer shadow-xs"
           title="Search Anything (Products, Customers, Invoices, MRs...)"
         >
-          <Search size={18} />
+          <Search size={15} />
         </button>
+
         {/* NOTIFICATIONS */}
         <div className="relative" ref={notifRef}>
           <button
@@ -426,19 +442,20 @@ export default function Topbar({
               setProfileOpen(false);
             }}
             aria-label="Notifications"
-            className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white text-orange-500 hover:bg-orange-50 hover:text-orange-600 transition-colors duration-200"
+            className="relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/50 transition-colors duration-200"
           >
-            <Bell size={18} />
+            <Bell size={15} className="sm:hidden" />
+            <Bell size={18} className="hidden sm:block" />
 
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1 animate-pulse">
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] sm:min-w-[18px] sm:h-[18px] rounded-full bg-red-500 text-white text-[9px] sm:text-[10px] font-bold px-1 animate-pulse">
                 {unreadCount}
               </span>
             )}
           </button>
 
           {notifOpen && (
-            <div className="absolute right-[-48px] sm:right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-[380px] rounded-2xl bg-white border border-gray-200/90 shadow-2xl py-2 z-[1100] overflow-hidden backdrop-blur-xl transition-all">
+            <div className="fixed left-2 right-2 sm:left-auto sm:right-0 top-14 sm:top-auto sm:mt-2 sm:w-96 max-w-[380px] rounded-2xl bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 shadow-2xl py-2 z-[1100] overflow-hidden backdrop-blur-xl transition-all">
               {/* Header */}
               <div className="flex items-center justify-between px-3.5 pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-1.5">
@@ -563,9 +580,9 @@ export default function Topbar({
               setProfileOpen((v) => !v);
               setNotifOpen(false);
             }}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white pl-2 pr-3 h-10 text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 sm:pl-2 sm:pr-3 h-8 sm:h-10 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200"
           >
-            <span className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border border-gray-200 shadow-sm shrink-0 bg-white">
+            <span className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs shrink-0 bg-white">
               <img
                 src={user?.profilePhoto || "/avatar.png"}
                 alt={user?.name || "User"}

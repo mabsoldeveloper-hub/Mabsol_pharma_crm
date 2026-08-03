@@ -225,62 +225,62 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-      <div className="relative w-full max-w-6xl max-h-[92vh] flex flex-col rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/40 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+      <div className="relative w-full max-w-6xl max-h-[92vh] flex flex-col rounded-2xl sm:rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/40 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] overflow-hidden">
         
         {/* MODAL HEADER */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-500/20 text-white">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-              <FaChartLine size={20} />
+        <div className="flex items-center justify-between px-3.5 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-500/20 text-white flex-shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex-shrink-0">
+              <FaChartLine className="text-sm sm:text-xl" />
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-wide m-0 flex items-center gap-2">
-                Consolidated Sales Book & Annual Register
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-lg font-bold text-white tracking-wide m-0 flex items-center gap-1.5 sm:gap-2 truncate">
+                Consolidated Sales Book
+                <span className="hidden xs:inline-flex px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 flex-shrink-0">
                   {selectedFY?.fyName || "FY Selected"}
                 </span>
               </h3>
-              <p className="text-xs text-gray-300 m-0">
+              <p className="text-[11px] sm:text-xs text-gray-300 m-0 truncate hidden sm:block">
                 Marg ERP-style Consolidated Sales Register with Gross Sales, Returns & Net Sales filtering
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
               onClick={loadData}
               disabled={loading}
               title="Refresh Data"
-              className="flex items-center justify-center h-9 w-9 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all border border-white/10"
+              className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all border border-white/10"
             >
-              <FaSync size={13} className={loading ? "animate-spin" : ""} />
+              <FaSync className={`text-xs sm:text-sm ${loading ? "animate-spin" : ""}`} />
             </button>
             <button
               onClick={exportToCSV}
               title="Export to CSV"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 transition-all border border-emerald-500/40 text-xs font-medium"
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 transition-all border border-emerald-500/40 text-[10px] sm:text-xs font-medium"
             >
-              <FaFileCsv size={14} />
-              <span>Export CSV</span>
+              <FaFileCsv className="text-xs sm:text-sm" />
+              <span className="hidden sm:inline">Export CSV</span>
             </button>
             <button
               onClick={onClose}
-              className="flex items-center justify-center h-9 w-9 rounded-xl bg-white/10 text-gray-300 hover:bg-red-500 hover:text-white transition-all border border-white/10"
+              className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-white/10 text-gray-300 hover:bg-red-500 hover:text-white transition-all border border-white/10"
             >
-              <FaTimes size={15} />
+              <FaTimes className="text-xs sm:text-base" />
             </button>
           </div>
         </div>
 
         {/* MODAL BODY */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 sm:space-y-4 bg-slate-50/50">
           
           {/* MARG CONSOLIDATED FILTER SELECTOR */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-gradient-to-r from-indigo-900/90 via-slate-900 to-indigo-950 p-3.5 rounded-2xl border border-indigo-500/30 shadow-md text-white">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 bg-gradient-to-r from-indigo-900/90 via-slate-900 to-indigo-950 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-indigo-500/30 shadow-md text-white">
             <div className="flex items-center gap-2">
-              <FaFilter size={14} className="text-indigo-400 shrink-0" />
-              <span className="text-xs font-bold tracking-wide uppercase text-indigo-200 shrink-0">
+              <FaFilter size={13} className="text-indigo-400 shrink-0" />
+              <span className="text-[11px] sm:text-xs font-bold tracking-wide uppercase text-indigo-200 shrink-0">
                 Less Return's Filter:
               </span>
             </div>
@@ -289,7 +289,7 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
               <select
                 value={salesFilterMode}
                 onChange={(e) => setSalesFilterMode(e.target.value)}
-                className="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-white/15 text-white border border-indigo-400/40 outline-none focus:ring-2 focus:ring-indigo-400 transition-all backdrop-blur-md cursor-pointer"
+                className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-semibold rounded-lg sm:rounded-xl bg-white/15 text-white border border-indigo-400/40 outline-none focus:ring-2 focus:ring-indigo-400 transition-all backdrop-blur-md cursor-pointer truncate"
               >
                 {MARG_FILTER_OPTIONS.map((opt) => (
                   <option key={opt.id} value={opt.id} className="text-gray-900 font-medium">
@@ -299,27 +299,27 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
               </select>
             </div>
 
-            <div className="text-[11px] font-semibold text-indigo-300 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 whitespace-nowrap">
+            <div className="text-[10px] sm:text-[11px] font-semibold text-indigo-300 bg-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/10 whitespace-nowrap self-start sm:self-auto">
               Active: <span className="text-white font-bold">{MARG_FILTER_OPTIONS.find(o => o.id === salesFilterMode)?.label.split(" ")[1]}</span>
             </div>
           </div>
 
           {/* DYNAMIC SUMMARY CARDS DEPENDING ON FILTER MODE */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             
             {/* Card 1 */}
-            <div className="rounded-2xl p-4 bg-gradient-to-br from-indigo-50 to-blue-50/60 border border-indigo-100 shadow-sm">
+            <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-indigo-50 to-blue-50/60 border border-indigo-100 shadow-xs">
               <div className="flex items-center justify-between text-indigo-600 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-indigo-700">
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-indigo-700 truncate">
                   {salesFilterMode === "NET_SALE"
-                    ? "Net Sales (Sale - Return)"
+                    ? "Net Sales"
                     : salesFilterMode === "R"
-                    ? "Total Sales Returns"
-                    : "Gross Sales (Bill Value)"}
+                    ? "Sales Returns"
+                    : "Gross Sales"}
                 </span>
-                <FaReceipt size={16} />
+                <FaReceipt className="text-xs sm:text-base flex-shrink-0" />
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">
+              <div className="text-sm sm:text-xl font-bold text-gray-900 truncate">
                 ₹{" "}
                 {salesFilterMode === "NET_SALE"
                   ? summaryMetrics.netSales.toLocaleString("en-IN", { maximumFractionDigits: 2 })
@@ -327,108 +327,108 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                   ? summaryMetrics.salesReturns.toLocaleString("en-IN", { maximumFractionDigits: 2 })
                   : summaryMetrics.grossSales.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
               </div>
-              <p className="text-[11px] text-indigo-600/80 mt-0.5">
+              <p className="text-[10px] sm:text-[11px] text-indigo-600/80 mt-0.5 truncate hidden xs:block">
                 {salesFilterMode === "NET_SALE"
-                  ? "Gross Sales minus Sales Return"
+                  ? "Gross minus Returns"
                   : "Exact Marg Sales Book match"}
               </p>
             </div>
 
             {/* Card 2 */}
-            <div className="rounded-2xl p-4 bg-gradient-to-br from-cyan-50 to-sky-50/60 border border-cyan-100 shadow-sm">
+            <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-cyan-50 to-sky-50/60 border border-cyan-100 shadow-xs">
               <div className="flex items-center justify-between text-cyan-600 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-cyan-700">
-                  {salesFilterMode === "NET_SALE" ? "Gross Sales Value" : "Taxable Amount"}
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-cyan-700 truncate">
+                  {salesFilterMode === "NET_SALE" ? "Gross Value" : "Taxable Amount"}
                 </span>
-                <FaRupeeSign size={16} />
+                <FaRupeeSign className="text-xs sm:text-base flex-shrink-0" />
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">
+              <div className="text-sm sm:text-xl font-bold text-gray-900 truncate">
                 ₹{" "}
                 {salesFilterMode === "NET_SALE"
                   ? summaryMetrics.grossSales.toLocaleString("en-IN", { maximumFractionDigits: 2 })
                   : summaryMetrics.totalTaxable.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
               </div>
-              <p className="text-[11px] text-cyan-600/80 mt-0.5">
-                {salesFilterMode === "NET_SALE" ? `Count: ${summaryMetrics.grossCount} Gross Invoices` : "Net taxable turnover"}
+              <p className="text-[10px] sm:text-[11px] text-cyan-600/80 mt-0.5 truncate hidden xs:block">
+                {salesFilterMode === "NET_SALE" ? `Count: ${summaryMetrics.grossCount} Gross` : "Net taxable turnover"}
               </p>
             </div>
 
             {/* Card 3 */}
-            <div className="rounded-2xl p-4 bg-gradient-to-br from-rose-50 to-pink-50/60 border border-rose-100 shadow-sm">
+            <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-rose-50 to-pink-50/60 border border-rose-100 shadow-xs">
               <div className="flex items-center justify-between text-rose-600 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-rose-700">
-                  {salesFilterMode === "NET_SALE" ? "Sales Returns Value" : "Total Tax"}
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-rose-700 truncate">
+                  {salesFilterMode === "NET_SALE" ? "Returns Value" : "Total Tax"}
                 </span>
-                {salesFilterMode === "NET_SALE" ? <FaUndo size={15} /> : <FaFileInvoiceDollar size={16} />}
+                {salesFilterMode === "NET_SALE" ? <FaUndo className="text-xs sm:text-base flex-shrink-0" /> : <FaFileInvoiceDollar className="text-xs sm:text-base flex-shrink-0" />}
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-rose-700">
+              <div className="text-sm sm:text-xl font-bold text-rose-700 truncate">
                 ₹{" "}
                 {salesFilterMode === "NET_SALE"
                   ? summaryMetrics.salesReturns.toLocaleString("en-IN", { maximumFractionDigits: 2 })
                   : summaryMetrics.totalTax.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
               </div>
-              <p className="text-[11px] text-rose-600/80 mt-0.5">
-                {salesFilterMode === "NET_SALE" ? `Count: ${summaryMetrics.returnCount} Credit Notes` : "CGST + SGST + IGST"}
+              <p className="text-[10px] sm:text-[11px] text-rose-600/80 mt-0.5 truncate hidden xs:block">
+                {salesFilterMode === "NET_SALE" ? `Count: ${summaryMetrics.returnCount} Notes` : "CGST + SGST + IGST"}
               </p>
             </div>
 
             {/* Card 4 */}
-            <div className="rounded-2xl p-4 bg-gradient-to-br from-purple-50 to-violet-50/60 border border-purple-100 shadow-sm">
+            <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-purple-50 to-violet-50/60 border border-purple-100 shadow-xs">
               <div className="flex items-center justify-between text-purple-600 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-purple-700">
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-purple-700 truncate">
                   Total Vouchers
                 </span>
-                <FaCalendarAlt size={16} />
+                <FaCalendarAlt className="text-xs sm:text-base flex-shrink-0" />
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">
-                {summaryMetrics.totalCount} <span className="text-sm font-normal text-gray-500">Vouchers</span>
+              <div className="text-sm sm:text-xl font-bold text-gray-900 truncate">
+                {summaryMetrics.totalCount} <span className="text-xs font-normal text-gray-500">Vouchers</span>
               </div>
-              <p className="text-[11px] text-purple-600/80 mt-0.5">
+              <p className="text-[10px] sm:text-[11px] text-purple-600/80 mt-0.5 truncate hidden xs:block">
                 Matched in active filter
               </p>
             </div>
           </div>
 
           {/* SEARCH BAR */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-gray-200/80 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 bg-white p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-200/80 shadow-xs">
             <div className="relative w-full sm:w-80">
-              <FaSearch size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <FaSearch size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search Bill No, Customer, City, Date..."
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                className="w-full pl-8 pr-3 py-1.5 sm:py-2 text-xs rounded-lg sm:rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               />
             </div>
 
-            <div className="text-xs font-medium text-gray-500">
+            <div className="text-[11px] sm:text-xs font-medium text-gray-500 text-right sm:text-left">
               Showing <span className="font-bold text-gray-800">{filtered.length}</span> of{" "}
               <span className="font-bold text-gray-800">{invoices.length}</span> Total Vouchers
             </div>
           </div>
 
           {/* INVOICES TABLE */}
-          <div className="rounded-2xl overflow-hidden bg-white border border-gray-200/80 shadow-sm">
+          <div className="rounded-xl sm:rounded-2xl overflow-hidden bg-white border border-gray-200/80 shadow-sm">
             <div className="overflow-x-auto">
               {loading ? (
-                <div className="text-center py-16 text-sm font-medium text-gray-500 flex flex-col items-center justify-center gap-2">
+                <div className="text-center py-16 text-xs sm:text-sm font-medium text-gray-500 flex flex-col items-center justify-center gap-2">
                   <FaSync size={20} className="animate-spin text-indigo-600" />
                   Loading Sales Register Data...
                 </div>
               ) : (
-                <table className="w-full text-xs text-left">
+                <table className="w-full text-[11px] sm:text-xs text-left min-w-[700px]">
                   <thead>
                     <tr className="bg-slate-900 text-white font-semibold uppercase tracking-wider border-b border-gray-200">
-                      <th className="py-3 px-3.5">Sr.</th>
-                      <th className="py-3 px-3.5">Bill Date</th>
-                      <th className="py-3 px-3.5">Voucher Type</th>
-                      <th className="py-3 px-3.5">Bill No (VCN)</th>
-                      <th className="py-3 px-3.5">Customer Name</th>
-                      <th className="py-3 px-3.5 text-right">Taxable (₹)</th>
-                      <th className="py-3 px-3.5 text-right">Tax (₹)</th>
-                      <th className="py-3 px-3.5 text-right">Bill Value (₹)</th>
-                      <th className="py-3 px-3.5 text-center">Action</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Sr.</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Bill Date</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Voucher Type</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Bill No (VCN)</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Customer Name</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5 text-right">Taxable (₹)</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5 text-right">Tax (₹)</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5 text-right">Bill Value (₹)</th>
+                      <th className="py-2.5 px-3 sm:py-3 sm:px-3.5 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">

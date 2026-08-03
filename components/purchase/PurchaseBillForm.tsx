@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCompany } from "@/context/CompanyContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
@@ -22,6 +22,13 @@ import {
   FaReceipt,
   FaSearch,
   FaShieldAlt,
+  FaSlidersH,
+  FaListUl,
+  FaShoppingBag,
+  FaFileInvoiceDollar,
+  FaTruck,
+  FaUndoAlt,
+  FaHistory,
 } from "react-icons/fa";
 
 interface BillItem {
@@ -76,6 +83,19 @@ interface POSelectOption {
   items: any[];
 }
 
+// Column Visibility State
+interface ColumnConfig {
+  hsn: boolean;
+  batch: boolean;
+  expDate: boolean;
+  mrp: boolean;
+  freeQty: boolean;
+  tradeDisc: boolean;
+  gst: boolean;
+  taxableAmt: boolean;
+  gstAmt: boolean;
+}
+
 function getGstStateCode(gstin?: string): string {
   if (!gstin) return "";
   const cleaned = gstin.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -87,6 +107,9 @@ function getGstStateCode(gstin?: string): string {
 
 export default function PurchaseBillForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlPoId = searchParams.get("poId");
+
   const { selectedCompany } = useCompany();
   const { selectedFY } = useFinancialYear();
 
@@ -96,8 +119,10 @@ export default function PurchaseBillForm() {
   const [suppliersList, setSuppliersList] = useState<SupplierMaster[]>([]);
   const [productsList, setProductsList] = useState<ProductMaster[]>([]);
 
+  // Form State
+  const [billNumberCustom, setBillNumberCustom] = useState("");
   const [supplierInvoiceNo, setSupplierInvoiceNo] = useState("");
-  const [poId, setPoId] = useState<string | null>(null);
+  const [poId, setPoId] = useState<string | null>(urlPoId || null);
   const [poNumber, setPoNumber] = useState<string>("");
 
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
@@ -113,7 +138,28 @@ export default function PurchaseBillForm() {
   const [remarks, setRemarks] = useState("");
   const [taxType, setTaxType] = useState<"Intrastate" | "Interstate">("Intrastate");
 
-  // Initial Empty Row (no default dummy rate or dummy totals)
+  // Column Customization Visibility Checkboxes
+  const [showColSettings, setShowColSettings] = useState(false);
+  const [columns, setColumns] = useState<ColumnConfig>({
+    hsn: true,
+    batch: true,
+    expDate: true,
+    mrp: true,
+    freeQty: true,
+    tradeDisc: true,
+    gst: true,
+    taxableAmt: true,
+    gstAmt: true,
+  });
+
+  // Quick Multi-Product Selection Drawer
+  const [showMultiProductModal, setShowMultiProductModal] = useState(false);
+  const [prodSearch, setProdSearch] = useState("");
+
+  // Supplier History Panel Toggle State
+  const [showSupplierHistory, setShowSupplierHistory] = useState(true);
+
+  // Initial Empty Row
   const [items, setItems] = useState<BillItem[]>([
     {
       productName: "",
@@ -158,9 +204,69 @@ export default function PurchaseBillForm() {
     }
   }, [selectedCompany]);
 
+  // Auto-Fetch Next Bill Number VCN
+  const fetchNextBillVcn = useCallback(async () => {
+    try {
+      const res = await fetch("/api/purchase/invoice?action=nextNumber");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.nextVcn) {
+          setBillNumberCustom(json.nextVcn);
+        }
+      }
+    } catch (err) {
+      console.error("Fetch Next Bill VCN Error:", err);
+    }
+  }, []);
+
+  // Auto-import PO if poId parameter is provided in URL
+  const fetchPoFromUrl = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/purchase/orders?id=${id}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.order) {
+          const po = json.order;
+          setPoId(po._id);
+          setPoNumber(po.poNumber);
+          setVendorName(po.vendorName || "");
+          setVendorCode(po.vendorCode || "");
+          setVendorGst(po.vendorGst || "");
+          setVendorPhone(po.vendorPhone || "");
+          setVendorAddress(po.vendorAddress || "");
+
+          if (po.items && po.items.length > 0) {
+            const importedItems: BillItem[] = po.items.map((it: any) => ({
+              productId: it.productId || "",
+              productCode: it.productCode || "",
+              productName: it.productName || "",
+              hsnCode: it.hsnCode || "30049099",
+              batchNo: "BATCH-01",
+              expDate: "2027-12",
+              mrp: Number(it.mrp || 0) || Math.round(Number(it.rate || 0) * 1.3),
+              qty: Number(it.qty || 1),
+              freeQty: Number(it.freeQty || 0),
+              unit: it.unit || "Box",
+              rate: Number(it.rate || 0),
+              discountPercent: Number(it.discountPercent || 0),
+              gstPercent: Number(it.gstPercent || 12),
+            }));
+            setItems(importedItems);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error importing PO from URL:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchMasters();
-  }, [fetchMasters]);
+    fetchNextBillVcn();
+    if (urlPoId) {
+      fetchPoFromUrl(urlPoId);
+    }
+  }, [fetchMasters, fetchNextBillVcn, urlPoId, fetchPoFromUrl]);
 
   // Auto-Detect Intrastate vs Interstate tax based on GST State Codes
   useEffect(() => {
@@ -176,6 +282,11 @@ export default function PurchaseBillForm() {
       }
     }
   }, [selectedCompany, vendorGst]);
+
+  // Toggle Column Visibility
+  const toggleColumn = (key: keyof ColumnConfig) => {
+    setColumns((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Handle Supplier Selection
   const handleSupplierSelect = (supplierId: string) => {
@@ -208,6 +319,31 @@ export default function PurchaseBillForm() {
         qty: updated[index].qty > 0 ? updated[index].qty : 1,
       };
       setItems(updated);
+    }
+  };
+
+  // Quick Add Product from Catalog Modal
+  const handleQuickAddProduct = (prod: ProductMaster) => {
+    const newItem: BillItem = {
+      productId: prod.id,
+      productCode: prod.code,
+      productName: prod.name,
+      hsnCode: prod.hsn || "30049099",
+      batchNo: "BATCH-01",
+      expDate: "2027-12",
+      mrp: prod.mrp || Math.round((prod.purchaseRate || 0) * 1.3),
+      qty: 1,
+      freeQty: 0,
+      unit: prod.unit || "Box",
+      rate: prod.purchaseRate || 0,
+      discountPercent: 0,
+      gstPercent: prod.gstPercent || 12,
+    };
+
+    if (items.length === 1 && !items[0].productName) {
+      setItems([newItem]);
+    } else {
+      setItems([...items, newItem]);
     }
   };
 
@@ -252,9 +388,9 @@ export default function PurchaseBillForm() {
         hsnCode: it.hsnCode || "30049099",
         batchNo: "BATCH-01",
         expDate: "2027-12",
-        mrp: Math.round(Number(it.rate || 0) * 1.3),
+        mrp: Number(it.mrp || 0) || Math.round(Number(it.rate || 0) * 1.3),
         qty: Number(it.qty || 1),
-        freeQty: 0,
+        freeQty: Number(it.freeQty || 0),
         unit: it.unit || "Box",
         rate: Number(it.rate || 0),
         discountPercent: Number(it.discountPercent || 0),
@@ -309,7 +445,7 @@ export default function PurchaseBillForm() {
     subLabel: `${p.companyName ? `Comp: ${p.companyName} | ` : ""}Rate: ₹${p.purchaseRate} | HSN: ${p.hsn}`,
   }));
 
-  // Line & Overall Calculations (only include valid products)
+  // Line & Overall Calculations
   const calculatedItems = items.map((it) => {
     const isSelected = it.productName.trim() !== "" || Boolean(it.productId);
     const qty = isSelected ? Number(it.qty || 0) : 0;
@@ -319,7 +455,7 @@ export default function PurchaseBillForm() {
 
     const gross = qty * rate;
     const discAmt = gross * (disc / 100);
-    const taxable = gross - discAmt;
+    const taxable = Math.max(0, gross - discAmt);
     const gstAmt = taxable * (gst / 100);
     const lineTotal = taxable + gstAmt;
 
@@ -365,6 +501,7 @@ export default function PurchaseBillForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          billNumber: billNumberCustom,
           supplierInvoiceNo,
           poId,
           poNumber,
@@ -405,40 +542,123 @@ export default function PurchaseBillForm() {
     po.vendorName.toLowerCase().includes(poSearch.toLowerCase())
   );
 
+  const filteredModalProducts = productsList.filter((p) =>
+    p.name.toLowerCase().includes(prodSearch.toLowerCase()) ||
+    p.code.toLowerCase().includes(prodSearch.toLowerCase()) ||
+    (p.companyName || "").toLowerCase().includes(prodSearch.toLowerCase())
+  );
+
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/purchase/invoice"
-            className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition"
+            className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition shadow-xs"
           >
             <FaArrowLeft />
           </Link>
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white">
-              Create Purchase Bill
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white">
+              Create Purchase Bill / Invoice
             </h1>
             <p className="text-xs text-slate-500">
-              New purchase invoice & inward stock entry
+              New purchase invoice, inward stock entry & supplier bill
             </p>
           </div>
         </div>
 
-        {/* Feature Button: Fetch / Import from Purchase Order */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Product Catalog Trigger */}
+          <button
+            type="button"
+            onClick={() => setShowMultiProductModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition shadow-xs"
+          >
+            <FaListUl /> Quick Add Products
+          </button>
+
+          {/* Customize Columns Trigger */}
+          <button
+            type="button"
+            onClick={() => setShowColSettings(!showColSettings)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 text-xs font-bold transition"
+          >
+            <FaSlidersH /> Customize Columns ⚙️
+          </button>
+
+          {/* Import Purchase Order Trigger */}
           <button
             type="button"
             onClick={openPoModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-extrabold shadow-md transition-all transform hover:scale-105"
+            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-extrabold shadow-md transition-all"
           >
-            <FaDownload /> Fetch / Import from Purchase Order
+            <FaDownload /> Import from PO
           </button>
         </div>
       </div>
 
-      {/* Auto GST State Code Matching Alert Banner */}
+      {/* Interlinking Navigation Pills */}
+      <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-900/60 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+        <Link
+          href="/dashboard/purchase/dashboard"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition"
+        >
+          <FaShoppingBag className="text-amber-500" /> Dashboard
+        </Link>
+        <Link
+          href="/dashboard/purchase/invoice"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition"
+        >
+          <FaFileInvoice className="text-amber-500" /> Invoices List
+        </Link>
+        <Link
+          href="/dashboard/purchase/invoice/create"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 text-white shadow-xs font-bold"
+        >
+          <FaPlus /> Create Bill
+        </Link>
+        <Link
+          href="/dashboard/purchase/orders"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition"
+        >
+          <FaTruck className="text-indigo-500" /> Orders
+        </Link>
+        <Link
+          href="/dashboard/purchase/outstanding"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition"
+        >
+          <FaFileInvoiceDollar className="text-rose-500" /> Outstanding
+        </Link>
+        <Link
+          href="/dashboard/purchase/payment"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition"
+        >
+          <FaReceipt className="text-emerald-500" /> Payment Entry
+        </Link>
+      </div>
+
+      {/* Linked Purchase Order Alert Banner */}
+      {poNumber && (
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/40 text-indigo-900 dark:text-indigo-200 text-xs font-semibold">
+          <div className="flex items-center gap-2">
+            <FaTruck className="text-indigo-600" />
+            <span>
+              Linked Purchase Order: <strong>{poNumber}</strong> (All items & vendor pre-filled)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setPoId(null); setPoNumber(""); }}
+            className="text-xs text-indigo-600 hover:underline font-bold"
+          >
+            Unlink PO ✕
+          </button>
+        </div>
+      )}
+
+      {/* Auto GST State Code Alert Banner */}
       {(compStateCode || suppStateCode) && (
         <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
           <div className="flex items-center gap-2">
@@ -454,35 +674,90 @@ export default function PurchaseBillForm() {
         </div>
       )}
 
-      {poNumber && (
-        <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-semibold">
-          <FaCheckCircle className="text-amber-600" /> Linked to Purchase Order: <strong>{poNumber}</strong>
+      {/* Customizable Columns Settings Drawer */}
+      {showColSettings && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-4 animate-fadeIn space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold text-amber-900 dark:text-amber-300 flex items-center gap-2">
+              <FaSlidersH /> Select Table Fields To Display (Checkboxes):
+            </span>
+            <button
+              onClick={() => setShowColSettings(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 font-bold"
+            >
+              Close ✕
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+            {[
+              { key: "hsn", label: "HSN Code" },
+              { key: "batch", label: "Batch No" },
+              { key: "expDate", label: "Expiry Date" },
+              { key: "mrp", label: "MRP (₹)" },
+              { key: "freeQty", label: "Free Qty" },
+              { key: "tradeDisc", label: "Trade Disc %" },
+              { key: "gst", label: "GST %" },
+              { key: "taxableAmt", label: "Taxable Value" },
+              { key: "gstAmt", label: "GST Amount" },
+            ].map((col) => {
+              const active = columns[col.key as keyof ColumnConfig];
+              return (
+                <label
+                  key={col.key}
+                  className="flex items-center gap-2 text-xs font-semibold cursor-pointer select-none text-slate-700 dark:text-slate-300 bg-white/70 dark:bg-slate-800/80 p-2 rounded-xl border border-slate-200/60 dark:border-white/10"
+                >
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={() => toggleColumn(col.key as keyof ColumnConfig)}
+                    className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                  />
+                  <span>{col.label}</span>
+                </label>
+              );
+            })}
+          </div>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Bill Metadata */}
+        {/* Vendor & Invoice Settings Card */}
         <div className="bg-white dark:bg-slate-800/80 rounded-3xl p-6 border border-slate-100 dark:border-white/10 shadow-sm space-y-4">
           <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-            <FaUser className="text-amber-600" /> Supplier & Invoice Info
+            <FaUser className="text-amber-600" /> Supplier & Invoice Header
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Bill VCN Series (Customizable) */}
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                Supplier Invoice / Bill No *
+                Bill VCN Number *
               </label>
               <input
                 type="text"
-                required
-                placeholder="e.g. INV-90421"
-                value={supplierInvoiceNo}
-                onChange={(e) => setSupplierInvoiceNo(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold"
+                value={billNumberCustom}
+                onChange={(e) => setBillNumberCustom(e.target.value)}
+                placeholder="PUR-1001"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-extrabold text-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
 
-            {/* Supplier Selector Dropdown */}
+            {/* Supplier Invoice No */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Supplier Inv / Bill No *
+              </label>
+              <input
+                type="text"
+                value={supplierInvoiceNo}
+                onChange={(e) => setSupplierInvoiceNo(e.target.value)}
+                placeholder="Vendor Inv # (e.g. INV-9982)"
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            {/* Supplier Searchable Select */}
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Select Supplier (Sundry Creditor) *
@@ -501,341 +776,434 @@ export default function PurchaseBillForm() {
               </label>
               <input
                 type="text"
-                required
-                placeholder="Supplier Name"
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold text-slate-800 dark:text-white"
+                placeholder="Supplier Company Name"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                Bill Date *
+                Supplier GSTIN
+              </label>
+              <input
+                type="text"
+                value={vendorGst}
+                onChange={(e) => setVendorGst(e.target.value)}
+                placeholder="27AAAAA0000A1Z5"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Bill Date
               </label>
               <input
                 type="date"
-                required
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Payment Due Date
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Tax Type Mode
+              </label>
+              <select
+                value={taxType}
+                onChange={(e: any) => setTaxType(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+              >
+                <option value="Intrastate">Intrastate (CGST + SGST)</option>
+                <option value="Interstate">Interstate (IGST)</option>
+              </select>
             </div>
           </div>
         </div>
 
-        {/* Live Supplier History & Outstanding Panel */}
-        <SupplierHistoryPanel
-          vendorName={vendorName}
-          vendorCode={vendorCode}
-          vendorId={selectedSupplierId}
-        />
+        {/* SUPPLIER HISTORY & LEDGER ANALYTICS PANEL */}
+        {vendorName && showSupplierHistory && (
+          <SupplierHistoryPanel
+            vendorName={vendorName}
+            vendorCode={vendorCode}
+            vendorId={selectedSupplierId}
+          />
+        )}
 
-        {/* Product Items Table with Inventory Product Selector */}
-        <div className="bg-white dark:bg-slate-800/80 rounded-3xl p-6 border border-slate-100 dark:border-white/10 shadow-sm space-y-4">
+        {/* Product Items Entry Table */}
+        <div className="bg-white dark:bg-slate-800/80 rounded-3xl p-6 border border-slate-100 dark:border-white/10 shadow-sm space-y-4 overflow-x-auto">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-              <FaBoxes className="text-amber-600" /> Inward Stock Items & Batch Info
+              <FaBoxes className="text-amber-600" /> Inward Purchased Products
             </h2>
             <button
               type="button"
               onClick={handleAddItem}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-bold transition"
             >
-              <FaPlus /> Add Product Row
+              <FaPlus /> Add Line Item
             </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[950px]">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-white/10 text-slate-400 font-medium">
-                  <th className="pb-3 w-8">#</th>
-                  <th className="pb-3 min-w-[240px]">Select Product (Inventory Master) *</th>
-                  <th className="pb-3 w-24">HSN Code</th>
-                  <th className="pb-3 w-20">Batch No</th>
-                  <th className="pb-3 w-20">Exp Date</th>
-                  <th className="pb-3 w-20">MRP (₹)</th>
-                  <th className="pb-3 w-16">Qty</th>
-                  <th className="pb-3 w-16">Free</th>
-                  <th className="pb-3 w-20">Rate (₹)</th>
-                  <th className="pb-3 w-16">Disc %</th>
-                  <th className="pb-3 w-16">GST %</th>
-                  <th className="pb-3 w-24 text-right">Line Total (₹)</th>
-                  <th className="pb-3 w-10 text-center"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {calculatedItems.map((it, idx) => (
-                  <tr key={idx}>
-                    <td className="py-2.5 text-slate-400 font-semibold">{idx + 1}</td>
-                    <td className="py-2.5 pr-2">
-                      <SearchableSelect
-                        options={productOptions}
-                        value={it.productId || ""}
-                        onChange={(val) => handleProductSelect(idx, val)}
-                        placeholder={loadingMasters ? "Loading Products..." : "Search/Select Inventory Product..."}
-                      />
-                    </td>
-                    <td className="py-2.5 pr-2">
+          <table className="w-full text-left text-xs min-w-[700px]">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider">
+                <th className="pb-3 px-2 min-w-[200px]">Product Name *</th>
+                {columns.hsn && <th className="pb-3 px-2 w-24">HSN</th>}
+                {columns.batch && <th className="pb-3 px-2 w-24">Batch</th>}
+                {columns.expDate && <th className="pb-3 px-2 w-28">Exp Date</th>}
+                {columns.mrp && <th className="pb-3 px-2 text-right w-24">MRP (₹)</th>}
+                <th className="pb-3 px-2 text-right w-24">Qty *</th>
+                {columns.freeQty && <th className="pb-3 px-2 text-right w-20">Free</th>}
+                <th className="pb-3 px-2 text-right w-28">Rate (₹) *</th>
+                {columns.tradeDisc && <th className="pb-3 px-2 text-right w-20">Dis %</th>}
+                {columns.gst && <th className="pb-3 px-2 text-right w-20">GST %</th>}
+                {columns.taxableAmt && <th className="pb-3 px-2 text-right w-28">Taxable</th>}
+                {columns.gstAmt && <th className="pb-3 px-2 text-right w-24">GST Amt</th>}
+                <th className="pb-3 px-2 text-right w-28">Total</th>
+                <th className="pb-3 px-2 text-center w-10">✕</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {calculatedItems.map((item, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition">
+                  <td className="py-2.5 px-2">
+                    <SearchableSelect
+                      options={productOptions}
+                      value={item.productId || ""}
+                      onChange={(val) => handleProductSelect(idx, val)}
+                      placeholder="Search / Select Product..."
+                    />
+                  </td>
+                  {columns.hsn && (
+                    <td className="py-2.5 px-2">
                       <input
                         type="text"
-                        placeholder="HSN"
-                        value={it.hsnCode}
+                        value={item.hsnCode}
                         onChange={(e) => handleItemChange(idx, "hsnCode", e.target.value)}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none font-semibold text-amber-800 dark:text-amber-300"
+                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                       />
                     </td>
-                    <td className="py-2.5 pr-2">
+                  )}
+                  {columns.batch && (
+                    <td className="py-2.5 px-2">
                       <input
                         type="text"
-                        value={it.batchNo}
+                        value={item.batchNo}
                         onChange={(e) => handleItemChange(idx, "batchNo", e.target.value)}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none"
+                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                       />
                     </td>
-                    <td className="py-2.5 pr-2">
+                  )}
+                  {columns.expDate && (
+                    <td className="py-2.5 px-2">
                       <input
-                        type="text"
-                        placeholder="MM/YY"
-                        value={it.expDate}
+                        type="month"
+                        value={item.expDate}
                         onChange={(e) => handleItemChange(idx, "expDate", e.target.value)}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none"
+                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                       />
                     </td>
-                    <td className="py-2.5 pr-2">
+                  )}
+                  {columns.mrp && (
+                    <td className="py-2.5 px-2">
                       <input
                         type="number"
-                        min="0"
-                        value={it.mrp || ""}
-                        placeholder="0.00"
-                        onChange={(e) => handleItemChange(idx, "mrp", parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none"
-                      />
-                    </td>
-                    <td className="py-2.5 pr-2">
-                      <input
-                        type="number"
-                        min="1"
-                        value={it.qty}
-                        onChange={(e) => handleItemChange(idx, "qty", Math.max(1, parseInt(e.target.value) || 0))}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none font-bold text-amber-700"
-                      />
-                    </td>
-                    <td className="py-2.5 pr-2">
-                      <input
-                        type="number"
-                        min="0"
-                        value={it.freeQty}
-                        onChange={(e) => handleItemChange(idx, "freeQty", parseInt(e.target.value) || 0)}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none"
-                      />
-                    </td>
-                    <td className="py-2.5 pr-2">
-                      <input
-                        type="number"
-                        min="0"
                         step="0.01"
-                        value={it.rate || ""}
-                        placeholder="0.00"
-                        onChange={(e) => handleItemChange(idx, "rate", parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none font-semibold"
+                        value={item.mrp || ""}
+                        onChange={(e) => handleItemChange(idx, "mrp", e.target.value)}
+                        className="w-full px-2 py-1 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                       />
                     </td>
-                    <td className="py-2.5 pr-2">
+                  )}
+                  <td className="py-2.5 px-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.qty}
+                      onChange={(e) => handleItemChange(idx, "qty", Math.max(1, Number(e.target.value)))}
+                      className="w-full px-2 py-1 text-right font-bold rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                    />
+                  </td>
+                  {columns.freeQty && (
+                    <td className="py-2.5 px-2">
                       <input
                         type="number"
                         min="0"
-                        max="100"
-                        value={it.discountPercent || ""}
-                        placeholder="0"
-                        onChange={(e) => handleItemChange(idx, "discountPercent", parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none"
+                        value={item.freeQty}
+                        onChange={(e) => handleItemChange(idx, "freeQty", Math.max(0, Number(e.target.value)))}
+                        className="w-full px-2 py-1 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                       />
                     </td>
-                    <td className="py-2.5 pr-2">
+                  )}
+                  <td className="py-2.5 px-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.rate || ""}
+                      onChange={(e) => handleItemChange(idx, "rate", Number(e.target.value))}
+                      className="w-full px-2 py-1 text-right font-bold text-amber-600 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                    />
+                  </td>
+                  {columns.tradeDisc && (
+                    <td className="py-2.5 px-2">
                       <input
                         type="number"
-                        min="0"
-                        max="28"
-                        value={it.gstPercent}
-                        onChange={(e) => handleItemChange(idx, "gstPercent", parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none"
+                        step="0.1"
+                        value={item.discountPercent || ""}
+                        onChange={(e) => handleItemChange(idx, "discountPercent", Number(e.target.value))}
+                        className="w-full px-2 py-1 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                       />
                     </td>
-                    <td className="py-2.5 text-right font-bold text-slate-800 dark:text-white">
-                      ₹{it.lineTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  )}
+                  {columns.gst && (
+                    <td className="py-2.5 px-2">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={item.gstPercent}
+                        onChange={(e) => handleItemChange(idx, "gstPercent", Number(e.target.value))}
+                        className="w-full px-2 py-1 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                      />
                     </td>
-                    <td className="py-2.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(idx)}
-                        disabled={items.length <= 1}
-                        className="text-slate-300 hover:text-rose-600 disabled:opacity-30 transition"
-                      >
-                        <FaTrash />
-                      </button>
+                  )}
+                  {columns.taxableAmt && (
+                    <td className="py-2.5 px-2 text-right font-semibold">
+                      ₹{item.taxable.toFixed(2)}
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                  {columns.gstAmt && (
+                    <td className="py-2.5 px-2 text-right text-slate-500">
+                      ₹{item.gstAmt.toFixed(2)}
+                    </td>
+                  )}
+                  <td className="py-2.5 px-2 text-right font-black text-amber-600">
+                    ₹{item.lineTotal.toFixed(2)}
+                  </td>
+                  <td className="py-2.5 px-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(idx)}
+                      disabled={items.length <= 1}
+                      className="p-1 text-slate-400 hover:text-rose-600 disabled:opacity-30 transition"
+                    >
+                      <FaTrash size={12} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* Calculation Summary & Save Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 bg-white dark:bg-slate-800/80 rounded-3xl p-6 border border-slate-100 dark:border-white/10 shadow-sm space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                Amount Paid Right Now (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={paidAmount || ""}
-                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold"
-              />
+        {/* Financial Summary & Payment Settlement */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white dark:bg-slate-800/80 p-6 rounded-3xl border border-slate-100 dark:border-white/10 shadow-sm space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Paid Amount (Instant Settlement)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={paidAmount || ""}
+                    onChange={(e) => setPaidAmount(Number(e.target.value))}
+                    placeholder="0.00"
+                    className="w-full pl-7 pr-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Remaining Balance Amount
+                </label>
+                <div className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-black text-rose-600">
+                  ₹{balance.toLocaleString("en-IN")}
+                </div>
+              </div>
             </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                Remarks / Notes
+                Bill Remarks / Internal Notes
               </label>
               <textarea
                 rows={2}
-                placeholder="Notes for inward purchase entry..."
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                placeholder="Enter bill notes or payment instructions..."
+                className="w-full p-3 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-amber-600 to-orange-700 text-white rounded-3xl p-6 shadow-xl space-y-3 flex flex-col justify-between">
-            <div className="space-y-2 text-xs">
+          <div className="bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 p-6 rounded-3xl text-white shadow-xl space-y-3 border border-amber-500">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-amber-100">Bill Financial Summary</h3>
+            <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-amber-100">
-                <span>Subtotal:</span>
+                <span>Subtotal Gross:</span>
                 <span>₹{subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-amber-100">
+              <div className="flex justify-between text-rose-200">
                 <span>Total Discount:</span>
-                <span>- ₹{totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                <span>-₹{totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
-              {isInterstate ? (
-                <div className="flex justify-between text-amber-100">
-                  <span>IGST Total:</span>
-                  <span>+ ₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex justify-between text-amber-100">
-                    <span>CGST (Half Tax):</span>
-                    <span>+ ₹{(totalTax / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between text-amber-100">
-                    <span>SGST (Half Tax):</span>
-                    <span>+ ₹{(totalTax / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                  </div>
-                </>
-              )}
               <div className="flex justify-between text-amber-100">
-                <span>Round Off:</span>
-                <span>₹{roundOff.toFixed(2)}</span>
+                <span>Taxable Amount:</span>
+                <span>₹{(subtotal - totalDiscount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="border-t border-white/20 pt-2 flex justify-between text-base font-extrabold text-white">
-                <span>Grand Total:</span>
-                <span>₹{netAmount.toLocaleString("en-IN")}</span>
+              <div className="flex justify-between text-amber-100">
+                <span>{isInterstate ? "IGST Tax" : "CGST + SGST Tax"}:</span>
+                <span>₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-amber-200 pt-1 font-semibold">
-                <span>Balance Pending:</span>
-                <span>₹{balance.toLocaleString("en-IN")}</span>
+              <div className="border-t border-amber-400/40 pt-2 flex justify-between items-center">
+                <span className="text-base font-black">Net Total Bill Value:</span>
+                <span className="text-2xl font-black text-white">₹{netAmount.toLocaleString("en-IN")}</span>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={saving}
-              className="w-full py-3 rounded-2xl bg-white text-amber-900 font-extrabold text-xs shadow-lg hover:bg-amber-50 transition flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-2xl bg-white hover:bg-amber-50 text-amber-950 font-black text-xs shadow-lg transition flex items-center justify-center gap-2 transform hover:scale-[1.02]"
             >
-              <FaSave /> {saving ? "Saving Bill..." : "Save Purchase Bill"}
+              <FaSave /> {saving ? "Saving Purchase Bill..." : "Save Purchase Bill"}
             </button>
           </div>
         </div>
       </form>
 
-      {/* Fetch / Import PO Modal */}
+      {/* IMPORT PO MODAL */}
       {showPoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-slate-100 dark:border-white/10 space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                  <FaDownload className="text-amber-600" /> Fetch Data from Purchase Order
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Select a pending Purchase Order to auto-fill vendor details & product items
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPoModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 hover:text-slate-600"
-              >
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FaDownload className="text-amber-500" /> Select Pending Purchase Order to Import
+              </h3>
+              <button onClick={() => setShowPoModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <FaTimes />
               </button>
             </div>
 
             <div className="relative">
-              <FaSearch className="absolute left-3.5 top-3 text-slate-400 text-xs" />
+              <FaSearch className="absolute left-3.5 top-3.5 text-slate-400 text-xs" />
               <input
                 type="text"
-                placeholder="Search by PO Number or Vendor Name..."
+                placeholder="Search PO Number, Vendor Name..."
                 value={poSearch}
                 onChange={(e) => setPoSearch(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {loadingPOs ? (
-                <div className="py-8 text-center text-xs text-slate-400">Loading pending Purchase Orders...</div>
-              ) : filteredPOs.length > 0 ? (
-                filteredPOs.map((po) => (
-                  <div
-                    key={po._id}
-                    className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 hover:border-amber-400 transition"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-xs text-slate-800 dark:text-white">
-                          {po.poNumber}
-                        </span>
-                        <span className="text-[10px] text-slate-400">({po.poDate})</span>
-                      </div>
-                      <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                        {po.vendorName}
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        {po.items?.length || 0} items | Amount: ₹{po.netTotal?.toLocaleString("en-IN")}
-                      </div>
+            {loadingPOs ? (
+              <div className="py-8 text-center text-xs text-slate-400">Loading pending Purchase Orders...</div>
+            ) : filteredPOs.length > 0 ? (
+              <div className="max-h-60 overflow-y-auto space-y-2 text-xs">
+                {filteredPOs.map((po) => (
+                  <div key={po._id} className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border flex items-center justify-between hover:border-amber-500 transition">
+                    <div>
+                      <p className="font-bold text-amber-600 dark:text-amber-400">{po.poNumber}</p>
+                      <p className="text-slate-800 dark:text-white font-medium">{po.vendorName}</p>
+                      <p className="text-[10px] text-slate-500">Date: {po.poDate} • Items: {po.items?.length || 0}</p>
                     </div>
-
                     <button
                       type="button"
                       onClick={() => handleImportPO(po)}
-                      className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-sm"
+                      className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[11px] transition shadow-xs"
                     >
-                      Import to Bill
+                      Import Items &rarr;
                     </button>
                   </div>
-                ))
-              ) : (
-                <div className="py-8 text-center text-xs text-slate-400">
-                  No pending Purchase Orders found. You can create one first or enter bill manually.
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-xs text-slate-400">No pending Purchase Orders found.</div>
+            )}
+
+            <div className="flex justify-end pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setShowPoModal(false)}
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK MULTI-PRODUCT CATALOG MODAL */}
+      {showMultiProductModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FaListUl className="text-amber-500" /> Quick Product Selection Catalog
+              </h3>
+              <button onClick={() => setShowMultiProductModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="relative">
+              <FaSearch className="absolute left-3.5 top-3.5 text-slate-400 text-xs" />
+              <input
+                type="text"
+                placeholder="Search products by name, code, company..."
+                value={prodSearch}
+                onChange={(e) => setProdSearch(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-2 text-xs">
+              {filteredModalProducts.map((prod) => (
+                <div key={prod.id} className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border flex items-center justify-between hover:border-amber-500 transition">
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-white">{prod.name}</p>
+                    <p className="text-[10px] text-slate-500">Code: {prod.code} • Rate: ₹{prod.purchaseRate} • HSN: {prod.hsn}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddProduct(prod)}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-[11px] transition"
+                  >
+                    + Add
+                  </button>
                 </div>
-              )}
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setShowMultiProductModal(false)}
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

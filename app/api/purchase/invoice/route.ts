@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import PurchaseBill from "@/models/PurchaseBill";
 import PurchaseOrder from "@/models/PurchaseOrder";
+import SalesMdis from "@/models/SalesMdis";
+import Pendings from "@/models/Pendings";
+import { consumeNextVoucherNumber, peekNextVoucherNumber } from "@/lib/voucherSeriesHelper";
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +15,37 @@ export async function GET(req: Request) {
     await connectDB();
 
     const { searchParams } = new URL(req.url);
+    const action = searchParams.get("action");
+
+    if (action === "nextNumber") {
+      const nextVcn = await peekNextVoucherNumber("PURCHASE");
+      return NextResponse.json({ success: true, nextVcn });
+    }
+
     const billId = searchParams.get("id");
     const vendorId = searchParams.get("vendorId");
     const companyId = searchParams.get("companyId");
     const search = (searchParams.get("search") || searchParams.get("q") || "").trim();
 
     if (billId) {
-      const bill = await PurchaseBill.findById(billId).lean();
+      let bill = await PurchaseBill.findById(billId).lean();
+      if (!bill) {
+        // Fallback to check SalesMdis / Pendings
+        const mdis = await SalesMdis.findById(billId).lean();
+        if (mdis) {
+          bill = {
+            _id: mdis._id,
+            billNumber: mdis.VCN || mdis.VOUCHER || "N/A",
+            supplierInvoiceNo: mdis.SUPPINVNO || "VFP-INV",
+            billDate: mdis.DATE ? String(mdis.DATE).slice(0, 10) : "",
+            vendorName: mdis.NAME || mdis.PARNAM || "Supplier",
+            netAmount: Math.abs(Number(mdis.FINAL || 0)),
+            balanceAmount: Math.abs(Number(mdis.FINAL || 0)),
+            paymentStatus: "Pending",
+            items: [],
+          } as any;
+        }
+      }
       if (!bill) {
         return NextResponse.json({ success: false, message: "Purchase bill not found" }, { status: 404 });
       }
@@ -52,12 +81,92 @@ export async function GET(req: Request) {
       ];
     }
 
-    const bills = await PurchaseBill.find(query).sort({ createdAt: -1 }).lean();
+    const webBills = await PurchaseBill.find(query).sort({ createdAt: -1 }).lean();
+
+    // Fetch Legacy VFP Purchase Bills from SalesMdis & Pendings
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+    const fyRange = await getFYDateRange(searchParams);
+    const dateMatchDate = buildFYDateQuery("DATE", fyRange.startDate, fyRange.endDate);
+
+    const purchaseMdisFilter: any = combineFilters(
+      { TYPE: { $in: ["P", "PURCHASE"] } },
+      dateMatchDate,
+      companyVfpMatch
+    );
+
+    if (search) {
+      const sReg = new RegExp(search, "i");
+      purchaseMdisFilter.$or = [
+        { VCN: sReg },
+        { VOUCHER: sReg },
+        { NAME: sReg },
+        { PARNAM: sReg },
+      ];
+    }
+
+    const [mdisRows, pendingsRows] = await Promise.all([
+      SalesMdis.find(purchaseMdisFilter).sort({ DATE: -1 }).limit(150).lean(),
+      Pendings.find(combineFilters({ ACGROUP: /^D/i, INVTYPE: "I" }, companyVfpMatch)).limit(150).lean(),
+    ]);
+
+    const legacyBills: any[] = [];
+    const seenVcn = new Set<string>();
+
+    webBills.forEach((b: any) => {
+      if (b.billNumber) seenVcn.add(b.billNumber);
+    });
+
+    mdisRows.forEach((row: any) => {
+      const vcn = row.VCN || row.VOUCHER || "";
+      if (vcn && !seenVcn.has(vcn)) {
+        seenVcn.add(vcn);
+        const finalAmt = Math.abs(Number(row.FINAL || row.NETAMT || 0));
+        legacyBills.push({
+          _id: row._id,
+          billNumber: vcn,
+          supplierInvoiceNo: row.SUPPINVNO || row.INVNO || "VFP-INV",
+          billDate: row.DATE ? String(row.DATE).slice(0, 10) : "",
+          vendorName: row.NAME || row.PARNAM || row.CODEP || "Supplier",
+          poNumber: row.PONO || "",
+          netAmount: finalAmt,
+          paidAmount: 0,
+          balanceAmount: finalAmt,
+          paymentStatus: "Pending",
+          items: [],
+          isLegacy: true,
+        });
+      }
+    });
+
+    pendingsRows.forEach((row: any) => {
+      const vcn = row.VCN || row.VOUCHER || "";
+      if (vcn && !seenVcn.has(vcn)) {
+        seenVcn.add(vcn);
+        const bal = Math.abs(Number(row.BALANCE || 0));
+        const billAmt = Math.abs(Number(row.BILLAMT || row.NETAMT || bal));
+        legacyBills.push({
+          _id: row._id,
+          billNumber: vcn,
+          supplierInvoiceNo: row.ORD || "VFP-INV",
+          billDate: row.DDATE ? String(row.DDATE).slice(0, 10) : "",
+          vendorName: row.PARNAM || row.NAME || row.CODEP || "Supplier",
+          poNumber: "",
+          netAmount: billAmt,
+          paidAmount: Math.max(0, billAmt - bal),
+          balanceAmount: bal,
+          paymentStatus: bal === 0 ? "Paid" : bal < billAmt ? "Partial" : "Pending",
+          items: [],
+          isLegacy: true,
+        });
+      }
+    });
+
+    const allBills = [...webBills, ...legacyBills];
 
     return NextResponse.json({
       success: true,
-      count: bills.length,
-      bills,
+      count: allBills.length,
+      bills: allBills,
     });
   } catch (error: any) {
     console.error("GET Purchase Bills Error:", error);
@@ -99,10 +208,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "At least 1 item is required in the purchase bill" }, { status: 400 });
     }
 
-    // Auto-generate Bill Number
-    const count = await PurchaseBill.countDocuments();
-    const year = new Date().getFullYear();
-    const billNumber = body.billNumber || `PB-${year}-${String(count + 1).padStart(4, "0")}`;
+    // Auto-generate Bill Number using Voucher Series Helper if not provided
+    const billNumber = body.billNumber || (await consumeNextVoucherNumber("PURCHASE"));
 
     // Item calculation
     let subtotal = 0;
@@ -147,64 +254,57 @@ export async function POST(req: Request) {
       };
     });
 
-    const rawNet = subtotal - totalDiscount + totalTax;
-    const netAmount = Math.round(rawNet);
-    const roundOff = Math.round((netAmount - rawNet) * 100) / 100;
-
+    const netAmount = Math.round((subtotal - totalDiscount + totalTax) * 100) / 100;
     const paid = Number(paidAmount || 0);
-    const balanceAmount = Math.max(0, netAmount - paid);
+    const balanceAmount = Math.max(0, Math.round((netAmount - paid) * 100) / 100);
 
-    let paymentStatus = "Pending";
-    if (paid >= netAmount) {
+    let paymentStatus: "Paid" | "Partial font-semibold" | "Pending" = "Pending";
+    if (paid >= netAmount && netAmount > 0) {
       paymentStatus = "Paid";
     } else if (paid > 0) {
-      paymentStatus = "Partial";
+      paymentStatus = "Partial font-semibold" as any;
     }
 
-    const newBill = await PurchaseBill.create({
+    const bill = await PurchaseBill.create({
       billNumber,
-      supplierInvoiceNo: supplierInvoiceNo || "",
-      poId: poId || null,
-      poNumber: poNumber || "",
-      companyId: companyId || "",
-      companyCode: companyCode || "",
-      fyId: fyId || "",
-      fyCode: fyCode || "",
+      supplierInvoiceNo,
+      poId,
+      poNumber,
+      companyId,
+      companyCode,
+      fyId,
+      fyCode,
       billDate: billDate || new Date().toISOString().slice(0, 10),
-      dueDate: dueDate || "",
-      vendorId: vendorId || "",
-      vendorCode: vendorCode || "",
+      dueDate,
+      vendorId,
+      vendorCode,
       vendorName,
-      vendorGst: vendorGst || "",
-      vendorPhone: vendorPhone || "",
-      vendorAddress: vendorAddress || "",
+      vendorGst,
+      vendorPhone,
+      vendorAddress,
       items: processedItems,
       subtotal: Math.round(subtotal * 100) / 100,
       totalDiscount: Math.round(totalDiscount * 100) / 100,
-      cgst: Math.round((totalTax / 2) * 100) / 100,
-      sgst: Math.round((totalTax / 2) * 100) / 100,
-      igst: 0,
       totalTax: Math.round(totalTax * 100) / 100,
-      roundOff,
       netAmount,
       paidAmount: paid,
       balanceAmount,
       paymentStatus,
-      remarks: remarks || "",
+      remarks,
     });
 
-    // Mark linked Purchase Order as Billed if linked
+    // Mark PO as Billed if linked
     if (poId) {
       await PurchaseOrder.findByIdAndUpdate(poId, { status: "Billed" });
     }
 
     return NextResponse.json({
       success: true,
-      message: "Purchase Bill created successfully",
-      bill: newBill,
+      message: "Purchase bill created successfully",
+      bill,
     });
   } catch (error: any) {
     console.error("POST Purchase Bill Error:", error);
-    return NextResponse.json({ success: false, message: error?.message || "Failed to create Purchase Bill" }, { status: 500 });
+    return NextResponse.json({ success: false, message: error?.message || "Server Error" }, { status: 500 });
   }
 }

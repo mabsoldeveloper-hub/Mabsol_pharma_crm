@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import PurchaseOrder from "@/models/PurchaseOrder";
+import { consumeNextVoucherNumber, peekNextVoucherNumber } from "@/lib/voucherSeriesHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,13 @@ export async function GET(req: Request) {
     await connectDB();
 
     const { searchParams } = new URL(req.url);
+    const action = searchParams.get("action");
+
+    if (action === "nextNumber") {
+      const nextVcn = await peekNextVoucherNumber("PURCHASE_ORDER");
+      return NextResponse.json({ success: true, nextVcn });
+    }
+
     const poId = searchParams.get("id") || searchParams.get("poId");
     const vendorId = searchParams.get("vendorId");
     const status = searchParams.get("status");
@@ -104,10 +112,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "At least 1 product item is required" }, { status: 400 });
     }
 
-    // Auto-generate PO Number if not provided
-    const count = await PurchaseOrder.countDocuments();
-    const year = new Date().getFullYear();
-    const poNumber = body.poNumber || `PO-${year}-${String(count + 1).padStart(4, "0")}`;
+    // Auto-generate PO Number using Voucher Series Helper if not provided
+    const poNumber = body.poNumber || (await consumeNextVoucherNumber("PURCHASE_ORDER"));
 
     // Process & calculate item totals
     let subtotal = 0;
