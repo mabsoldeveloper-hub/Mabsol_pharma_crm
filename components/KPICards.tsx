@@ -330,16 +330,21 @@ export default function KPICards({ kpis }: { kpis: any }) {
         }
     };
 
-    const filteredCards = activeSection === "ALL"
-        ? cards
-        : cards.filter((c) => c.category === activeSection);
+    // Search Filter state inside KPICards
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const filteredCards = cards.filter((card) => {
+        const matchesCategory = activeSection === "ALL" || card.category === activeSection;
+        const matchesSearch = searchQuery === "" || card.title.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCategory && matchesSearch;
+    });
 
     return (
-        <div className="space-y-4 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',system-ui,sans-serif]">
-            {/* Apple Liquid Glass Category Filter Segmented Control */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-200/50 dark:bg-slate-800/60 p-1.5 rounded-2xl border border-white/60 dark:border-slate-700/60 backdrop-blur-2xl shadow-xs">
-                <div className="flex flex-wrap items-center gap-1 text-xs">
-                    <span className="text-slate-400 font-semibold px-2 uppercase text-[10px] tracking-wider">Filter Dashboard:</span>
+        <div className="space-y-4">
+            {/* Apple Liquid Glass Category Filter Segmented Control & Search Input */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white/50 dark:bg-slate-900/60 p-2 rounded-2xl border border-white/80 dark:border-slate-800/80 backdrop-blur-2xl backdrop-saturate-150 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-slate-400 font-semibold px-2 uppercase text-[10px] tracking-wider hidden sm:inline">Category:</span>
                     {[
                         { id: "ALL", label: "All KPI Values", count: cards.length },
                         { id: "SALES", label: "Sales Data", count: cards.filter(c => c.category === "SALES").length },
@@ -349,16 +354,16 @@ export default function KPICards({ kpis }: { kpis: any }) {
                         <button
                             key={sec.id}
                             onClick={() => setActiveSection(sec.id as any)}
-                            className={`px-3 py-1 rounded-xl text-xs transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                            className={`px-3 py-1.5 rounded-xl text-xs transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
                                 activeSection === sec.id
-                                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold shadow-md shadow-slate-900/5 scale-[1.02]"
-                                    : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-700/40"
+                                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-bold shadow-md shadow-slate-900/5 scale-[1.02] border border-white/60 dark:border-slate-700"
+                                    : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40"
                             }`}
                         >
                             <span>{sec.label}</span>
                             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-semibold ${
                                 activeSection === sec.id
-                                    ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                    ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300"
                                     : "bg-slate-500/10 text-slate-500 dark:text-slate-400"
                             }`}>
                                 {sec.count}
@@ -366,9 +371,31 @@ export default function KPICards({ kpis }: { kpis: any }) {
                         </button>
                     ))}
                 </div>
+
+                {/* Glass Search Input */}
+                <div className="relative min-w-[200px]">
+                    <input
+                        type="text"
+                        placeholder="Search KPIs..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-white/70 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
+                    />
+                    <svg className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* Apple Pure White Glass Grid - Small Headings, Pure White Background & Apple Fluid Animations */}
+            {/* Apple Pure Liquid Glass Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-3.5">
                 {filteredCards.map((card, index) => {
                     const c = colorMap[card.color] ?? colorMap.indigo;
@@ -379,20 +406,20 @@ export default function KPICards({ kpis }: { kpis: any }) {
                             style={{ animationDelay: `${(index % 10) * 20}ms` }}
                             className={`
                                 group relative isolate overflow-hidden rounded-2xl
-                                bg-white dark:bg-slate-900
-                                border border-slate-200/80 dark:border-slate-800
-                                shadow-[0_2px_12px_rgba(0,0,0,0.03)]
+                                bg-white/65 dark:bg-slate-900/65 backdrop-blur-2xl backdrop-saturate-150
+                                border border-white/80 dark:border-slate-800/80
+                                shadow-[0_4px_20px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,0.9)]
                                 animate-[fadeSlideIn_0.4s_cubic-bezier(0.16,1,0.3,1)_both]
                                 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
                                 hover:-translate-y-1.5 hover:scale-[1.02]
-                                hover:shadow-[0_16px_32px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]
-                                hover:border-indigo-200 dark:hover:border-indigo-700/60
+                                hover:shadow-[0_16px_36px_rgba(31,38,135,0.12),inset_0_1px_1px_rgba(255,255,255,1)]
+                                hover:border-indigo-300/80 dark:hover:border-indigo-700/80
                                 active:scale-[0.98] active:duration-150
                                 cursor-pointer p-3.5 sm:p-4 flex flex-col justify-between min-h-[92px] sm:min-h-[100px]
                             `}
                         >
-                            {/* Apple Top Rim Highlight Sheen */}
-                            <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent group-hover:via-indigo-400 transition-colors" />
+                            {/* Apple Top Specular Highlight Catch-Light */}
+                            <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white dark:via-slate-700 to-transparent group-hover:via-indigo-400 transition-colors" />
 
                             {/* Apple Liquid Light Sweep Reflection Sheen on Hover */}
                             <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/10 dark:via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
@@ -411,7 +438,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
                             {/* TOP ROW: Title & Dot Indicator (Left) + Apple Icon Box (Right) */}
                             <div className="relative flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                                    <h3 className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-slate-400 tracking-tight leading-tight truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                    <h3 className="text-[11px] sm:text-xs font-medium text-slate-600 dark:text-slate-300 leading-tight truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                         {card.title}
                                     </h3>
                                     {c.dotColor && (
@@ -423,7 +450,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
                                     className={`
                                         flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center
                                         ${c.iconBg} ${c.iconText}
-                                        border border-slate-100 dark:border-slate-800 text-sm sm:text-base
+                                        border border-white/80 dark:border-slate-800 text-sm sm:text-base
                                         shadow-2xs backdrop-blur-md
                                         transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
                                         group-hover:scale-115 group-hover:-rotate-6 group-hover:shadow-md
