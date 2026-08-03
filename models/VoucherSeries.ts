@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IVoucherSeries extends Document {
   seriesName: string;
-  voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT";
+  voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "PURCHASE_ORDER" | "RETURN" | "RECEIPT" | "DEBIT_NOTE" | "PURCHASE_RETURN" | "PAYMENT";
   prefix: string;
   suffix: string;
   nextNumber: number;
@@ -23,7 +23,7 @@ const VoucherSeriesSchema = new Schema<IVoucherSeries>(
     voucherType: {
       type: String,
       required: true,
-      enum: ["SALES", "PROFORMA", "PURCHASE", "RETURN", "RECEIPT"],
+      enum: ["SALES", "PROFORMA", "PURCHASE", "PURCHASE_ORDER", "RETURN", "RECEIPT", "DEBIT_NOTE", "PURCHASE_RETURN", "PAYMENT"],
       default: "SALES",
     },
     prefix: { type: String, default: "INV-", trim: true },

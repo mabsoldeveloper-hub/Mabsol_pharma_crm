@@ -22,7 +22,7 @@ import {
 interface VoucherSeriesItem {
   _id: string;
   seriesName: string;
-  voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT";
+  voucherType: "SALES" | "PROFORMA" | "PURCHASE" | "PURCHASE_ORDER" | "RETURN" | "RECEIPT" | "DEBIT_NOTE" | "PURCHASE_RETURN" | "PAYMENT";
   prefix: string;
   suffix: string;
   nextNumber: number;
@@ -43,7 +43,7 @@ export default function VoucherSeriesMasterPage() {
 
   // Form State
   const [seriesName, setSeriesName] = useState("");
-  const [voucherType, setVoucherType] = useState<"SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT">("SALES");
+  const [voucherType, setVoucherType] = useState<"SALES" | "PROFORMA" | "PURCHASE" | "PURCHASE_ORDER" | "RETURN" | "RECEIPT" | "DEBIT_NOTE" | "PURCHASE_RETURN" | "PAYMENT">("SALES");
   const [prefix, setPrefix] = useState("INV-");
   const [suffix, setSuffix] = useState("");
   const [nextNumber, setNextNumber] = useState<number | "">(1001);
@@ -80,7 +80,7 @@ export default function VoucherSeriesMasterPage() {
     loadSeries();
   }, [loadSeries]);
 
-  const handleVoucherTypeChange = (type: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT") => {
+  const handleVoucherTypeChange = (type: "SALES" | "PROFORMA" | "PURCHASE" | "PURCHASE_ORDER" | "RETURN" | "RECEIPT" | "DEBIT_NOTE" | "PURCHASE_RETURN" | "PAYMENT") => {
     setVoucherType(type);
     if (!editingId) {
       if (type === "SALES") {
@@ -92,12 +92,24 @@ export default function VoucherSeriesMasterPage() {
       } else if (type === "PURCHASE") {
         setSeriesName("Purchase Invoice Series");
         setPrefix("PUR-");
+      } else if (type === "PURCHASE_ORDER") {
+        setSeriesName("Purchase Order Series");
+        setPrefix("PO-");
       } else if (type === "RETURN") {
         setSeriesName("Sales Return Series");
         setPrefix("RET-");
+      } else if (type === "DEBIT_NOTE") {
+        setSeriesName("Debit Note Series");
+        setPrefix("DN-");
+      } else if (type === "PURCHASE_RETURN") {
+        setSeriesName("Purchase Return Series");
+        setPrefix("PR-");
       } else if (type === "RECEIPT") {
         setSeriesName("Receipt Entry Series");
         setPrefix("RCT-");
+      } else if (type === "PAYMENT") {
+        setSeriesName("Supplier Payment Series");
+        setPrefix("PMT-");
       }
     }
   };
@@ -344,7 +356,51 @@ export default function VoucherSeriesMasterPage() {
                       : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
-                  <FaReceipt size={12} /> Purchase
+                  <FaReceipt size={12} /> Purchase Bill
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVoucherTypeChange("PURCHASE_ORDER")}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    voucherType === "PURCHASE_ORDER"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <FaReceipt size={12} /> Purchase Order
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVoucherTypeChange("DEBIT_NOTE")}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    voucherType === "DEBIT_NOTE"
+                      ? "bg-orange-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <FaReceipt size={12} /> Debit Note
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVoucherTypeChange("PURCHASE_RETURN")}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    voucherType === "PURCHASE_RETURN"
+                      ? "bg-red-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <FaReceipt size={12} /> Purchase Return
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleVoucherTypeChange("PAYMENT")}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    voucherType === "PAYMENT"
+                      ? "bg-teal-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  <FaFileInvoiceDollar size={12} /> Supplier Payment
                 </button>
               </div>
             </div>

@@ -9,7 +9,7 @@ export function formatVoucherNumber(prefix: string, num: number, padding: number
   return `${prefix || ""}${padded}${suffix || ""}`;
 }
 
-export type VoucherType = "SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT";
+export type VoucherType = "SALES" | "PROFORMA" | "PURCHASE" | "PURCHASE_ORDER" | "RETURN" | "RECEIPT" | "DEBIT_NOTE" | "PURCHASE_RETURN" | "PAYMENT";
 
 /**
  * Gets or initializes default series for a given voucher type
@@ -36,8 +36,12 @@ export async function getActiveVoucherSeries(voucherType: VoucherType) {
       SALES: { seriesName: "Default Tax Invoice Series", prefix: "INV-", nextNumber: 1001, padding: 5 },
       PROFORMA: { seriesName: "Default Proforma Series", prefix: "PRF-", nextNumber: 1001, padding: 5 },
       PURCHASE: { seriesName: "Default Purchase Series", prefix: "PUR-", nextNumber: 1001, padding: 5 },
+      PURCHASE_ORDER: { seriesName: "Default Purchase Order Series", prefix: "PO-", nextNumber: 1001, padding: 5 },
       RETURN: { seriesName: "Default Sales Return Series", prefix: "RET-", nextNumber: 1001, padding: 5 },
       RECEIPT: { seriesName: "Default Receipt Series", prefix: "RCT-", nextNumber: 1001, padding: 5 },
+      DEBIT_NOTE: { seriesName: "Default Debit Note Series", prefix: "DN-", nextNumber: 1001, padding: 5 },
+      PURCHASE_RETURN: { seriesName: "Default Purchase Return Series", prefix: "PR-", nextNumber: 1001, padding: 5 },
+      PAYMENT: { seriesName: "Default Payment Series", prefix: "PMT-", nextNumber: 1001, padding: 5 },
     };
 
     const d = defaults[voucherType] || defaults.SALES;

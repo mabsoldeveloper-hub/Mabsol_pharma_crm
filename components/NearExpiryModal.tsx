@@ -176,26 +176,26 @@ export default function NearExpiryModal({ isOpen, onClose }: NearExpiryModalProp
 
     return (
         <div
-            className="fixed inset-0 z-[1050] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-1.5 sm:p-3 md:p-6 overflow-hidden animate-[fadeIn_0.2s_ease-out]"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-2 sm:p-4 md:p-6 overflow-hidden animate-[fadeIn_0.2s_ease-out]"
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
         >
             {/* Modal Container */}
-            <div className="relative w-full max-w-7xl max-h-[96vh] sm:max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden text-slate-800 dark:text-slate-100">
+            <div className="relative w-full max-w-7xl max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden text-slate-800 dark:text-slate-100">
 
                 {/* Modal Header */}
-                <div className="flex items-center justify-between px-3.5 py-3 sm:px-5 sm:py-4 border-b border-slate-200/80 dark:border-slate-800 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent flex-shrink-0">
-                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-4 border-b border-slate-200/80 dark:border-slate-800 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent flex-shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20 flex-shrink-0">
-                            <FaExclamationTriangle className="text-sm sm:text-lg" />
+                            <FaExclamationTriangle className="text-xs sm:text-lg" />
                         </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                                <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
+                                <h2 className="text-sm sm:text-lg md:text-xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
                                     Near Expiry Batches
                                 </h2>
-                                <span className="hidden xs:inline-flex px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 flex-shrink-0">
+                                <span className="hidden xs:inline-flex px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 flex-shrink-0">
                                     Expiring Soon
                                 </span>
                             </div>
@@ -218,7 +218,7 @@ export default function NearExpiryModal({ isOpen, onClose }: NearExpiryModalProp
                         <button
                             onClick={handleExportCSV}
                             title="Export Near Expiry Data to CSV"
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/60 transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/60 transition-colors"
                         >
                             <FaFileCsv className="text-xs sm:text-sm" />
                             <span className="hidden sm:inline">Export CSV</span>
@@ -228,63 +228,63 @@ export default function NearExpiryModal({ isOpen, onClose }: NearExpiryModalProp
                             onClick={onClose}
                             className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-0.5"
                         >
-                            <FaTimes className="text-sm sm:text-base" />
+                            <FaTimes className="text-xs sm:text-base" />
                         </button>
                     </div>
                 </div>
 
                 {/* KPI Cards Strip inside Modal */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 p-2.5 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200/80 dark:border-slate-800 flex-shrink-0 overflow-x-auto">
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[120px]">
+                <div className="grid grid-cols-2 xs:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-3 p-2 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200/80 dark:border-slate-800 flex-shrink-0 overflow-x-auto">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaExclamationTriangle className="text-amber-500 flex-shrink-0" size={11} /> Near Expiry Batches
+                            <FaExclamationTriangle className="text-amber-500 flex-shrink-0" size={10} /> Near Expiry Batches
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-slate-900 dark:text-white mt-0.5 truncate">
                             {formatNum(summary.totalBatches)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[120px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaBoxes className="text-emerald-500 flex-shrink-0" size={11} /> Near Expiry Qty
+                            <FaBoxes className="text-emerald-500 flex-shrink-0" size={10} /> Near Expiry Qty
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-slate-900 dark:text-white mt-0.5 truncate">
                             {formatNum(summary.totalStockQty)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[120px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaRupeeSign className="text-teal-500 flex-shrink-0" size={11} /> At Risk Value
+                            <FaRupeeSign className="text-teal-500 flex-shrink-0" size={10} /> At Risk Value
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
                             {formatINR(summary.totalStockValue)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[110px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaFire className="text-rose-500 flex-shrink-0" size={11} /> &le; 30 Days (Critical)
+                            <FaFire className="text-rose-500 flex-shrink-0" size={10} /> &le; 30 Days (Critical)
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-rose-600 dark:text-rose-400 mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-rose-600 dark:text-rose-400 mt-0.5 truncate">
                             {formatNum(summary.critical30Count)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[110px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaClock className="text-amber-500 flex-shrink-0" size={11} /> 31-60 Days (Warning)
+                            <FaClock className="text-amber-500 flex-shrink-0" size={10} /> 31-60 Days (Warning)
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
                             {formatNum(summary.warning60Count)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[110px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaCalendarAlt className="text-blue-500 flex-shrink-0" size={11} /> 61-90 Days (Moderate)
+                            <FaCalendarAlt className="text-blue-500 flex-shrink-0" size={10} /> 61-90 Days (Moderate)
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-blue-600 dark:text-blue-400 mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-blue-600 dark:text-blue-400 mt-0.5 truncate">
                             {formatNum(summary.moderate90Count)}
                         </span>
                     </div>

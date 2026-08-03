@@ -194,26 +194,26 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
 
     return (
         <div
-            className="fixed inset-0 z-[1050] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-1.5 sm:p-3 md:p-6 overflow-hidden animate-[fadeIn_0.2s_ease-out]"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-2 sm:p-4 md:p-6 overflow-hidden animate-[fadeIn_0.2s_ease-out]"
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
         >
             {/* Modal Container */}
-            <div className="relative w-full max-w-7xl max-h-[96vh] sm:max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden text-slate-800 dark:text-slate-100">
+            <div className="relative w-full max-w-7xl max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden text-slate-800 dark:text-slate-100">
 
                 {/* Modal Header */}
-                <div className="flex items-center justify-between px-3.5 py-3 sm:px-5 sm:py-4 border-b border-slate-200/80 dark:border-slate-800 bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent flex-shrink-0">
-                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-4 border-b border-slate-200/80 dark:border-slate-800 bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent flex-shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 flex-shrink-0">
-                            <FaBoxes className="text-sm sm:text-lg" />
+                            <FaBoxes className="text-xs sm:text-lg" />
                         </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                                <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
+                                <h2 className="text-sm sm:text-lg md:text-xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
                                     Current Stock Details
                                 </h2>
-                                <span className="hidden xs:inline-flex px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 flex-shrink-0">
+                                <span className="hidden xs:inline-flex px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 flex-shrink-0">
                                     Live Stock
                                 </span>
                             </div>
@@ -236,7 +236,7 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                         <button
                             onClick={handleExportCSV}
                             title="Export Stock Data to CSV"
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 transition-colors"
                         >
                             <FaFileCsv className="text-xs sm:text-sm" />
                             <span className="hidden sm:inline">Export CSV</span>
@@ -246,68 +246,68 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
                             onClick={onClose}
                             className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-0.5"
                         >
-                            <FaTimes className="text-sm sm:text-base" />
+                            <FaTimes className="text-xs sm:text-base" />
                         </button>
                     </div>
                 </div>
 
-                {/* KPI Cards Strip inside Modal */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 p-2.5 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200/80 dark:border-slate-800 flex-shrink-0 overflow-x-auto">
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[120px]">
+                {/* KPI Cards Strip inside Modal - Compact 2-col to 6-col Responsive Layout */}
+                <div className="grid grid-cols-2 xs:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-3 p-2 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200/80 dark:border-slate-800 flex-shrink-0 overflow-x-auto">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaBoxes className="text-emerald-500 flex-shrink-0" size={11} /> Stock Qty
+                            <FaBoxes className="text-emerald-500 flex-shrink-0" size={10} /> Stock Qty
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-slate-900 dark:text-white mt-0.5 truncate">
                             {formatNum(summary.totalStockQty)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[130px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <div className="flex items-center justify-between gap-1">
                             <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                                <FaRupeeSign className="text-teal-500 flex-shrink-0" size={11} /> Stock Value
+                                <FaRupeeSign className="text-teal-500 flex-shrink-0" size={10} /> Stock Value
                             </span>
-                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/50">
+                            <span className="text-[8px] sm:text-[9px] uppercase font-bold px-1 py-0.2 rounded bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/50">
                                 {rateType}
                             </span>
                         </div>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate">
                             {formatINR(summary.totalStockValue)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[110px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaLayerGroup className="text-blue-500 flex-shrink-0" size={11} /> Total Items
+                            <FaLayerGroup className="text-blue-500 flex-shrink-0" size={10} /> Total Items
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-slate-900 dark:text-white mt-0.5 truncate">
                             {formatNum(summary.totalItems)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[110px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaCheckCircle className="text-emerald-500 flex-shrink-0" size={11} /> In Stock
+                            <FaCheckCircle className="text-emerald-500 flex-shrink-0" size={10} /> In Stock
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
                             {formatNum(summary.inStockCount)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[110px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaExclamationTriangle className="text-amber-500 flex-shrink-0" size={11} /> Low Stock
+                            <FaExclamationTriangle className="text-amber-500 flex-shrink-0" size={10} /> Low Stock
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
                             {formatNum(summary.lowStockCount || 0)}
                         </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800/80 p-2.5 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-[110px]">
+                    <div className="bg-white dark:bg-slate-800/80 p-2 sm:p-3 rounded-lg sm:rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-xs flex flex-col justify-between min-w-0">
                         <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-                            <FaTimesCircle className="text-rose-500 flex-shrink-0" size={11} /> Out of Stock
+                            <FaTimesCircle className="text-rose-500 flex-shrink-0" size={10} /> Out of Stock
                         </span>
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-rose-600 dark:text-rose-400 mt-0.5 truncate">
+                        <span className="text-xs sm:text-base md:text-lg font-bold text-rose-600 dark:text-rose-400 mt-0.5 truncate">
                             {formatNum(summary.outOfStockCount)}
                         </span>
                     </div>

@@ -218,6 +218,45 @@ export default function PurchaseOutstandingPage() {
   return (
     <>
       <div className="space-y-4">
+        {/* Interlinking Navigation Pills */}
+        <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-semibold shadow-xs">
+          <Link
+            href="/dashboard/purchase/dashboard"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/dashboard/purchase/invoice"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            Invoices List
+          </Link>
+          <Link
+            href="/dashboard/purchase/orders"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            Orders
+          </Link>
+          <Link
+            href="/dashboard/purchase/outstanding"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 text-white shadow-xs"
+          >
+            Outstanding Payables
+          </Link>
+          <Link
+            href="/dashboard/purchase/payment"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            Payment Entry
+          </Link>
+          <Link
+            href="/dashboard/purchase/purchase-return"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            Purchase Return
+          </Link>
+        </div>
         {/* MR TERRITORY BANNER */}
         {mrTerritoryInfo?.isMrRestricted && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm">
@@ -383,17 +422,15 @@ export default function PurchaseOutstandingPage() {
                                 setSelectedBill(row);
                                 setShowAdjustment(true);
                               }}
-                              className="rounded-lg bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
+                              className="rounded-lg bg-blue-600 px-2.5 py-1 text-xs text-white hover:bg-blue-700"
                             >
                               Adjustments
                             </button>
                             <Link
-                              href={`/dashboard/purchase/invoice/${encodeURIComponent(
-                                String(row.vcn)
-                              )}`}
-                              className="rounded-lg bg-gray-800 px-3 py-1 text-xs text-white hover:bg-black"
+                              href="/dashboard/purchase/payment"
+                              className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs text-white hover:bg-emerald-700 font-bold"
                             >
-                              View
+                              Pay Now
                             </Link>
                           </div>
                         </td>

@@ -14,6 +14,10 @@ import ProductBatch from "@/models/ProductBatch";
 import User from "@/models/User";
 import Company from "@/models/Company";
 import FinancialYear from "@/models/FinancialYear";
+import PurchaseBill from "@/models/PurchaseBill";
+import PurchaseOrder from "@/models/PurchaseOrder";
+import PurchaseReturn from "@/models/PurchaseReturn";
+import PurchasePayment from "@/models/PurchasePayment";
 
 /* ------------------------------------------------------------------ */
 /*  IMPORTANT: force this route to run fresh on every request.         */
@@ -642,6 +646,27 @@ export async function GET(req: Request) {
     ? ((monthlySales - lastMonthSales) / lastMonthSales) * 100
     : 0;
 
+  // ---- Purchase & Sales Extra Metrics ----
+  const webBills = await PurchaseBill.find(companyId ? { companyId } : {}).lean().catch(() => []);
+  const webOrders = await PurchaseOrder.find(companyId ? { companyId } : {}).lean().catch(() => []);
+  const webReturns = await PurchaseReturn.find(companyId ? { companyId } : {}).lean().catch(() => []);
+  const webPayments = await PurchasePayment.find(companyId ? { companyId } : {}).lean().catch(() => []);
+
+  const webPurchasesVal = (webBills || []).reduce((s: number, b: any) => s + Number(b.netAmount || 0), 0);
+  const vfpPurchasesVal = await sumField(SalesMdis, { ...companyVfpMatch, TYPE: { $in: ["P", "PURCHASE"] } }, "FINAL");
+  const totalPurchases = webPurchasesVal + vfpPurchasesVal;
+
+  const totalPurchaseOrders = (webOrders || []).length;
+
+  const webReturnsVal = (webReturns || []).reduce((s: number, r: any) => s + Number(r.netAmount || 0), 0);
+  const vfpReturnsVal = await sumField(SalesMdis, { ...companyVfpMatch, TYPE: { $in: ["D", "PR", "DEBIT"] } }, "FINAL");
+  const purchaseReturns = webReturnsVal + vfpReturnsVal;
+
+  const webPaymentsVal = (webPayments || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+  const totalSupplierPayments = webPaymentsVal;
+
+  const salesReturns = await sumField(SalesMdis, { ...companyVfpMatch, TYPE: { $in: ["R", "SR", "CREDIT"] } }, "FINAL");
+
   return NextResponse.json({
     kpis: {
       totalSales,
@@ -665,6 +690,13 @@ export async function GET(req: Request) {
       totalCredit,
       totalDebit,
       activeCustomers,
+
+      // ---- Purchase & Sales Extra KPI fields ----
+      totalPurchases,
+      totalPurchaseOrders,
+      purchaseReturns,
+      totalSupplierPayments,
+      salesReturns,
     },
     charts: {
       salesTrend: salesTrend.map((r: any) => ({ month: r._id, total: r.total })),
@@ -677,11 +709,27 @@ export async function GET(req: Request) {
       })),
       stockStatus: Object.entries(stockBuckets).map(([status, count]) => ({ status, count })),
       expiryStatus: Object.entries(expiryBuckets).map(([status, count]) => ({ status, count })),
-      saleTypeDistribution: saleTypeDist.map((s: any) => ({
-        name: `Type ${s._id}`,
-        amount: s.amount,
-      })),
-      monthlyGrowth,
+      saleTypeDistribution: saleTypeDist.map((s: any) => {
+        const key = String(s._id || "").toUpperCase();
+        const typeMap: Record<string, string> = {
+          S: "Sales (S)",
+          P: "Purchases (P)",
+          R: "Sales Return (R)",
+          D: "Debit Notes (D)",
+          I: "Invoices (I)",
+          C: "Credit Notes (C)",
+        };
+        return {
+          name: typeMap[key] || `Type ${s._id}`,
+          amount: Math.abs(Number(s.amount || 0)),
+        };
+      }),
+      monthlyGrowth: salesTrend.map((curr: any, idx: number, arr: any[]) => {
+        if (idx === 0) return { month: curr._id, growth: 0 };
+        const prev = arr[idx - 1];
+        const pct = prev.total > 0 ? ((curr.total - prev.total) / prev.total) * 100 : 0;
+        return { month: curr._id, growth: Number(pct.toFixed(1)) };
+      }),
       topCustomers: topCustomersRaw.map((c: any) => ({
         name: (c.name || `Code ${c.code}`).trim(),
         amount: c.amount,

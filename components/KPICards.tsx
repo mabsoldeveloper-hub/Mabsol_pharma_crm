@@ -10,25 +10,29 @@ import {
     FaCalendarDay,
     FaCalendarAlt,
     FaWallet,
-    // ---- NEW: icons for the 5 new cards ----
     FaBuilding,
     FaArrowUp,
     FaArrowDown,
     FaUserCheck,
+    FaFileInvoice,
+    FaTruck,
+    FaUndoAlt,
+    FaReceipt,
+    FaFileInvoiceDollar,
 } from "react-icons/fa";
-import { useRouter } from "next/navigation";
+
 import CurrentStockModal from "@/components/CurrentStockModal";
 import NearExpiryModal from "@/components/NearExpiryModal";
 import ExpiredBatchesModal from "@/components/ExpiredBatchesModal";
 import LedgerDetailsModal from "@/components/LedgerDetailsModal";
 import TotalSalesModal from "@/components/TotalSalesModal";
+import UniversalKPIDetailsModal from "@/components/UniversalKPIDetailsModal";
 
 function formatCurrency(n: number) {
     return "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
 export default function KPICards({ kpis }: { kpis: any }) {
-    const router = useRouter();
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [isNearExpiryModalOpen, setIsNearExpiryModalOpen] = useState(false);
     const [isExpiredBatchesModalOpen, setIsExpiredBatchesModalOpen] = useState(false);
@@ -36,286 +40,411 @@ export default function KPICards({ kpis }: { kpis: any }) {
     const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
     const [ledgerInitialType, setLedgerInitialType] = useState<"credit" | "debit">("credit");
 
-    // Har card ka apna alag color — koi bhi 2 cards ka color repeat nahi hota
+    // Universal Modal State for cards that open popup instead of raw redirect
+    const [universalModal, setUniversalModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        value: string | number;
+        type: string;
+        url?: string;
+    }>({
+        isOpen: false,
+        title: "",
+        value: "",
+        type: "generic",
+    });
+
+    // Section Category Filter State ("ALL" | "SALES" | "PURCHASE" | "MASTERS")
+    const [activeSection, setActiveSection] = useState<"ALL" | "SALES" | "PURCHASE" | "MASTERS">("ALL");
+
+    // Cards List
     const cards = [
+        // ==================== SALES DATA VALUE CARDS ====================
         {
             title: "Total Sales",
             value: formatCurrency(kpis?.totalSales),
-            icon: <FaChartLine size={20} />,
+            icon: <FaChartLine size={18} />,
             color: "indigo",
             isSalesModal: true,
+            category: "SALES",
         },
         {
             title: "Today's Sales",
             value: formatCurrency(kpis?.todaySales),
-            icon: <FaCalendarDay size={20} />,
+            icon: <FaCalendarDay size={18} />,
             url: "/dashboard/sales/invoice",
             color: "blue",
+            category: "SALES",
+            type: "today_sales",
         },
         {
             title: "Monthly Sales",
             value: formatCurrency(kpis?.monthlySales),
-            icon: <FaCalendarAlt size={20} />,
+            icon: <FaCalendarAlt size={18} />,
             url: "/dashboard/sales/dashboard",
             color: "cyan",
+            category: "SALES",
+            type: "monthly_sales",
         },
         {
             title: "Yearly Sales",
             value: formatCurrency(kpis?.yearlySales),
-            icon: <FaCalendarAlt size={20} />,
+            icon: <FaCalendarAlt size={18} />,
             color: "teal",
             isSalesModal: true,
+            category: "SALES",
         },
         {
             title: "Total Outstanding",
             value: formatCurrency(kpis?.totalOutstanding),
-            icon: <FaWallet size={20} />,
+            icon: <FaWallet size={18} />,
             url: "/dashboard/sales/invoice",
             color: "amber",
+            category: "SALES",
+            isLedgerModal: true,
+            ledgerType: "debit",
         },
         {
             title: "Current Year Sales Outstanding",
             value: formatCurrency(kpis?.salesOutstanding),
-            icon: <FaWallet size={20} />,
+            icon: <FaWallet size={18} />,
             url: "/dashboard/sales/outstanding",
             color: "cyan",
-        },
-        {
-            title: "Current Year Purchase Outstanding",
-            value: formatCurrency(kpis?.purchaseOutstanding),
-            icon: <FaWallet size={20} />,
-            url: "/dashboard/purchase/outstanding",
-            color: "orange",
+            category: "SALES",
+            isLedgerModal: true,
+            ledgerType: "debit",
         },
         {
             title: "Overdue Amount",
             value: formatCurrency(kpis?.overdueAmount),
-            icon: <FaExclamationTriangle size={20} />,
+            icon: <FaExclamationTriangle size={18} />,
             url: "/dashboard/sales/invoice",
             color: "rose",
+            category: "SALES",
+            isLedgerModal: true,
+            ledgerType: "debit",
         },
         {
             title: "Total Collections",
             value: formatCurrency(kpis?.totalCollections),
-            icon: <FaRupeeSign size={20} />,
+            icon: <FaRupeeSign size={18} />,
             url: "/dashboard/sales/dashboard",
             color: "emerald",
+            category: "SALES",
+            isLedgerModal: true,
+            ledgerType: "credit",
         },
+        {
+            title: "Sales Returns (Credit Notes)",
+            value: formatCurrency(kpis?.salesReturns),
+            icon: <FaUndoAlt size={18} />,
+            url: "/dashboard/reports/sales-return",
+            color: "rose",
+            category: "SALES",
+            type: "sales_returns",
+        },
+
+        // ==================== PURCHASE DATA VALUE CARDS ====================
+        {
+            title: "Total Inward Purchases",
+            value: formatCurrency(kpis?.totalPurchases || kpis?.purchaseOutstanding),
+            icon: <FaFileInvoice size={18} />,
+            url: "/dashboard/purchase/invoice",
+            color: "amber",
+            category: "PURCHASE",
+            type: "purchases",
+        },
+        {
+            title: "Current Year Purchase Outstanding",
+            value: formatCurrency(kpis?.purchaseOutstanding),
+            icon: <FaFileInvoiceDollar size={18} />,
+            url: "/dashboard/purchase/outstanding",
+            color: "orange",
+            category: "PURCHASE",
+            isLedgerModal: true,
+            ledgerType: "debit",
+        },
+        {
+            title: "Purchase Orders Requisitions",
+            value: (kpis?.totalPurchaseOrders ?? 0) + " POs",
+            icon: <FaTruck size={18} />,
+            url: "/dashboard/purchase/orders",
+            color: "indigo",
+            category: "PURCHASE",
+            type: "purchase_orders",
+        },
+        {
+            title: "Purchase Returns (Debit Notes)",
+            value: formatCurrency(kpis?.purchaseReturns),
+            icon: <FaUndoAlt size={18} />,
+            url: "/dashboard/purchase/purchase-return",
+            color: "orange",
+            category: "PURCHASE",
+            type: "purchase_returns",
+        },
+        {
+            title: "Supplier Payments Made",
+            value: formatCurrency(kpis?.totalSupplierPayments || kpis?.totalDebit),
+            icon: <FaReceipt size={18} />,
+            url: "/dashboard/purchase/payment",
+            color: "emerald",
+            category: "PURCHASE",
+            type: "payments",
+        },
+
+        // ==================== MASTERS & INVENTORY COUNT CARDS ====================
         {
             title: "Total Customers",
             value: kpis?.totalCustomers ?? 0,
-            icon: <FaUsers size={20} />,
+            icon: <FaUsers size={18} />,
             url: "/dashboard/customers",
             color: "violet",
+            category: "MASTERS",
+            type: "customers",
         },
         {
             title: "Total Products",
             value: kpis?.totalProducts ?? 0,
-            icon: <FaBoxes size={20} />,
+            icon: <FaBoxes size={18} />,
             url: "/dashboard/inventory/products",
             color: "sky",
+            category: "MASTERS",
+            type: "products",
         },
         {
             title: "Current Stock (Qty)",
             value: (kpis?.currentStock ?? 0).toLocaleString("en-IN"),
-            icon: <FaBoxes size={20} />,
+            icon: <FaBoxes size={18} />,
             color: "green",
             isStockModal: true,
+            category: "MASTERS",
         },
         {
             title: "Near Expiry Batches",
             value: kpis?.nearExpiryBatches ?? 0,
-            icon: <FaExclamationTriangle size={20} />,
+            icon: <FaExclamationTriangle size={18} />,
             color: "orange",
             isNearExpiryModal: true,
+            category: "MASTERS",
         },
         {
             title: "Expired Batches",
             value: kpis?.expiredBatches ?? 0,
-            icon: <FaExclamationTriangle size={20} />,
+            icon: <FaExclamationTriangle size={18} />,
             color: "red",
             isExpiredBatchesModal: true,
+            category: "MASTERS",
         },
-
-        // ---- NEW: 5 new dashboard cards ----
         {
             title: "Total Users",
             value: kpis?.totalUsers ?? 0,
-            icon: <FaUsers size={20} />,
+            icon: <FaUsers size={18} />,
             url: "/dashboard/users",
             color: "purple",
+            category: "MASTERS",
+            type: "users",
         },
         {
             title: "Total Companies",
             value: kpis?.totalCompanies ?? 0,
-            icon: <FaBuilding size={20} />,
+            icon: <FaBuilding size={18} />,
             url: "/dashboard/company/list",
             color: "pink",
+            category: "MASTERS",
+            type: "companies",
         },
         {
             title: "Total Credit (Receipt/ Collections)",
             value: formatCurrency(kpis?.totalCredit),
-            icon: <FaArrowUp size={20} />,
+            icon: <FaArrowUp size={18} />,
             color: "lime",
             isCreditModal: true,
+            category: "MASTERS",
         },
         {
             title: "Total Debit (Payment)",
             value: formatCurrency(kpis?.totalDebit),
-            icon: <FaArrowDown size={20} />,
+            icon: <FaArrowDown size={18} />,
             color: "fuchsia",
             isDebitModal: true,
+            category: "MASTERS",
         },
         {
             title: "Active Customers",
             value: kpis?.activeCustomers ?? 0,
-            icon: <FaUserCheck size={20} />,
+            icon: <FaUserCheck size={18} />,
             url: "/dashboard/customers",
             color: "yellow",
+            category: "MASTERS",
+            type: "customers",
         },
     ];
 
-    // Tailwind ka JIT purely dynamic class string resolve nahi karta,
-    // isliye har color ka mapping explicitly likha hai — safe way for production build.
+    // Color mapping for cards matching user screenshot design
     const colorMap: Record<
         string,
-        { iconText: string; glowFrom: string; ring: string }
+        { iconBg: string; iconText: string; dotColor?: string; ring: string }
     > = {
-        indigo: { iconText: "text-indigo-600", glowFrom: "from-indigo-400/40", ring: "ring-indigo-300/40" },
-        blue: { iconText: "text-blue-600", glowFrom: "from-blue-400/40", ring: "ring-blue-300/40" },
-        cyan: { iconText: "text-cyan-600", glowFrom: "from-cyan-400/40", ring: "ring-cyan-300/40" },
-        teal: { iconText: "text-teal-600", glowFrom: "from-teal-400/40", ring: "ring-teal-300/40" },
-        amber: { iconText: "text-amber-600", glowFrom: "from-amber-400/40", ring: "ring-amber-300/40" },
-        rose: { iconText: "text-rose-600", glowFrom: "from-rose-400/40", ring: "ring-rose-300/40" },
-        emerald: { iconText: "text-emerald-600", glowFrom: "from-emerald-400/40", ring: "ring-emerald-300/40" },
-        violet: { iconText: "text-violet-600", glowFrom: "from-violet-400/40", ring: "ring-violet-300/40" },
-        sky: { iconText: "text-sky-600", glowFrom: "from-sky-400/40", ring: "ring-sky-300/40" },
-        green: { iconText: "text-green-600", glowFrom: "from-green-400/40", ring: "ring-green-300/40" },
-        orange: { iconText: "text-orange-600", glowFrom: "from-orange-400/40", ring: "ring-orange-300/40" },
-        red: { iconText: "text-red-600", glowFrom: "from-red-400/40", ring: "ring-red-300/40" },
-        purple: { iconText: "text-purple-600", glowFrom: "from-purple-400/40", ring: "ring-purple-300/40" },
-        pink: { iconText: "text-pink-600", glowFrom: "from-pink-400/40", ring: "ring-pink-300/40" },
-        lime: { iconText: "text-lime-600", glowFrom: "from-lime-400/40", ring: "ring-lime-300/40" },
-        fuchsia: { iconText: "text-fuchsia-600", glowFrom: "from-fuchsia-400/40", ring: "ring-fuchsia-300/40" },
-        yellow: { iconText: "text-yellow-600", glowFrom: "from-yellow-400/40", ring: "ring-yellow-300/40" },
+        indigo: { iconBg: "bg-indigo-50 dark:bg-indigo-950/70", iconText: "text-indigo-600 dark:text-indigo-400", ring: "ring-indigo-300/30" },
+        blue: { iconBg: "bg-blue-50 dark:bg-blue-950/70", iconText: "text-blue-600 dark:text-blue-400", ring: "ring-blue-300/30" },
+        cyan: { iconBg: "bg-cyan-50 dark:bg-cyan-950/70", iconText: "text-cyan-600 dark:text-cyan-400", ring: "ring-cyan-300/30" },
+        teal: { iconBg: "bg-teal-50 dark:bg-teal-950/70", iconText: "text-teal-600 dark:text-teal-400", ring: "ring-teal-300/30" },
+        amber: { iconBg: "bg-amber-50 dark:bg-amber-950/70", iconText: "text-amber-600 dark:text-amber-400", ring: "ring-amber-300/30", dotColor: "bg-amber-500" },
+        rose: { iconBg: "bg-rose-50 dark:bg-rose-950/70", iconText: "text-rose-600 dark:text-rose-400", ring: "ring-rose-300/30", dotColor: "bg-rose-500" },
+        emerald: { iconBg: "bg-emerald-50 dark:bg-emerald-950/70", iconText: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-300/30", dotColor: "bg-emerald-500" },
+        violet: { iconBg: "bg-violet-50 dark:bg-violet-950/70", iconText: "text-violet-600 dark:text-violet-400", ring: "ring-violet-300/30" },
+        sky: { iconBg: "bg-sky-50 dark:bg-sky-950/70", iconText: "text-sky-600 dark:text-sky-400", ring: "ring-sky-300/30" },
+        green: { iconBg: "bg-emerald-50 dark:bg-emerald-950/70", iconText: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-300/30", dotColor: "bg-emerald-500" },
+        orange: { iconBg: "bg-orange-50 dark:bg-orange-950/70", iconText: "text-orange-600 dark:text-orange-400", ring: "ring-orange-300/30", dotColor: "bg-amber-500" },
+        red: { iconBg: "bg-rose-50 dark:bg-rose-950/70", iconText: "text-rose-600 dark:text-rose-400", ring: "ring-rose-300/30", dotColor: "bg-rose-500" },
+        purple: { iconBg: "bg-purple-50 dark:bg-purple-950/70", iconText: "text-purple-600 dark:text-purple-400", ring: "ring-purple-300/30" },
+        pink: { iconBg: "bg-pink-50 dark:bg-pink-950/70", iconText: "text-pink-600 dark:text-pink-400", ring: "ring-pink-300/30" },
+        lime: { iconBg: "bg-emerald-50 dark:bg-emerald-950/70", iconText: "text-emerald-600 dark:text-emerald-400", ring: "ring-lime-300/30", dotColor: "bg-emerald-500" },
+        fuchsia: { iconBg: "bg-fuchsia-50 dark:bg-fuchsia-950/70", iconText: "text-fuchsia-600 dark:text-fuchsia-400", ring: "ring-fuchsia-300/30", dotColor: "bg-fuchsia-500" },
+        yellow: { iconBg: "bg-amber-50 dark:bg-amber-950/70", iconText: "text-amber-600 dark:text-amber-400", ring: "ring-yellow-300/30" },
     };
 
+    const handleCardClick = (card: (typeof cards)[number]) => {
+        if (card.isSalesModal) {
+            setIsSalesModalOpen(true);
+        } else if (card.isStockModal) {
+            setIsStockModalOpen(true);
+        } else if (card.isNearExpiryModal) {
+            setIsNearExpiryModalOpen(true);
+        } else if (card.isExpiredBatchesModal) {
+            setIsExpiredBatchesModalOpen(true);
+        } else if (card.isCreditModal || card.ledgerType === "credit") {
+            setLedgerInitialType("credit");
+            setIsLedgerModalOpen(true);
+        } else if (card.isDebitModal || card.ledgerType === "debit") {
+            setLedgerInitialType("debit");
+            setIsLedgerModalOpen(true);
+        } else {
+            setUniversalModal({
+                isOpen: true,
+                title: card.title,
+                value: card.value,
+                type: card.type || "generic",
+                url: card.url,
+            });
+        }
+    };
+
+    const filteredCards = activeSection === "ALL"
+        ? cards
+        : cards.filter((c) => c.category === activeSection);
+
     return (
-        <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {cards.map((card, index) => {
+        <div className="space-y-4 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',system-ui,sans-serif]">
+            {/* Apple Liquid Glass Category Filter Segmented Control */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-200/50 dark:bg-slate-800/60 p-1.5 rounded-2xl border border-white/60 dark:border-slate-700/60 backdrop-blur-2xl shadow-xs">
+                <div className="flex flex-wrap items-center gap-1 text-xs">
+                    <span className="text-slate-400 font-semibold px-2 uppercase text-[10px] tracking-wider">Filter Dashboard:</span>
+                    {[
+                        { id: "ALL", label: "All KPI Values", count: cards.length },
+                        { id: "SALES", label: "Sales Data", count: cards.filter(c => c.category === "SALES").length },
+                        { id: "PURCHASE", label: "Purchase Data", count: cards.filter(c => c.category === "PURCHASE").length },
+                        { id: "MASTERS", label: "Inventory & Masters", count: cards.filter(c => c.category === "MASTERS").length },
+                    ].map((sec) => (
+                        <button
+                            key={sec.id}
+                            onClick={() => setActiveSection(sec.id as any)}
+                            className={`px-3 py-1 rounded-xl text-xs transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                                activeSection === sec.id
+                                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold shadow-md shadow-slate-900/5 scale-[1.02]"
+                                    : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-700/40"
+                            }`}
+                        >
+                            <span>{sec.label}</span>
+                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-semibold ${
+                                activeSection === sec.id
+                                    ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                    : "bg-slate-500/10 text-slate-500 dark:text-slate-400"
+                            }`}>
+                                {sec.count}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Apple Pure White Glass Grid - Small Headings, Pure White Background & Apple Fluid Animations */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-3.5">
+                {filteredCards.map((card, index) => {
                     const c = colorMap[card.color] ?? colorMap.indigo;
-                    const isClickable = Boolean(
-                        card.url ||
-                        (card as any).isSalesModal ||
-                        (card as any).isStockModal ||
-                        (card as any).isNearExpiryModal ||
-                        (card as any).isExpiredBatchesModal ||
-                        (card as any).isCreditModal ||
-                        (card as any).isDebitModal
-                    );
                     return (
                         <div
                             key={index}
-                            onClick={() => {
-                                if ((card as any).isSalesModal || card.title === "Total Sales" || card.title === "Yearly Sales") {
-                                    setIsSalesModalOpen(true);
-                                } else if ((card as any).isStockModal || card.title === "Current Stock") {
-                                    setIsStockModalOpen(true);
-                                } else if ((card as any).isNearExpiryModal || card.title === "Near Expiry Batches") {
-                                    setIsNearExpiryModalOpen(true);
-                                } else if ((card as any).isExpiredBatchesModal || card.title === "Expired Batches") {
-                                    setIsExpiredBatchesModalOpen(true);
-                                } else if ((card as any).isCreditModal || card.title === "Total Credit") {
-                                    setLedgerInitialType("credit");
-                                    setIsLedgerModalOpen(true);
-                                } else if ((card as any).isDebitModal || card.title === "Total Debit") {
-                                    setLedgerInitialType("debit");
-                                    setIsLedgerModalOpen(true);
-                                } else if (card.url) {
-                                    router.push(card.url);
-                                }
-                            }}
-                            style={{ animationDelay: `${index * 40}ms` }}
+                            onClick={() => handleCardClick(card)}
+                            style={{ animationDelay: `${(index % 10) * 20}ms` }}
                             className={`
                                 group relative isolate overflow-hidden rounded-2xl
-                                bg-white/40 backdrop-blur-xl backdrop-saturate-150
-                                border border-white/60
-                                shadow-[0_8px_32px_rgba(31,38,135,0.12)]
-                                ring-1 ${c.ring}
-                                animate-[fadeSlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
-                                transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                                bg-white dark:bg-slate-900
+                                border border-slate-200/80 dark:border-slate-800
+                                shadow-[0_2px_12px_rgba(0,0,0,0.03)]
+                                animate-[fadeSlideIn_0.4s_cubic-bezier(0.16,1,0.3,1)_both]
+                                transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
                                 hover:-translate-y-1.5 hover:scale-[1.02]
-                                hover:shadow-[0_16px_40px_rgba(31,38,135,0.18)]
+                                hover:shadow-[0_16px_32px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)]
+                                hover:border-indigo-200 dark:hover:border-indigo-700/60
                                 active:scale-[0.98] active:duration-150
-                                ${isClickable ? "cursor-pointer" : "cursor-default"}
-                                p-4 sm:p-5
+                                cursor-pointer p-3.5 sm:p-4 flex flex-col justify-between min-h-[92px] sm:min-h-[100px]
                             `}
                         >
-                            {/* liquid glass top-sheen */}
-                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/50 via-white/10 to-transparent" />
+                            {/* Apple Top Rim Highlight Sheen */}
+                            <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent group-hover:via-indigo-400 transition-colors" />
 
-                            {/* soft colored glow blob, apple-style, expands on hover */}
+                            {/* Apple Liquid Light Sweep Reflection Sheen on Hover */}
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/10 dark:via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+
+                            {/* Soft colored ambient background glow on hover */}
                             <div
                                 className={`
-                                    pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full
-                                    bg-gradient-to-br ${c.glowFrom} to-transparent blur-2xl
-                                    opacity-60 scale-90
-                                    transition-all duration-700 ease-out
-                                    group-hover:opacity-100 group-hover:scale-125
+                                    pointer-events-none absolute -top-8 -right-8 w-24 h-24 rounded-full
+                                    bg-gradient-to-br ${c.iconBg} to-transparent blur-2xl
+                                    opacity-0 scale-75
+                                    transition-all duration-500 ease-out
+                                    group-hover:opacity-70 group-hover:scale-125
                                 `}
                             />
 
-                            {/* faint inner top border for the "glass edge" highlight */}
-                            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
-
-                            <div className="relative flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="text-xs font-medium text-gray-600/90 truncate mb-1 tracking-wide flex items-center gap-1.5">
+                            {/* TOP ROW: Title & Dot Indicator (Left) + Apple Icon Box (Right) */}
+                            <div className="relative flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                                    <h3 className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-slate-400 tracking-tight leading-tight truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                         {card.title}
-                                        {(
-                                            (card as any).isStockModal ||
-                                            (card as any).isNearExpiryModal ||
-                                            (card as any).isExpiredBatchesModal ||
-                                            (card as any).isCreditModal ||
-                                            (card as any).isDebitModal
-                                        ) && (
-                                                <span className={`inline-block w-1.5 h-1.5 rounded-full animate-pulse ${(card as any).isDebitModal
-                                                    ? "bg-fuchsia-500"
-                                                    : (card as any).isCreditModal
-                                                        ? "bg-lime-500"
-                                                        : (card as any).isExpiredBatchesModal
-                                                            ? "bg-rose-500"
-                                                            : (card as any).isNearExpiryModal
-                                                                ? "bg-amber-500"
-                                                                : "bg-emerald-500"
-                                                    }`} title="Click to view details" />
-                                            )}
-                                    </p>
-                                    <h3 className="text-xl sm:text-2xl font-bold text-gray-800 truncate transition-transform duration-500 group-hover:translate-x-0.5">
-                                        {card.value}
                                     </h3>
+                                    {c.dotColor && (
+                                        <span className={`w-1.5 h-1.5 rounded-full ${c.dotColor} flex-shrink-0 animate-pulse`} />
+                                    )}
                                 </div>
 
                                 <div
                                     className={`
-                                        flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center
-                                        bg-white/60 backdrop-blur-md ${c.iconText}
-                                        border border-white/70
-                                        shadow-[0_2px_8px_rgba(0,0,0,0.06)]
-                                        transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                                        group-hover:scale-110 group-hover:rotate-6
-                                        group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]
+                                        flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center
+                                        ${c.iconBg} ${c.iconText}
+                                        border border-slate-100 dark:border-slate-800 text-sm sm:text-base
+                                        shadow-2xs backdrop-blur-md
+                                        transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
+                                        group-hover:scale-115 group-hover:-rotate-6 group-hover:shadow-md
                                     `}
                                 >
                                     {card.icon}
                                 </div>
+                            </div>
+
+                            {/* BOTTOM ROW: Large Crisp Value */}
+                            <div className="relative mt-2 sm:mt-2.5">
+                                <p className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight font-sans truncate group-hover:scale-[1.01] transition-transform origin-left">
+                                    {card.value}
+                                </p>
                             </div>
                         </div>
                     );
                 })}
             </div>
 
+            {/* Modals */}
             <CurrentStockModal
                 isOpen={isStockModalOpen}
                 onClose={() => setIsStockModalOpen(false)}
@@ -342,6 +471,15 @@ export default function KPICards({ kpis }: { kpis: any }) {
                 onClose={() => setIsSalesModalOpen(false)}
             />
 
+            <UniversalKPIDetailsModal
+                isOpen={universalModal.isOpen}
+                onClose={() => setUniversalModal((prev) => ({ ...prev, isOpen: false }))}
+                title={universalModal.title}
+                value={universalModal.value}
+                type={universalModal.type}
+                url={universalModal.url}
+            />
+
             <style jsx global>{`
                 @keyframes fadeSlideIn {
                     from {
@@ -354,6 +492,6 @@ export default function KPICards({ kpis }: { kpis: any }) {
                     }
                 }
             `}</style>
-        </>
+        </div>
     );
 }
