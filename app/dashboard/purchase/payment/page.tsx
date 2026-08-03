@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SearchableSelect, { OptionItem } from "@/components/SearchableSelect";
@@ -62,7 +62,7 @@ interface SupplierOption {
   address: string;
 }
 
-export default function PurchasePaymentPage() {
+function PurchasePaymentContent() {
   const searchParams = useSearchParams();
   const urlVendorId = searchParams.get("vendorId");
   const urlVendorName = searchParams.get("vendorName");
@@ -1137,3 +1137,12 @@ export default function PurchasePaymentPage() {
     </div>
   );
 }
+
+export default function PurchasePaymentPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-slate-500 text-sm">Loading purchase payment entry...</div>}>
+      <PurchasePaymentContent />
+    </Suspense>
+  );
+}
+
