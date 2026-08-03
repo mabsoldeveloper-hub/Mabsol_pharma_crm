@@ -20,6 +20,13 @@ export async function GET() {
     { upsert: true }
   );
 
+  // Seed or update purchase.view permission
+  await Permission.updateOne(
+    { permissionKey: "purchase.view" },
+    { $set: { moduleName: "Purchase", permissionName: "View Purchase Module", status: "active" } },
+    { upsert: true }
+  );
+
   const permissions = await Permission.find();
 
   for (const item of permissions) {
