@@ -5,7 +5,19 @@ import KPICards from "@/components/KPICards";
 import DashboardCharts from "@/components/DashboardCharts";
 import AnalyticsCards from "@/components/AnalyticsCards";
 import LiquidMeters from "@/components/LiquidMeters";
-import { FaBuilding, FaMapMarkerAlt, FaArrowRight, FaSyncAlt, FaCalendarAlt, FaSlidersH } from "react-icons/fa";
+import {
+    FaBuilding,
+    FaMapMarkerAlt,
+    FaArrowRight,
+    FaSyncAlt,
+    FaCalendarAlt,
+    FaChartPie,
+    FaChartLine,
+    FaBoxes,
+    FaWallet,
+    FaTruck,
+    FaCheckCircle,
+} from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
 
@@ -15,10 +27,13 @@ type MrTerritoryInfo = {
     allowedCompanyCodes: string[];
 };
 
+type TabType = "overview" | "sales" | "inventory" | "credit" | "purchase";
+
 export default function DashboardContent() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [activeTab, setActiveTab] = useState<TabType>("overview");
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
 
     const { selectedCompany } = useCompany();
@@ -126,11 +141,18 @@ export default function DashboardContent() {
         );
     }
 
+    const tabs = [
+        { id: "overview", label: "Executive Overview", icon: FaChartPie, badge: "Live" },
+        { id: "sales", label: "Sales & Revenue", icon: FaChartLine, badge: "Sales" },
+        { id: "inventory", label: "Inventory & Expiry", icon: FaBoxes, badge: "Stock" },
+        { id: "credit", label: "Credit & Receivables", icon: FaWallet, badge: "Dues" },
+        { id: "purchase", label: "Purchase & Vendors", icon: FaTruck, badge: "Inward" },
+    ];
+
     return (
         <div className="flex flex-col gap-5">
             {/* ==================== APPLE EXECUTIVE LIQUID GLASS BANNER ==================== */}
             <div className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/90 via-slate-900/90 to-blue-900/90 p-5 sm:p-6 text-white border border-white/20 shadow-[0_16px_40px_rgba(0,0,0,0.15)] backdrop-blur-2xl">
-                {/* Light reflection sheen */}
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
                 <div className="pointer-events-none absolute -bottom-20 -right-20 w-64 h-64 rounded-full bg-indigo-500/20 blur-3xl" />
                 <div className="pointer-events-none absolute -top-20 -left-20 w-64 h-64 rounded-full bg-blue-500/20 blur-3xl" />
@@ -139,7 +161,7 @@ export default function DashboardContent() {
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <span className="text-[10px] font-bold uppercase tracking-widest bg-white/10 text-indigo-200 px-2.5 py-0.5 rounded-full border border-white/10 backdrop-blur-md">
-                                Executive Overview
+                                Executive Intelligence OS
                             </span>
                             {selectedCompany?.companyName && (
                                 <span className="text-[10px] font-semibold text-indigo-300 flex items-center gap-1 bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-500/30">
@@ -155,7 +177,6 @@ export default function DashboardContent() {
                         </p>
                     </div>
 
-                    {/* Actions & Filters Info */}
                     <div className="flex flex-wrap items-center gap-2">
                         {selectedFY && (
                             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/15 text-xs text-white">
@@ -234,17 +255,84 @@ export default function DashboardContent() {
                 </div>
             )}
 
-            {/* ==================== APPLE LIQUID METERS ==================== */}
-            <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+            {/* ==================== FLOATING APPLE LIQUID GLASS TAB BAR ==================== */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-white/60 dark:bg-slate-900/60 p-1.5 rounded-2xl border border-white/80 dark:border-slate-800/80 backdrop-blur-2xl backdrop-saturate-180 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+                {tabs.map((tab) => {
+                    const IconComponent = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as TabType)}
+                            className={`
+                                relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold
+                                transition-all duration-300 cursor-pointer border
+                                ${isActive
+                                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border-white/80 dark:border-slate-700 shadow-md scale-[1.02]"
+                                    : "text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40"
+                                }
+                            `}
+                        >
+                            <IconComponent size={14} className={isActive ? "text-indigo-600 dark:text-indigo-400" : "opacity-70"} />
+                            <span>{tab.label}</span>
+                            <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
+                                isActive
+                                    ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300"
+                                    : "bg-slate-500/10 text-slate-500"
+                            }`}>
+                                {tab.badge}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
 
-            {/* ==================== KPI CARDS GRID ==================== */}
-            <KPICards kpis={data?.kpis} />
+            {/* ==================== TAB CONTENT RENDERING ==================== */}
 
-            {/* ==================== CHARTS GRID ==================== */}
-            <DashboardCharts charts={data?.charts} />
+            {/* TAB 1: EXECUTIVE OVERVIEW */}
+            {activeTab === "overview" && (
+                <>
+                    <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                    <KPICards kpis={data?.kpis} />
+                    <DashboardCharts charts={data?.charts} />
+                    <AnalyticsCards analytics={data?.analytics} />
+                </>
+            )}
 
-            {/* ==================== ANALYTICS SUMMARY CARDS ==================== */}
-            <AnalyticsCards analytics={data?.analytics} />
+            {/* TAB 2: SALES & REVENUE */}
+            {activeTab === "sales" && (
+                <>
+                    <KPICards kpis={data?.kpis} />
+                    <DashboardCharts charts={data?.charts} />
+                </>
+            )}
+
+            {/* TAB 3: INVENTORY & EXPIRY */}
+            {activeTab === "inventory" && (
+                <>
+                    <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                    <KPICards kpis={data?.kpis} />
+                    <DashboardCharts charts={data?.charts} />
+                </>
+            )}
+
+            {/* TAB 4: CREDIT & RECEIVABLES */}
+            {activeTab === "credit" && (
+                <>
+                    <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                    <KPICards kpis={data?.kpis} />
+                    <DashboardCharts charts={data?.charts} />
+                </>
+            )}
+
+            {/* TAB 5: PURCHASE & VENDORS */}
+            {activeTab === "purchase" && (
+                <>
+                    <KPICards kpis={data?.kpis} />
+                    <DashboardCharts charts={data?.charts} />
+                    <AnalyticsCards analytics={data?.analytics} />
+                </>
+            )}
         </div>
     );
 }
