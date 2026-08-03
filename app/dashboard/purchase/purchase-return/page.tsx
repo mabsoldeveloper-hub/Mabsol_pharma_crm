@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SearchableSelect, { OptionItem } from "@/components/SearchableSelect";
@@ -96,7 +96,7 @@ interface ColumnConfig {
   gstAmt: boolean;
 }
 
-export default function PurchaseReturnPage() {
+function PurchaseReturnContent() {
   const searchParams = useSearchParams();
   const urlBillId = searchParams.get("billId");
   const urlBillNo = searchParams.get("billNo");
@@ -1506,5 +1506,13 @@ export default function PurchaseReturnPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PurchaseReturnPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center text-slate-500">Loading purchase return...</div>}>
+      <PurchaseReturnContent />
+    </Suspense>
   );
 }
