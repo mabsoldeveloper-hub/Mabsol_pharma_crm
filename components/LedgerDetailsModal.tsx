@@ -16,6 +16,9 @@ import {
     FaExchangeAlt,
 } from "react-icons/fa";
 
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
+
 interface LedgerDetailsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -25,16 +28,19 @@ interface LedgerDetailsModalProps {
 export default function LedgerDetailsModal({
     isOpen,
     onClose,
-    initialType = "credit",
+    initialType = "all",
 }: LedgerDetailsModalProps) {
+    const { selectedCompany: activeCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<any[]>([]);
     const [parties, setParties] = useState<any[]>([]);
+    const [books, setBooks] = useState<string[]>([]);
     const [summary, setSummary] = useState<any>({
+        totalAmount: 0,
         totalCredit: 0,
         totalDebit: 0,
-        netBalance: 0,
-        totalVouchers: 0,
+        totalEntries: 0,
     });
 
     const [pagination, setPagination] = useState({
@@ -102,6 +108,8 @@ export default function LedgerDetailsModal({
 
             if (debouncedSearch) params.append("q", debouncedSearch);
             if (selectedParty) params.append("party", selectedParty);
+            if (activeCompany?._id) params.append("companyId", activeCompany._id);
+            if (selectedFY?._id) params.append("fyId", selectedFY._id);
 
             const res = await fetch(`/api/dashboard/ledger-details?${params.toString()}`);
             if (res.ok) {

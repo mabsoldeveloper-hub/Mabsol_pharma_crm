@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import { GLedger, Order } from "@/models/StockModels";
+import Customer from "@/models/Customer";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +13,7 @@ export async function GET(req: NextRequest) {
         await dbConnect();
 
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const type = (searchParams.get("type") || "all").toLowerCase(); // credit, debit, all
         const search = (searchParams.get("q") || searchParams.get("search") || "").trim();
         const party = (searchParams.get("party") || searchParams.get("company") || "").trim();
@@ -24,44 +28,43 @@ export async function GET(req: NextRequest) {
         // 1. Resolve MR Territory restrictions
         const restriction = await getMrTerritoryRestriction();
 
-        // 2. Fetch Customer / Party Names Map from Order (ORDNO -> PARNAM / CITY)
-        const orderFilter: any = { SALDR: "Y" };
-        if (restriction.isMrRestricted && restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
-            orderFilter.ORDNO = { $in: restriction.allowedOrdnos };
-        }
+        // 2. Fetch Customer & Supplier Party Names Map from Order & Customer models
+        const [orders, customers] = await Promise.all([
+            Order.find({}, { ORDNO: 1, CODEP: 1, SCODE: 1, CODE: 1, PARNAM: 1, NAME: 1, CITY: 1 }).lean(),
+            Customer.find({}, { ORDNO: 1, CODEP: 1, SCODE: 1, CODE: 1, PARNAM: 1, NAME: 1, CITY: 1 }).lean(),
+        ]);
 
-        const customerOrders = await Order.find(orderFilter, { ORDNO: 1, PARNAM: 1, CITY: 1 }).lean();
         const partyMap = new Map<string, { name: string; city: string }>();
-        const allowedCustomerCodes: string[] = [];
 
-        customerOrders.forEach((o: any) => {
-            if (o.ORDNO) {
-                const codeStr = String(o.ORDNO).trim();
-                allowedCustomerCodes.push(codeStr);
-                partyMap.set(codeStr, {
-                    name: String(o.PARNAM || codeStr).trim(),
-                    city: String(o.CITY || "").trim(),
-                });
-            }
-        });
-
-        // 3. Build GLedger Filter
-        const ledgerFilter: any = {
-            BOOK: { $in: ["S", "R"] }, // Customer transaction books
+        const addParty = (item: any) => {
+            const obj = {
+                name: String(item.PARNAM || item.NAME || "").trim(),
+                city: String(item.CITY || "").trim(),
+            };
+            [item.ORDNO, item.CODEP, item.SCODE, item.CODE].forEach((k) => {
+                if (k) {
+                    const key = String(k).trim().toUpperCase();
+                    if (key && !partyMap.has(key)) partyMap.set(key, obj);
+                }
+            });
         };
 
-        if (restriction.isMrRestricted) {
-            if (allowedCustomerCodes.length > 0) {
-                ledgerFilter.CODE = { $in: allowedCustomerCodes };
-            } else {
-                ledgerFilter.CODE = "NONE_MATCH";
-            }
-        }
+        orders.forEach(addParty);
+        customers.forEach(addParty);
 
-        if (type === "credit") {
-            ledgerFilter.CREDIT = { $gt: 0 };
-        } else if (type === "debit") {
-            ledgerFilter.DEBIT = { $gt: 0 };
+        // 3. Build GLedger Filter
+        let ledgerFilter: any = { ...companyVfpMatch };
+
+        if (type === "debit") {
+            // Payment Book (Supplier / Party Payments Made) matching Marg ERP
+            ledgerFilter.BOOK = "P";
+            ledgerFilter.CD = "D";
+        } else if (type === "credit") {
+            // Receipt Book (Customer Collections / Receipts Received) matching Marg ERP
+            ledgerFilter.BOOK = "R";
+            ledgerFilter.CD = "C";
+        } else {
+            ledgerFilter.BOOK = { $in: ["S", "R", "P"] };
         }
 
         if (party) {

@@ -57,59 +57,84 @@ function daysBetween(dateStr: string) {
 const NEAR_EXPIRY_WINDOW_DAYS = 90; // adjust as needed
 const SLOW_MOVING_DAYS = 90; // no sale in last N days = slow moving
 
-export async function GET() {
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
+export async function GET(request: Request) {
     try {
         await dbConnect();
 
+        const { searchParams } = new URL(request.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const restriction = await getMrTerritoryRestriction();
 
-        const productFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : { GCODE: "NONE_MATCH" }
-            : {};
+        const productFilter: any = combineFilters(
+            restriction.isMrRestricted
+                ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                    ? { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                    : { GCODE: "NONE_MATCH" }
+                : {},
+            companyVfpMatch
+        );
 
-        const batchFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        const batchFilter: any = combineFilters(
+            restriction.isMrRestricted
+                ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                    ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                    : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                    ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                    : { CODEP: "NONE_MATCH" }
+                : {},
+            companyVfpMatch
+        );
 
-        const disFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        const disFilter: any = combineFilters(
+            restriction.isMrRestricted
+                ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                    ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                    : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                    ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                    : { CODEP: "NONE_MATCH" }
+                : {},
+            companyVfpMatch
+        );
 
-        const mdisFilter: any = restriction.isMrRestricted
-            ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-                ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
-                : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        const mdisFilter: any = combineFilters(
+            restriction.isMrRestricted
+                ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
+                    ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                    : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                    ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                    : { CODEP: "NONE_MATCH" }
+                : {},
+            companyVfpMatch
+        );
 
-        const orderFilter: any = restriction.isMrRestricted
-            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODEP: "NONE_MATCH" }
-            : {};
+        const orderFilter: any = combineFilters(
+            restriction.isMrRestricted
+                ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                    ? { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                    : { CODEP: "NONE_MATCH" }
+                : {},
+            companyVfpMatch
+        );
 
-        const gledgerFilter: any = restriction.isMrRestricted
-            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { CODE: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { CODE: "NONE_MATCH" }
-            : {};
+        const gledgerFilter: any = combineFilters(
+            restriction.isMrRestricted
+                ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                    ? { CODE: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                    : { CODE: "NONE_MATCH" }
+                : {},
+            companyVfpMatch
+        );
 
-        const pendFilter: any = restriction.isMrRestricted
-            ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-                ? { ORD: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
-                : { ORD: "NONE_MATCH" }
-            : {};
+        const pendFilter: any = combineFilters(
+            restriction.isMrRestricted
+                ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                    ? { ORD: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } }
+                    : { ORD: "NONE_MATCH" }
+                : {},
+            companyVfpMatch
+        );
 
         const today = todayStr();
         const nearExpiryLimit = addDaysStr(NEAR_EXPIRY_WINDOW_DAYS);

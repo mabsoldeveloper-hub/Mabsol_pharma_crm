@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { GlassDataTable } from "./Glassdatatable";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 
@@ -72,8 +74,9 @@ function formatINR(value: number) {
         maximumFractionDigits: 0,
     }).format(value || 0);
 }
-
 export default function OrdersDashboardPage() {
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [loading, setLoading] = useState(true);
     const [dashboard, setDashboard] = useState<DashboardData | null>(null);
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
@@ -89,9 +92,11 @@ export default function OrdersDashboardPage() {
 
     useEffect(() => {
         loadMrTerritoryInfo();
-        loadDashboard();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        loadDashboard();
+    }, [selectedCompany?._id, selectedFY?._id]);
 
     const loadMrTerritoryInfo = async () => {
         try {
@@ -117,6 +122,8 @@ export default function OrdersDashboardPage() {
 
             const res = await axios.get("/api/dashboard/orders", {
                 params: {
+                    companyId: selectedCompany?._id || undefined,
+                    fyId: selectedFY?._id || undefined,
                     customer: customer || undefined,
                     dateFrom: dateFrom || undefined,
                     dateTo: dateTo || undefined,

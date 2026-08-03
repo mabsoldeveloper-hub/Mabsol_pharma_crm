@@ -24,8 +24,13 @@ export async function PUT(
     if (body.padding !== undefined) series.padding = Number(body.padding);
     if (body.status !== undefined) series.status = body.status === "Inactive" ? "Inactive" : "Active";
 
+    if (body.companyId !== undefined) series.companyId = String(body.companyId).trim();
+    if (body.companyCode !== undefined) series.companyCode = String(body.companyCode).trim();
+    if (body.fyId !== undefined) series.fyId = String(body.fyId).trim();
+    if (body.fyCode !== undefined) series.fyCode = String(body.fyCode).trim();
+
     if (body.isDefault === true) {
-      await VoucherSeries.updateMany({ voucherType: series.voucherType }, { $set: { isDefault: false } });
+      await VoucherSeries.updateMany({ voucherType: series.voucherType, companyId: series.companyId || "" }, { $set: { isDefault: false } });
       series.isDefault = true;
     } else if (body.isDefault === false) {
       series.isDefault = false;

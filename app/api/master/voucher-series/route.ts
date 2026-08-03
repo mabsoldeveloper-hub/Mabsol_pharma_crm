@@ -1,15 +1,32 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import VoucherSeries from "@/models/VoucherSeries";
 import { formatVoucherNumber } from "@/lib/voucherSeriesHelper";
+import { getCompanyVfpFilter } from "@/lib/companyVfpHelper";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     await connectDB();
+    const { searchParams } = new URL(req.url);
+    const companyId = searchParams.get("companyId") || "";
+    const fyId = searchParams.get("fyId") || "";
 
-    let seriesList = await VoucherSeries.find({}).sort({ voucherType: 1, isDefault: -1, createdAt: -1 }).lean();
+    const query: any = {};
+    if (companyId) {
+      query.$or = [{ companyId }, { companyId: "" }, { companyId: { $exists: false } }];
+    }
+    if (fyId && fyId !== "ALL") {
+      query.$and = [
+        ...(query.$and || []),
+        { $or: [{ fyId }, { fyId: "" }, { fyId: { $exists: false } }] },
+      ];
+    }
+
+    let seriesList = await VoucherSeries.find(query)
+      .sort({ voucherType: 1, isDefault: -1, createdAt: -1 })
+      .lean();
 
     // Auto-seed default series if none exist
     if (!seriesList || seriesList.length === 0) {
@@ -23,6 +40,8 @@ export async function GET() {
           padding: 5,
           isDefault: true,
           status: "Active",
+          companyId,
+          fyId,
         },
         {
           seriesName: "Standard Proforma / Kaccha Series",
@@ -33,10 +52,14 @@ export async function GET() {
           padding: 5,
           isDefault: true,
           status: "Active",
+          companyId,
+          fyId,
         },
       ]);
 
-      seriesList = await VoucherSeries.find({}).sort({ voucherType: 1, isDefault: -1 }).lean();
+      seriesList = await VoucherSeries.find(query)
+        .sort({ voucherType: 1, isDefault: -1 })
+        .lean();
     }
 
     const formattedList = seriesList.map((s: any) => ({
@@ -53,7 +76,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     await connectDB();
     const body = await req.json();
@@ -66,14 +89,21 @@ export async function POST(req: Request) {
     const padding = Number(body.padding || 5);
     const isDefault = Boolean(body.isDefault);
     const status = body.status === "Inactive" ? "Inactive" : "Active";
+    const companyId = String(body.companyId || "").trim();
+    const companyCode = String(body.companyCode || "").trim();
+    const fyId = String(body.fyId || "").trim();
+    const fyCode = String(body.fyCode || "").trim();
 
     if (!seriesName) {
       return NextResponse.json({ success: false, message: "Series Name is required" }, { status: 400 });
     }
 
-    // If set as default, remove default flag from other series of same voucherType
+    // If set as default, remove default flag from other series of same voucherType for this company
     if (isDefault) {
-      await VoucherSeries.updateMany({ voucherType }, { $set: { isDefault: false } });
+      await VoucherSeries.updateMany(
+        { voucherType, companyId },
+        { $set: { isDefault: false } }
+      );
     }
 
     const newSeries = await VoucherSeries.create({
@@ -85,13 +115,20 @@ export async function POST(req: Request) {
       padding,
       isDefault,
       status,
+      companyId,
+      companyCode,
+      fyId,
+      fyCode,
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Voucher Series created successfully",
-      data: newSeries,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Voucher Series created successfully",
+        data: newSeries,
+      },
+      { status: 201 }
+    );
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }

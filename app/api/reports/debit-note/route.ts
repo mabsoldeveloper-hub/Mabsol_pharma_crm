@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
-import GLedger from "@/models/GLedger";
+import SalesMdis from "@/models/SalesMdis";
+import SalesDis from "@/models/SalesDis";
 import Order from "@/models/Order";
 import Customer from "@/models/Customer";
-import Pendings from "@/models/Pendings";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
@@ -26,20 +26,25 @@ export async function GET(req: NextRequest) {
         const company = searchParams.get("company") || "";
         const division = searchParams.get("division") || "";
         const salesman = searchParams.get("salesman") || "";
-        const paymentMode = searchParams.get("paymentMode") || "";
-        const discountFilter = searchParams.get("discountFilter") || ""; // "withDiscount" | "noDiscount"
         const minAmount = searchParams.get("minAmount") ? parseFloat(searchParams.get("minAmount")!) : null;
         const maxAmount = searchParams.get("maxAmount") ? parseFloat(searchParams.get("maxAmount")!) : null;
-
         const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
         const limit = Math.max(1, Math.min(500, parseInt(searchParams.get("limit") || "50", 10)));
 
         const restriction = await getMrTerritoryRestriction();
 
-        // 1. Fetch Customer / Order party map with full metadata
+        // 1. Fetch party map (Customer + Order)
         const [orders, mainCustomers] = await Promise.all([
-            Order.find(combineFilters(companyVfpMatch), { ORDNO: 1, CODEP: 1, SCODE: 1, PARNAM: 1, NAME: 1, CITY: 1, AREA: 1, ROUT: 1, ROUTE: 1, COMPANY: 1, DIVISION: 1, DSM: 1, SALESMAN: 1, PHONE: 1, MOBILE: 1, GSTIN: 1, GST: 1, BALANCE: 1 }).lean(),
-            Customer.find(combineFilters(companyVfpMatch), { ORDNO: 1, CODEP: 1, SCODE: 1, PARNAM: 1, NAME: 1, CITY: 1, AREA: 1, ROUT: 1, ROUTE: 1, COMPANY: 1, DIVISION: 1, DSM: 1, SALESMAN: 1, PHONE: 1, MOBILE: 1, GSTIN: 1, GST: 1, GSTNO: 1, BALANCE: 1 }).lean(),
+            Order.find(combineFilters(companyVfpMatch), {
+                ORDNO: 1, CODEP: 1, SCODE: 1, PARNAM: 1, NAME: 1, CITY: 1,
+                AREA: 1, ROUT: 1, ROUTE: 1, COMPANY: 1, DIVISION: 1, DSM: 1,
+                SALESMAN: 1, PHONE: 1, MOBILE: 1, GSTIN: 1, GST: 1,
+            }).lean(),
+            Customer.find(combineFilters(companyVfpMatch), {
+                ORDNO: 1, CODEP: 1, SCODE: 1, PARNAM: 1, NAME: 1, CITY: 1,
+                AREA: 1, ROUT: 1, ROUTE: 1, COMPANY: 1, DIVISION: 1, DSM: 1,
+                SALESMAN: 1, PHONE: 1, MOBILE: 1, GSTIN: 1, GST: 1, GSTNO: 1,
+            }).lean(),
         ]);
 
         const partyMap = new Map<string, any>();
@@ -53,8 +58,7 @@ export async function GET(req: NextRequest) {
                 division: item.DIVISION || "",
                 salesman: item.DSM || item.SALESMAN || "",
                 phone: item.PHONE || item.MOBILE || "",
-                gst: item.GSTIN || item.GST || item.GSTNO || "",
-                balance: item.BALANCE || 0,
+                gstin: item.GSTIN || item.GST || item.GSTNO || "",
             };
             [item.ORDNO, item.CODEP, item.SCODE].forEach((k) => {
                 if (k) {
@@ -63,7 +67,6 @@ export async function GET(req: NextRequest) {
                 }
             });
         };
-
         orders.forEach(addParty);
         mainCustomers.forEach(addParty);
 
@@ -73,7 +76,6 @@ export async function GET(req: NextRequest) {
         const companySet = new Set<string>();
         const divisionSet = new Set<string>();
         const salesmanSet = new Set<string>();
-
         partyMap.forEach((val) => {
             if (val.area) areaSet.add(val.area);
             if (val.route) routeSet.add(val.route);
@@ -82,20 +84,28 @@ export async function GET(req: NextRequest) {
             if (val.salesman) salesmanSet.add(val.salesman);
         });
 
-        // 2. Build filter for Receipt Vouchers (GLedger)
-        let filter: any = combineFilters({
-            $or: [
-                { BOOK: "R" },
-                { TYPE: "CR" },
-                { TYPE: "RC" },
-                { VOUCHER: /^RCT/i },
-                { VCN: /^RCT/i },
-            ],
-            CREDIT: { $gt: 0 },
-        }, companyVfpMatch);
+        // 2. Build filter: Debit Notes ONLY (DN-prefix VCN = Purchase Returns to Supplier)
+        // In Marg ERP: TYPE="B" covers both CN and DN. We isolate DN here.
+        const debitNoteTypeFilter = combineFilters(
+            {
+                $or: [
+                    // Explicit Debit Note VCN patterns
+                    { VCN: { $regex: "^DN", $options: "i" } },
+                    { TYPE: "DR" },     // Debit Note type if present
+                    { INVTYPE: "DN" },
+                    { INVTYPE: "DR" },
+                    // TYPE=B with DN prefix (main Marg pattern)
+                    { TYPE: "B", VCN: { $regex: "^DN", $options: "i" } },
+                ],
+            },
+            // Safety: only records where VCN starts with DN
+            { VCN: { $regex: "^DN", $options: "i" } }
+        );
+
+        let filter: any = combineFilters(companyVfpMatch, debitNoteTypeFilter);
 
         if (restriction.isMrRestricted && restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
-            filter = combineFilters(filter, { CODE: { $in: restriction.allowedOrdnos } });
+            filter = combineFilters(filter, { CODEP: { $in: restriction.allowedOrdnos } });
         }
 
         const effStart = startDate || fyRange.startDate;
@@ -106,36 +116,19 @@ export async function GET(req: NextRequest) {
             filter = combineFilters(filter, dateQuery);
         }
 
-        if (paymentMode) {
-            filter = combineFilters(filter, {
-                $or: [
-                    { MODE: paymentMode },
-                    { TYPE: paymentMode },
-                ],
-            });
-        }
-
-        if (discountFilter === "withDiscount") {
-            filter = combineFilters(filter, { DISCOUNT: { $gt: 0 } });
-        } else if (discountFilter === "noDiscount") {
-            filter = combineFilters(filter, {
-                $or: [{ DISCOUNT: { $exists: false } }, { DISCOUNT: 0 }, { DISCOUNT: null }],
-            });
-        }
-
         if (minAmount !== null || maxAmount !== null) {
             const amtFilter: any = {};
             if (minAmount !== null) amtFilter.$gte = minAmount;
             if (maxAmount !== null) amtFilter.$lte = maxAmount;
-            filter = combineFilters(filter, { CREDIT: amtFilter });
+            filter = combineFilters(filter, { FINAL: amtFilter });
         }
 
         if (partyCode) {
             const isNum = !isNaN(Number(partyCode));
-            const pConds: any[] = [{ CODE: partyCode }, { CODEP: partyCode }];
+            const pConds: any[] = [{ CODEP: partyCode }, { CODE: partyCode }];
             if (isNum) {
-                pConds.push({ CODE: Number(partyCode) });
                 pConds.push({ CODEP: Number(partyCode) });
+                pConds.push({ CODE: Number(partyCode) });
             }
             filter = combineFilters(filter, { $or: pConds });
         }
@@ -144,20 +137,14 @@ export async function GET(req: NextRequest) {
             const searchRegex = new RegExp(search.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), "i");
             filter = combineFilters(filter, {
                 $or: [
-                    { VOUCHER: searchRegex },
                     { VCN: searchRegex },
-                    { REFNO: searchRegex },
-                    { CHEQUENO: searchRegex },
-                    { BANK: searchRegex },
-                    { REMARK1: searchRegex },
-                    { REMARK: searchRegex },
-                    { CODE: searchRegex },
+                    { VOUCHER: searchRegex },
+                    { REMARKS: searchRegex },
                     { CODEP: searchRegex },
                 ],
             });
         }
 
-        // Apply Area / Route / Company / Division / Salesman filters
         if (area || route || company || division || salesman) {
             const matchedCodes: string[] = [];
             partyMap.forEach((info, code) => {
@@ -168,93 +155,75 @@ export async function GET(req: NextRequest) {
                 if (salesman && info.salesman.toLowerCase() !== salesman.toLowerCase()) return;
                 matchedCodes.push(code);
             });
-
             filter = combineFilters(filter, {
-                $or: [
-                    { CODE: { $in: matchedCodes } },
-                    { CODEP: { $in: matchedCodes } },
-                ],
+                $or: [{ CODEP: { $in: matchedCodes } }, { CODE: { $in: matchedCodes } }],
             });
         }
 
-        // 3. Aggregate metrics & Fetch records
+        // 3. Query
         const [allDocs, totalCount, docs] = await Promise.all([
-            GLedger.find(filter, { CREDIT: 1, DISCOUNT: 1, MODE: 1 }).lean(),
-            GLedger.countDocuments(filter),
-            GLedger.find(filter)
+            SalesMdis.find(filter, { VCN: 1, VOUCHER: 1, FINAL: 1, AMOUNTT: 1, TAXAMO: 1 }).lean(),
+            SalesMdis.countDocuments(filter),
+            SalesMdis.find(filter)
                 .sort({ DATE: -1, createdAt: -1 })
                 .skip((page - 1) * limit)
                 .limit(limit)
                 .lean(),
         ]);
 
-        let totalCollectedAmount = 0;
-        let totalDiscountAllowed = 0;
-        let cashCount = 0;
-        let bankCount = 0;
-        let upiCount = 0;
-        let chequeCount = 0;
+        const totalDebitNoteAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.FINAL || d.AMOUNTT || 0), 0);
+        const totalTaxableAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.AMOUNTT || 0), 0);
+        const totalTaxAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.TAXAMO || 0), 0);
+        const avgDebitNoteAmount = totalCount > 0 ? Math.round(totalDebitNoteAmount / totalCount) : 0;
 
-        allDocs.forEach((d: any) => {
-            const amt = Number(d.CREDIT || 0);
-            const disc = Number(d.DISCOUNT || 0);
-            totalCollectedAmount += amt;
-            totalDiscountAllowed += disc;
-
-            const mode = String(d.MODE || d.TYPE || "").toLowerCase();
-            if (mode.includes("cash")) cashCount++;
-            else if (mode.includes("upi") || mode.includes("qr")) upiCount++;
-            else if (mode.includes("cheque") || mode.includes("dd")) chequeCount++;
-            else bankCount++;
+        // 4. Fetch line items for page records
+        const pageVcns: string[] = [];
+        docs.forEach((d: any) => {
+            if (d.VCN) pageVcns.push(String(d.VCN).trim());
+            if (d.VOUCHER) pageVcns.push(String(d.VOUCHER).trim());
         });
 
-        const totalSettlementPool = totalCollectedAmount + totalDiscountAllowed;
-        const avgReceiptAmount = totalCount > 0 ? Math.round(totalCollectedAmount / totalCount) : 0;
-
-        // Fetch settled invoices breakdown for current page records from Pendings
-        const pagePartyCodes = Array.from(new Set(docs.map((d: any) => String(d.CODE || d.CODEP || "").trim()).filter(Boolean)));
-
-        const pendingRecords = pagePartyCodes.length > 0
-            ? await Pendings.find(
-                { $or: [{ CODEP: { $in: pagePartyCodes } }, { CODE: { $in: pagePartyCodes } }] },
-                { VCN: 1, VOUCHER: 1, BILLNO: 1, DATE: 1, BALANCE: 1, FINAL: 1, CODEP: 1, CODE: 1 }
-            ).lean()
+        const lineItems = pageVcns.length > 0
+            ? await SalesDis.find({
+                $or: [{ VCN: { $in: pageVcns } }, { VOUCHER: { $in: pageVcns } }],
+            }).lean()
             : [];
 
-        const pendingsByParty = new Map<string, any[]>();
-        pendingRecords.forEach((p: any) => {
-            const code = String(p.CODEP || p.CODE || "").trim();
-            if (!code) return;
-            if (!pendingsByParty.has(code)) pendingsByParty.set(code, []);
-            pendingsByParty.get(code)!.push({
-                vcn: p.VCN || p.VOUCHER || p.BILLNO || "N/A",
-                date: p.DATE || "N/A",
-                originalAmount: Number(p.FINAL || 0),
-                pendingAmount: Number(p.BALANCE || 0),
+        let totalItemsQty = 0;
+        const itemsByVcn = new Map<string, any[]>();
+        lineItems.forEach((item: any) => {
+            const v = String(item.VCN || item.VOUCHER || "").trim();
+            if (!v) return;
+            const q = Number(item.QTY || item.QUANTITY || 1);
+            totalItemsQty += q;
+            if (!itemsByVcn.has(v)) itemsByVcn.set(v, []);
+            itemsByVcn.get(v)!.push({
+                code: item.CODE || item.CODEP || "",
+                product: item.PRODUCT || item.NAME || "Product",
+                batchNo: item.BATCHNO || item.BATCH || "N/A",
+                exp: item.EXP || "",
+                qty: q,
+                rate: Number(item.RATE || 0),
+                taxP: Number(item.TAX || 0),
+                disP: Number(item.DISCOUNT || item.DISP || 0),
+                total: Number(item.TOTAL || item.AMMMOUNT || 0),
             });
         });
 
         const rows = docs.map((d: any) => {
-            const pCode = String(d.CODE || d.CODEP || "").trim();
+            const pCode = String(d.CODEP || d.CODE || "").trim();
             const pInfo = partyMap.get(pCode) || {
-                name: pCode || "N/A",
-                city: "",
-                area: "",
-                route: "",
-                company: "",
-                division: "",
-                salesman: "",
-                phone: "",
-                gstin: "",
-                balance: 0,
+                name: pCode || "N/A", city: "", area: "", route: "",
+                company: "", division: "", salesman: "", phone: "", gstin: "",
             };
-
-            const partyPendings = pendingsByParty.get(pCode) || [];
-
+            const vcnStr = String(d.VCN || d.VOUCHER || "N/A").trim();
+            const itemsList = itemsByVcn.get(vcnStr) || [];
+            const vcnItemsQty = itemsList.reduce((sum, i) => sum + i.qty, 0);
             return {
                 id: d._id.toString(),
-                vcn: d.VOUCHER || d.VCN || "N/A",
+                vcn: vcnStr,
                 date: d.DATE || "N/A",
+                originalVcn: d.ORIGINAL_VCN || "—",
                 partyCode: pCode,
                 partyName: pInfo.name,
                 city: pInfo.city,
@@ -265,15 +234,13 @@ export async function GET(req: NextRequest) {
                 salesman: pInfo.salesman,
                 phone: pInfo.phone,
                 gstin: pInfo.gstin,
-                partyBalance: pInfo.balance,
-                amount: Number(d.CREDIT || 0),
-                discount: Number(d.DISCOUNT || 0),
-                totalSettlement: Number(d.CREDIT || 0) + Number(d.DISCOUNT || 0),
-                paymentMode: d.MODE || d.TYPE || "Bank Transfer",
-                refNo: d.REFNO || d.CHEQUENO || "—",
-                bankName: d.BANK || "—",
-                remarks: d.REMARK1 || d.REMARK || "",
-                settledInvoices: partyPendings.slice(0, 5),
+                taxableAmount: Number(d.AMOUNTT || 0),
+                taxAmount: Number(d.TAXAMO || 0),
+                finalAmount: Number(d.FINAL || d.AMOUNTT || 0),
+                remarks: d.REMARKS || d.REASON || "",
+                itemsCount: itemsList.length,
+                totalQty: vcnItemsQty,
+                items: itemsList,
             };
         });
 
@@ -281,14 +248,11 @@ export async function GET(req: NextRequest) {
             success: true,
             summary: {
                 totalCount,
-                totalCollectedAmount,
-                totalDiscountAllowed,
-                totalSettlementPool,
-                avgReceiptAmount,
-                cashCount,
-                bankCount,
-                upiCount,
-                chequeCount,
+                totalDebitNoteAmount,
+                totalTaxableAmount,
+                totalTaxAmount,
+                totalItemsQty,
+                avgDebitNoteAmount,
             },
             filterOptions: {
                 areas: Array.from(areaSet).sort(),
@@ -296,7 +260,6 @@ export async function GET(req: NextRequest) {
                 companies: Array.from(companySet).sort(),
                 divisions: Array.from(divisionSet).sort(),
                 salesmen: Array.from(salesmanSet).sort(),
-                paymentModes: ["Bank Transfer", "Cash", "UPI", "Cheque"],
             },
             rows,
             pagination: {
@@ -308,9 +271,9 @@ export async function GET(req: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error("Sales Receipt Report API Error:", error);
+        console.error("Debit Note Report API Error:", error);
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to fetch sales receipt report" },
+            { success: false, error: error.message || "Failed to fetch debit note report" },
             { status: 500 }
         );
     }

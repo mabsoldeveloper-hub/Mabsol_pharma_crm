@@ -6,6 +6,7 @@ import Product from "@/models/Product";
 import Rate from "@/models/Rate";
 import SaleType from "@/models/SaleType";
 import Company from "@/models/Company";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 /**
  * GSTR-1 REPORT SERVICE (v3)
@@ -140,6 +141,12 @@ export default class Gstr1Report {
 
         const restriction = await getMrTerritoryRestriction();
 
+        const searchParams = new URLSearchParams();
+        if (companyId) searchParams.set("companyId", companyId);
+        if ((filter as any).fyId) searchParams.set("fyId", (filter as any).fyId);
+
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+
         const mrMdisMatch: any = restriction.isMrRestricted
             ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
                 ? { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
@@ -149,7 +156,7 @@ export default class Gstr1Report {
             : {};
 
         const mdisRows = await (Mdis as any).aggregate([
-            { $match: { DATE: { $gte: dateFrom, $lte: dateTo }, TYPE: { $in: ["S", "B"] }, ...mrMdisMatch } },
+            { $match: combineFilters({ DATE: { $gte: dateFrom, $lte: dateTo }, TYPE: { $in: ["S", "B"] } }, companyVfpMatch, mrMdisMatch) },
             { $sort: { _vfpSyncedAt: -1 } },
             { $group: { _id: "$VOUCHER", doc: { $first: "$$ROOT" } } },
             { $replaceRoot: { newRoot: "$doc" } },

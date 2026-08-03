@@ -17,7 +17,7 @@ export default function SalesCards({ summary }: any) {
 
   const cards = [
     {
-      title: "Total Sales",
+      title: "Total Sales (Gross)",
       value: "₹ " + Number(summary.totalSales || 0).toLocaleString("en-IN"),
       icon: <FaRupeeSign size={16} />,
       ring: "from-emerald-400/40 to-green-500/40",
@@ -25,10 +25,26 @@ export default function SalesCards({ summary }: any) {
       glow: "group-hover:shadow-emerald-400/30",
     },
     {
+      title: "Sales Returns (CN)",
+      value: "₹ " + Number(summary.salesReturns || 0).toLocaleString("en-IN"),
+      icon: <FaRupeeSign size={16} />,
+      ring: "from-rose-400/40 to-red-500/40",
+      iconBg: "bg-rose-500/15 text-rose-600",
+      glow: "group-hover:shadow-rose-400/30",
+    },
+    {
+      title: "Net Sales (Sale - Return)",
+      value: "₹ " + Number(summary.netSales || 0).toLocaleString("en-IN"),
+      icon: <FaChartLine size={16} />,
+      ring: "from-indigo-400/40 to-blue-500/40",
+      iconBg: "bg-indigo-500/15 text-indigo-600",
+      glow: "group-hover:shadow-indigo-400/30",
+    },
+    {
       title: "Total Bills",
       value: Number(summary.totalBills || 0).toLocaleString(),
       icon: <FaFileInvoice size={16} />,
-      ring: "from-blue-400/40 to-indigo-500/40",
+      ring: "from-blue-400/40 to-cyan-500/40",
       iconBg: "bg-blue-500/15 text-blue-600",
       glow: "group-hover:shadow-blue-400/30",
     },
@@ -52,9 +68,9 @@ export default function SalesCards({ summary }: any) {
       title: "Qty Sold",
       value: Number(summary.totalQty || 0).toLocaleString(),
       icon: <FaShoppingCart size={16} />,
-      ring: "from-rose-400/40 to-red-500/40",
-      iconBg: "bg-rose-500/15 text-rose-600",
-      glow: "group-hover:shadow-rose-400/30",
+      ring: "from-purple-400/40 to-violet-500/40",
+      iconBg: "bg-purple-500/15 text-purple-600",
+      glow: "group-hover:shadow-purple-400/30",
     },
     {
       title: "Average Bill",
@@ -65,22 +81,6 @@ export default function SalesCards({ summary }: any) {
       ring: "from-slate-400/40 to-gray-500/40",
       iconBg: "bg-slate-500/15 text-slate-600",
       glow: "group-hover:shadow-slate-400/30",
-    },
-    {
-      title: "Today's Sale",
-      value: "₹ " + Number(summary.todaySales || 0).toLocaleString("en-IN"),
-      icon: <FaCalendarDay size={16} />,
-      ring: "from-violet-400/40 to-purple-500/40",
-      iconBg: "bg-violet-500/15 text-violet-600",
-      glow: "group-hover:shadow-violet-400/30",
-    },
-    {
-      title: "Active Users",
-      value: Number(summary.users || 0).toLocaleString(),
-      icon: <FaUserTie size={16} />,
-      ring: "from-teal-400/40 to-emerald-500/40",
-      iconBg: "bg-teal-500/15 text-teal-600",
-      glow: "group-hover:shadow-teal-400/30",
     },
   ];
 

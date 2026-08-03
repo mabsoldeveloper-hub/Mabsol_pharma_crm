@@ -12,9 +12,11 @@ export async function PUT(
     const { id } = await params;
     const data = await req.json();
 
-    const updated = await FinancialYear.findByIdAndUpdate(id, data, {
-      new: true,
-    });
+    const updated = await FinancialYear.findByIdAndUpdate(
+      id,
+      { $set: data },
+      { new: true, runValidators: false }
+    );
 
     if (!updated) {
       return NextResponse.json(
@@ -27,11 +29,11 @@ export async function PUT(
       success: true,
       data: updated,
     });
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.error("FY Update Error:", error);
 
     return NextResponse.json(
-      { success: false, error: "Update Failed" },
+      { success: false, error: error.message || "Update Failed" },
       { status: 500 }
     );
   }
@@ -46,11 +48,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    console.log("Deleting ID:", id);
-
     const deleted = await FinancialYear.findByIdAndDelete(id);
-
-    console.log("Deleted:", deleted);
 
     if (!deleted) {
       return NextResponse.json(
@@ -62,11 +60,11 @@ export async function DELETE(
     return NextResponse.json({
       success: true,
     });
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.error("FY Delete Error:", error);
 
     return NextResponse.json(
-      { success: false, error: "Delete Failed" },
+      { success: false, error: error.message || "Delete Failed" },
       { status: 500 }
     );
   }

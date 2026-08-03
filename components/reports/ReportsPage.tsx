@@ -30,8 +30,17 @@ export default function ReportsPage() {
             link: "/dashboard/reports/sales-return",
             color: "rose",
         },
+
         {
-            title: "Sales Receipt Report",
+            title: "Purchase Return Report",
+            desc: "Debit note & return analysis by Area, Route, Salesman & Party",
+            icon: <FaUndoAlt size={16} />,
+            link: "/dashboard/reports/purchase-return",
+            color: "rose",
+        },
+
+        {
+            title: "Sales Receipt(Collection) Report",
             desc: "Payment collections & discount report with executive filters",
             icon: <FaHandHoldingUsd size={16} />,
             link: "/dashboard/reports/sales-receipt",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
+import { combineFilters } from "@/lib/companyVfpHelper";
 
 import SalesDis from "@/models/SalesDis";
 import SalesMdis from "@/models/SalesMdis";
@@ -39,8 +40,7 @@ export const revalidate = 0;
 // value used on a genuine sale row and I'll tighten this back to an
 // exact match.
 const MDIS_SALE_FILTER = {
-  TRANSFER: { $ne: "P" },
-  TYPE: { $nin: ["PROFORMA", "ESTIMATE"] },
+  TYPE: "S",
 };
 
 // GLEDGER is a double-entry ledger: every transaction writes one CD:"C"
@@ -167,6 +167,42 @@ export async function GET(req: Request) {
   await dbConnect();
 
   const { searchParams } = new URL(req.url);
+  const companyId = searchParams.get("companyId");
+  const fyId = searchParams.get("fyId");
+
+  let activeCompanyCode = "";
+  let activeFyCode = "";
+
+  if (companyId) {
+    const compDoc = await Company.findById(companyId).lean();
+    if (compDoc?.companyCode) activeCompanyCode = compDoc.companyCode;
+  }
+
+  if (fyId && fyId !== "ALL") {
+    const fyDoc = await FinancialYear.findById(fyId).lean();
+    if (fyDoc?.fyCode) activeFyCode = fyDoc.fyCode;
+    if (!activeCompanyCode && fyDoc?.companyId) {
+      const cDoc = await Company.findById(fyDoc.companyId).lean();
+      if (cDoc?.companyCode) activeCompanyCode = cDoc.companyCode;
+    }
+  }
+
+  const vfpOrList: any[] = [];
+  if (activeCompanyCode) {
+    vfpOrList.push({ _vfpTable: new RegExp(`_${activeCompanyCode}$`, "i") });
+    vfpOrList.push({ companyCode: activeCompanyCode });
+    vfpOrList.push({ COMPANY: activeCompanyCode });
+  }
+  if (activeFyCode && activeFyCode !== activeCompanyCode) {
+    vfpOrList.push({ _vfpTable: new RegExp(`_${activeFyCode}$`, "i") });
+    vfpOrList.push({ fyCode: activeFyCode });
+  }
+  if (companyId) {
+    vfpOrList.push({ companyId: companyId });
+  }
+
+  const companyVfpMatch = vfpOrList.length > 0 ? { $or: vfpOrList } : {};
+
   const fyRange = await getFYDateRange(searchParams);
   const { startDate, endDate } = fyRange;
 
@@ -187,21 +223,21 @@ export async function GET(req: Request) {
 
   const mdisBaseFilter = restriction.isMrRestricted
     ? territoryOrConditions.length > 0
-      ? { ...MDIS_SALE_FILTER, $or: territoryOrConditions }
-      : { ...MDIS_SALE_FILTER, CODEP: "NONE_MATCH" }
-    : { ...MDIS_SALE_FILTER };
+      ? { ...MDIS_SALE_FILTER, ...companyVfpMatch, $or: territoryOrConditions }
+      : { ...MDIS_SALE_FILTER, ...companyVfpMatch, CODEP: "NONE_MATCH" }
+    : { ...MDIS_SALE_FILTER, ...companyVfpMatch };
 
   const mdisSaleFilter = restriction.isMrRestricted
     ? territoryOrConditions.length > 0
-      ? { ...MDIS_SALE_FILTER, ...dateMatchMDIS, $or: territoryOrConditions }
-      : { ...MDIS_SALE_FILTER, ...dateMatchMDIS, CODEP: "NONE_MATCH" }
-    : { ...MDIS_SALE_FILTER, ...dateMatchMDIS };
+      ? { ...MDIS_SALE_FILTER, ...dateMatchMDIS, ...companyVfpMatch, $or: territoryOrConditions }
+      : { ...MDIS_SALE_FILTER, ...dateMatchMDIS, ...companyVfpMatch, CODEP: "NONE_MATCH" }
+    : { ...MDIS_SALE_FILTER, ...dateMatchMDIS, ...companyVfpMatch };
 
   const mdisPurchaseFilter = restriction.isMrRestricted
     ? territoryOrConditions.length > 0
-      ? { $and: [{ $or: [{ TRANSFER: "P" }, { TYPE: "P" }] }, { $or: territoryOrConditions }], ...dateMatchMDIS }
-      : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS, CODEP: "NONE_MATCH" }
-    : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS };
+      ? { $and: [{ $or: [{ TRANSFER: "P" }, { TYPE: "P" }] }, { $or: territoryOrConditions }], ...dateMatchMDIS, ...companyVfpMatch }
+      : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS, ...companyVfpMatch, CODEP: "NONE_MATCH" }
+    : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS, ...companyVfpMatch };
 
   const today = todayStr();
   const monthStart = monthStartStr();
@@ -215,21 +251,21 @@ export async function GET(req: Request) {
 
   const pendFilter = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...dateMatchPEND, ORD: { $in: restriction.allowedOrdnos } }
-      : { ...dateMatchPEND, ORD: "NONE_MATCH" }
-    : { ...dateMatchPEND };
+      ? { ...dateMatchPEND, ...companyVfpMatch, ORD: { $in: restriction.allowedOrdnos } }
+      : { ...dateMatchPEND, ...companyVfpMatch, ORD: "NONE_MATCH" }
+    : { ...dateMatchPEND, ...companyVfpMatch };
 
   const baseCustomerFilter: any = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...CUSTOMER_FILTER, ORDNO: { $in: restriction.allowedOrdnos } }
-      : { ...CUSTOMER_FILTER, ORDNO: "NONE_MATCH" }
-    : { ...CUSTOMER_FILTER };
+      ? { ...CUSTOMER_FILTER, ...companyVfpMatch, ORDNO: { $in: restriction.allowedOrdnos } }
+      : { ...CUSTOMER_FILTER, ...companyVfpMatch, ORDNO: "NONE_MATCH" }
+    : { ...CUSTOMER_FILTER, ...companyVfpMatch };
 
   const productFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-      ? { GCODE: { $in: restriction.allowedCompanyCodes } }
+      ? { GCODE: { $in: restriction.allowedCompanyCodes }, ...companyVfpMatch }
       : { GCODE: "NONE_MATCH" }
-    : {};
+    : { ...companyVfpMatch };
 
   let allowedProductCodesNumber: number[] = [];
   if (restriction.isMrRestricted) {
@@ -240,8 +276,8 @@ export async function GET(req: Request) {
   }
 
   const batchFilter = restriction.isMrRestricted
-    ? { CODE: { $in: allowedProductCodesNumber } }
-    : {};
+    ? { CODE: { $in: allowedProductCodesNumber }, ...companyVfpMatch }
+    : { ...companyVfpMatch };
 
   const companyFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
@@ -251,29 +287,26 @@ export async function GET(req: Request) {
 
   const orderFilter = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ORDNO: { $in: restriction.allowedOrdnos } }
+      ? { ORDNO: { $in: restriction.allowedOrdnos }, ...companyVfpMatch }
       : { ORDNO: "NONE_MATCH" }
-    : {};
+    : { ...companyVfpMatch };
 
   const activeCustomerFilter = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...ACTIVE_CUSTOMER_FILTER, ORDNO: { $in: restriction.allowedOrdnos } }
-      : { ...ACTIVE_CUSTOMER_FILTER, ORDNO: "NONE_MATCH" }
-    : { ...ACTIVE_CUSTOMER_FILTER };
+      ? { ...ACTIVE_CUSTOMER_FILTER, ...companyVfpMatch, ORDNO: { $in: restriction.allowedOrdnos } }
+      : { ...ACTIVE_CUSTOMER_FILTER, ...companyVfpMatch, ORDNO: "NONE_MATCH" }
+    : { ...ACTIVE_CUSTOMER_FILTER, ...companyVfpMatch };
 
   const salesDisFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-      ? { ...dateMatchDIS, COMPANY: { $in: restriction.allowedCompanyCodes } }
+      ? { ...dateMatchDIS, ...companyVfpMatch, COMPANY: { $in: restriction.allowedCompanyCodes } }
       : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-        ? { ...dateMatchDIS, CODEP: { $in: restriction.allowedOrdnos } }
-        : { ...dateMatchDIS, CODEP: "NONE_MATCH" }
-    : { ...dateMatchDIS };
+        ? { ...dateMatchDIS, ...companyVfpMatch, CODEP: { $in: restriction.allowedOrdnos } }
+        : { ...dateMatchDIS, ...companyVfpMatch, CODEP: "NONE_MATCH" }
+    : { ...dateMatchDIS, ...companyVfpMatch };
 
   const near90 = daysFromNowStr(90);
 
-  // Customer codes fetched up front — needed to build the real GLEDGER
-  // collections filter (BOOK:"R", CD:"C", CODE in this list), so it has
-  // to run before the main Promise.all below.
   const customerOrders = await Order.find(baseCustomerFilter, { [ORDER_CUSTOMER_JOIN_FIELD]: 1 }).lean();
   const customerCodes = customerOrders
     .map((o: any) => o[ORDER_CUSTOMER_JOIN_FIELD])
@@ -282,13 +315,14 @@ export async function GET(req: Request) {
   const GLEDGER_COLLECTION_FILTER = {
     ...GLEDGER_BASE_FILTER,
     ...dateMatchGLEDGER,
+    ...companyVfpMatch,
     [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
   };
 
-  // ---- NEW: customer-scoped filter for Total Credit / Total Debit cards ----
   const GLEDGER_CUSTOMER_TXN_FILTER = {
     BOOK: { $in: CUSTOMER_TXN_BOOKS },
     ...dateMatchGLEDGER,
+    ...companyVfpMatch,
     [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
   };
 
@@ -335,24 +369,33 @@ export async function GET(req: Request) {
     lastMonthSales,
   ] = await Promise.all([
     sumField(SalesMdis, { ...mdisSaleFilter }, "FINAL"),
-    sumField(SalesMdis, { ...mdisBaseFilter, ...todayMatch }, "FINAL"),
-    sumField(SalesMdis, { ...mdisBaseFilter, ...monthMatch }, "FINAL"),
-    sumField(SalesMdis, { ...mdisBaseFilter, ...yearMatch }, "FINAL"),
-    sumField(Pendings, { ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, "BALANCE"),
-    sumField(Pendings, { ACGROUP: /^C/i, INVTYPE: "I", BALANCE: { $gt: 0 }, ...dateMatchPEND }, "BALANCE"),
+    sumField(SalesMdis, combineFilters(mdisBaseFilter, todayMatch), "FINAL"),
+    sumField(SalesMdis, combineFilters(mdisBaseFilter, monthMatch), "FINAL"),
+    sumField(SalesMdis, combineFilters(mdisBaseFilter, yearMatch), "FINAL"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, companyVfpMatch), "BALANCE"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, INVTYPE: "I", BALANCE: { $gt: 0 } }, dateMatchPEND, companyVfpMatch), "BALANCE"),
     (async () => {
-      const screenshot2Vcns = ["A000031", "A000178", "A000043", "A000091", "A000123", "A000144", "0146", "0073", "A000223", "A00077", "A000317", "A000324", "A000348", "KB-000264", "A000502"];
-      const credRows = await Pendings.find({ ACGROUP: /^D/i, INVTYPE: "I" }).lean();
-      const matched = credRows.filter((r: any) => screenshot2Vcns.some((v) => String(r.VCN || r.VOUCHER || "").includes(v)));
-      return matched.reduce((sum: number, r: any) => sum + Math.abs(Number(r.BALANCE || r.FINAL || 0)), 0);
+      const baseF: any = combineFilters({ ACGROUP: /^D/i, INVTYPE: "I", BALANCE: { $lt: 0 } }, dateMatchPEND, companyVfpMatch);
+      if (restriction.isMrRestricted) {
+        if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
+          baseF.ORD = { $in: restriction.allowedOrdnos };
+        } else {
+          baseF.ORD = "NONE_MATCH";
+        }
+      }
+      const credRows = await Pendings.find(baseF).lean();
+      return credRows.reduce(
+        (sum: number, r: any) => sum + Math.abs(Number(r.BALANCE || 0)),
+        0
+      );
     })(),
-    sumField(Pendings, { ACGROUP: /^C/i, BALANCE: { $gt: 0 }, DDATE: { $lt: today } }, "BALANCE"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 }, DDATE: { $lt: today } }, companyVfpMatch), "BALANCE"),
     sumField(GLedger, { ...GLEDGER_COLLECTION_FILTER }, "CREDIT"),
     Order.countDocuments(orderFilter),
     Product.countDocuments(productFilter),
     sumField(Product, productFilter, "BALANCE"),
-    ProductBatch.countDocuments({ ...batchFilter, EXP: { $ne: null, $gte: today, $lte: near90 } }),
-    ProductBatch.countDocuments({ ...batchFilter, EXP: { $ne: null, $lt: today } }),
+    ProductBatch.countDocuments(combineFilters(batchFilter, { EXP: { $ne: null, $gte: today, $lte: near90 } })),
+    ProductBatch.countDocuments(combineFilters(batchFilter, { EXP: { $ne: null, $lt: today } })),
 
     // ---- NEW: 5 new KPI queries ----
     // 1. Total Users
@@ -361,8 +404,11 @@ export async function GET(req: Request) {
     Company.countDocuments(companyFilter),
     // 3. Credit — SUM(CREDIT) for customer transactions only
     sumField(GLedger, { ...GLEDGER_CUSTOMER_TXN_FILTER }, "CREDIT"),
-    // 4. Debit — SUM(DEBIT) for the same customer-transaction filter
-    sumField(GLedger, { ...GLEDGER_CUSTOMER_TXN_FILTER }, "DEBIT"),
+    // 4. Debit — SUM(DEBIT) for Payment Book (BOOK: "P", CD: "D") matching Marg ERP Payment Book
+    (async () => {
+      const pDocs = await GLedger.find(combineFilters({ BOOK: "P", CD: "D" }, dateMatchGLEDGER, companyVfpMatch)).lean();
+      return pDocs.reduce((sum: number, r: any) => sum + Number(r.DEBIT || r.AMOUNT || 0), 0);
+    })(),
     // 5. Active Customers — ORDER.SALDR === "Y" (see ACTIVE_CUSTOMER_FILTER note above)
     Order.countDocuments({ ...activeCustomerFilter }),
 
@@ -383,7 +429,7 @@ export async function GET(req: Request) {
     ]),
 
     // Outstanding Aging — raw rows, bucketed in JS below (DUEDAYS varies per voucher)
-    Pendings.find({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
+    Pendings.find(combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, companyVfpMatch), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
 
     // Top 10 Products — DIS joined to PRO by CODE
     SalesDis.aggregate([

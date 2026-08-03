@@ -4,10 +4,15 @@ import OutstandingReport from "@/models/OutstandingReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import FinancialYear from "@/models/FinancialYear";
 import { getFYDateRange } from "@/lib/financialYearHelper";
+import { getCompanyVfpFilter } from "@/lib/companyVfpHelper";
+import connectDB from "@/lib/mongodb";
 
 export async function GET(req: NextRequest) {
     try {
+        await connectDB();
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+        const companyId = searchParams.get("companyId") || "";
 
         const pageParam = Number(searchParams.get("page") || 1);
         const limitParam = Number(searchParams.get("limit") || 500);
@@ -67,7 +72,9 @@ export async function GET(req: NextRequest) {
             limit: fetchLimit,
 
             sortField: searchParams.get("sortField") || "DDATE",
-            sortOrder: (Number(searchParams.get("sortOrder")) === 1 ? 1 : -1) as 1 | -1,
+            sortOrder: (Number(searchParams.get("sortOrder") || -1) === 1 ? 1 : -1) as 1 | -1,
+            companyId,
+            companyVfpMatch,
         };
 
         const data = await OutstandingReport.get(filter);

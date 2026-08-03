@@ -7,6 +7,7 @@ import GlLedger from "@/models/GlLedger";           // GLEDGER
 import Rate from "@/models/Rate";                   // RATE
 import SubDis from "@/models/SubDis";               // SUBDIS
 import SaleType from "@/models/SaleType";           // SALETYPE
+import { combineFilters } from "@/lib/companyVfpHelper";
 
 export interface BatchReportFilter {
     search?: string;        // free text: batch no / product / billname / supplier
@@ -29,6 +30,9 @@ export interface BatchReportFilter {
 
     fromDate?: string;      // PROBAT.DATE range (yyyy-mm-dd string)
     toDate?: string;
+
+    companyId?: string;
+    companyVfpMatch?: Record<string, any>;
 
     page?: number;
     limit?: number;
@@ -66,22 +70,25 @@ export default class BatchReport {
      * lookups (MDIS/GLEDGER/SUBDIS/RATE/SALETYPE) only ever run on the final
      * paginated page, never on the whole matched set.
      */
-    private static async resolveDisFilteredBatchKeys(f: {
-        party?: string;
-        dsm?: string;
-        area?: string;
-        route?: string;
-    }) {
+    private static async resolveDisFilteredBatchKeys(
+        f: { party?: string; dsm?: string; area?: string; route?: string },
+        compFilter: Record<string, any> = {}
+    ) {
         const expr: any[] = [];
         if (f.party) expr.push(trimmedEq("$CODEP", f.party));
         if (f.dsm) expr.push(trimmedEq("$DSM", f.dsm));
         if (f.area) expr.push(trimmedEq("$AREA", f.area));
         if (f.route) expr.push(trimmedEq("$ROUT", f.route));
 
-        if (expr.length === 0) return null; // no dis-side filter active
+        if (expr.length === 0 && Object.keys(compFilter).length === 0) return null; // no dis-side filter active
+
+        const matchObj = combineFilters(
+            expr.length > 0 ? { $expr: { $and: expr } } : {},
+            compFilter
+        );
 
         const matches = await SalesDis.aggregate([
-            { $match: { $expr: { $and: expr } } },
+            { $match: matchObj },
             { $group: { _id: { CODE: "$CODE", BATCH: "$BATCH" } } },
             { $limit: MAX_DIS_KEYS },
         ]);
@@ -153,8 +160,10 @@ export default class BatchReport {
             sortOrder = -1,
         } = filter;
 
+        const compFilter = filter.companyVfpMatch || {};
+
         // ---- Resolve sales-side filters FIRST (cheap, targeted query) ----
-        const disKeys = await this.resolveDisFilteredBatchKeys({ party, dsm, area, route });
+        const disKeys = await this.resolveDisFilteredBatchKeys({ party, dsm, area, route }, compFilter);
 
         if (disKeys !== null && disKeys.length === 0) {
             // party/dsm/area/route filter given but nothing in DIS matches it —
@@ -206,15 +215,15 @@ export default class BatchReport {
             and.push({ $or: disKeys.map((k) => ({ CODE: k.CODE, BATCHNO: k.BATCHNO })) });
         }
 
-        const match: any = and.length ? { $and: and } : {};
+        const match: any = combineFilters(
+            and.length ? { $and: and } : {},
+            compFilter
+        );
 
         const skip = (page - 1) * limit;
 
         const statusExpr = status ? [trimmedEq("$SELECT", status)] : [];
 
-        // Only used to narrow which DIS records are *shown* in the detail
-        // panel for the page's rows — actual batch-level filtering already
-        // happened via resolveDisFilteredBatchKeys above.
         const disDisplayExpr: any[] = [];
         if (party) disDisplayExpr.push(trimmedEq("$CODEP", party));
         if (dsm) disDisplayExpr.push(trimmedEq("$DSM", dsm));
@@ -515,18 +524,21 @@ export default class BatchReport {
         await dbConnect();
 
         const { days = 90, limit = 50 } = filter;
+        const compFilter = filter.companyVfpMatch || {};
 
         const today = new Date();
         const cutoff = new Date();
         cutoff.setDate(today.getDate() + days);
 
-        return ProductBatch.find({
+        const match = combineFilters({
             EXP: {
                 $ne: null,
                 $gte: today.toISOString().slice(0, 10),
                 $lte: cutoff.toISOString().slice(0, 10),
             },
-        })
+        }, compFilter);
+
+        return ProductBatch.find(match)
             .sort({ EXP: 1 })
             .limit(limit)
             .lean();
@@ -537,8 +549,11 @@ export default class BatchReport {
         await dbConnect();
 
         const { limit = 50 } = filter;
+        const compFilter = filter.companyVfpMatch || {};
 
-        return ProductBatch.find({ BALANCE: { $lte: 0 } })
+        const match = combineFilters({ BALANCE: { $lte: 0 } }, compFilter);
+
+        return ProductBatch.find(match)
             .sort({ BALANCE: 1 })
             .limit(limit)
             .lean();

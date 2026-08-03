@@ -9,6 +9,8 @@ import Order from "@/models/Order";
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export async function GET(req: Request) {
   try {
     await connectDB();
@@ -18,10 +20,11 @@ export async function GET(req: Request) {
     const { startDate, endDate } = fyRange;
 
     const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
     const restriction = await getMrTerritoryRestriction();
 
     const saleFilterBase = { TRANSFER: { $ne: "P" }, TYPE: { $nin: ["PROFORMA", "ESTIMATE", "P"] } };
-    let billMatch: any = { ...dateMatch, ...saleFilterBase };
+    let billMatch: any = combineFilters(dateMatch, saleFilterBase, companyVfpMatch);
     if (restriction.isMrRestricted) {
       const orConditions: any[] = [];
       if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
@@ -31,9 +34,9 @@ export async function GET(req: Request) {
         orConditions.push({ COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } });
       }
       if (orConditions.length > 0) {
-        billMatch = { ...dateMatch, ...saleFilterBase, $or: orConditions };
+        billMatch = combineFilters(dateMatch, saleFilterBase, companyVfpMatch, { $or: orConditions });
       } else {
-        billMatch = { ...dateMatch, ...saleFilterBase, CODEP: "NONE_MATCH" };
+        billMatch = combineFilters(dateMatch, saleFilterBase, companyVfpMatch, { CODEP: "NONE_MATCH" });
       }
     }
 
@@ -58,10 +61,10 @@ export async function GET(req: Request) {
       bills = [];
     }
 
-    // Ultimate Fallback: If date/restriction match returns 0 bills, fetch latest bills from SalesMdis
+    // Fallback within the company scope if date match returns 0 bills
     if (!bills || bills.length === 0) {
       try {
-        bills = await SalesMdis.find({}, projection)
+        bills = await SalesMdis.find(combineFilters(saleFilterBase, companyVfpMatch), projection)
           .sort({ _id: -1 })
           .limit(30)
           .lean();
@@ -74,8 +77,8 @@ export async function GET(req: Request) {
     let orders: any[] = [];
     try {
       [customers, orders] = await Promise.all([
-        Customer.find({}, { ORDNO: 1, CODEP: 1, PARNAM: 1, NAME: 1, CITY: 1 }).lean(),
-        Order.find({}, { ORDNO: 1, CODEP: 1, PARNAM: 1, NAME: 1, CITY: 1 }).lean(),
+        Customer.find(combineFilters(companyVfpMatch), { ORDNO: 1, CODEP: 1, PARNAM: 1, NAME: 1, CITY: 1 }).lean(),
+        Order.find(combineFilters(companyVfpMatch), { ORDNO: 1, CODEP: 1, PARNAM: 1, NAME: 1, CITY: 1 }).lean(),
       ]);
     } catch {
       customers = [];

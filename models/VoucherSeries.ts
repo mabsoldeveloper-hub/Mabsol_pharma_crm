@@ -9,7 +9,10 @@ export interface IVoucherSeries extends Document {
   padding: number;
   isDefault: boolean;
   status: "Active" | "Inactive";
+  companyId?: string;
   companyCode?: string;
+  fyId?: string;
+  fyCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,7 +32,10 @@ const VoucherSeriesSchema = new Schema<IVoucherSeries>(
     padding: { type: Number, default: 5, min: 1, max: 10 },
     isDefault: { type: Boolean, default: true },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
+    companyId: { type: String, default: "", trim: true },
     companyCode: { type: String, default: "", trim: true },
+    fyId: { type: String, default: "", trim: true },
+    fyCode: { type: String, default: "", trim: true },
   },
   {
     timestamps: true,

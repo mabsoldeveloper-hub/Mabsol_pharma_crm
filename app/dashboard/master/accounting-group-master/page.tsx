@@ -6,9 +6,11 @@
 // Requires the "xlsx" package for the Excel export button:
 //   npm install xlsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
     useReactTable,
     getCoreRowModel,
@@ -250,6 +252,9 @@ export default function AccountGroupFullViewPage() {
     const [error, setError] = useState<string | null>(null);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [viewMode, setViewMode] = useState<"table" | "tree">("table");
+    const [pageSize, setPageSize] = useState<number>(10);
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
 
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
         const state: VisibilityState = {};
@@ -275,15 +280,15 @@ export default function AccountGroupFullViewPage() {
     const [minCustomers, setMinCustomers] = useState("");
     const [maxCustomers, setMaxCustomers] = useState("");
 
-    useEffect(() => {
-        loadGroups();
-    }, []);
-
-    const loadGroups = async () => {
+    const loadGroups = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch("/api/master/accounting-group");
+            const params = new URLSearchParams();
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+            if (selectedFY?._id) params.set("fyId", selectedFY._id);
+
+            const res = await fetch(`/api/master/accounting-group?${params.toString()}`);
             if (!res.ok) throw new Error("Failed to load account groups");
             const data = await res.json();
             setGroups(Array.isArray(data) ? data : []);
@@ -292,7 +297,11 @@ export default function AccountGroupFullViewPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedCompany, selectedFY]);
+
+    useEffect(() => {
+        loadGroups();
+    }, [loadGroups]);
 
     // ---- Distinct filter options derived from data ---------------
     const parentOptions = useMemo(

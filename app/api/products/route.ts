@@ -5,19 +5,25 @@ import ProductBatch from "@/models/ProductBatch";
 import SaleType from "@/models/SaleType";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   await connectDB();
 
+  const { searchParams } = new URL(req.url);
+  const companyVfpMatch = await getCompanyVfpFilter(searchParams);
   const restriction = await getMrTerritoryRestriction();
 
-  const productFilter: any = {};
+  let productFilter: any = combineFilters(companyVfpMatch);
   if (restriction.isMrRestricted) {
     if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
-      productFilter.GCODE = {
-        $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes],
-      };
+      productFilter = combineFilters(companyVfpMatch, {
+        GCODE: {
+          $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes],
+        },
+      });
     } else {
       return NextResponse.json([]);
     }

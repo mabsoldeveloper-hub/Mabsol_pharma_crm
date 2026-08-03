@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
     useReactTable,
     getCoreRowModel,
@@ -201,6 +203,8 @@ type MrTerritoryInfo = {
 };
 
 export default function ProductsFullViewPage() {
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -241,8 +245,11 @@ export default function ProductsFullViewPage() {
 
     useEffect(() => {
         loadMrTerritoryInfo();
-        loadProducts();
     }, []);
+
+    useEffect(() => {
+        loadProducts();
+    }, [selectedCompany?._id, selectedFY?._id]);
 
     // Fetch current user's territory info (for displaying restriction badge)
     const loadMrTerritoryInfo = async () => {
@@ -266,7 +273,10 @@ export default function ProductsFullViewPage() {
     const loadProducts = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/master/product");
+            const params = new URLSearchParams();
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+            if (selectedFY?._id) params.set("fyId", selectedFY._id);
+            const res = await fetch(`/api/master/product?${params.toString()}`);
             const data = await res.json();
             setProducts(Array.isArray(data) ? data : []);
         } finally {

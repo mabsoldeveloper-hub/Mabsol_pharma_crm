@@ -119,10 +119,14 @@ function buildFilter(params: FilterParams, fields: FieldMap) {
     return match;
 }
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export async function GET(request: Request) {
     try {
         await dbConnect();
 
+        const { searchParams } = new URL(request.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const restriction = await getMrTerritoryRestriction();
 
         let mrMdisMatch: any = {};
@@ -161,8 +165,6 @@ export async function GET(request: Request) {
                 : { ORD: "NONE_MATCH" }
             : {};
 
-        const { searchParams } = new URL(request.url);
-
         const filters: FilterParams = {
             customer: searchParams.get("customer") || undefined,
             invoice: searchParams.get("invoice") || undefined,
@@ -174,8 +176,8 @@ export async function GET(request: Request) {
         };
 
         // Per-table filter objects (field names differ table to table)
-        const mdisFilter = {
-            ...buildFilter(filters, {
+        const mdisFilter = combineFilters(
+            buildFilter(filters, {
                 customer: "CODEP",
                 invoice: "VCN",
                 date: "DATE",
@@ -183,14 +185,15 @@ export async function GET(request: Request) {
                 route: "ROUT",
                 dsm: "DSM", // NULL in every MDIS row today — see note above
             }),
-            ...mrMdisMatch,
-        };
+            mrMdisMatch,
+            companyVfpMatch
+        );
 
         // "Real order" version of mdisFilter — excludes TYPE:"V" void rows.
-        const mdisRealOrderFilter = { ...mdisFilter, ...REAL_ORDER_FILTER };
+        const mdisRealOrderFilter = combineFilters(mdisFilter, REAL_ORDER_FILTER, companyVfpMatch);
 
-        const disFilter = {
-            ...buildFilter(filters, {
+        const disFilter = combineFilters(
+            buildFilter(filters, {
                 customer: "CODEP",
                 invoice: "VCN",
                 date: "DATE",
@@ -198,11 +201,12 @@ export async function GET(request: Request) {
                 route: "ROUT",
                 dsm: "DSM", // has real values on DIS
             }),
-            ...mrDisMatch,
-        };
+            mrDisMatch,
+            companyVfpMatch
+        );
 
-        const subdisFilter = {
-            ...buildFilter(filters, {
+        const subdisFilter = combineFilters(
+            buildFilter(filters, {
                 customer: "CODEP",
                 invoice: "VCN",
                 date: "DATE",
@@ -210,20 +214,22 @@ export async function GET(request: Request) {
                 route: "ROUT",
                 dsm: "DSM", // has real values on SUBDIS
             }),
-            ...mrSubdisMatch,
-        };
+            mrSubdisMatch,
+            companyVfpMatch
+        );
 
-        const gledgerFilter = {
-            ...buildFilter(filters, {
+        const gledgerFilter = combineFilters(
+            buildFilter(filters, {
                 customer: "CODE", // GLEDGER uses CODE, not CODEP
                 date: "DATE",
                 // no invoice/area/route/dsm fields on GLEDGER
             }),
-            ...mrGledgerMatch,
-        };
+            mrGledgerMatch,
+            companyVfpMatch
+        );
 
-        const pendFilter = {
-            ...buildFilter(filters, {
+        const pendFilter = combineFilters(
+            buildFilter(filters, {
                 customer: "ORD", // PEND uses ORD, not CODEP
                 invoice: "VCN",
                 date: "DDATE",
@@ -231,8 +237,26 @@ export async function GET(request: Request) {
                 route: "ROUT",
                 dsm: "DSM",
             }),
-            ...mrPendMatch,
-        };
+            mrPendMatch,
+            companyVfpMatch
+        );
+
+        const orderFilter = combineFilters(
+            buildFilter(filters, {
+                customer: "ORDNO", // ORDER uses ORDNO
+                invoice: "VCN",
+                date: "DATE",
+                area: "AREA",
+                route: "ROUT",
+                dsm: "DSM",
+            }),
+            restriction.isMrRestricted
+                ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
+                    ? { ORDNO: { $in: restriction.allowedOrdnos } }
+                    : { ORDNO: "NONE_MATCH" }
+                : {},
+            companyVfpMatch
+        );
 
         const now = new Date();
         const today = now.toISOString().slice(0, 10);

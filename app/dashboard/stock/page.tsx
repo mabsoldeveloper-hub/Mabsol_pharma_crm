@@ -21,6 +21,8 @@ import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 import CurrentStockModal from "@/components/CurrentStockModal";
 import NearExpiryModal from "@/components/NearExpiryModal";
 import ExpiredBatchesModal from "@/components/ExpiredBatchesModal";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
     Package,
     Boxes,
@@ -83,10 +85,13 @@ const inr = (n: number | null | undefined) =>
 const num = (n: number | null | undefined) =>
     n == null ? "—" : new Intl.NumberFormat("en-IN").format(n);
 
-export default function StockDashboardPage() {
+export default function StockDashboard() {
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
+
     const [data, setData] = useState<DashboardData | null>(null);
-    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [isNearExpiryModalOpen, setIsNearExpiryModalOpen] = useState(false);
@@ -94,15 +99,30 @@ export default function StockDashboardPage() {
 
     useEffect(() => {
         loadMrTerritoryInfo();
-        fetch("/api/dashboard/stock-dashboard")
-            .then((res) => res.json())
-            .then((json) => {
-                if (!json.success) throw new Error(json.error || "Failed to load");
-                setData(json);
-            })
-            .catch((e) => setError(e.message))
-            .finally(() => setLoading(false));
     }, []);
+
+    useEffect(() => {
+        loadStockDashboard();
+    }, [selectedCompany?._id, selectedFY?._id]);
+
+    const loadStockDashboard = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const params = new URLSearchParams();
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+            if (selectedFY?._id) params.set("fyId", selectedFY._id);
+
+            const res = await fetch(`/api/dashboard/stock-dashboard?${params.toString()}`);
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || "Failed to load");
+            setData(json);
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const loadMrTerritoryInfo = async () => {
         try {

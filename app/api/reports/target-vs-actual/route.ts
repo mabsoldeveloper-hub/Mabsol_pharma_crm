@@ -8,6 +8,7 @@ import GLedger from "@/models/GLedger";
 import MrCustomerAssignment from "@/models/MrCustomerAssignment";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getCurrentUser } from "@/lib/auth";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
     const restriction = await getMrTerritoryRestriction();
 
     const { searchParams } = new URL(req.url);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
     const periodMonth = searchParams.get("periodMonth") || new Date().toISOString().slice(0, 7);
     const targetType = searchParams.get("targetType") || "all"; // "all" | "MR" | "Customer"
     const frequency = searchParams.get("frequency") || "monthly"; // "monthly" | "weekly" | "daily"
@@ -154,7 +156,7 @@ export async function GET(req: NextRequest) {
 
     // 1. Bulk pre-fetch Customer phone numbers and MR assignments
     const customerList = await Customer.find(
-      {},
+      combineFilters(companyVfpMatch),
       { ORDNO: 1, CODEP: 1, CODE: 1, SCODE: 1, PARNAM: 1, MOBILE: 1, PHONE1: 1, PHONE2: 1, TEL: 1, REF: 1, DSM: 1 }
     ).lean();
 
@@ -189,7 +191,7 @@ export async function GET(req: NextRequest) {
 
     // 3. Bulk Aggregate Sales for the month
     const bulkSalesAgg = await SalesMdis.aggregate([
-      { $match: { DATE: { $gte: monthStartDate, $lte: monthEndDate } } },
+      { $match: combineFilters(companyVfpMatch, { DATE: { $gte: monthStartDate, $lte: monthEndDate } }) },
       {
         $group: {
           _id: {
@@ -216,11 +218,11 @@ export async function GET(req: NextRequest) {
     // 4. Bulk Aggregate Collections for the month
     const bulkCollAgg = await GLedger.aggregate([
       {
-        $match: {
+        $match: combineFilters(companyVfpMatch, {
           BOOK: "R",
           CD: "C",
           DATE: { $gte: monthStartDate, $lte: monthEndDate },
-        },
+        }),
       },
       {
         $group: {

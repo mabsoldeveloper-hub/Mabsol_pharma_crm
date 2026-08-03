@@ -2,6 +2,8 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
+import SearchableSelect, { OptionItem } from "@/components/SearchableSelect";
+import { useCompany } from "@/context/CompanyContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 
 interface DisRecord {
@@ -244,6 +246,7 @@ export default function BatchReportPage() {
     };
 
     const { selectedFY } = useFinancialYear();
+    const { selectedCompany } = useCompany();
 
     const fetchReport = useCallback(
         async (targetPage: number, activeFilters: typeof DEFAULT_FILTERS) => {
@@ -273,6 +276,8 @@ export default function BatchReportPage() {
                     if (value) params.set(key, value);
                 });
 
+                if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
                 const res = await fetch(`/api/reports/batch?${params.toString()}`);
                 const json: ApiResponse = await res.json();
 
@@ -293,7 +298,7 @@ export default function BatchReportPage() {
                 setLoading(false);
             }
         },
-        [selectedFY]
+        [selectedFY, selectedCompany]
     );
 
     useEffect(() => {

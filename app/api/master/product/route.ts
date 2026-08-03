@@ -16,10 +16,15 @@ import { getCurrentUser } from "@/lib/auth";
 //   Product.GCODE  →  SaleType.SCODE  →  SaleType.SNAME (company name)
 //   So "allowed company codes" = MrTerritory.companyCode values for this user.
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
     await connectDB();
+
+    const { searchParams } = new URL(req.url);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
     // ── Step 1: Determine MR territory restrictions ───────────────────────
     let allowedGCODEs: string[] | null = null; // null = no restriction (admin/non-MR)
@@ -61,9 +66,9 @@ export async function GET() {
     }
 
     // ── Step 2: Build product query with optional GCODE filter ────────────
-    const productFilter: any = {};
+    let productFilter: any = combineFilters(companyVfpMatch);
     if (allowedGCODEs !== null && allowedGCODEs.length > 0) {
-        productFilter.GCODE = { $in: allowedGCODEs };
+        productFilter = combineFilters(companyVfpMatch, { GCODE: { $in: allowedGCODEs } });
     } else if (allowedGCODEs !== null && allowedGCODEs.length === 0) {
         // MR is assigned but company codes couldn't be resolved → return nothing
         return NextResponse.json([]);

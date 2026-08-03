@@ -3,12 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import ProductReport from "@/models/ProductReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getFYDateRange } from "@/lib/financialYearHelper";
+import { getCompanyVfpFilter } from "@/lib/companyVfpHelper";
+import connectDB from "@/lib/mongodb";
 
 const MAX_LIMIT = 2000;
 
 export async function GET(req: NextRequest) {
     try {
+        await connectDB();
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+        const companyId = searchParams.get("companyId") || "";
 
         const report = searchParams.get("report") || "master";
 
@@ -41,6 +46,8 @@ export async function GET(req: NextRequest) {
                 : undefined,
             page: restriction.isMrRestricted ? 1 : page,
             limit: fetchLimit,
+            companyId,
+            companyVfpMatch,
         };
 
         let data: any;

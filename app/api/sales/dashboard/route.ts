@@ -10,6 +10,8 @@ import FinancialYear from "@/models/FinancialYear";
 
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export async function GET(req: Request) {
     try {
         await connectDB();
@@ -19,14 +21,15 @@ export async function GET(req: Request) {
         const { startDate, endDate } = fyRange;
 
         const dateMatch = buildFYDateQuery("DATE", startDate, endDate);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
         const restriction = await getMrTerritoryRestriction();
 
         const saleFilterBase = { TRANSFER: { $ne: "P" }, TYPE: { $nin: ["PROFORMA", "ESTIMATE", "P"] } };
-        let mdisFilter: any = { ...dateMatch, ...saleFilterBase };
-        let disFilter: any = { ...dateMatch, ...saleFilterBase };
-        let customerFilter: any = {};
-        let productFilter: any = {};
+        let mdisFilter: any = combineFilters(dateMatch, saleFilterBase, companyVfpMatch);
+        let disFilter: any = combineFilters(dateMatch, saleFilterBase, companyVfpMatch);
+        let customerFilter: any = { ...companyVfpMatch };
+        let productFilter: any = { ...companyVfpMatch };
 
         if (restriction.isMrRestricted) {
           const orConditions: any[] = [];
@@ -38,15 +41,15 @@ export async function GET(req: Request) {
           }
 
           if (orConditions.length > 0) {
-            mdisFilter = { ...dateMatch, ...saleFilterBase, $or: orConditions };
-            disFilter = { ...dateMatch, ...saleFilterBase, $or: orConditions };
+            mdisFilter = combineFilters(dateMatch, saleFilterBase, companyVfpMatch, { $or: orConditions });
+            disFilter = combineFilters(dateMatch, saleFilterBase, companyVfpMatch, { $or: orConditions });
           } else {
-            mdisFilter = { ...dateMatch, ...saleFilterBase, CODEP: "NONE_MATCH" };
-            disFilter = { ...dateMatch, ...saleFilterBase, CODEP: "NONE_MATCH" };
+            mdisFilter = combineFilters(dateMatch, saleFilterBase, companyVfpMatch, { CODEP: "NONE_MATCH" });
+            disFilter = combineFilters(dateMatch, saleFilterBase, companyVfpMatch, { CODEP: "NONE_MATCH" });
           }
 
           if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
-            customerFilter = { ORDNO: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } };
+            customerFilter = combineFilters(companyVfpMatch, { ORDNO: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } });
           }
 
           if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
@@ -54,50 +57,52 @@ export async function GET(req: Request) {
           }
         }
 
-        // Total Bills
-        const totalBills = await SalesMdis.countDocuments(mdisFilter);
+        const mdisSaleFilter = { ...mdisFilter, TYPE: "S" };
+        const mdisReturnFilter = { ...mdisFilter, TYPE: "R" };
+        const disSaleFilter = { ...disFilter, TYPE: "S" };
 
-        // Total Sales
-        const totalSales = await SalesMdis.aggregate([
-            { $match: mdisFilter },
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: "$FINAL" },
-                },
-            },
+        const [
+          totalBills,
+          returnBills,
+          salesAgg,
+          returnsAgg,
+          totalQtyAgg,
+          customers,
+          products
+        ] = await Promise.all([
+          SalesMdis.countDocuments(mdisSaleFilter),
+          SalesMdis.countDocuments(mdisReturnFilter),
+          SalesMdis.aggregate([
+            { $match: mdisSaleFilter },
+            { $group: { _id: null, total: { $sum: "$FINAL" } } }
+          ]),
+          SalesMdis.aggregate([
+            { $match: mdisReturnFilter },
+            { $group: { _id: null, total: { $sum: "$FINAL" } } }
+          ]),
+          SalesDis.aggregate([
+            { $match: disSaleFilter },
+            { $group: { _id: null, qty: { $sum: "$QTY" } } }
+          ]),
+          Customer.countDocuments({ ...customerFilter, STATUS: { $ne: "N" } }),
+          Product.countDocuments({ ...productFilter, STATUS: { $ne: "N" } }),
         ]);
 
-        // Total Products Sold
-        const totalQty = await SalesDis.aggregate([
-            { $match: disFilter },
-            {
-                $group: {
-                    _id: null,
-                    qty: { $sum: "$QTY" },
-                },
-            },
-        ]);
-
-        // Total Customers
-        const customers = await Customer.countDocuments({
-            ...customerFilter,
-            STATUS: { $ne: "N" },
-        });
-
-        // Total Products
-        const products = await Product.countDocuments({
-            ...productFilter,
-            STATUS: { $ne: "N" },
-        });
+        const totalSales = salesAgg[0]?.total || 0;
+        const salesReturns = returnsAgg[0]?.total || 0;
+        const netSales = totalSales - salesReturns;
+        const totalQty = totalQtyAgg[0]?.qty || 0;
 
         return NextResponse.json({
             success: true,
             totalBills,
+            returnBills,
             customers,
             products,
-            totalSales: totalSales[0]?.total || 0,
-            totalQty: totalQty[0]?.qty || 0,
+            totalSales,
+            salesReturns,
+            netSales,
+            totalQty,
         });
     } catch (err: any) {
         return NextResponse.json({

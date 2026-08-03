@@ -5,6 +5,7 @@ import Pend from "@/models/Pend";
 import GlLedger from "@/models/GlLedger";
 import SalesMdis from "@/models/SalesMdis";
 import { buildFYDateQuery } from "@/lib/financialYearHelper";
+import { combineFilters } from "@/lib/companyVfpHelper";
 
 export interface CustomerReportFilter {
     search?: string;
@@ -22,6 +23,8 @@ export interface CustomerReportFilter {
     startDate?: string;
     endDate?: string;
     fyId?: string;
+    companyId?: string;
+    companyVfpMatch?: Record<string, any>;
 
     page?: number;
     limit?: number;
@@ -108,6 +111,8 @@ export default class CustomerReport {
         const pageLimit = Math.max(1, Number(limit) || 20);
         const skip = (pageNum - 1) * pageLimit;
 
+        const compFilter = filter.companyVfpMatch || {};
+
         // ---- 1. Base match against fields that genuinely live on Order ----
         const match: any = {};
 
@@ -124,18 +129,10 @@ export default class CustomerReport {
         if (status) match.STATUS = status;
 
         // ---- 2. Resolve area / route / dsm against Order, Pend & GlLedger ----
-        // Data quality across the VFP-migrated tables is inconsistent — a given
-        // customer might have AREA/ROUT/DSM populated on Order directly, or only on
-        // Pend/GlLedger, or (rarely) both. So each filter checks every table that
-        // could plausibly hold the value and unions the matching ORDNOs, instead of
-        // assuming only one source is authoritative (that assumption is what made
-        // the DSM filter miss customers whose DSM only exists on Order).
         let restrictToOrdnos: string[] | null = customerCode ? [customerCode] : null;
 
         const requiredSets: string[][] = [];
 
-        // area + route: check Pend (AREA/ROUT together on one record) AND Order's own
-        // AREA/ROUT fields, then union the results.
         if (area || route) {
             const pendMatch: any = {};
             if (area) pendMatch.AREA = { $regex: escapeRegex(area), $options: "i" };
@@ -146,8 +143,8 @@ export default class CustomerReport {
             if (route) orderMatch.ROUT = { $regex: escapeRegex(route), $options: "i" };
 
             const [pendCodes, orderCodes] = await Promise.all([
-                Pend.distinct("ORD", pendMatch),
-                Order.distinct("ORDNO", orderMatch),
+                Pend.distinct("ORD", combineFilters(pendMatch, compFilter)),
+                Order.distinct("ORDNO", combineFilters(orderMatch, compFilter)),
             ]);
 
             const union = new Set(
@@ -156,13 +153,12 @@ export default class CustomerReport {
             requiredSets.push([...union]);
         }
 
-        // dsm: check GlLedger.DSM AND Order.DSM, then union the results.
         if (dsm) {
             const dsmRegex = { $regex: escapeRegex(dsm), $options: "i" };
 
             const [glCodes, orderCodes] = await Promise.all([
-                GlLedger.distinct("CODE1", { DSM: dsmRegex }),
-                Order.distinct("ORDNO", { DSM: dsmRegex }),
+                GlLedger.distinct("CODE1", combineFilters({ DSM: dsmRegex }, compFilter)),
+                Order.distinct("ORDNO", combineFilters({ DSM: dsmRegex }, compFilter)),
             ]);
 
             const union = new Set(
@@ -195,9 +191,11 @@ export default class CustomerReport {
             [ORDER_SORTABLE_FIELDS.has(sortField) ? sortField : "PARNAM"]: sortOrder,
         };
 
+        const finalOrderMatch = combineFilters(match, compFilter);
+
         const [rows, total] = await Promise.all([
-            Order.find(match).sort(sortStage).skip(skip).limit(pageLimit).lean(),
-            Order.countDocuments(match),
+            Order.find(finalOrderMatch).sort(sortStage).skip(skip).limit(pageLimit).lean(),
+            Order.countDocuments(finalOrderMatch),
         ]);
 
         const ordnos = rows.map((r: any) => r.ORDNO).filter(Boolean);
@@ -210,9 +208,9 @@ export default class CustomerReport {
         const maOrderDateFilter = buildFYDateQuery("DATE", startDate, endDate);
 
         const [pendRecords, ledgerRecords, maOrderRecords] = await Promise.all([
-            ordnos.length ? Pend.find({ ORD: { $in: ordnos }, ...pendDateFilter }).lean() : Promise.resolve([]),
-            ordnos.length ? GlLedger.find({ CODE1: { $in: ordnos }, ...ledgerDateFilter }).lean() : Promise.resolve([]),
-            ordnos.length ? MaOrder.find({ ORDNO: { $in: ordnos }, ...maOrderDateFilter }).lean() : Promise.resolve([]),
+            ordnos.length ? Pend.find(combineFilters({ ORD: { $in: ordnos }, ...pendDateFilter }, compFilter)).lean() : Promise.resolve([]),
+            ordnos.length ? GlLedger.find(combineFilters({ CODE1: { $in: ordnos }, ...ledgerDateFilter }, compFilter)).lean() : Promise.resolve([]),
+            ordnos.length ? MaOrder.find(combineFilters({ ORDNO: { $in: ordnos }, ...maOrderDateFilter }, compFilter)).lean() : Promise.resolve([]),
         ]);
 
         // ---- 5. Group related data per customer in JS (tiny dataset, cheap) ----
@@ -303,12 +301,13 @@ export default class CustomerReport {
     static async customerLedger(filter: CustomerReportFilter = {}) {
         await dbConnect();
         const { customerCode, search, startDate, endDate, page = 1, limit = 50 } = filter;
-        const query: any = { ...buildFYDateQuery("DATE", startDate, endDate) };
+        const compFilter = filter.companyVfpMatch || {};
+        let query: any = combineFilters(buildFYDateQuery("DATE", startDate, endDate), compFilter);
 
-        if (customerCode) query.CODE1 = customerCode;
+        if (customerCode) query = combineFilters(query, { CODE1: customerCode });
         if (search) {
             const s = escapeRegex(search);
-            query.$or = [{ CODE1: { $regex: s, $options: "i" } }, { REMARK1: { $regex: s, $options: "i" } }];
+            query = combineFilters(query, { $or: [{ CODE1: { $regex: s, $options: "i" } }, { REMARK1: { $regex: s, $options: "i" } }] });
         }
 
         const skip = (Math.max(1, page) - 1) * Math.max(1, limit);
@@ -318,7 +317,7 @@ export default class CustomerReport {
         ]);
 
         const ordnos = Array.from(new Set(records.map((r: any) => r.CODE1).filter(Boolean)));
-        const orders = ordnos.length ? await Order.find({ ORDNO: { $in: ordnos } }, { ORDNO: 1, PARNAM: 1, CITY: 1 }).lean() : [];
+        const orders = ordnos.length ? await Order.find(combineFilters({ ORDNO: { $in: ordnos } }, compFilter), { ORDNO: 1, PARNAM: 1, CITY: 1 }).lean() : [];
         const orderMap = new Map(orders.map((o: any) => [o.ORDNO, o]));
 
         const rows = records.map((r: any) => {

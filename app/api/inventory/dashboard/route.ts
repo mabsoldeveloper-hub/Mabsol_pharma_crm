@@ -1,36 +1,33 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Product from "@/models/Product";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await connectDB();
 
-    const totalProducts = await Product.countDocuments({
-      STATUS: "Y",
-    });
+    const { searchParams } = new URL(req.url);
+    const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
-    const availableProducts = await Product.countDocuments({
-      STATUS: "Y",
-      BALANCE: { $gt: 0 },
-    });
+    const totalProducts = await Product.countDocuments(
+      combineFilters({ STATUS: "Y" }, companyVfpMatch)
+    );
 
-    const lowStock = await Product.countDocuments({
-      STATUS: "Y",
-      BALANCE: {
-        $gt: 0,
-        $lte: 10,
-      },
-    });
+    const availableProducts = await Product.countDocuments(
+      combineFilters({ STATUS: "Y", BALANCE: { $gt: 0 } }, companyVfpMatch)
+    );
 
-    const negativeStock = await Product.countDocuments({
-      STATUS: "Y",
-      BALANCE: {
-        $lt: 0,
-      },
-    });
+    const lowStock = await Product.countDocuments(
+      combineFilters({ STATUS: "Y", BALANCE: { $gt: 0, $lte: 10 } }, companyVfpMatch)
+    );
+
+    const negativeStock = await Product.countDocuments(
+      combineFilters({ STATUS: "Y", BALANCE: { $lt: 0 } }, companyVfpMatch)
+    );
 
     const stockValue = await Product.aggregate([
+      { $match: combineFilters({ STATUS: "Y" }, companyVfpMatch) },
       {
         $group: {
           _id: null,
@@ -44,77 +41,23 @@ export async function GET() {
     ]);
 
     const lowStockProducts = await Product.find(
-      {
-        STATUS: "Y",
-        BALANCE: {
-          $gt: 0,
-          $lte: 10,
-        },
-      },
-      {
-        PRODUCT: 1,
-        BALANCE: 1,
-        MRP: 1,
-        PRATE: 1,
-      }
+      combineFilters({ STATUS: "Y", BALANCE: { $gt: 0, $lte: 10 } }, companyVfpMatch)
     )
-      .sort({ BALANCE: 1 })
-      .limit(10);
-
-    const negativeProducts = await Product.find(
-      {
-        STATUS: "Y",
-        BALANCE: {
-          $lt: 0,
-        },
-      },
-      {
-        PRODUCT: 1,
-        BALANCE: 1,
-        MRP: 1,
-      }
-    )
-      .sort({ BALANCE: 1 })
-      .limit(10);
-
-    const topProducts = await Product.find(
-      {
-        STATUS: "Y",
-      },
-      {
-        PRODUCT: 1,
-        BALANCE: 1,
-        MRP: 1,
-      }
-    )
-      .sort({
-        BALANCE: -1,
-      })
-      .limit(10);
+      .limit(10)
+      .lean();
 
     return NextResponse.json({
-      success: true,
-
       totalProducts,
-
       availableProducts,
-
       lowStock,
-
       negativeStock,
-
       stockValue: stockValue[0]?.value || 0,
-
       lowStockProducts,
-
-      negativeProducts,
-
-      topProducts,
     });
   } catch (error: any) {
-    return NextResponse.json({
-      success: false,
-      message: error.message,
-    });
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 }

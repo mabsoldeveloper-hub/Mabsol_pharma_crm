@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import BatchReport from "@/models/BatchReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getFYDateRange } from "@/lib/financialYearHelper";
+import { getCompanyVfpFilter } from "@/lib/companyVfpHelper";
+import connectDB from "@/lib/mongodb";
 
 export async function GET(req: NextRequest) {
     try {
+        await connectDB();
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+        const companyId = searchParams.get("companyId") || "";
 
         const report = searchParams.get("report") || "master";
 
@@ -40,6 +45,8 @@ export async function GET(req: NextRequest) {
             limit: fetchLimit,
             sortField: searchParams.get("sortField") || "DATE",
             sortOrder: (Number(searchParams.get("sortOrder") || -1) === 1 ? 1 : -1) as 1 | -1,
+            companyId,
+            companyVfpMatch,
         };
 
         let data: any;

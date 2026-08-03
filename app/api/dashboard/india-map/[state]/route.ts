@@ -43,24 +43,33 @@ import {
  */
 
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
 export async function GET(req: Request, { params }: { params: Promise<{ state: string }> }) {
     try {
         await connectDB();
 
+        const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const restriction = await getMrTerritoryRestriction();
 
-        const codepFilter = restriction.isMrRestricted
+        const codepFilter = combineFilters(
+          companyVfpMatch,
+          restriction.isMrRestricted
             ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
                 ? { CODEP: { $in: restriction.allowedOrdnos } }
                 : { CODEP: "NONE_MATCH" }
-            : {};
+            : {}
+        );
 
-        const pendFilter = restriction.isMrRestricted
+        const pendFilter = combineFilters(
+          companyVfpMatch,
+          restriction.isMrRestricted
             ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
                 ? { ORD: { $in: restriction.allowedOrdnos } }
                 : { ORD: "NONE_MATCH" }
-            : {};
+            : {}
+        );
 
         const { state: stateParam } = await params;
         const stateId = stateParam?.toLowerCase();
@@ -70,7 +79,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
         }
         const stateNameSet = new Set(stateNames);
 
-        const { searchParams } = new URL(req.url);
         const fy = searchParams.get("fy");
         const month = searchParams.get("month");
 
@@ -128,7 +136,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
             .slice(0, 10);
 
         // ---- Top products (DIS qty within state) ----
-        const disRows = await SalesDis.find({}, { VOUCHER: 1, CODEP: 1, CODE: 1, QTY: 1, DATE: 1 }).lean();
+        const disRows = await SalesDis.find(combineFilters(companyVfpMatch, codepFilter), { VOUCHER: 1, CODEP: 1, CODE: 1, QTY: 1, DATE: 1 }).lean();
         const qtyByProduct = new Map<string, number>();
         disRows.forEach((r: any) => {
             if (!inState(r.CODEP, r.VOUCHER)) return;
@@ -158,7 +166,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ state: s
         // models/SubDis.ts about the exact MongoDB collection name expected
         // ("vfp_new_folder_subdis"), and confirm your import script wrote
         // subdis.json's rows into that exact collection.
-        const subdisRows = await SubDis.find({}, { VOUCHER: 1, CODEP: 1, DATE: 1, VCN: 1 }).lean();
+        const subdisRows = await SubDis.find(combineFilters(companyVfpMatch, codepFilter), { VOUCHER: 1, CODEP: 1, DATE: 1, VCN: 1 }).lean();
         const recentDispatch: { vcn: string; date: string; codep: string; partyName: string }[] = [];
         subdisRows.forEach((r: any) => {
             if (!inState(r.CODEP, r.VOUCHER)) return;

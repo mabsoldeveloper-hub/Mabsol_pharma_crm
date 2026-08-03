@@ -17,12 +17,17 @@ import {
     FaFire,
 } from "react-icons/fa";
 
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
+
 interface NearExpiryModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
 export default function NearExpiryModal({ isOpen, onClose }: NearExpiryModalProps) {
+    const { selectedCompany: activeCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<any[]>([]);
     const [companies, setCompanies] = useState<any[]>([]);
@@ -93,6 +98,8 @@ export default function NearExpiryModal({ isOpen, onClose }: NearExpiryModalProp
 
             if (debouncedSearch) params.append("q", debouncedSearch);
             if (selectedCompany) params.append("company", selectedCompany);
+            if (activeCompany?._id) params.append("companyId", activeCompany._id);
+            if (selectedFY?._id) params.append("fyId", selectedFY._id);
 
             const res = await fetch(`/api/dashboard/near-expiry?${params.toString()}`);
             if (res.ok) {

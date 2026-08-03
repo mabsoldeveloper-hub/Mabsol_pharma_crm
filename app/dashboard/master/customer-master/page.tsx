@@ -9,6 +9,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
     useReactTable,
     getCoreRowModel,
@@ -236,6 +238,8 @@ type MrTerritoryInfo = {
 };
 
 export default function CustomerFullViewPage() {
+    const { selectedCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -270,7 +274,7 @@ export default function CustomerFullViewPage() {
     useEffect(() => {
         loadMrTerritoryInfo();
         loadCustomers();
-    }, []);
+    }, [selectedCompany?._id, selectedFY?._id]);
 
     const loadMrTerritoryInfo = async () => {
         try {
@@ -293,7 +297,10 @@ export default function CustomerFullViewPage() {
     const loadCustomers = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/master/customer");
+            const params = new URLSearchParams();
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+            if (selectedFY?._id) params.set("fyId", selectedFY._id);
+            const res = await fetch(`/api/master/customer?${params.toString()}`);
             const data = await res.json();
             setCustomers(Array.isArray(data) ? data : []);
         } finally {

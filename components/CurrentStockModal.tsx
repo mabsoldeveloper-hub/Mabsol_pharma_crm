@@ -18,12 +18,17 @@ import {
     FaCalendarAlt,
 } from "react-icons/fa";
 
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
+
 interface CurrentStockModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
 export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModalProps) {
+    const { selectedCompany: activeCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<any[]>([]);
     const [companies, setCompanies] = useState<any[]>([]);
@@ -97,6 +102,8 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
 
             if (debouncedSearch) params.append("q", debouncedSearch);
             if (selectedCompany) params.append("company", selectedCompany);
+            if (activeCompany?._id) params.append("companyId", activeCompany._id);
+            if (selectedFY?._id) params.append("fyId", selectedFY._id);
 
             const res = await fetch(`/api/dashboard/current-stock?${params.toString()}`);
             if (res.ok) {

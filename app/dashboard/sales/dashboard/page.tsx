@@ -8,17 +8,19 @@ import RecentBills from "@/components/sales/RecentBills";
 import TopProducts from "@/components/sales/TopProducts";
 import CustomerWiseSales from "@/components/sales/CustomerWiseSales";
 import { useFinancialYear } from "@/context/FinancialYearContext";
+import { useCompany } from "@/context/CompanyContext";
 
 type MrTerritoryInfo = {
-    isMrRestricted: boolean;
-    territories: any[];
-    allowedCompanyCodes: string[];
+  isMrRestricted: boolean;
+  territories: any[];
+  allowedCompanyCodes: string[];
 };
 
 export default function SalesDashboard() {
   const [summary, setSummary] = useState<any>(null);
   const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
   const { selectedFY } = useFinancialYear();
+  const { selectedCompany } = useCompany();
 
   const loadMrTerritoryInfo = async () => {
     try {
@@ -39,19 +41,24 @@ export default function SalesDashboard() {
   };
 
   const loadDashboard = useCallback(async () => {
-    let url = "/api/sales/dashboard";
+    const params = new URLSearchParams();
+    if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
     if (selectedFY) {
       if (selectedFY.isAll) {
-        url += "?fyId=ALL";
+        params.set("fyId", "ALL");
       } else if (selectedFY._id) {
-        url += `?fyId=${selectedFY._id}`;
+        params.set("fyId", selectedFY._id);
         if (selectedFY.startDate && selectedFY.endDate) {
           const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
           const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
-          url += `&startDate=${s}&endDate=${e}`;
+          params.set("startDate", s);
+          params.set("endDate", e);
         }
       }
     }
+
+    const url = `/api/sales/dashboard?${params.toString()}`;
 
     try {
       const res = await fetch(url);
@@ -60,7 +67,7 @@ export default function SalesDashboard() {
     } catch (e) {
       console.error(e);
     }
-  }, [selectedFY]);
+  }, [selectedFY, selectedCompany?._id]);
 
   useEffect(() => {
     loadMrTerritoryInfo();

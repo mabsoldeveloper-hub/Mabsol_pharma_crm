@@ -4,6 +4,8 @@ import { Product, ProductBatch } from "@/models/StockModels";
 import SaleType from "@/models/SaleType";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -11,6 +13,7 @@ export async function GET(req: NextRequest) {
         await dbConnect();
 
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const search = (searchParams.get("q") || searchParams.get("search") || "").trim();
         const filter = (searchParams.get("filter") || "all").toLowerCase(); // all, in_stock, low_stock, out_of_stock
         const company = (searchParams.get("company") || "").trim();
@@ -43,7 +46,7 @@ export async function GET(req: NextRequest) {
 
         if (view === "batch") {
             // Batch-level query logic
-            const batchFilter: any = {};
+            let batchFilter: any = { ...companyVfpMatch };
 
             if (restriction.isMrRestricted) {
                 if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
@@ -196,7 +199,7 @@ export async function GET(req: NextRequest) {
 
         } else {
             // Product-level query logic (Default)
-            const productFilter: any = {};
+            let productFilter: any = { ...companyVfpMatch };
 
             if (restriction.isMrRestricted) {
                 if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {

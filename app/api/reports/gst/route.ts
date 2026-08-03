@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 import GstReport from "@/models/GstReport";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
-import FinancialYear from "@/models/FinancialYear";
 import { getFYDateRange } from "@/lib/financialYearHelper";
+import { getCompanyVfpFilter } from "@/lib/companyVfpHelper";
+import connectDB from "@/lib/mongodb";
 
 export async function GET(req: NextRequest) {
     try {
+        await connectDB();
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+        const companyId = searchParams.get("companyId") || "";
 
         const report = searchParams.get("report") || "register";
 
@@ -42,6 +46,8 @@ export async function GET(req: NextRequest) {
             dateTo,
             page: restriction.isMrRestricted ? 1 : page,
             limit: fetchLimit,
+            companyId,
+            companyVfpMatch,
         };
 
         let data: any;

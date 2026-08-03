@@ -16,12 +16,17 @@ import {
     FaSkull,
 } from "react-icons/fa";
 
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
+
 interface ExpiredBatchesModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
 export default function ExpiredBatchesModal({ isOpen, onClose }: ExpiredBatchesModalProps) {
+    const { selectedCompany: activeCompany } = useCompany();
+    const { selectedFY } = useFinancialYear();
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<any[]>([]);
     const [companies, setCompanies] = useState<any[]>([]);
@@ -87,6 +92,8 @@ export default function ExpiredBatchesModal({ isOpen, onClose }: ExpiredBatchesM
 
             if (debouncedSearch) params.append("q", debouncedSearch);
             if (selectedCompany) params.append("company", selectedCompany);
+            if (activeCompany?._id) params.append("companyId", activeCompany._id);
+            if (selectedFY?._id) params.append("fyId", selectedFY._id);
 
             const res = await fetch(`/api/dashboard/expired-batches?${params.toString()}`);
             if (res.ok) {

@@ -58,6 +58,9 @@ import NegativeStockTable from "@/components/inventory/NegativeStockTable";
 import TopProductsTable from "@/components/inventory/TopProductsTable";
 import CompanySummary from "@/components/inventory/CompanySummary";
 
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
+
 type MrTerritoryInfo = {
     isMrRestricted: boolean;
     territories: any[];
@@ -65,15 +68,19 @@ type MrTerritoryInfo = {
 };
 
 export default function InventoryDashboard() {
-
+  const { selectedCompany } = useCompany();
+  const { selectedFY } = useFinancialYear();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
 
   useEffect(() => {
     loadMrTerritoryInfo();
-    loadProducts();
   }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [selectedCompany?._id, selectedFY?._id]);
 
   const loadMrTerritoryInfo = async () => {
     try {
@@ -96,9 +103,13 @@ export default function InventoryDashboard() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/products");
+      const params = new URLSearchParams();
+      if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+      if (selectedFY?._id) params.set("fyId", selectedFY._id);
+
+      const res = await fetch(`/api/products?${params.toString()}`);
       const data = await res.json();
-      setProducts(data);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (e) {
       console.log(e);
     }

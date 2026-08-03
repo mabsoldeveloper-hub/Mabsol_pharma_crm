@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import {
   FaSlidersH,
   FaPlus,
@@ -49,14 +51,17 @@ export default function VoucherSeriesMasterPage() {
   const [isDefault, setIsDefault] = useState(true);
   const [status, setStatus] = useState<"Active" | "Inactive">("Active");
 
-  useEffect(() => {
-    loadSeries();
-  }, []);
+  const { selectedCompany } = useCompany();
+  const { selectedFY } = useFinancialYear();
 
-  const loadSeries = async () => {
+  const loadSeries = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/master/voucher-series");
+      const params = new URLSearchParams();
+      if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+      if (selectedFY?._id) params.set("fyId", selectedFY._id);
+
+      const res = await fetch(`/api/master/voucher-series?${params.toString()}`);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setSeriesList(json.data);
@@ -69,7 +74,11 @@ export default function VoucherSeriesMasterPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCompany, selectedFY]);
+
+  useEffect(() => {
+    loadSeries();
+  }, [loadSeries]);
 
   const handleVoucherTypeChange = (type: "SALES" | "PROFORMA" | "PURCHASE" | "RETURN" | "RECEIPT") => {
     setVoucherType(type);
@@ -141,6 +150,10 @@ export default function VoucherSeriesMasterPage() {
         padding: Number(padding || 5),
         isDefault,
         status,
+        companyId: selectedCompany?._id || "",
+        companyCode: selectedCompany?.companyCode || "",
+        fyId: selectedFY?._id || "",
+        fyCode: selectedFY?.fyCode || "",
       };
 
       const url = editingId ? `/api/master/voucher-series/${editingId}` : "/api/master/voucher-series";
@@ -207,8 +220,18 @@ export default function VoucherSeriesMasterPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-bold">
-          <span className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+          {selectedCompany && (
+            <span className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 shadow-xs">
+              Company: {selectedCompany.companyName} ({selectedCompany.companyCode})
+            </span>
+          )}
+          {selectedFY && (
+            <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-xs">
+              FY: {selectedFY.fyCode || selectedFY.fyName}
+            </span>
+          )}
+          <span className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 shadow-xs">
             {seriesList.length} Series Configured
           </span>
         </div>
