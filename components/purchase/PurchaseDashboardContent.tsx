@@ -138,7 +138,8 @@ export default function PurchaseDashboardContent() {
   const maxPurchaseMonth = Math.max(...(data?.monthlyTrend.map((m) => m.purchase) || [1]));
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    // <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="container-fluid p-4 md:p-6 space-y-6">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 opacity-10 pointer-events-none transform translate-x-8 -translate-y-8">
@@ -206,7 +207,7 @@ export default function PurchaseDashboardContent() {
         {/* Purchase Outstanding Card */}
         <div className="bg-white dark:bg-slate-800/80 rounded-3xl p-5 border border-slate-100 dark:border-white/10 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Pending Creditors</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Pending Outstandings</span>
             <span className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg">
               <FaFileInvoiceDollar />
             </span>
@@ -227,7 +228,7 @@ export default function PurchaseDashboardContent() {
         {/* Overdue Amount Card */}
         <div className="bg-white dark:bg-slate-800/80 rounded-3xl p-5 border border-slate-100 dark:border-white/10 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Overdue Amount</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Overdue Outstanding</span>
             <span className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center text-lg">
               <FaExclamationTriangle />
             </span>
