@@ -711,22 +711,20 @@ function PurchaseReturnContent() {
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setActiveTab("new")}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
-              activeTab === "new"
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === "new"
                 ? "bg-amber-600 text-white shadow-md shadow-amber-600/30"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
+              }`}
           >
             <FaPlus className="text-xs" />
             <span>New Return (Debit Note)</span>
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
-              activeTab === "history"
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === "history"
                 ? "bg-amber-600 text-white shadow-md shadow-amber-600/30"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
+              }`}
           >
             <FaListUl className="text-xs" />
             <span>Return History</span>
@@ -1511,9 +1509,8 @@ function PurchaseReturnContent() {
 
 export default function PurchaseReturnPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-slate-500 text-sm">Loading purchase return...</div>}>
+    <Suspense fallback={<div className="p-6 text-center text-slate-500">Loading purchase return...</div>}>
       <PurchaseReturnContent />
     </Suspense>
   );
 }
-
