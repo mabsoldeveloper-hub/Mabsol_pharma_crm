@@ -140,10 +140,10 @@ export default function AnalyticsCards({ analytics }: { analytics: any }) {
 
                     <div className="relative flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                            <p className="truncate text-xs font-medium text-slate-600 transition-colors duration-300 group-hover:text-slate-700">
+                            <p className="truncate text-[10px] sm:text-[11px] font-normal text-slate-500 transition-colors duration-300 group-hover:text-slate-700">
                                 {card.title}
                             </p>
-                            <p className="mt-1.5 truncate text-xl font-bold text-slate-900 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
+                            <p className="mt-1 truncate text-lg sm:text-xl font-normal text-slate-800 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
                                 {card.value}
                             </p>
                         </div>
