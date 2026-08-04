@@ -120,7 +120,7 @@ function GlassCard({ children, className = "", title, subtitle }: { children: Re
 // MAIN DASHBOARD COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function BatchExpiryLiquidatorPage() {
-    const { selectedCompany } = useCompany();
+    const { selectedCompany, loading: companyLoading } = useCompany();
     const isMobile = useIsMobile(640);
 
     const [summary, setSummary] = useState<SummaryData | null>(null);
@@ -164,8 +164,10 @@ export default function BatchExpiryLiquidatorPage() {
     }, [companyIdStr]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (!companyLoading) {
+            fetchData();
+        }
+    }, [fetchData, companyLoading]);
 
     // Reset pagination when filters change
     useEffect(() => {

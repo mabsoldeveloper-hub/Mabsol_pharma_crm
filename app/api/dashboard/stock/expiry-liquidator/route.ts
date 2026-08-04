@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import ProBat from "@/models/ProductBatch";
 import Product from "@/models/Product";
-import { getCompanyVfpFilter } from "@/lib/companyVfpHelper";
+import { ProductBatch as StockProductBatch, Product as StockProduct } from "@/models/StockModels";
+import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
     try {
@@ -11,41 +14,43 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
-        // 1. Fetch Batches & Products safely using Mongoose models
+        // 1. Fetch Batches safely using indexed Mongoose model (probat)
         let rawBatches: any[] = [];
-        let rawProducts: any[] = [];
 
         try {
-            const [bDocs, pDocs] = await Promise.all([
-                ProBat.find(companyVfpMatch).lean(),
-                Product.find(companyVfpMatch).lean(),
-            ]);
-            rawBatches = bDocs || [];
-            rawProducts = pDocs || [];
+            const batchFilter = combineFilters({ BALANCE: { $gt: 0 } }, companyVfpMatch);
+            rawBatches = await StockProductBatch.find(batchFilter)
+                .select("CODE BATCHNO PRODUCT BILLNAME PACKING BALANCE LPRATE PRATE COST MRP EXP COMPANY GCODE _id")
+                .limit(1000)
+                .lean();
         } catch (e) {
-            console.error("Mongoose batch query error:", e);
+            console.error("StockModels query error:", e);
         }
 
-        // Unconstrained fallback if company filter returned 0 rows
+        // 2. Fallback to legacy ProBat collection if probat returned no batches
         if (rawBatches.length === 0) {
             try {
-                const [bDocs, pDocs] = await Promise.all([
-                    ProBat.find({}).limit(2000).lean(),
-                    Product.find({}).limit(2000).lean(),
-                ]);
-                rawBatches = bDocs || [];
-                rawProducts = pDocs || [];
+                const legacyBatchFilter = combineFilters(companyVfpMatch);
+                rawBatches = await ProBat.find(legacyBatchFilter)
+                    .select("CODE PROCD productCode BILLNAME PRONAM PRODUCT BATCHNO BATNO batchNo BALANCE BALQTY balance QTY OPENING LPRATE PRATE COST PURCHASE_PRICE MRP EXP EXPDT expiryDate exp _id")
+                    .limit(1000)
+                    .lean();
+            } catch (e) {
+                console.error("Legacy ProBat query error:", e);
+            }
+        }
+
+        // 3. Unconstrained fallback if both yielded empty batch results
+        if (rawBatches.length === 0) {
+            try {
+                rawBatches = await StockProductBatch.find({ BALANCE: { $gt: 0 } })
+                    .select("CODE BATCHNO PRODUCT BILLNAME PACKING BALANCE LPRATE PRATE COST MRP EXP COMPANY GCODE _id")
+                    .limit(1000)
+                    .lean();
             } catch (e) {}
         }
 
-        // Build product master lookup
-        const productMap = new Map<string, any>();
-        rawProducts.forEach((p: any) => {
-            const code = String(p.CODE || p.PROCD || p.code || p._id || "");
-            if (code) productMap.set(code, p);
-        });
-
-        // 2. Process Batch List
+        // 4. Process Batch List
         const now = new Date();
         const batchList: any[] = [];
         const processedKeys = new Set<string>();
@@ -57,19 +62,16 @@ export async function GET(req: Request) {
         let warning3190CostValue = 0;
         let deadstockCostValue = 0;
 
-        const allItems = rawBatches.length > 0 ? rawBatches : rawProducts;
-
-        allItems.forEach((b: any) => {
+        rawBatches.forEach((b: any) => {
             const pCode = String(b.CODE || b.PROCD || b.productCode || "");
-            const product = productMap.get(pCode);
 
-            const productName = b.BILLNAME || b.PRONAM || b.PRODUCT || product?.BILLNAME || product?.name || product?.PRONAM || (pCode ? `Product ${pCode}` : "Pharmacy Formulation");
+            const productName = b.BILLNAME || b.PRONAM || b.PRODUCT || (pCode ? `Product ${pCode}` : "Pharmacy Formulation");
             const batchNo = b.BATCHNO || b.BATNO || b.batchNo || "GEN-BATCH";
             const qty = Number(b.BALANCE ?? b.BALQTY ?? b.balance ?? b.QTY ?? b.OPENING ?? 0);
 
             // Cost & MRP resolution
-            const cost = Number(b.LPRATE ?? b.PRATE ?? b.COST ?? b.PURCHASE_PRICE ?? product?.LPRATE ?? product?.MRP ?? 120);
-            const mrp = Number(b.MRP ?? product?.MRP ?? (cost * 1.35));
+            const cost = Number(b.LPRATE ?? b.PRATE ?? b.COST ?? b.PURCHASE_PRICE ?? 120);
+            const mrp = Number(b.MRP ?? (cost * 1.35));
 
             const stockCostValue = Math.round((qty > 0 ? qty : 1) * cost);
             const stockMRPValue = Math.round((qty > 0 ? qty : 1) * mrp);
@@ -81,17 +83,29 @@ export async function GET(req: Request) {
             let expDate: Date | null = null;
             const expRaw = b.EXP || b.EXPDT || b.expiryDate || b.exp;
             if (expRaw) {
-                const expStr = String(expRaw).trim();
-                if (expStr.includes("/")) {
-                    const parts = expStr.split("/");
-                    const m = Number(parts[0]);
-                    const y = Number(parts[1]);
-                    const fullYear = parts[1]?.length === 2 ? Number(`20${y}`) : y;
-                    if (!isNaN(m) && !isNaN(fullYear)) {
-                        expDate = new Date(fullYear, m, 0);
+                if (expRaw instanceof Date) {
+                    expDate = expRaw;
+                } else {
+                    const expStr = String(expRaw).trim();
+                    if (expStr.includes("/")) {
+                        const parts = expStr.split("/");
+                        const m = Number(parts[0]);
+                        const y = Number(parts[1]);
+                        const fullYear = parts[1]?.length === 2 ? Number(`20${y}`) : y;
+                        if (!isNaN(m) && !isNaN(fullYear)) {
+                            expDate = new Date(fullYear, m, 0);
+                        }
+                    } else if (expStr.includes("-")) {
+                        const parts = expStr.split("-");
+                        if (parts.length >= 2) {
+                            const y = Number(parts[0]);
+                            const m = Number(parts[1]);
+                            const d = parts[2] ? Number(parts[2]) : 28;
+                            if (!isNaN(y) && !isNaN(m)) {
+                                expDate = new Date(y, m - 1, d);
+                            }
+                        }
                     }
-                } else if (expStr.includes("-")) {
-                    expDate = new Date(expStr);
                 }
             }
 
@@ -168,3 +182,4 @@ export async function GET(req: Request) {
         return NextResponse.json({ success: false, error: error.message || "Failed to load expiry liquidator data" }, { status: 500 });
     }
 }
+
