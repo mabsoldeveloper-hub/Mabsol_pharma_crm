@@ -40,6 +40,7 @@ import {
   FaShoppingBag,
   FaCamera,
   FaBalanceScale,
+  FaMapMarkerAlt,
 } from "react-icons/fa";
 
 
@@ -700,7 +701,16 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           href="/dashboard/compare/fy-wise"
                           icon={<FaCalendarAlt />}
                           label="Financial Year Wise"
-                          active={pathname.startsWith("/dashboard/compare/fy-wise")}
+                          active={pathname === "/dashboard/compare/fy-wise"}
+                          color="orange"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/compare/fy-area-wise"
+                          icon={<FaMapMarkerAlt />}
+                          label="FY Area Wise Map"
+                          active={pathname.startsWith("/dashboard/compare/fy-area-wise")}
                           color="orange"
                         />
                       </li>
