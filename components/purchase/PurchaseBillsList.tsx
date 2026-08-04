@@ -104,7 +104,8 @@ export default function PurchaseBillsList() {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
+    // <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
+    <div className="container-fluid p-4 md:p-6 space-y-6">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm">
         <div>
@@ -209,11 +210,10 @@ export default function PurchaseBillsList() {
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1 rounded-lg transition ${
-                    statusFilter === st
-                      ? "bg-amber-600 text-white font-bold shadow-xs"
-                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
-                  }`}
+                  className={`px-3 py-1 rounded-lg transition ${statusFilter === st
+                    ? "bg-amber-600 text-white font-bold shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
+                    }`}
                 >
                   {st}
                 </button>
@@ -278,13 +278,12 @@ export default function PurchaseBillsList() {
                     </td>
                     <td className="py-3 px-3 text-center">
                       <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          b.paymentStatus === "Paid"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            : b.paymentStatus === "Partial"
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${b.paymentStatus === "Paid"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : b.paymentStatus === "Partial"
                             ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
                             : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                        }`}
+                          }`}
                       >
                         {b.paymentStatus || "Pending"}
                       </span>
@@ -371,11 +370,10 @@ export default function PurchaseBillsList() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 rounded-xl font-bold transition text-xs ${
-                      currentPage === pageNum
-                        ? "bg-amber-600 text-white shadow-xs"
-                        : "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
-                    }`}
+                    className={`w-8 h-8 rounded-xl font-bold transition text-xs ${currentPage === pageNum
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
+                      }`}
                   >
                     {pageNum}
                   </button>

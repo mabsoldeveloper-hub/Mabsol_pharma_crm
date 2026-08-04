@@ -354,18 +354,16 @@ export default function KPICards({ kpis }: { kpis: any }) {
                         <button
                             key={sec.id}
                             onClick={() => setActiveSection(sec.id as any)}
-                            className={`px-3 py-1.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
-                                activeSection === sec.id
-                                    ? "bg-white/90 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-medium shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_2px_8px_rgba(0,0,0,0.04)] border border-white dark:border-slate-700"
-                                    : "text-slate-500 dark:text-slate-400 font-normal hover:text-slate-800 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40"
-                            }`}
+                            className={`px-3 py-1.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${activeSection === sec.id
+                                ? "bg-white/90 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-medium shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_2px_8px_rgba(0,0,0,0.04)] border border-white dark:border-slate-700"
+                                : "text-slate-500 dark:text-slate-400 font-normal hover:text-slate-800 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40"
+                                }`}
                         >
                             <span>{sec.label}</span>
-                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-normal ${
-                                activeSection === sec.id
-                                    ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300"
-                                    : "bg-slate-200/60 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400"
-                            }`}>
+                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-normal ${activeSection === sec.id
+                                ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300"
+                                : "bg-slate-200/60 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400"
+                                }`}>
                                 {sec.count}
                             </span>
                         </button>
@@ -440,9 +438,9 @@ export default function KPICards({ kpis }: { kpis: any }) {
                             {/* TOP ROW: Small Heading Title & Glass Icon Badge */}
                             <div className="relative flex items-start justify-between gap-1.5">
                                 <div className="flex items-center gap-1 min-w-0 pr-1">
-                                    <h3 className="text-[10px] sm:text-[11px] font-normal text-slate-500 dark:text-slate-400 leading-tight truncate group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
+                                    <h6 className="text-[6px] sm:text-[5px] font-normal text-slate-500 dark:text-slate-400 leading-tight truncate group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
                                         {card.title}
-                                    </h3>
+                                    </h6>
                                     {c.dotColor && (
                                         <span className={`w-1.5 h-1.5 rounded-full ${c.dotColor} flex-shrink-0 animate-pulse`} />
                                     )}

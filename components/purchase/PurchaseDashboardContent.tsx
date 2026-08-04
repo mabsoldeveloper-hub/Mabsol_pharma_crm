@@ -162,7 +162,8 @@ export default function PurchaseDashboardContent() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    // <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="container-fluid p-4 md:p-6 space-y-6">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 opacity-10 pointer-events-none transform translate-x-8 -translate-y-8">
@@ -195,9 +196,8 @@ export default function PurchaseDashboardContent() {
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                  period === p ? "bg-amber-500 text-slate-950 shadow-md font-extrabold" : "text-slate-300 hover:text-white hover:bg-white/10"
-                }`}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${period === p ? "bg-amber-500 text-slate-950 shadow-md font-extrabold" : "text-slate-300 hover:text-white hover:bg-white/10"
+                  }`}
               >
                 {p === "ALL" ? "All Time" : p === "THIS_MONTH" ? "This Month" : p === "LAST_MONTH" ? "Last Month" : p === "QUARTER" ? "Quarter" : "FY Year"}
               </button>
@@ -606,13 +606,12 @@ export default function PurchaseDashboardContent() {
                   <td className="p-3 font-medium text-slate-900 dark:text-white">{b.supplier}</td>
                   <td className="p-3">
                     <span
-                      className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                        b.type === "Debit Note" || b.type === "Return"
-                          ? "bg-rose-500/10 text-rose-600"
-                          : b.type === "Payment"
+                      className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${b.type === "Debit Note" || b.type === "Return"
+                        ? "bg-rose-500/10 text-rose-600"
+                        : b.type === "Payment"
                           ? "bg-emerald-500/10 text-emerald-600"
                           : "bg-amber-500/10 text-amber-600"
-                      }`}
+                        }`}
                     >
                       {b.type}
                     </span>
