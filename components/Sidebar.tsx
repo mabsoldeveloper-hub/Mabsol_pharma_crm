@@ -850,6 +850,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                       </li>
                       <li>
                         <SubLink
+                          href="/dashboard/credit-risk/bad-debts"
+                          icon={<FaUserShield />}
+                          label="Bad Debt & Credit Risk"
+                          active={pathname.startsWith("/dashboard/credit-risk/bad-debts")}
+                          color="blue"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
                           href="/dashboard/sales/invoice/create"
                           icon={<FaPlusCircle />}
                           label="Create Sale Invoice"

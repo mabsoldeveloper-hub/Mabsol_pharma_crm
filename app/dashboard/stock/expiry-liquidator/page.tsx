@@ -145,6 +145,15 @@ export default function BatchExpiryLiquidatorPage() {
             if (companyIdStr) params.set("companyId", companyIdStr);
 
             const res = await fetch(`/api/dashboard/stock/expiry-liquidator?${params}`);
+            if (!res.ok) {
+                const text = await res.text();
+                let errMsg = `Server returned status ${res.status}`;
+                try {
+                    const parsed = JSON.parse(text);
+                    if (parsed.error) errMsg = parsed.error;
+                } catch {}
+                throw new Error(errMsg);
+            }
             const json = await res.json();
             if (!json.success) throw new Error(json.error || "Failed to load expiry data");
 
