@@ -7,6 +7,8 @@ import GLedger from "@/models/GLedger";
 import Product from "@/models/Product";
 import ProBat from "@/models/ProductBatch";
 import OrderParty from "@/models/Order";
+import PurchaseBill from "@/models/PurchaseBill";
+import PurchaseReturn from "@/models/PurchaseReturn";
 import {
     buildStateResolution,
     resolveState,
@@ -18,6 +20,7 @@ import {
     extractDistrict,
     cleanPartyName,
     isRealParty,
+    resolveStateFromText,
 } from "@/lib/indiaMapStateResolver";
 
 
@@ -131,13 +134,10 @@ export async function GET(req: Request) {
         const month = searchParams.get("month");
         const fyId = searchParams.get("fyId");
 
-        if (!fy || fy === "null" || fy === "undefined") {
-            let currentFY = null;
-            if (fyId && fyId !== "ALL") {
-                currentFY = await FinancialYear.findById(fyId);
-            } else if (fyId !== "ALL") {
-                currentFY = await FinancialYear.findOne({ isCurrent: true });
-            }
+        if (!fy || fy === "null" || fy === "undefined" || fy.toLowerCase().startsWith("all")) {
+            fy = "All";
+        } else if (fyId && fyId !== "ALL") {
+            let currentFY = await FinancialYear.findById(fyId);
             if (currentFY?.fyName) {
                 fy = currentFY.fyName;
             }
@@ -195,6 +195,38 @@ export async function GET(req: Request) {
                 a.salesReturns += r.FINAL || 0;
             }
         });
+
+        // ---- 1.1 Web Purchases (PurchaseBill & PurchaseReturn) ----
+        try {
+            const webBills = await PurchaseBill.find(combineFilters(companyVfpMatch)).lean();
+            webBills.forEach((b: any) => {
+                if (!monthFilter(b.billDate || b.createdAt, fy, month)) return;
+                const st =
+                    b.state ||
+                    stateFromGstno(b.vendorGst) ||
+                    stateFromCity(b.city) ||
+                    resolveStateFromText(b.vendorName, b.city, b.state) ||
+                    "Haryana";
+                const a = getAcc(st);
+                a.purchase += Number(b.netAmount || b.grandTotal || 0);
+                if (b.vendorName) a.suppliers.add(b.vendorName);
+            });
+
+            const webReturns = await PurchaseReturn.find(combineFilters(companyVfpMatch)).lean();
+            webReturns.forEach((r: any) => {
+                if (!monthFilter(r.returnDate || r.createdAt, fy, month)) return;
+                const st =
+                    r.state ||
+                    stateFromGstno(r.vendorGst) ||
+                    stateFromCity(r.city) ||
+                    resolveStateFromText(r.vendorName, r.city, r.state) ||
+                    "Haryana";
+                const a = getAcc(st);
+                a.purchase -= Number(r.netAmount || r.grandTotal || 0);
+            });
+        } catch (e) {
+            console.error("Error fetching web purchases in india-map route:", e);
+        }
 
         // ---- 2. DIS: item detail -> Top Product per state. ----
         const disRows = await SalesDis.find(codepFilter, { VOUCHER: 1, CODEP: 1, CODE: 1, QTY: 1, DATE: 1 }).lean();
@@ -376,6 +408,7 @@ export async function GET(req: Request) {
 
         return NextResponse.json({
             states: result,
+            stateData: result,
             national: {
                 provisionalVouchers: { count: provisionalCount, value: provisionalValue },
                 stock: {

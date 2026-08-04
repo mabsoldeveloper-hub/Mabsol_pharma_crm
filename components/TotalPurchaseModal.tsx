@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  FaChartLine,
+  FaTruck,
   FaRupeeSign,
   FaReceipt,
   FaTimes,
@@ -16,8 +16,6 @@ import {
   FaEye,
   FaFilter,
   FaUndo,
-  FaGlobeAsia,
-  FaBuilding,
   FaTable,
 } from "react-icons/fa";
 import Link from "next/link";
@@ -25,28 +23,28 @@ import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
 import IndiaMapAreaBreakdown, { StateSummaryData } from "@/components/IndiaMapAreaBreakdown";
 
-interface TotalSalesModalProps {
+interface TotalPurchaseModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Marg ERP Consolidated Sales Book Filter Options
-const MARG_FILTER_OPTIONS = [
-  { id: "S", label: "3. Sale (Gross Sales Invoices)", desc: "Gross sale bills only" },
-  { id: "NET_SALE", label: "2. Sale - S/R (Sales Net of Returns)", desc: "Sales minus returns" },
-  { id: "R", label: "5. Sales Return (Credit Notes)", desc: "Return credit notes only" },
-  { id: "S_AND_R", label: "1. Sal S/R Bk + R (Sales & Returns Book)", desc: "All sales + returns" },
-  { id: "ALL", label: "All Sales Vouchers", desc: "All voucher types" },
+// Purchase Book Filter Options
+const PURCHASE_FILTER_OPTIONS = [
+  { id: "P", label: "Gross Purchase Invoices", desc: "Purchase bills only" },
+  { id: "NET_PURCHASE", label: "Purchase Net of Returns", desc: "Purchases minus returns" },
+  { id: "R", label: "Purchase Returns (Debit Notes)", desc: "Return debit notes only" },
+  { id: "ALL", label: "All Purchase Vouchers", desc: "All voucher types" },
 ];
 
-export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProps) {
+export default function TotalPurchaseModal({ isOpen, onClose }: TotalPurchaseModalProps) {
   const [activeTab, setActiveTab] = useState<"map" | "vouchers" | "summary">("map");
   const [loading, setLoading] = useState(false);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [returns, setReturns] = useState<any[]>([]);
   const [stateMapData, setStateMapData] = useState<StateSummaryData[]>([]);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [salesFilterMode, setSalesFilterMode] = useState<string>("S");
+  const [purchaseFilterMode, setPurchaseFilterMode] = useState<string>("P");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 15;
   const { selectedCompany } = useCompany();
@@ -75,36 +73,35 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
     };
   }, [isOpen]);
 
-  // Load Invoices + India Map Data
+  // Load Purchase Reports & India Map Rollup
   const loadData = useCallback(async () => {
     if (!isOpen) return;
     setLoading(true);
     try {
-      // 1. Fetch Invoices
-      let url = `/api/sales/invoice?type=${salesFilterMode}`;
+      // 1. Fetch Purchase Reports
+      let url = `/api/purchase/reports`;
+      const params: string[] = [];
       if (selectedCompany?._id) {
-        url += `&companyId=${selectedCompany._id}`;
+        params.push(`companyId=${selectedCompany._id}`);
       }
-      if (selectedFY) {
-        if (selectedFY.isAll) {
-          url += "&fyId=ALL";
-        } else if (selectedFY._id) {
-          url += `&fyId=${selectedFY._id}`;
-          if (selectedFY.startDate && selectedFY.endDate) {
-            const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
-            const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
-            url += `&startDate=${s}&endDate=${e}`;
-          }
-        }
+      if (selectedFY?.startDate && selectedFY?.endDate) {
+        const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+        const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+        params.push(`startDate=${s}&endDate=${e}`);
+      }
+      if (params.length > 0) {
+        url += `?${params.join("&")}`;
       }
 
       const res = await fetch(url);
       const data = await res.json();
 
-      if (data.success && Array.isArray(data.invoices)) {
-        setInvoices(data.invoices);
+      if (res.ok) {
+        setInvoices(data.invoices || []);
+        setReturns(data.returns || []);
       } else {
         setInvoices([]);
+        setReturns([]);
       }
 
       // 2. Fetch India Map Rollup Data
@@ -136,27 +133,71 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
         }
       }
     } catch (err) {
-      console.error("Failed to load sales modal data:", err);
+      console.error("Failed to load purchase modal data:", err);
       setInvoices([]);
+      setReturns([]);
     } finally {
       setLoading(false);
     }
-  }, [isOpen, selectedFY, selectedCompany, salesFilterMode]);
+  }, [isOpen, selectedFY, selectedCompany]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Filtered invoices based on search & selectedState
+  // Combined Vouchers based on purchaseFilterMode
+  const allVouchers = useMemo(() => {
+    let list: any[] = [];
+
+    const mappedBills = invoices.map((inv) => ({
+      _id: inv._id,
+      date: inv.billDate || inv.date || "",
+      type: "P",
+      typeName: "Purchase Invoice",
+      number: inv.billNumber || inv.supplierInvoiceNo || inv.vcn || "PUR-BILL",
+      vendorName: inv.vendorName || inv.supplierName || inv.NAME || "Supplier",
+      city: inv.city || "",
+      state: inv.state || "",
+      taxable: Number(inv.subTotal || inv.taxable || 0),
+      tax: Number(inv.taxAmount || inv.tax || 0),
+      amount: Number(inv.netAmount || inv.finalAmount || inv.AMOUNT || 0),
+    }));
+
+    const mappedReturns = returns.map((ret) => ({
+      _id: ret._id,
+      date: ret.returnDate || ret.date || "",
+      type: "R",
+      typeName: "Purchase Return (DN)",
+      number: ret.returnNumber || ret.debitNoteNo || "DN-RET",
+      vendorName: ret.vendorName || ret.supplierName || "Supplier",
+      city: ret.city || "",
+      state: ret.state || "",
+      taxable: Number(ret.subTotal || ret.taxable || 0),
+      tax: Number(ret.taxAmount || ret.tax || 0),
+      amount: Number(ret.netAmount || ret.finalAmount || 0),
+    }));
+
+    if (purchaseFilterMode === "P") {
+      list = mappedBills;
+    } else if (purchaseFilterMode === "R") {
+      list = mappedReturns;
+    } else {
+      list = [...mappedBills, ...mappedReturns];
+    }
+
+    return list;
+  }, [invoices, returns, purchaseFilterMode]);
+
+  // Filtered vouchers based on search & selectedState
   const filtered = useMemo(() => {
-    let list = invoices;
+    let list = allVouchers;
     if (selectedState) {
       const st = selectedState.trim().toLowerCase();
       list = list.filter(
-        (inv) =>
-          String(inv.state || "").toLowerCase().includes(st) ||
-          String(inv.city || "").toLowerCase().includes(st) ||
-          String(inv.customer || "").toLowerCase().includes(st)
+        (v) =>
+          String(v.state || "").toLowerCase().includes(st) ||
+          String(v.city || "").toLowerCase().includes(st) ||
+          String(v.vendorName || "").toLowerCase().includes(st)
       );
     }
 
@@ -164,59 +205,54 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
     if (!s) return list;
 
     return list.filter(
-      (inv) =>
-        String(inv.vcn || "").toLowerCase().includes(s) ||
-        String(inv.voucher || "").toLowerCase().includes(s) ||
-        String(inv.customer || "").toLowerCase().includes(s) ||
-        String(inv.city || "").toLowerCase().includes(s) ||
-        String(inv.state || "").toLowerCase().includes(s) ||
-        String(inv.date || "").toLowerCase().includes(s) ||
-        String(inv.gst || "").toLowerCase().includes(s)
+      (v) =>
+        String(v.number || "").toLowerCase().includes(s) ||
+        String(v.vendorName || "").toLowerCase().includes(s) ||
+        String(v.city || "").toLowerCase().includes(s) ||
+        String(v.state || "").toLowerCase().includes(s) ||
+        String(v.date || "").toLowerCase().includes(s)
     );
-  }, [invoices, search, selectedState]);
+  }, [allVouchers, search, selectedState]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, salesFilterMode, selectedState]);
+  }, [search, purchaseFilterMode, selectedState]);
 
-  // Calculated Summary Totals
+  // Summary Metrics
   const summaryMetrics = useMemo(() => {
-    let grossSales = 0;
-    let salesReturns = 0;
+    let grossPurchase = 0;
+    let purchaseReturns = 0;
     let grossCount = 0;
     let returnCount = 0;
     let totalTaxable = 0;
     let totalTax = 0;
 
-    filtered.forEach((inv) => {
-      const val = Number(inv.finalAmount || inv.total || 0);
-      const isReturn = inv.type === "R" || String(inv.vcn || "").startsWith("CN");
-
+    allVouchers.forEach((v) => {
+      const isReturn = v.type === "R";
       if (isReturn) {
-        salesReturns += val;
+        purchaseReturns += v.amount;
         returnCount++;
       } else {
-        grossSales += val;
+        grossPurchase += v.amount;
         grossCount++;
       }
-
-      totalTaxable += Number(inv.taxable || 0);
-      totalTax += Number(inv.tax || 0);
+      totalTaxable += v.taxable;
+      totalTax += v.tax;
     });
 
-    const netSales = grossSales - salesReturns;
+    const netPurchase = grossPurchase - purchaseReturns;
 
     return {
-      grossSales,
-      salesReturns,
-      netSales,
+      grossPurchase,
+      purchaseReturns,
+      netPurchase,
       grossCount,
       returnCount,
       totalCount: filtered.length,
       totalTaxable,
       totalTax,
     };
-  }, [filtered]);
+  }, [allVouchers, filtered]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = useMemo(() => {
@@ -237,8 +273,8 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
       "SR NO",
       "DATE",
       "VOUCHER TYPE",
-      "BILL NO (VCN)",
-      "CUSTOMER NAME",
+      "BILL NO",
+      "VENDOR NAME",
       "CITY",
       "STATE",
       "TAXABLE VALUE",
@@ -246,17 +282,17 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
       "BILL VALUE",
     ];
 
-    const rows = filtered.map((inv, idx) => [
+    const rows = filtered.map((v, idx) => [
       idx + 1,
-      inv.date || "",
-      inv.type === "R" ? "Sales Return" : "Sale Invoice",
-      inv.vcn || inv.voucher || "",
-      `"${(inv.customer || "").replace(/"/g, '""')}"`,
-      `"${(inv.city || "").replace(/"/g, '""')}"`,
-      `"${(inv.state || "").replace(/"/g, '""')}"`,
-      Number(inv.taxable || 0).toFixed(2),
-      Number(inv.tax || 0).toFixed(2),
-      Number(inv.finalAmount || 0).toFixed(2),
+      v.date || "",
+      v.typeName,
+      v.number || "",
+      `"${(v.vendorName || "").replace(/"/g, '""')}"`,
+      `"${(v.city || "").replace(/"/g, '""')}"`,
+      `"${(v.state || "").replace(/"/g, '""')}"`,
+      v.taxable.toFixed(2),
+      v.tax.toFixed(2),
+      v.amount.toFixed(2),
     ]);
 
     const csvContent =
@@ -268,7 +304,7 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
     link.setAttribute("href", encodedUri);
     link.setAttribute(
       "download",
-      `Sales_Book_${salesFilterMode}_${new Date().toISOString().slice(0, 10)}.csv`
+      `Purchase_Book_${purchaseFilterMode}_${new Date().toISOString().slice(0, 10)}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -282,20 +318,20 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
       <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-white/40 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.3)] overflow-hidden">
         
         {/* MODAL HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-500/20 text-white gap-2 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 border-b border-amber-500/20 text-white gap-2 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-indigo-600/30 text-indigo-400 border border-indigo-400/30 flex-shrink-0">
-              <FaChartLine className="text-base sm:text-xl" />
+            <div className="flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-amber-600/30 text-amber-400 border border-amber-400/30 flex-shrink-0">
+              <FaTruck className="text-base sm:text-xl" />
             </div>
             <div className="min-w-0">
               <h3 className="text-sm sm:text-lg font-bold text-white tracking-wide m-0 flex items-center gap-2 truncate">
-                Total Sales & Area Map Dashboard
-                <span className="hidden xs:inline-flex px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 flex-shrink-0">
+                Total Inward Purchases & Area Map
+                <span className="hidden xs:inline-flex px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-500/30 text-amber-200 border border-amber-400/30 flex-shrink-0">
                   {selectedFY?.fyName || "FY Selected"}
                 </span>
               </h3>
               <p className="text-[11px] sm:text-xs text-gray-300 m-0 truncate hidden sm:block">
-                Interactive State Sales Map, Area Rankings & Consolidated Register
+                Interactive State Purchase Inward Map, Area Rankings & Consolidated Register
               </p>
             </div>
           </div>
@@ -327,11 +363,11 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
         </div>
 
         {/* MODAL VIEW TABS */}
-        <div className="flex items-center justify-between px-4 py-2 bg-slate-900/90 border-b border-indigo-500/20 text-xs font-semibold flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-900/90 border-b border-amber-500/20 text-xs font-semibold flex-shrink-0">
           <div className="flex items-center gap-1 sm:gap-2">
             {[
               { id: "map", label: "🗺️ India Map & Area Analytics" },
-              { id: "vouchers", label: "📋 Sales Vouchers Register" },
+              { id: "vouchers", label: "📋 Purchase Vouchers Register" },
               { id: "summary", label: "🏙️ State & Area Summary" },
             ].map((tab) => (
               <button
@@ -339,7 +375,7 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-3 py-1.5 rounded-xl transition text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer ${
                   activeTab === tab.id
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/30 font-bold"
+                    ? "bg-amber-600 text-white shadow-md shadow-amber-500/30 font-bold"
                     : "text-slate-400 hover:text-white hover:bg-white/10"
                 }`}
               >
@@ -349,11 +385,11 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
           </div>
 
           {selectedState && (
-            <div className="flex items-center gap-1.5 text-[11px] text-indigo-300 bg-indigo-950/80 px-2.5 py-1 rounded-xl border border-indigo-500/40">
+            <div className="flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-950/80 px-2.5 py-1 rounded-xl border border-amber-500/40">
               <span>State Filter: <strong>{selectedState}</strong></span>
               <button
                 onClick={() => setSelectedState(null)}
-                className="text-indigo-400 hover:text-white font-bold ml-1"
+                className="text-amber-400 hover:text-white font-bold ml-1"
               >
                 ×
               </button>
@@ -367,13 +403,12 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
           {/* TAB 1: INDIA MAP & AREA ANALYTICS */}
           {activeTab === "map" && (
             <IndiaMapAreaBreakdown
-              mode="sales"
+              mode="purchase"
               stateData={stateMapData}
               selectedState={selectedState}
               onSelectState={(st) => {
                 setSelectedState(st);
                 if (st) {
-                  // Switch to register view if user clicks a state
                   setActiveTab("vouchers");
                 }
               }}
@@ -381,26 +416,26 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
             />
           )}
 
-          {/* TAB 2: CONSOLIDATED SALES REGISTER */}
+          {/* TAB 2: CONSOLIDATED PURCHASE REGISTER */}
           {activeTab === "vouchers" && (
             <div className="space-y-4">
               
-              {/* MARG CONSOLIDATED FILTER SELECTOR */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 bg-gradient-to-r from-indigo-900/90 via-slate-900 to-indigo-950 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-indigo-500/30 shadow-md text-white">
+              {/* PURCHASE FILTER SELECTOR */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-900 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-amber-500/30 shadow-md text-white">
                 <div className="flex items-center gap-2">
-                  <FaFilter size={13} className="text-indigo-400 shrink-0" />
-                  <span className="text-[11px] sm:text-xs font-bold tracking-wide uppercase text-indigo-200 shrink-0">
-                    Less Return's Filter:
+                  <FaFilter size={13} className="text-amber-400 shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-bold tracking-wide uppercase text-amber-200 shrink-0">
+                    Purchase Book Filter:
                   </span>
                 </div>
 
                 <div className="flex-1 max-w-xl">
                   <select
-                    value={salesFilterMode}
-                    onChange={(e) => setSalesFilterMode(e.target.value)}
-                    className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-semibold rounded-lg sm:rounded-xl bg-white/15 text-white border border-indigo-400/40 outline-none focus:ring-2 focus:ring-indigo-400 transition-all backdrop-blur-md cursor-pointer truncate"
+                    value={purchaseFilterMode}
+                    onChange={(e) => setPurchaseFilterMode(e.target.value)}
+                    className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-semibold rounded-lg sm:rounded-xl bg-white/15 text-white border border-amber-400/40 outline-none focus:ring-2 focus:ring-amber-400 transition backdrop-blur-md cursor-pointer truncate"
                   >
-                    {MARG_FILTER_OPTIONS.map((opt) => (
+                    {PURCHASE_FILTER_OPTIONS.map((opt) => (
                       <option key={opt.id} value={opt.id} className="text-gray-900 font-medium">
                         {opt.label} — ({opt.desc})
                       </option>
@@ -408,25 +443,25 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                   </select>
                 </div>
 
-                <div className="text-[10px] sm:text-[11px] font-semibold text-indigo-300 bg-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/10 whitespace-nowrap self-start sm:self-auto">
-                  Active: <span className="text-white font-bold">{MARG_FILTER_OPTIONS.find(o => o.id === salesFilterMode)?.label.split(" ")[1]}</span>
+                <div className="text-[10px] sm:text-[11px] font-semibold text-amber-300 bg-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/10 whitespace-nowrap self-start sm:self-auto">
+                  Active: <span className="text-white font-bold">{PURCHASE_FILTER_OPTIONS.find(o => o.id === purchaseFilterMode)?.label.split(" ")[0]}</span>
                 </div>
               </div>
 
               {/* DYNAMIC SUMMARY CARDS */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-indigo-50 to-blue-50/60 dark:from-indigo-950/40 dark:to-slate-900/60 border border-indigo-100 dark:border-indigo-900/40 shadow-xs">
-                  <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
-                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 truncate">
-                      {salesFilterMode === "NET_SALE" ? "Net Sales" : salesFilterMode === "R" ? "Sales Returns" : "Gross Sales"}
+                <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-amber-50 to-orange-50/60 dark:from-amber-950/40 dark:to-slate-900/60 border border-amber-100 dark:border-amber-900/40 shadow-xs">
+                  <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
+                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300 truncate">
+                      {purchaseFilterMode === "NET_PURCHASE" ? "Net Purchases" : purchaseFilterMode === "R" ? "Purchase Returns" : "Gross Purchases"}
                     </span>
                     <FaReceipt className="text-xs sm:text-base flex-shrink-0" />
                   </div>
                   <div className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white truncate">
-                    ₹ {summaryMetrics.netSales.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                    ₹ {summaryMetrics.netPurchase.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                   </div>
-                  <p className="text-[10px] sm:text-[11px] text-indigo-600/80 dark:text-indigo-400/80 mt-0.5 truncate hidden xs:block">
-                    {salesFilterMode === "NET_SALE" ? "Gross minus Returns" : "Exact Sales Book match"}
+                  <p className="text-[10px] sm:text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-0.5 truncate hidden xs:block">
+                    {purchaseFilterMode === "NET_PURCHASE" ? "Gross minus Returns" : "Total Purchase Inward"}
                   </p>
                 </div>
 
@@ -441,28 +476,28 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                     ₹ {summaryMetrics.totalTaxable.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                   </div>
                   <p className="text-[10px] sm:text-[11px] text-cyan-600/80 dark:text-cyan-400/80 mt-0.5 truncate hidden xs:block">
-                    Net taxable turnover
+                    Net taxable purchase
                   </p>
                 </div>
 
-                <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-rose-50 to-pink-50/60 dark:from-rose-950/40 dark:to-slate-900/60 border border-rose-100 dark:border-rose-900/40 shadow-xs">
-                  <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 mb-1">
-                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-300 truncate">
-                      Returns Value
+                <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-orange-50 to-rose-50/60 dark:from-orange-950/40 dark:to-slate-900/60 border border-orange-100 dark:border-orange-900/40 shadow-xs">
+                  <div className="flex items-center justify-between text-orange-600 dark:text-orange-400 mb-1">
+                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-orange-700 dark:text-orange-300 truncate">
+                      Debit Notes (Returns)
                     </span>
                     <FaUndo className="text-xs sm:text-base flex-shrink-0" />
                   </div>
-                  <div className="text-sm sm:text-xl font-bold text-rose-700 dark:text-rose-400 truncate">
-                    ₹ {summaryMetrics.salesReturns.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  <div className="text-sm sm:text-xl font-bold text-orange-700 dark:text-orange-400 truncate">
+                    ₹ {summaryMetrics.purchaseReturns.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                   </div>
-                  <p className="text-[10px] sm:text-[11px] text-rose-600/80 dark:text-rose-400/80 mt-0.5 truncate hidden xs:block">
-                    Count: {summaryMetrics.returnCount} Credit Notes
+                  <p className="text-[10px] sm:text-[11px] text-orange-600/80 dark:text-orange-400/80 mt-0.5 truncate hidden xs:block">
+                    Count: {summaryMetrics.returnCount} Debit Notes
                   </p>
                 </div>
 
-                <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-purple-50 to-violet-50/60 dark:from-purple-950/40 dark:to-slate-900/60 border border-purple-100 dark:border-purple-900/40 shadow-xs">
-                  <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
-                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-300 truncate">
+                <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-4 bg-gradient-to-br from-indigo-50 to-violet-50/60 dark:from-indigo-950/40 dark:to-slate-900/60 border border-indigo-100 dark:border-indigo-900/40 shadow-xs">
+                  <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
+                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 truncate">
                       Total Vouchers
                     </span>
                     <FaCalendarAlt className="text-xs sm:text-base flex-shrink-0" />
@@ -470,7 +505,7 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                   <div className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white truncate">
                     {summaryMetrics.totalCount} <span className="text-xs font-normal text-gray-500">Vouchers</span>
                   </div>
-                  <p className="text-[10px] sm:text-[11px] text-purple-600/80 dark:text-purple-400/80 mt-0.5 truncate hidden xs:block">
+                  <p className="text-[10px] sm:text-[11px] text-indigo-600/80 dark:text-indigo-400/80 mt-0.5 truncate hidden xs:block">
                     Matched in active filter
                   </p>
                 </div>
@@ -484,14 +519,14 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search Bill No, Customer, City, Date..."
-                    className="w-full pl-8 pr-3 py-1.5 sm:py-2 text-xs rounded-lg sm:rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-800 dark:text-white placeholder-gray-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition"
+                    placeholder="Search Bill No, Vendor, City, Date..."
+                    className="w-full pl-8 pr-3 py-1.5 sm:py-2 text-xs rounded-lg sm:rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-800 dark:text-white placeholder-gray-400 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition"
                   />
                 </div>
 
                 <div className="text-[11px] sm:text-xs font-medium text-gray-500 dark:text-slate-400 text-right sm:text-left">
                   Showing <span className="font-bold text-gray-800 dark:text-white">{filtered.length}</span> of{" "}
-                  <span className="font-bold text-gray-800 dark:text-white">{invoices.length}</span> Total Vouchers
+                  <span className="font-bold text-gray-800 dark:text-white">{allVouchers.length}</span> Total Vouchers
                 </div>
               </div>
 
@@ -500,8 +535,8 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                 <div className="overflow-x-auto">
                   {loading ? (
                     <div className="text-center py-16 text-xs sm:text-sm font-medium text-gray-500 flex flex-col items-center justify-center gap-2">
-                      <FaSync size={20} className="animate-spin text-indigo-600" />
-                      Loading Sales Register Data...
+                      <FaSync size={20} className="animate-spin text-amber-600" />
+                      Loading Purchase Register Data...
                     </div>
                   ) : (
                     <table className="w-full text-[11px] sm:text-xs text-left min-w-[700px]">
@@ -510,8 +545,8 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                           <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Sr.</th>
                           <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Bill Date</th>
                           <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Voucher Type</th>
-                          <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Bill No (VCN)</th>
-                          <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Customer Name</th>
+                          <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Bill / Inv No</th>
+                          <th className="py-2.5 px-3 sm:py-3 sm:px-3.5">Supplier / Vendor</th>
                           <th className="py-2.5 px-3 sm:py-3 sm:px-3.5 text-right">Taxable (₹)</th>
                           <th className="py-2.5 px-3 sm:py-3 sm:px-3.5 text-right">Tax (₹)</th>
                           <th className="py-2.5 px-3 sm:py-3 sm:px-3.5 text-right">Bill Value (₹)</th>
@@ -520,60 +555,57 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                         {paginated.length > 0 ? (
-                          paginated.map((inv, idx) => {
+                          paginated.map((v, idx) => {
                             const srNo = (currentPage - 1) * pageSize + idx + 1;
-                            const isReturn = inv.type === "R" || String(inv.vcn || "").startsWith("CN");
-                            const billVal = Number(inv.finalAmount || inv.total || 0);
-                            const taxVal = Number(inv.tax || 0);
-                            const taxableVal = Number(inv.taxable || 0);
+                            const isReturn = v.type === "R";
 
                             return (
                               <tr
-                                key={inv._id || idx}
+                                key={v._id || idx}
                                 className={`transition-colors ${
-                                  isReturn ? "bg-rose-50/60 dark:bg-rose-950/20 hover:bg-rose-100/70" : "hover:bg-indigo-50/50 dark:hover:bg-slate-800/50"
+                                  isReturn ? "bg-orange-50/60 dark:bg-orange-950/20 hover:bg-orange-100/70" : "hover:bg-amber-50/50 dark:hover:bg-slate-800/50"
                                 }`}
                               >
                                 <td className="py-2.5 px-3.5 font-medium text-gray-400">{srNo}</td>
                                 <td className="py-2.5 px-3.5 font-semibold text-gray-700 dark:text-slate-300 whitespace-nowrap">
-                                  {inv.date || "-"}
+                                  {v.date || "-"}
                                 </td>
                                 <td className="py-2.5 px-3.5 whitespace-nowrap">
                                   {isReturn ? (
-                                    <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold text-[10px]">
-                                      Sales Return (CN)
+                                    <span className="px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 font-bold text-[10px]">
+                                      Debit Note (R)
                                     </span>
                                   ) : (
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">
-                                      Sale Invoice (S)
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-bold text-[10px]">
+                                      Purchase Bill (P)
                                     </span>
                                   )}
                                 </td>
-                                <td className={`py-2.5 px-3.5 font-bold whitespace-nowrap ${isReturn ? "text-rose-700 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400"}`}>
-                                  {inv.vcn || inv.voucher || "-"}
+                                <td className={`py-2.5 px-3.5 font-bold whitespace-nowrap ${isReturn ? "text-orange-700 dark:text-orange-400" : "text-amber-700 dark:text-amber-400"}`}>
+                                  {v.number || "-"}
                                 </td>
                                 <td className="py-2.5 px-3.5 font-semibold text-gray-800 dark:text-slate-200">
-                                  <div>{inv.customer || "Party Account"}</div>
-                                  {(inv.city || inv.state) && (
+                                  <div>{v.vendorName || "Supplier Account"}</div>
+                                  {(v.city || v.state) && (
                                     <div className="text-[10px] font-normal text-gray-400">
-                                      {[inv.city, inv.state].filter(Boolean).join(", ")}
+                                      {[v.city, v.state].filter(Boolean).join(", ")}
                                     </div>
                                   )}
                                 </td>
                                 <td className="py-2.5 px-3.5 text-right font-medium text-gray-700 dark:text-slate-300">
-                                  {taxableVal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {v.taxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </td>
                                 <td className="py-2.5 px-3.5 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                                  {taxVal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {v.tax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </td>
-                                <td className={`py-2.5 px-3.5 text-right font-bold ${isReturn ? "text-rose-700 dark:text-rose-400" : "text-gray-900 dark:text-white"}`}>
-                                  {isReturn ? `- ₹ ${billVal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `₹ ${billVal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                <td className={`py-2.5 px-3.5 text-right font-bold ${isReturn ? "text-orange-700 dark:text-orange-400" : "text-gray-900 dark:text-white"}`}>
+                                  {isReturn ? `- ₹ ${v.amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `₹ ${v.amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 </td>
                                 <td className="py-2.5 px-3.5 text-center">
                                   <Link
-                                    href={isReturn ? "/dashboard/sales/sale-return" : "/dashboard/sales/invoice"}
+                                    href={isReturn ? "/dashboard/purchase/purchase-return" : "/dashboard/purchase/invoice"}
                                     onClick={onClose}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white transition font-medium"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 hover:bg-amber-600 hover:text-white transition font-medium"
                                   >
                                     <FaEye size={11} />
                                     <span>View</span>
@@ -585,7 +617,7 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                         ) : (
                           <tr>
                             <td colSpan={9} className="py-12 text-center text-gray-400 font-medium">
-                              No Vouchers Found for Active Filter
+                              No Purchase Vouchers Found
                             </td>
                           </tr>
                         )}
@@ -605,14 +637,14 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                     <button
                       onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className="flex items-center justify-center h-8 w-8 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-indigo-600 hover:text-white disabled:opacity-40 transition shadow-sm"
+                      className="flex items-center justify-center h-8 w-8 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-amber-600 hover:text-white disabled:opacity-40 transition shadow-sm"
                     >
                       <FaChevronLeft size={10} />
                     </button>
                     <button
                       onClick={() => goToPage(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className="flex items-center justify-center h-8 w-8 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-indigo-600 hover:text-white disabled:opacity-40 transition shadow-sm"
+                      className="flex items-center justify-center h-8 w-8 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-amber-600 hover:text-white disabled:opacity-40 transition shadow-sm"
                     >
                       <FaChevronRight size={10} />
                     </button>
@@ -627,7 +659,7 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200/80 dark:border-slate-800 p-4 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                  <FaTable className="text-indigo-500" /> State & Territory Sales Summary Table
+                  <FaTable className="text-amber-500" /> State & Territory Purchase Inward Summary Table
                 </h4>
                 <span className="text-xs font-semibold text-slate-500">
                   {stateMapData.length} Active Regions Recorded
@@ -640,28 +672,24 @@ export default function TotalSalesModal({ isOpen, onClose }: TotalSalesModalProp
                     <tr className="bg-slate-900 text-white font-semibold uppercase">
                       <th className="py-2.5 px-3">State Code</th>
                       <th className="py-2.5 px-3">State Name</th>
-                      <th className="py-2.5 px-3 text-right">Gross Sales (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Sales Returns (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Net Sales (₹)</th>
-                      <th className="py-2.5 px-3 text-center">Customers</th>
-                      <th className="py-2.5 px-3 text-right">Outstanding (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Gross Purchase (₹)</th>
+                      <th className="py-2.5 px-3 text-center">Suppliers</th>
+                      <th className="py-2.5 px-3 text-right">Payments Made (₹)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                     {stateMapData.map((st, idx) => (
-                      <tr key={idx} className="hover:bg-indigo-50/50 dark:hover:bg-slate-800/50">
-                        <td className="py-2 px-3 uppercase font-mono font-bold text-indigo-600">{st.stateId}</td>
+                      <tr key={idx} className="hover:bg-amber-50/50 dark:hover:bg-slate-800/50">
+                        <td className="py-2 px-3 uppercase font-mono font-bold text-amber-600">{st.stateId}</td>
                         <td className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{st.stateName}</td>
-                        <td className="py-2 px-3 text-right font-medium">₹ {(st.sales || 0).toLocaleString("en-IN")}</td>
-                        <td className="py-2 px-3 text-right text-rose-600 font-medium">₹ {(st.salesReturns || 0).toLocaleString("en-IN")}</td>
-                        <td className="py-2 px-3 text-right font-bold text-emerald-600">
-                          ₹ {((st.sales || 0) - (st.salesReturns || 0)).toLocaleString("en-IN")}
+                        <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">
+                          ₹ {(st.purchase || 0).toLocaleString("en-IN")}
                         </td>
-                        <td className="py-2 px-3 text-center font-semibold text-sky-600">
-                          {typeof st.customers === "number" ? st.customers : st.customers?.size || 0}
+                        <td className="py-2 px-3 text-center font-semibold text-purple-600">
+                          {typeof st.suppliers === "number" ? st.suppliers : st.suppliers?.size || 0}
                         </td>
-                        <td className="py-2 px-3 text-right font-medium text-amber-600">
-                          ₹ {(st.outstanding || 0).toLocaleString("en-IN")}
+                        <td className="py-2 px-3 text-right font-medium text-emerald-600">
+                          ₹ {(st.payment || 0).toLocaleString("en-IN")}
                         </td>
                       </tr>
                     ))}

@@ -26,6 +26,7 @@ import NearExpiryModal from "@/components/NearExpiryModal";
 import ExpiredBatchesModal from "@/components/ExpiredBatchesModal";
 import LedgerDetailsModal from "@/components/LedgerDetailsModal";
 import TotalSalesModal from "@/components/TotalSalesModal";
+import TotalPurchaseModal from "@/components/TotalPurchaseModal";
 import UniversalKPIDetailsModal from "@/components/UniversalKPIDetailsModal";
 
 function formatCurrency(n: number) {
@@ -38,6 +39,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
     const [isExpiredBatchesModalOpen, setIsExpiredBatchesModalOpen] = useState(false);
     const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
     const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
+    const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
     const [ledgerInitialType, setLedgerInitialType] = useState<"credit" | "debit">("credit");
 
     // Universal Modal State for cards that open popup instead of raw redirect
@@ -151,6 +153,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
             icon: <FaFileInvoice size={18} />,
             url: "/dashboard/purchase/invoice",
             color: "amber",
+            isPurchaseModal: true,
             category: "PURCHASE",
             type: "purchases",
         },
@@ -307,6 +310,8 @@ export default function KPICards({ kpis }: { kpis: any }) {
     const handleCardClick = (card: (typeof cards)[number]) => {
         if (card.isSalesModal) {
             setIsSalesModalOpen(true);
+        } else if ((card as any).isPurchaseModal) {
+            setIsPurchaseModalOpen(true);
         } else if (card.isStockModal) {
             setIsStockModalOpen(true);
         } else if (card.isNearExpiryModal) {
@@ -496,6 +501,11 @@ export default function KPICards({ kpis }: { kpis: any }) {
             <TotalSalesModal
                 isOpen={isSalesModalOpen}
                 onClose={() => setIsSalesModalOpen(false)}
+            />
+
+            <TotalPurchaseModal
+                isOpen={isPurchaseModalOpen}
+                onClose={() => setIsPurchaseModalOpen(false)}
             />
 
             <UniversalKPIDetailsModal

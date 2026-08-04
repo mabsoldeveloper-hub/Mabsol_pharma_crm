@@ -333,6 +333,41 @@ export function resolvePartyName(
     return info?.name || `Party ${code}`;
 }
 
+const ALL_INDIAN_STATES = [
+    "Jammu and Kashmir", "Himachal Pradesh", "Punjab", "Chandigarh", "Uttarakhand",
+    "Haryana", "Delhi", "Rajasthan", "Uttar Pradesh", "Bihar", "Sikkim",
+    "Arunachal Pradesh", "Nagaland", "Manipur", "Mizoram", "Tripura", "Meghalaya",
+    "Assam", "West Bengal", "Jharkhand", "Odisha", "Chhattisgarh", "Madhya Pradesh",
+    "Gujarat", "Daman and Diu", "Dadra and Nagar Haveli", "Maharashtra", "Karnataka",
+    "Goa", "Lakshadweep", "Kerala", "Tamil Nadu", "Puducherry", "Andaman and Nicobar Islands",
+    "Telangana", "Andhra Pradesh", "Ladakh"
+];
+
+export function resolveStateFromText(...texts: (string | null | undefined)[]): string | null {
+    const combined = texts.filter(Boolean).join(" ").toUpperCase();
+    if (!combined) return null;
+
+    const gstMatch = combined.match(/\b(\d{2})[A-Z]{5}\d{4}[A-Z]{1}[A-Z0-9]{3}\b/);
+    if (gstMatch) {
+        const st = GST_STATE_CODE[gstMatch[1]];
+        if (st) return st;
+    }
+
+    for (const name of ALL_INDIAN_STATES) {
+        if (combined.includes(name.toUpperCase())) {
+            return name;
+        }
+    }
+
+    for (const [city, st] of Object.entries(CITY_TO_STATE)) {
+        if (combined.includes(city)) {
+            return st;
+        }
+    }
+
+    return null;
+}
+
 export interface StateResolution {
     voucherToState: Map<number, string>;
     partyToState: Map<string, string>;
@@ -342,34 +377,48 @@ export interface StateResolution {
 export async function buildStateResolution(filter: any = {}): Promise<StateResolution> {
     const mdisRows = await SalesMdis.find(
         filter,
-        { VOUCHER: 1, CODEP: 1, FINAL: 1, DATE: 1, MISC1: 1, TYPE: 1, VCN: 1 }
+        { VOUCHER: 1, CODEP: 1, FINAL: 1, DATE: 1, MISC1: 1, TYPE: 1, VCN: 1, GST: 1, CITY: 1, STATE: 1 }
     ).lean();
 
-    const voucherToState = new Map<number, string>();
-    const partyStateVotes = new Map<string, Map<string, number>>();
-
-    mdisRows.forEach((r: any) => {
-        const state = stateFromMisc1(r.MISC1);
-        if (!state) return;
-        if (r.VOUCHER) voucherToState.set(r.VOUCHER, state);
-        if (r.CODEP) {
-            const votes = partyStateVotes.get(r.CODEP) ?? new Map<string, number>();
-            votes.set(state, (votes.get(state) ?? 0) + 1);
-            partyStateVotes.set(r.CODEP, votes);
-        }
-    });
-
     const partyToState = new Map<string, string>();
-    partyStateVotes.forEach((votes, party) => {
-        let best: string | null = null;
-        let bestCount = -1;
-        votes.forEach((count, state) => {
-            if (count > bestCount) {
-                bestCount = count;
-                best = state;
+    const voucherToState = new Map<number, string>();
+
+    // 1. Build party states from OrderParty (ORDER collection)
+    try {
+        const orderRows = await OrderParty.find({}, { ORDNO: 1, CODEP: 1, GSTNO: 1, CITY: 1, PARADD: 1, PARADD1: 1, PARADD2: 1 }).lean();
+        orderRows.forEach((o: any) => {
+            const key = o.ORDNO || o.CODEP;
+            if (!key) return;
+            const st =
+                stateFromGstno(o.GSTNO) ||
+                stateFromCity(o.CITY) ||
+                resolveStateFromText(o.PARADD, o.PARADD1, o.PARADD2, o.CITY);
+            if (st) {
+                partyToState.set(String(key), st);
             }
         });
-        if (best) partyToState.set(party, best);
+    } catch (e) {
+        console.error("OrderParty lookup error in buildStateResolution:", e);
+    }
+
+    // 2. Resolve states from MDIS rows
+    mdisRows.forEach((r: any) => {
+        let state =
+            stateFromMisc1(r.MISC1) ||
+            stateFromGstno(r.GST) ||
+            stateFromCity(r.CITY) ||
+            resolveStateFromText(r.STATE, r.CITY, r.MISC1);
+
+        if (!state && r.CODEP && partyToState.has(String(r.CODEP))) {
+            state = partyToState.get(String(r.CODEP))!;
+        }
+
+        if (state) {
+            if (r.VOUCHER) voucherToState.set(r.VOUCHER, state);
+            if (r.CODEP && !partyToState.has(String(r.CODEP))) {
+                partyToState.set(String(r.CODEP), state);
+            }
+        }
     });
 
     return { voucherToState, partyToState, mdisRows };
@@ -380,9 +429,14 @@ export function resolveState(
     codep: string | null | undefined,
     voucher: number | null | undefined
 ): string | null {
-    if (codep && resolution.partyToState.has(codep)) return resolution.partyToState.get(codep)!;
-    if (voucher && resolution.voucherToState.has(voucher)) return resolution.voucherToState.get(voucher)!;
-    return null;
+    if (codep && resolution.partyToState.has(String(codep))) {
+        return resolution.partyToState.get(String(codep))!;
+    }
+    if (voucher && resolution.voucherToState.has(Number(voucher))) {
+        return resolution.voucherToState.get(Number(voucher))!;
+    }
+    // Fallback: Default to "Haryana" for unmapped records
+    return "Haryana";
 }
 
 export function monthFilter(
@@ -392,17 +446,31 @@ export function monthFilter(
 ): boolean {
     if (!dateStr) return false;
     if (!fy && !month) return true;
+
+    const isAllFY = !fy || fy === "All" || fy === "ALL" || fy.toLowerCase().startsWith("all");
+
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return false;
-    if (month && month !== "All") {
+
+    if (month && month !== "All" && month !== "ALL") {
         const monthName = d.toLocaleString("en-US", { month: "short" });
         if (monthName !== month) return false;
     }
-    if (fy && fy !== "All") {
-        const [startYear, endYearShort] = fy.split("-");
-        const fyStart = new Date(`${startYear}-04-01`);
-        const fyEnd = new Date(`20${endYearShort}-04-01`);
-        if (d < fyStart || d >= fyEnd) return false;
+
+    if (!isAllFY && fy) {
+        const parts = fy.split("-");
+        if (parts.length === 2) {
+            const startYear = parts[0].trim();
+            let endYear = parts[1].trim();
+            if (endYear.length === 2) {
+                endYear = `20${endYear}`;
+            }
+            const fyStart = new Date(`${startYear}-04-01`);
+            const fyEnd = new Date(`${endYear}-04-01`);
+            if (!isNaN(fyStart.getTime()) && !isNaN(fyEnd.getTime())) {
+                if (d < fyStart || d >= fyEnd) return false;
+            }
+        }
     }
     return true;
 }
