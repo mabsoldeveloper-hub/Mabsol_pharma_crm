@@ -206,7 +206,8 @@ export default function GeneralTargetsPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
+    // <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
+    <div className="container-fluid space-y-4 sm:space-y-6 p-3 sm:p-6 ">
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-700 via-pink-700 to-purple-800 p-4 sm:p-6 text-white shadow-xl">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

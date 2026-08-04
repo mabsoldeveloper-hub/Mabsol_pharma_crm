@@ -422,7 +422,7 @@ export default function ReceiptEntryPage() {
     };
 
     return (
-        <div className="p-3 sm:p-6 space-y-4 max-w-7xl mx-auto">
+        <div className="container-fluid p-3 sm:p-6 space-y-4">
             {/* Top Navigation & Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -451,21 +451,19 @@ export default function ReceiptEntryPage() {
                 <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
                     <button
                         onClick={() => setActiveTab("new")}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                            activeTab === "new"
-                                ? "bg-emerald-600 text-white shadow-sm"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeTab === "new"
+                            ? "bg-emerald-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                            }`}
                     >
                         <FaPlus size={11} /> New Collection
                     </button>
                     <button
                         onClick={() => setActiveTab("history")}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                            activeTab === "history"
-                                ? "bg-emerald-600 text-white shadow-sm"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeTab === "history"
+                            ? "bg-emerald-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                            }`}
                     >
                         <FaReceipt size={11} /> Receipt History
                     </button>
@@ -696,11 +694,10 @@ export default function ReceiptEntryPage() {
                                             key={item.mode}
                                             type="button"
                                             onClick={() => setPaymentMode(item.mode as any)}
-                                            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition ${
-                                                isSelected
-                                                    ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs"
-                                                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100"
-                                            }`}
+                                            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition ${isSelected
+                                                ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs"
+                                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100"
+                                                }`}
                                         >
                                             <IconComponent className={isSelected ? "text-emerald-600" : "text-slate-400"} size={14} />
                                             <span>{item.label}</span>
@@ -829,11 +826,10 @@ export default function ReceiptEntryPage() {
                                             return (
                                                 <tr
                                                     key={inv.id}
-                                                    className={`transition ${
-                                                        inv.selected
-                                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30"
-                                                            : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                                    }`}
+                                                    className={`transition ${inv.selected
+                                                        ? "bg-emerald-50/70 dark:bg-emerald-950/30"
+                                                        : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                                                        }`}
                                                 >
                                                     <td className="p-2.5 text-center">
                                                         <input
