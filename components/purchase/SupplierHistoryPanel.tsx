@@ -3,24 +3,20 @@
 import React, { useState, useEffect } from "react";
 import {
   FaHistory,
-  FaFileInvoiceDollar,
-  FaShoppingBag,
-  FaExclamationTriangle,
-  FaCalendarAlt,
-  FaCheckCircle,
-  FaClock,
 } from "react-icons/fa";
 
 interface SupplierHistoryPanelProps {
   vendorName: string;
   vendorCode?: string;
   vendorId?: string;
+  onSelectBill?: (bill: any) => void;
 }
 
 export default function SupplierHistoryPanel({
   vendorName,
   vendorCode,
   vendorId,
+  onSelectBill,
 }: SupplierHistoryPanelProps) {
   const [loading, setLoading] = useState(false);
   const [historyData, setHistoryData] = useState<any>(null);
@@ -101,7 +97,7 @@ export default function SupplierHistoryPanel({
 
             <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3 border border-slate-100 dark:border-white/5 shadow-xs">
               <div className="text-[11px] font-semibold text-slate-500">Pending Payables</div>
-              <div className="text-sm font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">
+              <div className="text-sm font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">
                 ₹{summary.totalOutstanding.toLocaleString("en-IN")}
               </div>
               <div className="text-[10px] text-slate-400 mt-0.5">Unpaid balance</div>
@@ -109,24 +105,24 @@ export default function SupplierHistoryPanel({
 
             <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3 border border-slate-100 dark:border-white/5 shadow-xs">
               <div className="text-[11px] font-semibold text-slate-500">Overdue Amount</div>
-              <div className="text-sm font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">
+              <div className="text-sm font-extrabold text-rose-600 mt-0.5">
                 ₹{summary.overdueAmount.toLocaleString("en-IN")}
               </div>
-              <div className="text-[10px] text-rose-500 font-medium mt-0.5">Payment due passed</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Payment due passed</div>
             </div>
 
             <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-3 border border-slate-100 dark:border-white/5 shadow-xs">
               <div className="text-[11px] font-semibold text-slate-500">Last Transaction</div>
-              <div className="text-xs font-bold text-slate-700 dark:text-slate-200 mt-1">
+              <div className="text-sm font-extrabold text-slate-800 dark:text-white mt-0.5">
                 {summary.lastOrderDate}
               </div>
               <div className="text-[10px] text-slate-400 mt-0.5">{summary.totalOrdersCount} POs generated</div>
             </div>
           </div>
 
-          {/* Tables Section: Recent POs & Bills */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-            {/* Recent POs */}
+          {/* Recent Lists Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Recent Orders */}
             <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-2">
               <div className="text-xs font-bold text-slate-800 dark:text-white flex items-center justify-between">
                 <span>Recent Purchase Orders</span>
@@ -136,7 +132,7 @@ export default function SupplierHistoryPanel({
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {recentOrders.map((po: any) => (
                     <div
-                      key={po.id}
+                      key={po.id || po._id}
                       className="flex items-center justify-between text-[11px] p-2 rounded-xl bg-slate-50 dark:bg-white/5"
                     >
                       <div>
@@ -144,7 +140,7 @@ export default function SupplierHistoryPanel({
                         <span className="text-[10px] text-slate-400 ml-1.5">({po.poDate})</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 dark:text-white">₹{po.netTotal.toLocaleString("en-IN")}</span>
+                        <span className="font-bold text-slate-900 dark:text-white">₹{po.netAmount?.toLocaleString("en-IN") || 0}</span>
                         <span
                           className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
                             po.status === "Billed" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
@@ -165,33 +161,54 @@ export default function SupplierHistoryPanel({
             <div className="bg-white dark:bg-slate-800/90 rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-2">
               <div className="text-xs font-bold text-slate-800 dark:text-white flex items-center justify-between">
                 <span>Recent Invoices & Payables</span>
-                <span className="text-[10px] text-slate-400 font-normal">Last {recentBills.length}</span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  {onSelectBill ? "Click invoice to import items" : `Last ${recentBills.length}`}
+                </span>
               </div>
               {recentBills.length > 0 ? (
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {recentBills.map((b: any) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between text-[11px] p-2 rounded-xl bg-slate-50 dark:bg-white/5"
-                    >
-                      <div>
-                        <span className="font-bold text-slate-800 dark:text-slate-200">{b.billNumber}</span>
-                        <span className="text-[10px] text-slate-400 ml-1.5">({b.billDate})</span>
+                  {recentBills.map((b: any) => {
+                    const isReturned = b.paymentStatus === "Returned";
+                    return (
+                      <div
+                        key={b.id || b._id}
+                        onClick={() => {
+                          if (isReturned) {
+                            alert(`Bill #${b.billNumber} has already been fully returned.`);
+                            return;
+                          }
+                          if (onSelectBill) onSelectBill(b);
+                        }}
+                        title={isReturned ? "Bill already returned" : onSelectBill ? "Click to import bill items into return form" : undefined}
+                        className={`flex items-center justify-between text-[11px] p-2 rounded-xl bg-slate-50 dark:bg-white/5 transition ${
+                          isReturned
+                            ? "opacity-60 cursor-not-allowed bg-amber-50/50 dark:bg-amber-950/20"
+                            : onSelectBill
+                            ? "cursor-pointer hover:bg-amber-100/80 dark:hover:bg-slate-700/60 hover:shadow-xs"
+                            : ""
+                        }`}
+                      >
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{b.billNumber}</span>
+                          <span className="text-[10px] text-slate-400 ml-1.5">({b.billDate})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 dark:text-white">₹{b.netAmount.toLocaleString("en-IN")}</span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                              isReturned
+                                ? "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300"
+                                : b.paymentStatus === "Paid"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-800"
+                            }`}
+                          >
+                            {b.paymentStatus || "Pending"}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 dark:text-white">₹{b.netAmount.toLocaleString("en-IN")}</span>
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                            b.paymentStatus === "Paid"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-rose-100 text-rose-800"
-                          }`}
-                        >
-                          {b.paymentStatus}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="py-4 text-center text-[11px] text-slate-400">No previous purchase invoices found.</div>

@@ -839,6 +839,12 @@ function PurchaseReturnContent() {
             <span className="text-sm font-medium">{successMsg}</span>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/reports/purchase-return"
+              className="px-3 py-1 bg-amber-600 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 hover:bg-amber-700 transition"
+            >
+              <FaFileInvoiceDollar /> View in Debit Note Report ↗
+            </Link>
             {lastCreatedReturn && (
               <button
                 onClick={() => setSelectedPrintReturn(lastCreatedReturn)}
@@ -990,8 +996,17 @@ function PurchaseReturnContent() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    Original Bill / Inv #
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+                    <span>Original Bill / Inv #</span>
+                    {originalBillNo && (
+                      <button
+                        type="button"
+                        onClick={() => fetchBillFromUrl(originalBillNo)}
+                        className="text-[10px] text-amber-600 dark:text-amber-400 underline font-bold hover:text-amber-700"
+                      >
+                        ⚡ Import Items
+                      </button>
+                    )}
                   </label>
                   <input
                     type="text"
@@ -1053,6 +1068,7 @@ function PurchaseReturnContent() {
                 vendorName={vendorName}
                 vendorCode={vendorCode}
                 vendorId={vendorId}
+                onSelectBill={handleImportBillItems}
               />
             )}
 

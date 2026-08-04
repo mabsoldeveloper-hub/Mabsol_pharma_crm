@@ -4,6 +4,7 @@ import SalesMdis from "@/models/SalesMdis";
 import SalesDis from "@/models/SalesDis";
 import Order from "@/models/Order";
 import Customer from "@/models/Customer";
+import PurchaseReturn from "@/models/PurchaseReturn";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
@@ -84,21 +85,17 @@ export async function GET(req: NextRequest) {
             if (val.salesman) salesmanSet.add(val.salesman);
         });
 
-        // 2. Build filter: Debit Notes ONLY (DN-prefix VCN = Purchase Returns to Supplier)
-        // In Marg ERP: TYPE="B" covers both CN and DN. We isolate DN here.
+        // 2. Build filter: Debit Notes ONLY
         const debitNoteTypeFilter = combineFilters(
             {
                 $or: [
-                    // Explicit Debit Note VCN patterns
                     { VCN: { $regex: "^DN", $options: "i" } },
-                    { TYPE: "DR" },     // Debit Note type if present
+                    { TYPE: "DR" },
                     { INVTYPE: "DN" },
                     { INVTYPE: "DR" },
-                    // TYPE=B with DN prefix (main Marg pattern)
                     { TYPE: "B", VCN: { $regex: "^DN", $options: "i" } },
                 ],
             },
-            // Safety: only records where VCN starts with DN
             { VCN: { $regex: "^DN", $options: "i" } }
         );
 
@@ -160,7 +157,7 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // 3. Query
+        // 3. Query Marg / VFP Debit Notes
         const [allDocs, totalCount, docs] = await Promise.all([
             SalesMdis.find(filter, { VCN: 1, VOUCHER: 1, FINAL: 1, AMOUNTT: 1, TAXAMO: 1 }).lean(),
             SalesMdis.countDocuments(filter),
@@ -171,10 +168,9 @@ export async function GET(req: NextRequest) {
                 .lean(),
         ]);
 
-        const totalDebitNoteAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.FINAL || d.AMOUNTT || 0), 0);
-        const totalTaxableAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.AMOUNTT || 0), 0);
-        const totalTaxAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.TAXAMO || 0), 0);
-        const avgDebitNoteAmount = totalCount > 0 ? Math.round(totalDebitNoteAmount / totalCount) : 0;
+        let totalDebitNoteAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.FINAL || d.AMOUNTT || 0), 0);
+        let totalTaxableAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.AMOUNTT || 0), 0);
+        let totalTaxAmount = allDocs.reduce((sum: number, d: any) => sum + Number(d.TAXAMO || 0), 0);
 
         // 4. Fetch line items for page records
         const pageVcns: string[] = [];
@@ -210,7 +206,7 @@ export async function GET(req: NextRequest) {
             });
         });
 
-        const rows = docs.map((d: any) => {
+        const vfpRows = docs.map((d: any) => {
             const pCode = String(d.CODEP || d.CODE || "").trim();
             const pInfo = partyMap.get(pCode) || {
                 name: pCode || "N/A", city: "", area: "", route: "",
@@ -244,10 +240,75 @@ export async function GET(req: NextRequest) {
             };
         });
 
+        // 5. Query web-created PurchaseReturn documents from MongoDB
+        let prQuery: any = {};
+        if (search) {
+            const searchRegex = new RegExp(search.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), "i");
+            prQuery.$or = [
+                { vcn: searchRegex },
+                { vendorName: searchRegex },
+                { vendorCode: searchRegex },
+                { originalBillNo: searchRegex },
+                { reason: searchRegex },
+            ];
+        }
+
+        const prDocs = await PurchaseReturn.find(prQuery).sort({ returnDate: -1, createdAt: -1 }).lean();
+
+        const prRows = prDocs.map((pr: any) => {
+            const itemsList = (pr.items || []).map((it: any) => ({
+                code: it.productCode || "",
+                product: it.productName || "Item",
+                batchNo: it.batchNo || "N/A",
+                exp: it.expDate || "",
+                qty: Number(it.qty || 0),
+                rate: Number(it.rate || 0),
+                taxP: Number(it.gstPercent || 0),
+                disP: Number(it.discountPercent || 0),
+                total: Number(it.total || 0),
+            }));
+            const itemQty = itemsList.reduce((sum: number, i: any) => sum + i.qty, 0);
+            totalItemsQty += itemQty;
+
+            return {
+                id: String(pr._id),
+                vcn: pr.vcn,
+                date: pr.returnDate || new Date(pr.createdAt).toISOString().slice(0, 10),
+                originalVcn: pr.originalBillNo || "—",
+                partyCode: pr.vendorCode || "",
+                partyName: pr.vendorName || "Vendor",
+                city: pr.vendorCity || "",
+                area: "",
+                route: "",
+                company: pr.companyCode || "",
+                division: "",
+                salesman: "",
+                phone: pr.vendorPhone || "",
+                gstin: pr.vendorGst || "",
+                taxableAmount: Number(pr.subtotal || 0),
+                taxAmount: Number(pr.totalTax || 0),
+                finalAmount: Number(pr.netAmount || 0),
+                remarks: pr.remarks || pr.reason || "",
+                itemsCount: itemsList.length,
+                totalQty: itemQty,
+                items: itemsList,
+            };
+        });
+
+        prDocs.forEach((p: any) => {
+            totalDebitNoteAmount += Number(p.netAmount || 0);
+            totalTaxableAmount += Number(p.subtotal || 0);
+            totalTaxAmount += Number(p.totalTax || 0);
+        });
+
+        const combinedRows = [...prRows, ...vfpRows];
+        const combinedTotalCount = totalCount + prDocs.length;
+        const avgDebitNoteAmount = combinedTotalCount > 0 ? Math.round(totalDebitNoteAmount / combinedTotalCount) : 0;
+
         return NextResponse.json({
             success: true,
             summary: {
-                totalCount,
+                totalCount: combinedTotalCount,
                 totalDebitNoteAmount,
                 totalTaxableAmount,
                 totalTaxAmount,
@@ -261,12 +322,12 @@ export async function GET(req: NextRequest) {
                 divisions: Array.from(divisionSet).sort(),
                 salesmen: Array.from(salesmanSet).sort(),
             },
-            rows,
+            rows: combinedRows,
             pagination: {
                 page,
                 limit,
-                totalCount,
-                totalPages: Math.ceil(totalCount / limit) || 1,
+                totalCount: combinedTotalCount,
+                totalPages: Math.ceil(combinedTotalCount / limit) || 1,
             },
         });
 
