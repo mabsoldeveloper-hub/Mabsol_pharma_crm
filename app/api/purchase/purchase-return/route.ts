@@ -51,22 +51,44 @@ export async function GET(req: NextRequest) {
     if (action === "vendorBills") {
       const vendorId = (searchParams.get("vendorId") || "").trim();
       const vendorName = (searchParams.get("vendorName") || "").trim();
+      const billNo = (searchParams.get("billNo") || "").trim();
 
-      let query: any = {};
-      if (vendorId) {
-        query.$or = [{ vendorId }, { vendorCode: vendorId }];
-      } else if (vendorName) {
-        query.vendorName = new RegExp(vendorName, "i");
+      const orList: any[] = [];
+      if (billNo) {
+        const billRegex = new RegExp(billNo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        orList.push({ billNumber: billRegex });
+        orList.push({ supplierInvoiceNo: billRegex });
       }
+      if (vendorId) {
+        orList.push({ vendorId });
+        orList.push({ vendorCode: vendorId });
+      }
+      if (vendorName) {
+        const cleanName = vendorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        orList.push({ vendorName: new RegExp(cleanName, "i") });
+        const firstName = vendorName.split(/\s+/)[0];
+        if (firstName && firstName.length > 2) {
+          orList.push({ vendorName: new RegExp(firstName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") });
+        }
+      }
+
+      const query = orList.length > 0 ? { $or: orList } : {};
 
       const bills = await PurchaseBill.find(query)
         .sort({ billDate: -1, createdAt: -1 })
-        .limit(30)
+        .limit(50)
         .lean();
+
+      // Filter out bills that have already been fully returned
+      const activeBills = bills.filter((b: any) => {
+        const retAmt = Number(b.returnedAmount || 0);
+        const netAmt = Number(b.netAmount || 0);
+        return b.paymentStatus !== "Returned" && !(retAmt >= netAmt && netAmt > 0);
+      });
 
       return NextResponse.json({
         success: true,
-        bills,
+        bills: activeBills,
       });
     }
 
@@ -161,6 +183,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "At least 1 return item is required" }, { status: 400 });
     }
 
+    // Check if original bill exists and has already been fully returned
+    let existingBill: any = null;
+    if (originalBillNo) {
+      const cleanBillNo = String(originalBillNo).trim();
+      existingBill = await PurchaseBill.findOne({
+        $or: [
+          { billNumber: cleanBillNo },
+          { supplierInvoiceNo: cleanBillNo },
+          { billNumber: new RegExp(`^${cleanBillNo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+          { supplierInvoiceNo: new RegExp(`^${cleanBillNo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+        ],
+      });
+
+      if (existingBill) {
+        const netAmt = Number(existingBill.netAmount || 0);
+        const retAmt = Number(existingBill.returnedAmount || 0);
+        if (existingBill.paymentStatus === "Returned" || (retAmt >= netAmt && netAmt > 0)) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: `Bill #${originalBillNo} has ALREADY been fully returned (Debit Note generated). Duplicate returns are blocked.`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Generate unique VCN for Debit Note
     const vcn = await consumeNextVoucherNumber("DEBIT_NOTE");
 
@@ -212,6 +262,52 @@ export async function POST(req: NextRequest) {
       status: "Approved",
       createdBy: "Admin",
     });
+
+    // 1. Update linked PurchaseBill balance & returned status
+    if (existingBill) {
+      try {
+        const retAmt = Number(netAmount || 0);
+        const netAmt = Number(existingBill.netAmount || 0);
+        const currentBal = Number(existingBill.balanceAmount ?? (netAmt - (existingBill.paidAmount || 0)));
+        const newBal = Math.max(0, currentBal - retAmt);
+        const newReturned = Number(existingBill.returnedAmount || 0) + retAmt;
+
+        let newStatus = existingBill.paymentStatus;
+        if (newReturned >= netAmt && netAmt > 0) {
+          newStatus = "Returned";
+        } else if (newBal === 0 && netAmt > 0) {
+          newStatus = "Paid";
+        }
+
+        await PurchaseBill.findByIdAndUpdate(existingBill._id, {
+          balanceAmount: Math.round(newBal * 100) / 100,
+          returnedAmount: Math.round(newReturned * 100) / 100,
+          paymentStatus: newStatus,
+        });
+      } catch (billErr) {
+        console.error("Error updating PurchaseBill balance on return:", billErr);
+      }
+    }
+
+    // 2. Deduct inventory stock if deductFromInventory is true
+    if (deductFromInventory !== false && Array.isArray(cleanedItems)) {
+      for (const item of cleanedItems) {
+        if (item.productId || item.productCode || item.productName) {
+          try {
+            const pQuery: any = {};
+            if (item.productId) pQuery._id = item.productId;
+            else if (item.productCode) pQuery.$or = [{ CODE: item.productCode }, { CODEP: item.productCode }];
+            else pQuery.$or = [{ PRODUCT: item.productName }, { NAME: item.productName }];
+
+            await Product.findOneAndUpdate(pQuery, {
+              $inc: { STK: -Number(item.qty || 1), CLOSING: -Number(item.qty || 1) },
+            });
+          } catch (stkErr) {
+            console.error("Stock deduction error on return:", stkErr);
+          }
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
