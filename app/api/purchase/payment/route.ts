@@ -56,15 +56,21 @@ export async function GET(req: NextRequest) {
       const vendorId = (searchParams.get("vendorId") || "").trim();
       const vendorName = (searchParams.get("vendorName") || "").trim();
 
-      let query: any = {};
+      const orConditions: any[] = [];
       if (vendorId) {
-        query.$or = [{ vendorId }, { vendorCode: vendorId }];
-      } else if (vendorName) {
-        query.vendorName = new RegExp(vendorName, "i");
+        orConditions.push({ vendorId });
+        orConditions.push({ vendorCode: vendorId });
+      }
+      if (vendorName) {
+        const safeName = vendorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        orConditions.push({ vendorName: new RegExp(`^${safeName}$`, "i") });
+        orConditions.push({ vendorName: new RegExp(safeName, "i") });
       }
 
-      // Find bills that are not fully paid
-      query.paymentStatus = { $ne: "Paid" };
+      let query: any = { paymentStatus: { $ne: "Paid" } };
+      if (orConditions.length > 0) {
+        query.$or = orConditions;
+      }
 
       const bills = await PurchaseBill.find(query)
         .sort({ billDate: 1, createdAt: 1 })
@@ -175,31 +181,80 @@ export async function POST(req: NextRequest) {
     // Clean settled bills & update target PurchaseBill records
     const cleanedSettledBills: any[] = [];
 
-    if (Array.isArray(settledBills) && settledBills.length > 0) {
-      for (const sb of settledBills) {
+    const providedSettled = Array.isArray(settledBills)
+      ? settledBills.filter((sb: any) => (Number(sb.settledAmount) || 0) > 0 && sb.billId)
+      : [];
+
+    if (providedSettled.length > 0) {
+      for (const sb of providedSettled) {
         const setAmt = Number(sb.settledAmount) || 0;
-        if (setAmt > 0 && sb.billId) {
-          const bill = await PurchaseBill.findById(sb.billId);
-          if (bill) {
-            const currentPaid = bill.paidAmount || 0;
-            const newPaid = currentPaid + setAmt;
-            const netAmt = bill.netAmount || 0;
-            const newBal = Math.max(0, netAmt - newPaid);
+        const bill = await PurchaseBill.findById(sb.billId);
+        if (bill) {
+          const currentPaid = bill.paidAmount || 0;
+          const newPaid = currentPaid + setAmt;
+          const netAmt = bill.netAmount || 0;
+          const newBal = Math.max(0, netAmt - newPaid);
 
-            bill.paidAmount = newPaid;
-            bill.balanceAmount = newBal;
-            bill.paymentStatus = newBal <= 0 ? "Paid" : "Partial";
-            await bill.save();
+          bill.paidAmount = newPaid;
+          bill.balanceAmount = newBal;
+          bill.paymentStatus = newBal <= 0 ? "Paid" : "Partial";
+          await bill.save();
 
-            cleanedSettledBills.push({
-              billId: String(bill._id),
-              billNumber: bill.billNumber || sb.billNumber || "",
-              originalAmount: netAmt,
-              settledAmount: setAmt,
-              remainingAmount: newBal,
-            });
-          }
+          cleanedSettledBills.push({
+            billId: String(bill._id),
+            billNumber: bill.billNumber || sb.billNumber || "",
+            originalAmount: netAmt,
+            settledAmount: setAmt,
+            remainingAmount: newBal,
+          });
         }
+      }
+    } else {
+      // Auto FIFO Allocation across vendor's pending bills for Installment / Lump-sum payment
+      const vendorOr: any[] = [];
+      if (vendorId) {
+        vendorOr.push({ vendorId });
+        vendorOr.push({ vendorCode: vendorId });
+      }
+      if (vendorName) {
+        const safeName = vendorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        vendorOr.push({ vendorName: new RegExp(`^${safeName}$`, "i") });
+        vendorOr.push({ vendorName: new RegExp(safeName, "i") });
+      }
+
+      const pendingQuery: any = { paymentStatus: { $ne: "Paid" } };
+      if (vendorOr.length > 0) pendingQuery.$or = vendorOr;
+
+      const pendingBills = await PurchaseBill.find(pendingQuery).sort({ billDate: 1, createdAt: 1 });
+
+      let remainingToAllocate = payAmount;
+      for (const bill of pendingBills) {
+        if (remainingToAllocate <= 0) break;
+
+        const currentPaid = bill.paidAmount || 0;
+        const netAmt = bill.netAmount || 0;
+        const currentBal = typeof bill.balanceAmount === "number" ? bill.balanceAmount : Math.max(0, netAmt - currentPaid);
+
+        if (currentBal <= 0) continue;
+
+        const setAmt = Math.min(currentBal, remainingToAllocate);
+        remainingToAllocate -= setAmt;
+
+        const newPaid = currentPaid + setAmt;
+        const newBal = Math.max(0, netAmt - newPaid);
+
+        bill.paidAmount = newPaid;
+        bill.balanceAmount = newBal;
+        bill.paymentStatus = newBal <= 0 ? "Paid" : "Partial";
+        await bill.save();
+
+        cleanedSettledBills.push({
+          billId: String(bill._id),
+          billNumber: bill.billNumber || "",
+          originalAmount: netAmt,
+          settledAmount: setAmt,
+          remainingAmount: newBal,
+        });
       }
     }
 

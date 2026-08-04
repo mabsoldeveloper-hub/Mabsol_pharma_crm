@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import PurchaseBill from "@/models/PurchaseBill";
 import PurchaseOrder from "@/models/PurchaseOrder";
+import PurchasePayment from "@/models/PurchasePayment";
 import SalesMdis from "@/models/SalesMdis";
 import Pendings from "@/models/Pendings";
 import { consumeNextVoucherNumber, peekNextVoucherNumber } from "@/lib/voucherSeriesHelper";
@@ -308,6 +309,46 @@ export async function POST(req: Request) {
       paymentStatus,
       remarks,
     });
+
+    // If instant payment was entered, generate a PurchasePayment voucher for payment history & reporting
+    if (paid > 0) {
+      try {
+        const pmtVoucherNo = await consumeNextVoucherNumber("PAYMENT");
+        await PurchasePayment.create({
+          voucherNo: pmtVoucherNo,
+          paymentDate: billDate || new Date().toISOString().slice(0, 10),
+          companyId: companyId || "",
+          companyCode: companyCode || "",
+          fyId: fyId || "",
+          fyCode: fyCode || "",
+          vendorId: vendorId || "",
+          vendorCode: vendorCode || "",
+          vendorName: vendorName || "",
+          vendorGst: vendorGst || "",
+          vendorPhone: vendorPhone || "",
+          vendorCity: "",
+          amount: paid,
+          paymentMode: body.paymentMode || "Cash",
+          refNo: finalBillNumber || supplierInvoiceNo || "",
+          bankName: (body.paymentMode === "Bank Transfer" || body.paymentMode === "Cheque") ? "Bank Account" : "Cash Account",
+          discountReceived: 0,
+          settledBills: [
+            {
+              billId: String(bill._id),
+              billNumber: finalBillNumber,
+              originalAmount: netAmount,
+              settledAmount: paid,
+              remainingAmount: balanceAmount,
+            },
+          ],
+          remarks: `Instant payment made during Purchase Bill ${finalBillNumber}`,
+          status: "Approved",
+          createdBy: "Admin",
+        });
+      } catch (pmtErr) {
+        console.error("Error generating instant PurchasePayment voucher:", pmtErr);
+      }
+    }
 
     // Mark PO as Billed if linked
     if (poId) {

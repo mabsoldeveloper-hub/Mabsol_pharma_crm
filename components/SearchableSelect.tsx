@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { FaSearch, FaChevronDown, FaTimes, FaCheck } from "react-icons/fa";
+import { FaSearch, FaChevronDown, FaTimes, FaCheck, FaSpinner } from "react-icons/fa";
 
 export interface OptionItem {
     value: string;
@@ -17,6 +17,7 @@ interface SearchableSelectProps {
     placeholder?: string;
     className?: string;
     disabled?: boolean;
+    loading?: boolean;
 }
 
 export default function SearchableSelect({
@@ -26,6 +27,7 @@ export default function SearchableSelect({
     placeholder = "Select an option...",
     className = "",
     disabled = false,
+    loading = false,
 }: SearchableSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -188,9 +190,13 @@ export default function SearchableSelect({
 
                     {/* Options List */}
                     <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/50">
-                        {filteredOptions.length === 0 ? (
+                        {loading ? (
+                            <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                                <FaSpinner className="animate-spin text-rose-500" /> Fetching options...
+                            </div>
+                        ) : filteredOptions.length === 0 ? (
                             <div className="p-3 text-center text-xs text-slate-400">
-                                No matching results found.
+                                {options.length === 0 ? "No options available." : "No matching results found."}
                             </div>
                         ) : (
                             filteredOptions.map((opt, idx) => {

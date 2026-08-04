@@ -3,6 +3,8 @@ import connectDB from "@/lib/mongodb";
 import Customer from "@/models/Customer";
 import Product from "@/models/Product";
 import SaleType from "@/models/SaleType";
+import PurchaseBill from "@/models/PurchaseBill";
+import Pendings from "@/models/Pendings";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 
@@ -16,8 +18,19 @@ export async function GET(req: Request) {
     const companyVfpMatch = await getCompanyVfpFilter(searchParams);
     const restriction = await getMrTerritoryRestriction();
 
+    const custProjection = {
+      PARNAM: 1, NAME: 1, ORDNO: 1, CODEP: 1, SCODE: 1, CODE: 1,
+      GSTIN: 1, GSTNO: 1, GST: 1, PHONE: 1, MOBILE: 1, CITY: 1,
+      AREA: 1, ADDRESS: 1, ADD1: 1, ADD2: 1, ACGROUP: 1,
+    };
+
     // 1. Fetch Customers / Suppliers (Sundry Creditors starting with ACGROUP 'D' or all party records)
-    const rawCustomers = await Customer.find(combineFilters(companyVfpMatch)).sort({ PARNAM: 1 }).lean();
+    let rawCustomers = await Customer.find(combineFilters(companyVfpMatch), custProjection).lean();
+
+    // Fallback: If company filter returned 0 customers, fetch all customers
+    if (rawCustomers.length === 0) {
+      rawCustomers = await Customer.find({}, custProjection).limit(2000).lean();
+    }
 
     const suppliers = rawCustomers.map((c: any) => {
       const code = String(c.ORDNO || c.CODEP || c.SCODE || c.CODE || "").trim();
@@ -41,8 +54,55 @@ export async function GET(req: Request) {
       };
     });
 
-    // Sort creditors to top
-    suppliers.sort((a, b) => (b.isCreditor ? 1 : 0) - (a.isCreditor ? 1 : 0));
+    // Also collect distinct vendors from PurchaseBill records to ensure all active vendors are included
+    const seenNames = new Set<string>();
+    suppliers.forEach((s) => {
+      if (s.name) seenNames.add(s.name.trim().toLowerCase());
+    });
+
+    try {
+      const pbVendors = await PurchaseBill.find(
+        {},
+        { vendorId: 1, vendorCode: 1, vendorName: 1, vendorGst: 1, vendorPhone: 1, vendorCity: 1, vendorAddress: 1 }
+      ).lean();
+
+      for (const pb of pbVendors) {
+        const vName = String(pb.vendorName || "").trim();
+        if (vName && !seenNames.has(vName.toLowerCase())) {
+          seenNames.add(vName.toLowerCase());
+          suppliers.push({
+            id: pb.vendorId ? String(pb.vendorId) : pb.vendorCode || vName,
+            code: pb.vendorCode || "",
+            name: vName,
+            gst: pb.vendorGst || "",
+            phone: pb.vendorPhone || "",
+            city: pb.vendorCity || "",
+            address: pb.vendorAddress || "",
+            acGroup: "D",
+            isCreditor: true,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Error aggregating PurchaseBill vendors:", e);
+    }
+
+    // Sort creditors to top, then alphabetically
+    suppliers.sort((a, b) => {
+      if (a.isCreditor !== b.isCreditor) return b.isCreditor ? 1 : -1;
+      return a.name.localeCompare(b.name);
+    });
+
+    const suppliersOnly = searchParams.get("suppliersOnly") === "true";
+    if (suppliersOnly) {
+      return NextResponse.json({
+        success: true,
+        suppliersCount: suppliers.length,
+        productsCount: 0,
+        suppliers,
+        products: [],
+      });
+    }
 
     // 2. Fetch HSN Master Map from SaleType (SGCODE === "COMMCD")
     const commcdTypes = await SaleType.find({ SGCODE: "COMMCD" }, { SCODE: 1, SNAME: 1 }).lean();
@@ -65,8 +125,15 @@ export async function GET(req: Request) {
       });
     }
 
+    const prodProjection = {
+      PRODUCT: 1, NAME: 1, PNAME: 1, DESCRIPT: 1, CODE: 1, CODEP: 1, ORDNO: 1,
+      GCODE6: 1, COMMCD: 1, COMMODITY: 1, HSN: 1, HSNCODE: 1, HSN_CODE: 1, CODE6: 1,
+      PRATE: 1, PURRATE: 1, COST: 1, RATE: 1, MRP: 1, RRP: 1, SELRATE: 1,
+      IGST: 1, GST: 1, TAX: 1, TAXPERCENT: 1, PACK: 1, UNIT: 1, GCODE: 1, COMPANY: 1,
+    };
+
     const [rawProducts, saleTypes] = await Promise.all([
-      Product.find(productFilter).sort({ PRODUCT: 1, NAME: 1, PNAME: 1 }).lean(),
+      Product.find(productFilter, prodProjection).limit(3000).lean(),
       SaleType.find({}, { SCODE: 1, SNAME: 1 }).lean(),
     ]);
 
@@ -111,6 +178,8 @@ export async function GET(req: Request) {
         companyName,
       };
     });
+
+    products.sort((a, b) => a.name.localeCompare(b.name));
 
     return NextResponse.json({
       success: true,

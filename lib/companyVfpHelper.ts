@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import connectDB from "@/lib/mongodb";
 import Company from "@/models/Company";
 import FinancialYear from "@/models/FinancialYear";
@@ -11,32 +12,50 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
   const codesToMatch = new Set<string>();
 
   if (companyId) {
-    const compDoc = await Company.findById(companyId).lean();
-    if (compDoc?.companyCode) {
-      codesToMatch.add(compDoc.companyCode.trim().toUpperCase());
-    }
-
-    // Include all FY codes mapped to this company (e.g. I05, I06, I04)
-    const fyDocs = await FinancialYear.find({ companyId }, { fyCode: 1 }).lean();
-    for (const fy of fyDocs) {
-      if (fy.fyCode) {
-        codesToMatch.add(fy.fyCode.trim().toUpperCase());
+    try {
+      let compDoc: any = null;
+      if (mongoose.Types.ObjectId.isValid(companyId)) {
+        compDoc = await Company.findById(companyId).lean();
+      } else {
+        compDoc = await Company.findOne({ companyCode: new RegExp(`^${companyId}$`, "i") }).lean();
       }
+
+      if (compDoc?.companyCode) {
+        codesToMatch.add(compDoc.companyCode.trim().toUpperCase());
+      }
+
+      const fyDocs = await FinancialYear.find({ companyId: compDoc?._id || companyId }, { fyCode: 1 }).lean();
+      for (const fy of fyDocs) {
+        if (fy.fyCode) {
+          codesToMatch.add(fy.fyCode.trim().toUpperCase());
+        }
+      }
+    } catch (e) {
+      console.error("Error matching companyId in getCompanyVfpFilter:", e);
     }
   }
 
   if (fyId && fyId !== "ALL") {
-    const fyDoc = await FinancialYear.findById(fyId).lean();
-    if (fyDoc?.fyCode) {
-      // Restrict strictly to the selected Financial Year code
-      codesToMatch.clear();
-      codesToMatch.add(fyDoc.fyCode.trim().toUpperCase());
-    }
-    if (fyDoc?.companyId && !companyId) {
-      const cDoc = await Company.findById(fyDoc.companyId).lean();
-      if (cDoc?.companyCode) {
-        codesToMatch.add(cDoc.companyCode.trim().toUpperCase());
+    try {
+      let fyDoc: any = null;
+      if (mongoose.Types.ObjectId.isValid(fyId)) {
+        fyDoc = await FinancialYear.findById(fyId).lean();
+      } else {
+        fyDoc = await FinancialYear.findOne({ fyCode: new RegExp(`^${fyId}$`, "i") }).lean();
       }
+
+      if (fyDoc?.fyCode) {
+        codesToMatch.clear();
+        codesToMatch.add(fyDoc.fyCode.trim().toUpperCase());
+      }
+      if (fyDoc?.companyId && !companyId) {
+        const cDoc = await Company.findById(fyDoc.companyId).lean();
+        if (cDoc?.companyCode) {
+          codesToMatch.add(cDoc.companyCode.trim().toUpperCase());
+        }
+      }
+    } catch (e) {
+      console.error("Error matching fyId in getCompanyVfpFilter:", e);
     }
   }
 
@@ -50,7 +69,7 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
     }
   }
 
-  if (companyId) {
+  if (companyId && mongoose.Types.ObjectId.isValid(companyId)) {
     vfpOrList.push({ companyId });
   }
 

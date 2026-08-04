@@ -99,6 +99,7 @@ function PurchasePaymentContent() {
   const [vendorPhone, setVendorPhone] = useState("");
   const [vendorCity, setVendorCity] = useState("");
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
 
   // Payment Form Fields
   const [paymentAmount, setPaymentAmount] = useState<number | "">("");
@@ -168,38 +169,6 @@ function PurchasePaymentContent() {
     }
   }, [urlBillId]);
 
-  // Initial Data Load
-  useEffect(() => {
-    fetchNextVcn();
-    fetchSuppliers();
-    fetchMetrics();
-  }, [selectedCompany?._id, selectedFY?._id]);
-
-  // Auto-Select Vendor if vendorName or vendorId is passed in URL
-  useEffect(() => {
-    if (suppliers.length > 0 && (urlVendorName || urlVendorId)) {
-      const supp = suppliers.find((s) => s.id === urlVendorId || s.name.toLowerCase() === (urlVendorName || "").toLowerCase());
-      if (supp) {
-        setVendorId(supp.id);
-        setVendorCode(supp.code);
-        setVendorName(supp.name);
-        setVendorGst(supp.gst);
-        setVendorPhone(supp.phone);
-        setVendorCity(supp.city);
-        fetchVendorBills(supp.id, supp.name);
-      } else if (urlVendorName) {
-        setVendorName(urlVendorName);
-        fetchVendorBills("", urlVendorName);
-      }
-    }
-  }, [suppliers, urlVendorId, urlVendorName, fetchVendorBills]);
-
-  useEffect(() => {
-    if (activeTab === "history") {
-      fetchHistory();
-    }
-  }, [activeTab, historyPage, historySearch, selectedCompany?._id, selectedFY?._id]);
-
   const fetchNextVcn = async () => {
     try {
       const res = await fetch("/api/purchase/payment?action=nextNumber");
@@ -236,9 +205,15 @@ function PurchasePaymentContent() {
     }
   };
 
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = useCallback(async () => {
+    setLoadingSuppliers(true);
     try {
-      const res = await fetch("/api/purchase/master-options");
+      const params = new URLSearchParams();
+      params.set("suppliersOnly", "true");
+      if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+      if (selectedFY?._id) params.set("fyId", selectedFY._id);
+
+      const res = await fetch(`/api/purchase/master-options?${params.toString()}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -247,10 +222,12 @@ function PurchasePaymentContent() {
       }
     } catch (err) {
       console.error("Failed to fetch suppliers:", err);
+    } finally {
+      setLoadingSuppliers(false);
     }
-  };
+  }, [selectedCompany?._id, selectedFY?._id]);
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -273,17 +250,49 @@ function PurchasePaymentContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [historyPage, historySearch, selectedCompany?._id]);
+
+  // Initial Data Load
+  useEffect(() => {
+    fetchNextVcn();
+    fetchSuppliers();
+    fetchMetrics();
+  }, [fetchSuppliers, selectedCompany?._id, selectedFY?._id]);
+
+  // Auto-Select Vendor if vendorName or vendorId is passed in URL
+  useEffect(() => {
+    if (suppliers.length > 0 && (urlVendorName || urlVendorId)) {
+      const supp = suppliers.find((s) => s.id === urlVendorId || s.name.toLowerCase() === (urlVendorName || "").toLowerCase());
+      if (supp) {
+        setVendorId(supp.id);
+        setVendorCode(supp.code);
+        setVendorName(supp.name);
+        setVendorGst(supp.gst);
+        setVendorPhone(supp.phone);
+        setVendorCity(supp.city);
+        fetchVendorBills(supp.id, supp.name);
+      } else if (urlVendorName) {
+        setVendorName(urlVendorName);
+        fetchVendorBills("", urlVendorName);
+      }
+    }
+  }, [suppliers, urlVendorId, urlVendorName, fetchVendorBills]);
+
+  useEffect(() => {
+    if (activeTab === "history") {
+      fetchHistory();
+    }
+  }, [activeTab, fetchHistory]);
 
   // Supplier SearchableSelect options
   const supplierOptions: OptionItem[] = suppliers.map((s) => ({
-    value: s.id || s.code,
+    value: s.id || s.code || s.name,
     label: s.name,
-    subLabel: `#${s.code}${s.city ? ` • ${s.city}` : ""}`,
+    subLabel: `${s.code ? `#${s.code}` : ""}${s.city ? ` • ${s.city}` : ""}`,
   }));
 
   const handleSupplierSelect = (idOrCode: string) => {
-    const supp = suppliers.find((s) => s.id === idOrCode || s.code === idOrCode);
+    const supp = suppliers.find((s) => s.id === idOrCode || s.code === idOrCode || s.name === idOrCode);
     if (supp) {
       setVendorId(supp.id);
       setVendorCode(supp.code);
@@ -703,7 +712,8 @@ function PurchasePaymentContent() {
                   options={supplierOptions}
                   value={vendorId || vendorCode}
                   onChange={handleSupplierSelect}
-                  placeholder="Type or search vendor..."
+                  placeholder={loadingSuppliers ? "Loading Suppliers..." : "Type or search vendor..."}
+                  loading={loadingSuppliers}
                 />
               </div>
 
@@ -813,7 +823,28 @@ function PurchasePaymentContent() {
                       step="0.01"
                       placeholder="Payment Amount"
                       value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : "";
+                        setPaymentAmount(val);
+                        const totalAmt = Number(val) || 0;
+                        if (totalAmt > 0 && pendingBills.length > 0) {
+                          let remaining = totalAmt;
+                          setPendingBills((prev) =>
+                            prev.map((bill) => {
+                              if (remaining <= 0) {
+                                return { ...bill, settledAmount: 0, selected: false };
+                              }
+                              const allocate = Math.min(bill.balanceAmount, remaining);
+                              remaining -= allocate;
+                              return {
+                                ...bill,
+                                settledAmount: Math.round(allocate * 100) / 100,
+                                selected: allocate > 0,
+                              };
+                            })
+                          );
+                        }
+                      }}
                       className="pl-7 pr-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-36"
                     />
                   </div>

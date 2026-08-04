@@ -138,6 +138,7 @@ export default function PurchaseBillForm() {
   const [billDate, setBillDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
   const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [paymentMode, setPaymentMode] = useState<string>("Cash");
   const [remarks, setRemarks] = useState("");
   const [taxType, setTaxType] = useState<"Intrastate" | "Interstate">("Intrastate");
 
@@ -296,7 +297,7 @@ export default function PurchaseBillForm() {
   // Handle Supplier Selection
   const handleSupplierSelect = (supplierId: string) => {
     setSelectedSupplierId(supplierId);
-    const supp = suppliersList.find((s) => s.id === supplierId || s.code === supplierId);
+    const supp = suppliersList.find((s) => s.id === supplierId || s.code === supplierId || s.name === supplierId);
     if (supp) {
       setVendorName(supp.name);
       setVendorCode(supp.code);
@@ -523,6 +524,7 @@ export default function PurchaseBillForm() {
           vendorAddress,
           items: validItems,
           paidAmount,
+          paymentMode,
           remarks,
         }),
       });
@@ -868,31 +870,31 @@ export default function PurchaseBillForm() {
             </button>
           </div>
 
-          <table className="w-full text-left text-xs min-w-[700px]">
+          <table className="w-full text-left text-xs min-w-[1250px] border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider">
-                <th className="pb-3 px-2 min-w-[200px]">Product Name *</th>
-                {columns.hsn && <th className="pb-3 px-2 w-24">HSN</th>}
-                {columns.pack && <th className="pb-3 px-2 w-24">Pack</th>}
-                {columns.batch && <th className="pb-3 px-2 w-24">Batch</th>}
-                {columns.mfgDate && <th className="pb-3 px-2 w-28">Mfg Date</th>}
-                {columns.expDate && <th className="pb-3 px-2 w-28">Exp Date</th>}
-                {columns.mrp && <th className="pb-3 px-2 text-right w-24">MRP (₹)</th>}
-                <th className="pb-3 px-2 text-right w-24">Qty *</th>
-                {columns.freeQty && <th className="pb-3 px-2 text-right w-20">Free</th>}
-                <th className="pb-3 px-2 text-right w-28">Rate (₹) *</th>
-                {columns.tradeDisc && <th className="pb-3 px-2 text-right w-20">Dis %</th>}
-                {columns.gst && <th className="pb-3 px-2 text-right w-20">GST %</th>}
-                {columns.taxableAmt && <th className="pb-3 px-2 text-right w-28">Taxable</th>}
-                {columns.gstAmt && <th className="pb-3 px-2 text-right w-24">GST Amt</th>}
-                <th className="pb-3 px-2 text-right w-28">Total</th>
+                <th className="pb-3 px-2 min-w-[280px]">Product Name *</th>
+                {columns.hsn && <th className="pb-3 px-2 min-w-[85px]">HSN</th>}
+                {columns.pack && <th className="pb-3 px-2 min-w-[80px]">Pack</th>}
+                {columns.batch && <th className="pb-3 px-2 min-w-[95px]">Batch</th>}
+                {columns.mfgDate && <th className="pb-3 px-2 min-w-[125px]">Mfg Date</th>}
+                {columns.expDate && <th className="pb-3 px-2 min-w-[125px]">Exp Date</th>}
+                {columns.mrp && <th className="pb-3 px-2 text-right min-w-[90px]">MRP (₹)</th>}
+                <th className="pb-3 px-2 text-right min-w-[80px]">Qty *</th>
+                {columns.freeQty && <th className="pb-3 px-2 text-right min-w-[75px]">Free</th>}
+                <th className="pb-3 px-2 text-right min-w-[95px]">Rate (₹) *</th>
+                {columns.tradeDisc && <th className="pb-3 px-2 text-right min-w-[75px]">Dis %</th>}
+                {columns.gst && <th className="pb-3 px-2 text-right min-w-[75px]">GST %</th>}
+                {columns.taxableAmt && <th className="pb-3 px-2 text-right min-w-[95px]">Taxable</th>}
+                {columns.gstAmt && <th className="pb-3 px-2 text-right min-w-[90px]">GST Amt</th>}
+                <th className="pb-3 px-2 text-right min-w-[95px]">Total</th>
                 <th className="pb-3 px-2 text-center w-10">✕</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {calculatedItems.map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition">
-                  <td className="py-2.5 px-2">
+                  <td className="py-2.5 px-2 min-w-[280px]">
                     <SearchableSelect
                       options={productOptions}
                       value={item.productId || ""}
@@ -901,129 +903,129 @@ export default function PurchaseBillForm() {
                     />
                   </td>
                   {columns.hsn && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[85px]">
                       <input
                         type="text"
                         value={item.hsnCode}
                         onChange={(e) => handleItemChange(idx, "hsnCode", e.target.value)}
-                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
                     </td>
                   )}
                   {columns.pack && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[80px]">
                       <input
                         type="text"
                         value={item.unit || ""}
                         onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
                         placeholder="10*10"
-                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
                     </td>
                   )}
                   {columns.batch && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[95px]">
                       <input
                         type="text"
                         value={item.batchNo}
                         onChange={(e) => handleItemChange(idx, "batchNo", e.target.value)}
-                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
                     </td>
                   )}
                   {columns.mfgDate && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[125px]">
                       <input
                         type="month"
                         value={item.mfgDate || ""}
                         onChange={(e) => handleItemChange(idx, "mfgDate", e.target.value)}
-                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
                     </td>
                   )}
                   {columns.expDate && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[125px]">
                       <input
                         type="month"
                         value={item.expDate}
                         onChange={(e) => handleItemChange(idx, "expDate", e.target.value)}
-                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
                     </td>
                   )}
                   {columns.mrp && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[90px]">
                       <input
                         type="number"
                         step="0.01"
                         value={item.mrp || ""}
                         onChange={(e) => handleItemChange(idx, "mrp", e.target.value)}
-                        className="w-full px-2 py-1 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </td>
                   )}
-                  <td className="py-2.5 px-2">
+                  <td className="py-2.5 px-2 min-w-[80px]">
                     <input
                       type="number"
                       min="1"
                       value={item.qty}
                       onChange={(e) => handleItemChange(idx, "qty", Math.max(1, Number(e.target.value)))}
-                      className="w-full px-2 py-1 text-right font-bold rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                      className="w-full min-w-0 px-2 py-1.5 text-right font-bold rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </td>
                   {columns.freeQty && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[75px]">
                       <input
                         type="number"
                         min="0"
                         value={item.freeQty}
                         onChange={(e) => handleItemChange(idx, "freeQty", Math.max(0, Number(e.target.value)))}
-                        className="w-full px-2 py-1 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </td>
                   )}
-                  <td className="py-2.5 px-2">
+                  <td className="py-2.5 px-2 min-w-[95px]">
                     <input
                       type="number"
                       step="0.01"
                       value={item.rate || ""}
                       onChange={(e) => handleItemChange(idx, "rate", Number(e.target.value))}
-                      className="w-full px-2 py-1 text-right font-bold text-amber-600 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                      className="w-full min-w-0 px-2 py-1.5 text-right font-bold text-amber-600 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </td>
                   {columns.tradeDisc && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[75px]">
                       <input
                         type="number"
                         step="0.1"
                         value={item.discountPercent || ""}
                         onChange={(e) => handleItemChange(idx, "discountPercent", Number(e.target.value))}
-                        className="w-full px-2 py-1 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </td>
                   )}
                   {columns.gst && (
-                    <td className="py-2.5 px-2">
+                    <td className="py-2.5 px-2 min-w-[75px]">
                       <input
                         type="number"
                         step="0.1"
                         value={item.gstPercent}
                         onChange={(e) => handleItemChange(idx, "gstPercent", Number(e.target.value))}
-                        className="w-full px-2 py-1 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                        className="w-full min-w-0 px-2 py-1.5 text-right rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </td>
                   )}
                   {columns.taxableAmt && (
-                    <td className="py-2.5 px-2 text-right font-semibold">
+                    <td className="py-2.5 px-2 text-right font-semibold min-w-[95px]">
                       ₹{item.taxable.toFixed(2)}
                     </td>
                   )}
                   {columns.gstAmt && (
-                    <td className="py-2.5 px-2 text-right text-slate-500">
+                    <td className="py-2.5 px-2 text-right text-slate-500 min-w-[90px]">
                       ₹{item.gstAmt.toFixed(2)}
                     </td>
                   )}
-                  <td className="py-2.5 px-2 text-right font-black text-amber-600">
+                  <td className="py-2.5 px-2 text-right font-black text-amber-600 min-w-[95px]">
                     ₹{item.lineTotal.toFixed(2)}
                   </td>
                   <td className="py-2.5 px-2 text-center">
@@ -1061,6 +1063,22 @@ export default function PurchaseBillForm() {
                     className="w-full pl-7 pr-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Payment Mode
+                </label>
+                <select
+                  value={paymentMode}
+                  onChange={(e) => setPaymentMode(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="Cash">Cash Payment</option>
+                  <option value="Bank Transfer">Bank Transfer (NEFT/RTGS/IMPS)</option>
+                  <option value="UPI">UPI / GPay / PhonePe</option>
+                  <option value="Cheque">Cheque / Demand Draft</option>
+                </select>
               </div>
 
               <div>

@@ -1152,24 +1152,24 @@ export default function AiPurchaseBillEntry() {
 
             {/* Responsive Table Wrapper */}
             <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 max-h-[460px] scrollbar-thin">
-              <table className="w-full text-left text-xs min-w-[750px]">
+              <table className="w-full text-left text-xs min-w-[1250px] border-collapse">
                 <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 sticky top-0 backdrop-blur-md z-10">
                   <tr>
-                    <th className="py-3 px-3.5 min-w-[200px]">Product / Medicine</th>
-                    {columns.hsn && <th className="py-3 px-2 w-20">HSN</th>}
-                    {columns.pack && <th className="py-3 px-2 w-24">Pack</th>}
-                    {columns.batch && <th className="py-3 px-2 w-24">Batch</th>}
-                    {columns.mfgDate && <th className="py-3 px-2 w-24">Mfg</th>}
-                    {columns.expDate && <th className="py-3 px-2 w-20">Exp</th>}
-                    <th className="py-3 px-2 w-16 text-right">Qty</th>
-                    {columns.freeQty && <th className="py-3 px-2 w-14 text-right">Free</th>}
-                    <th className="py-3 px-2 w-20 text-right">Rate</th>
-                    {columns.mrp && <th className="py-3 px-2 w-20 text-right">MRP</th>}
-                    {columns.tradeDisc && <th className="py-3 px-2 w-16 text-right">Dis%</th>}
-                    {columns.gst && <th className="py-3 px-2 w-16 text-right">GST%</th>}
-                    {columns.taxableAmt && <th className="py-3 px-3 w-28 text-right">Taxable (₹)</th>}
-                    {columns.gstAmt && <th className="py-3 px-3 w-24 text-right">GST Amt</th>}
-                    <th className="py-3 px-3 w-28 text-right">Amount</th>
+                    <th className="py-3 px-3.5 min-w-[280px]">Product / Medicine</th>
+                    {columns.hsn && <th className="py-3 px-2 min-w-[85px]">HSN</th>}
+                    {columns.pack && <th className="py-3 px-2 min-w-[80px]">Pack</th>}
+                    {columns.batch && <th className="py-3 px-2 min-w-[95px]">Batch</th>}
+                    {columns.mfgDate && <th className="py-3 px-2 min-w-[125px]">Mfg</th>}
+                    {columns.expDate && <th className="py-3 px-2 min-w-[125px]">Exp</th>}
+                    <th className="py-3 px-2 min-w-[80px] text-right">Qty</th>
+                    {columns.freeQty && <th className="py-3 px-2 min-w-[75px] text-right">Free</th>}
+                    <th className="py-3 px-2 min-w-[95px] text-right">Rate</th>
+                    {columns.mrp && <th className="py-3 px-2 min-w-[90px] text-right">MRP</th>}
+                    {columns.tradeDisc && <th className="py-3 px-2 min-w-[75px] text-right">Dis%</th>}
+                    {columns.gst && <th className="py-3 px-2 min-w-[75px] text-right">GST%</th>}
+                    {columns.taxableAmt && <th className="py-3 px-3 min-w-[95px] text-right">Taxable (₹)</th>}
+                    {columns.gstAmt && <th className="py-3 px-3 min-w-[90px] text-right">GST Amt</th>}
+                    <th className="py-3 px-3 min-w-[95px] text-right">Amount</th>
                     <th className="py-3 px-2 w-10 text-center">Action</th>
                   </tr>
                 </thead>
@@ -1186,7 +1186,7 @@ export default function AiPurchaseBillEntry() {
                         key={idx}
                         className="hover:bg-amber-50/40 dark:hover:bg-slate-800/50 transition-colors"
                       >
-                        <td className="py-2.5 px-3">
+                        <td className="py-2.5 px-3 min-w-[280px]">
                           <div className="space-y-1">
                             <input
                               type="text"
@@ -1212,113 +1212,113 @@ export default function AiPurchaseBillEntry() {
                         </td>
 
                         {columns.hsn && (
-                          <td className="py-2.5 px-2">
+                          <td className="py-2.5 px-2 min-w-[85px]">
                             <input
                               type="text"
                               value={item.hsnCode}
                               onChange={(e) => handleItemChange(idx, "hsnCode", e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none focus:ring-1 focus:ring-amber-500"
                             />
                           </td>
                         )}
 
                         {columns.pack && (
-                          <td className="py-2.5 px-2">
+                          <td className="py-2.5 px-2 min-w-[80px]">
                             <input
                               type="text"
                               value={item.unit}
                               onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none focus:ring-1 focus:ring-amber-500"
                               placeholder="10*10"
                             />
                           </td>
                         )}
 
                         {columns.batch && (
-                          <td className="py-2.5 px-2">
+                          <td className="py-2.5 px-2 min-w-[95px]">
                             <input
                               type="text"
                               value={item.batchNo}
                               onChange={(e) => handleItemChange(idx, "batchNo", e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none font-mono"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none font-mono focus:ring-1 focus:ring-amber-500"
                             />
                           </td>
                         )}
 
                         {columns.mfgDate && (
-                          <td className="py-2.5 px-2">
+                          <td className="py-2.5 px-2 min-w-[125px]">
                             <input
                               type="text"
                               value={item.mfgDate || ""}
                               onChange={(e) => handleItemChange(idx, "mfgDate", e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none focus:ring-1 focus:ring-amber-500"
                               placeholder="MM/YY"
                             />
                           </td>
                         )}
 
                         {columns.expDate && (
-                          <td className="py-2.5 px-2">
+                          <td className="py-2.5 px-2 min-w-[125px]">
                             <input
                               type="text"
                               value={item.expDate}
                               onChange={(e) => handleItemChange(idx, "expDate", e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none focus:ring-1 focus:ring-amber-500"
                               placeholder="YYYY-MM"
                             />
                           </td>
                         )}
 
-                        <td className="py-2.5 px-2 text-right">
+                        <td className="py-2.5 px-2 text-right min-w-[80px]">
                           <input
                             type="number"
                             value={item.qty}
                             onChange={(e) =>
                               handleItemChange(idx, "qty", parseFloat(e.target.value) || 0)
                             }
-                            className="w-full px-2 py-1 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none font-bold"
+                            className="w-full min-w-0 px-2 py-1.5 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none font-bold focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </td>
 
                         {columns.freeQty && (
-                          <td className="py-2.5 px-2 text-right">
+                          <td className="py-2.5 px-2 text-right min-w-[75px]">
                             <input
                               type="number"
                               value={item.freeQty}
                               onChange={(e) =>
                                 handleItemChange(idx, "freeQty", parseFloat(e.target.value) || 0)
                               }
-                              className="w-full px-2 py-1 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           </td>
                         )}
 
-                        <td className="py-2.5 px-2 text-right">
+                        <td className="py-2.5 px-2 text-right min-w-[95px]">
                           <input
                             type="number"
                             value={item.rate}
                             onChange={(e) =>
                               handleItemChange(idx, "rate", parseFloat(e.target.value) || 0)
                             }
-                            className="w-full px-2 py-1 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none font-bold text-slate-900 dark:text-white"
+                            className="w-full min-w-0 px-2 py-1.5 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </td>
 
                         {columns.mrp && (
-                          <td className="py-2.5 px-2 text-right">
+                          <td className="py-2.5 px-2 text-right min-w-[90px]">
                             <input
                               type="number"
                               value={item.mrp}
                               onChange={(e) =>
                                 handleItemChange(idx, "mrp", parseFloat(e.target.value) || 0)
                               }
-                              className="w-full px-2 py-1 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           </td>
                         )}
 
                         {columns.tradeDisc && (
-                          <td className="py-2.5 px-2 text-right">
+                          <td className="py-2.5 px-2 text-right min-w-[75px]">
                             <input
                               type="number"
                               value={item.discountPercent}
@@ -1329,13 +1329,13 @@ export default function AiPurchaseBillEntry() {
                                   parseFloat(e.target.value) || 0
                                 )
                               }
-                              className="w-full px-2 py-1 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           </td>
                         )}
 
                         {columns.gst && (
-                          <td className="py-2.5 px-2 text-right">
+                          <td className="py-2.5 px-2 text-right min-w-[75px]">
                             <input
                               type="number"
                               value={item.gstPercent}
@@ -1346,13 +1346,13 @@ export default function AiPurchaseBillEntry() {
                                   parseFloat(e.target.value) || 0
                                 )
                               }
-                              className="w-full px-2 py-1 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none font-bold text-amber-600 dark:text-amber-400"
+                              className="w-full min-w-0 px-2 py-1.5 text-xs text-right rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 outline-none font-bold text-amber-600 dark:text-amber-400 focus:ring-1 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           </td>
                         )}
 
                         {columns.taxableAmt && (
-                          <td className="py-2.5 px-3 text-right font-extrabold text-slate-900 dark:text-white">
+                          <td className="py-2.5 px-3 text-right font-extrabold text-slate-900 dark:text-white min-w-[95px]">
                             ₹{item.taxableAmount.toFixed(2)}
                           </td>
                         )}
