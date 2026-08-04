@@ -893,93 +893,95 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               </PermissionGate>
 
               {/* ################ Purchase Start here ##################### */}
-              <Group
-                icon={<FaShoppingBag />}
-                label="Purchase"
-                open={purchaseOpen}
-                onClick={() => setPurchaseOpen(!purchaseOpen)}
-                active={pathname.startsWith("/dashboard/purchase")}
-                color="amber"
-                items={
-                  <>
-                    <li>
-                      <SubLink
-                        href="/dashboard/purchase/dashboard"
-                        icon={<FaTachometerAlt />}
-                        label="Purchase Dashboard"
-                        active={pathname === "/dashboard/purchase/dashboard" || pathname === "/dashboard/purchase"}
-                        color="amber"
-                      />
-                    </li>
-                    <li>
-                      <SubLink
-                        href="/dashboard/purchase/invoice"
-                        icon={<FaFileInvoice />}
-                        label="Purchase Invoices List"
-                        active={pathname === "/dashboard/purchase/invoice"}
-                        color="amber"
-                      />
-                    </li>
-                    <li>
-                      <SubLink
-                        href="/dashboard/purchase/outstanding"
-                        icon={<FaFileInvoiceDollar />}
-                        label="Purchase Outstanding"
-                        active={pathname.startsWith("/dashboard/purchase/outstanding")}
-                        color="amber"
-                      />
-                    </li>
-                    <li>
-                      <SubLink
-                        href="/dashboard/purchase/invoice/create"
-                        icon={<FaPlusCircle />}
-                        label="Create Purchase Bill"
-                        active={pathname === "/dashboard/purchase/invoice/create"}
-                        color="amber"
-                      />
-                    </li>
-                    <li>
-                      <SubLink
-                        href="/dashboard/purchase/ai-entry"
-                        icon={<FaCamera />}
-                        label="AI Bill Entry (Photo/PDF)"
-                        active={pathname.startsWith("/dashboard/purchase/ai-entry")}
-                        color="amber"
-                      />
-                    </li>
-                    <li>
-                      <SubLink
-                        href="/dashboard/purchase/purchase-return"
-                        icon={<FaUndo />}
-                        label="Purchase Return"
-                        active={
-                          pathname.startsWith("/dashboard/purchase/purchase-return") ||
-                          pathname.startsWith("/dashboard/reports/purchase-return")
-                        }
-                        color="amber"
-                      />
-                    </li>
-                    <li>
-                      <SubLink
-                        href="/dashboard/purchase/payment"
-                        icon={<FaReceipt />}
-                        label="Payment Entry"
-                        active={pathname.startsWith("/dashboard/purchase/payment")}
-                        color="amber"
-                      />
-                    </li>
-                    <li>
-                      <SubLink
-                        href="/dashboard/purchase/orders"
-                        icon={<FaClipboardList />}
-                        label="Purchase Orders"
-                        active={pathname.startsWith("/dashboard/purchase/orders")}
-                        color="amber"
+              <PermissionGate permission="purchase.view">
+                <Group
+                  icon={<FaShoppingBag />}
+                  label="Purchase"
+                  open={purchaseOpen}
+                  onClick={() => setPurchaseOpen(!purchaseOpen)}
+                  active={pathname.startsWith("/dashboard/purchase")}
+                  color="amber"
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/purchase/dashboard"
+                          icon={<FaTachometerAlt />}
+                          label="Purchase Dashboard"
+                          active={pathname === "/dashboard/purchase/dashboard" || pathname === "/dashboard/purchase"}
+                          color="amber"
                         />
-                    </li>
-                  </>
-                }
-              />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/purchase/invoice"
+                          icon={<FaFileInvoice />}
+                          label="Purchase Invoices List"
+                          active={pathname === "/dashboard/purchase/invoice"}
+                          color="amber"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/purchase/outstanding"
+                          icon={<FaFileInvoiceDollar />}
+                          label="Purchase Outstanding"
+                          active={pathname.startsWith("/dashboard/purchase/outstanding")}
+                          color="amber"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/purchase/invoice/create"
+                          icon={<FaPlusCircle />}
+                          label="Create Purchase Bill"
+                          active={pathname === "/dashboard/purchase/invoice/create"}
+                          color="amber"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/purchase/ai-entry"
+                          icon={<FaCamera />}
+                          label="AI Bill Entry (Photo/PDF)"
+                          active={pathname.startsWith("/dashboard/purchase/ai-entry")}
+                          color="amber"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/purchase/purchase-return"
+                          icon={<FaUndo />}
+                          label="Purchase Return"
+                          active={
+                            pathname.startsWith("/dashboard/purchase/purchase-return") ||
+                            pathname.startsWith("/dashboard/reports/purchase-return")
+                          }
+                          color="amber"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/purchase/payment"
+                          icon={<FaReceipt />}
+                          label="Payment Entry"
+                          active={pathname.startsWith("/dashboard/purchase/payment")}
+                          color="amber"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/purchase/orders"
+                          icon={<FaClipboardList />}
+                          label="Purchase Orders"
+                          active={pathname.startsWith("/dashboard/purchase/orders")}
+                          color="amber"
+                        />
+                      </li>
+                    </>
+                  }
+                />
+              </PermissionGate>
               {/* ################ Purchase END here ##################### */}
 
               <PermissionGate permission="customer.view">
@@ -1138,17 +1140,18 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     color="cyan"
                   />
                 </li>
-              </PermissionGate>
 
-              <li>
-                <NavLink
-                  href="/dashboard/voice-settings"
-                  icon={<FaSlidersH />}
-                  label="Voice AI 🎙️"
-                  active={pathname.startsWith("/dashboard/voice-settings")}
-                  color="rose"
-                />
-              </li>
+
+                <li>
+                  <NavLink
+                    href="/dashboard/voice-settings"
+                    icon={<FaSlidersH />}
+                    label="Voice AI 🎙️"
+                    active={pathname.startsWith("/dashboard/voice-settings")}
+                    color="rose"
+                  />
+                </li>
+              </PermissionGate>
             </ul>
           </div>
 
@@ -1179,7 +1182,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
             )}
           </div>
         </div>
-      </div>
+      </div >
 
       <style>{`
         .glass-sidebar {
