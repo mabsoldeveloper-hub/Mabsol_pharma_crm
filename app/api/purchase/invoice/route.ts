@@ -258,15 +258,31 @@ export async function POST(req: Request) {
     const paid = Number(paidAmount || 0);
     const balanceAmount = Math.max(0, Math.round((netAmount - paid) * 100) / 100);
 
-    let paymentStatus: "Paid" | "Partial font-semibold" | "Pending" = "Pending";
+    // Handle unique bill number generation
+    let finalBillNumber = body.billNumber;
+    if (!finalBillNumber) {
+      finalBillNumber = await consumeNextVoucherNumber("PURCHASE");
+    }
+
+    const existingBill = await PurchaseBill.findOne({ billNumber: finalBillNumber }).lean();
+    if (existingBill) {
+      finalBillNumber = await consumeNextVoucherNumber("PURCHASE");
+      const checkAgain = await PurchaseBill.findOne({ billNumber: finalBillNumber }).lean();
+      if (checkAgain) {
+        finalBillNumber = `PUR-${Date.now().toString().slice(-6)}`;
+      }
+    }
+
+    // Payment Status enum strictly matching Mongoose schema: "Pending" | "Partial" | "Paid"
+    let paymentStatus: "Paid" | "Partial" | "Pending" = "Pending";
     if (paid >= netAmount && netAmount > 0) {
       paymentStatus = "Paid";
     } else if (paid > 0) {
-      paymentStatus = "Partial font-semibold" as any;
+      paymentStatus = "Partial";
     }
 
     const bill = await PurchaseBill.create({
-      billNumber,
+      billNumber: finalBillNumber,
       supplierInvoiceNo,
       poId,
       poNumber,
@@ -305,6 +321,9 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("POST Purchase Bill Error:", error);
-    return NextResponse.json({ success: false, message: error?.message || "Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: error?.message || "Server error while saving purchase bill" },
+      { status: 500 }
+    );
   }
 }

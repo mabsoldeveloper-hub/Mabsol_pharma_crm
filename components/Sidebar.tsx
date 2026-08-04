@@ -38,6 +38,7 @@ import {
   FaUndo,
   FaReceipt,
   FaShoppingBag,
+  FaCamera,
 } from "react-icons/fa";
 
 
@@ -881,7 +882,16 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                         href="/dashboard/purchase/invoice/create"
                         icon={<FaPlusCircle />}
                         label="Create Purchase Bill"
-                        active={pathname.startsWith("/dashboard/purchase/invoice/create")}
+                        active={pathname === "/dashboard/purchase/invoice/create"}
+                        color="amber"
+                      />
+                    </li>
+                    <li>
+                      <SubLink
+                        href="/dashboard/purchase/ai-entry"
+                        icon={<FaCamera />}
+                        label="AI Bill Entry (Photo/PDF)"
+                        active={pathname.startsWith("/dashboard/purchase/ai-entry")}
                         color="amber"
                       />
                     </li>

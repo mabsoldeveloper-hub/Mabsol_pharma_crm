@@ -37,6 +37,7 @@ interface BillItem {
   productName: string;
   hsnCode: string;
   batchNo: string;
+  mfgDate?: string;
   expDate: string;
   mrp: number;
   qty: number;
@@ -86,7 +87,9 @@ interface POSelectOption {
 // Column Visibility State
 interface ColumnConfig {
   hsn: boolean;
+  pack: boolean;
   batch: boolean;
+  mfgDate: boolean;
   expDate: boolean;
   mrp: boolean;
   freeQty: boolean;
@@ -142,7 +145,9 @@ export default function PurchaseBillForm() {
   const [showColSettings, setShowColSettings] = useState(false);
   const [columns, setColumns] = useState<ColumnConfig>({
     hsn: true,
+    pack: true,
     batch: true,
+    mfgDate: true,
     expDate: true,
     mrp: true,
     freeQty: true,
@@ -691,7 +696,9 @@ export default function PurchaseBillForm() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
             {[
               { key: "hsn", label: "HSN Code" },
+              { key: "pack", label: "Pack / Unit" },
               { key: "batch", label: "Batch No" },
+              { key: "mfgDate", label: "Mfg Date" },
               { key: "expDate", label: "Expiry Date" },
               { key: "mrp", label: "MRP (₹)" },
               { key: "freeQty", label: "Free Qty" },
@@ -865,7 +872,9 @@ export default function PurchaseBillForm() {
               <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider">
                 <th className="pb-3 px-2 min-w-[200px]">Product Name *</th>
                 {columns.hsn && <th className="pb-3 px-2 w-24">HSN</th>}
+                {columns.pack && <th className="pb-3 px-2 w-24">Pack</th>}
                 {columns.batch && <th className="pb-3 px-2 w-24">Batch</th>}
+                {columns.mfgDate && <th className="pb-3 px-2 w-28">Mfg Date</th>}
                 {columns.expDate && <th className="pb-3 px-2 w-28">Exp Date</th>}
                 {columns.mrp && <th className="pb-3 px-2 text-right w-24">MRP (₹)</th>}
                 <th className="pb-3 px-2 text-right w-24">Qty *</th>
@@ -900,12 +909,33 @@ export default function PurchaseBillForm() {
                       />
                     </td>
                   )}
+                  {columns.pack && (
+                    <td className="py-2.5 px-2">
+                      <input
+                        type="text"
+                        value={item.unit || ""}
+                        onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
+                        placeholder="10*10"
+                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                      />
+                    </td>
+                  )}
                   {columns.batch && (
                     <td className="py-2.5 px-2">
                       <input
                         type="text"
                         value={item.batchNo}
                         onChange={(e) => handleItemChange(idx, "batchNo", e.target.value)}
+                        className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                      />
+                    </td>
+                  )}
+                  {columns.mfgDate && (
+                    <td className="py-2.5 px-2">
+                      <input
+                        type="month"
+                        value={item.mfgDate || ""}
+                        onChange={(e) => handleItemChange(idx, "mfgDate", e.target.value)}
                         className="w-full px-2 py-1 rounded-lg text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                       />
                     </td>
