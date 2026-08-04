@@ -39,6 +39,7 @@ import {
   FaReceipt,
   FaShoppingBag,
   FaCamera,
+  FaBalanceScale,
 } from "react-icons/fa";
 
 
@@ -194,6 +195,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   const [companyOpen, setCompanyOpen] = useState(false);
   const [fyOpen, setFyOpen] = useState(false);
   const [vfpOpen, setVfpOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -210,6 +212,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     if (pathname.startsWith("/dashboard/company")) setCompanyOpen(true);
     if (pathname.startsWith("/dashboard/financial-year")) setFyOpen(true);
     if (pathname.startsWith("/dashboard/mabsolcrmsync")) setVfpOpen(true);
+    if (pathname.startsWith("/dashboard/compare")) setCompareOpen(true);
   }, [pathname]);
 
   const [user, setUser] = useState<any>(null);
@@ -674,15 +677,36 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
               {/* ################ Compare Start here ##################### */}
               <PermissionGate permission="compare.view">
-                <li>
-                  <NavLink
-                    href="/dashboard/compare"
-                    icon={<FaBoxOpen />}
-                    label="Comparison"
-                    active={pathname.startsWith("/dashboard/compare")}
-                    color="blue"
-                  />
-                </li>
+                <Group
+                  icon={<FaBalanceScale />}
+                  label="Comparison"
+                  open={compareOpen}
+                  onClick={() => setCompareOpen(!compareOpen)}
+                  active={pathname.startsWith("/dashboard/compare")}
+                  color="orange"
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/compare"
+                          icon={<FaChartBar />}
+                          label="Overview Dashboard"
+                          active={pathname === "/dashboard/compare"}
+                          color="orange"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/compare/fy-wise"
+                          icon={<FaCalendarAlt />}
+                          label="Financial Year Wise"
+                          active={pathname.startsWith("/dashboard/compare/fy-wise")}
+                          color="orange"
+                        />
+                      </li>
+                    </>
+                  }
+                />
               </PermissionGate>
               {/* ################ Compare END here ##################### */}
 
