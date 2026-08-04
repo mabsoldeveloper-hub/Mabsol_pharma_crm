@@ -795,7 +795,16 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                         />
                       </li>
                       <li>
-                        <SubLink href="/dashboard/stock" icon={<FaWarehouse />} label="Stock" active={false} color="sky" />
+                        <SubLink href="/dashboard/stock" icon={<FaWarehouse />} label="Stock Overview" active={pathname === "/dashboard/stock"} color="sky" />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/stock/expiry-liquidator"
+                          icon={<FaWarehouse />}
+                          label="Batch Expiry Liquidator"
+                          active={pathname.startsWith("/dashboard/stock/expiry-liquidator")}
+                          color="sky"
+                        />
                       </li>
                     </>
                   }
