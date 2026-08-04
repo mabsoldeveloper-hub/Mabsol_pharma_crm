@@ -406,7 +406,8 @@ export default function TargetVsActualReportPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
+    <div className="container-fluid space-y-4 sm:space-y-6 p-3 sm:p-6 ">
+      {/* <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 max-w-7xl mx-auto w-full overflow-x-hidden"> */}
       {/* Top Header Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-4 sm:p-6 text-white shadow-2xl border border-indigo-500/20">
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -555,25 +556,22 @@ export default function TargetVsActualReportPage() {
             <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200/80">
               <button
                 onClick={() => setFrequency("monthly")}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                  frequency === "monthly" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${frequency === "monthly" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  }`}
               >
                 Monthly
               </button>
               <button
                 onClick={() => setFrequency("weekly")}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                  frequency === "weekly" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${frequency === "weekly" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  }`}
               >
                 Weekly
               </button>
               <button
                 onClick={() => setFrequency("daily")}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                  frequency === "daily" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${frequency === "daily" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  }`}
               >
                 Day-Wise
               </button>
@@ -697,8 +695,8 @@ export default function TargetVsActualReportPage() {
                   {frequency === "weekly"
                     ? "5-Week Aggregate Sales & Collection Target vs Actual Trends"
                     : frequency === "daily"
-                    ? "Day-Wise Sales & Collection Target vs Actual Trends"
-                    : "Top Parties & MR Executives Sales vs Collection Comparison"}
+                      ? "Day-Wise Sales & Collection Target vs Actual Trends"
+                      : "Top Parties & MR Executives Sales vs Collection Comparison"}
                 </p>
               </div>
             </div>
@@ -915,229 +913,227 @@ export default function TargetVsActualReportPage() {
                     <div key={row._id} className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100">
                       {/* Parent Master Row */}
                       <div className="flex items-center min-w-[1360px] p-3.5 text-xs">
-                          {/* Accordion Toggle */}
-                          <button
-                            onClick={() => toggleRow(row._id)}
-                            className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-indigo-50 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 flex items-center justify-center mr-3 transition-colors flex-shrink-0"
-                            title="Toggle Weekly / Day-Wise Breakdown"
-                          >
-                            {isExpanded ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />}
-                          </button>
+                        {/* Accordion Toggle */}
+                        <button
+                          onClick={() => toggleRow(row._id)}
+                          className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-indigo-50 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 flex items-center justify-center mr-3 transition-colors flex-shrink-0"
+                          title="Toggle Weekly / Day-Wise Breakdown"
+                        >
+                          {isExpanded ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />}
+                        </button>
 
-                          {/* Entity Info */}
-                          <div className="w-64 pr-4 flex-shrink-0">
-                            <div className="flex items-center gap-2">
-                              <span className={`p-1.5 rounded-lg ${row.targetType === "MR" ? "bg-indigo-100 text-indigo-800" : "bg-emerald-100 text-emerald-800"}`}>
-                                {row.targetType === "MR" ? <FaUser size={12} /> : <FaStore size={12} />}
-                              </span>
-                              <div className="min-w-0">
-                                <h4 className="font-extrabold text-slate-900 truncate">
-                                  {row.targetType === "MR" ? row.mrName : row.customerName}
-                                </h4>
-                                {row.customerCode !== "N/A" && (
-                                  <p className="text-[10px] text-slate-400 font-semibold">Code: {row.customerCode}</p>
-                                )}
-                              </div>
+                        {/* Entity Info */}
+                        <div className="w-64 pr-4 flex-shrink-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`p-1.5 rounded-lg ${row.targetType === "MR" ? "bg-indigo-100 text-indigo-800" : "bg-emerald-100 text-emerald-800"}`}>
+                              {row.targetType === "MR" ? <FaUser size={12} /> : <FaStore size={12} />}
+                            </span>
+                            <div className="min-w-0">
+                              <h4 className="font-extrabold text-slate-900 truncate">
+                                {row.targetType === "MR" ? row.mrName : row.customerName}
+                              </h4>
+                              {row.customerCode !== "N/A" && (
+                                <p className="text-[10px] text-slate-400 font-semibold">Code: {row.customerCode}</p>
+                              )}
                             </div>
-                          </div>
-
-                          {/* Type Badge */}
-                          <div className="w-24 text-left flex-shrink-0">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${row.targetType === "MR" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
-                              {row.targetType === "MR" ? "MR Target" : "Party Target"}
-                            </span>
-                          </div>
-
-                          {/* Sales Target */}
-                          <div className="w-32 text-right font-extrabold text-slate-800 flex-shrink-0">
-                            ₹{formatINR(row.salesTarget)}
-                          </div>
-
-                          {/* Actual Sales */}
-                          <div className="w-36 text-right font-extrabold text-emerald-700 flex-shrink-0">
-                            ₹{formatINR(row.monthlyActualSales)}
-                          </div>
-
-                          {/* Sales Ach % */}
-                          <div className="w-28 text-center flex-shrink-0">
-                            <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[11px] ${
-                              row.salesAchPercent >= 100
-                                ? "bg-emerald-100 text-emerald-800"
-                                : row.salesAchPercent >= 80
-                                ? "bg-indigo-100 text-indigo-800"
-                                : "bg-rose-100 text-rose-800"
-                            }`}>
-                              {row.salesAchPercent}%
-                            </span>
-                          </div>
-
-                          {/* Collection Target */}
-                          <div className="w-36 text-right font-extrabold text-slate-800 flex-shrink-0">
-                            ₹{formatINR(row.collectionTarget)}
-                          </div>
-
-                          {/* Actual Collection */}
-                          <div className="w-36 text-right font-extrabold text-indigo-700 flex-shrink-0">
-                            ₹{formatINR(row.monthlyActualCollection)}
-                          </div>
-
-                          {/* Collection Ach % */}
-                          <div className="w-28 text-center flex-shrink-0">
-                            <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[11px] ${
-                              row.collectionAchPercent >= 100
-                                ? "bg-indigo-100 text-indigo-800"
-                                : row.collectionAchPercent >= 80
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-amber-100 text-amber-800"
-                            }`}>
-                              {row.collectionAchPercent}%
-                            </span>
-                          </div>
-
-                          {/* Gift / Scheme Status */}
-                          <div className="w-36 text-center flex-shrink-0">
-                            {row.hasGiftScheme ? (
-                              row.activeGiftSlab ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
-                                  <FaGift className="text-amber-600" size={10} /> {row.activeGiftSlab.giftName}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                                  Scheme Active
-                                </span>
-                              )
-                            ) : (
-                              <span className="text-[10px] text-slate-400 font-normal">-</span>
-                            )}
-                          </div>
-
-                          {/* Direct WhatsApp Action Button */}
-                          <div className="w-36 text-center flex-shrink-0 pl-2">
-                            {(() => {
-                              const cleanPhone = formatWhatsAppPhone(row.phoneNumber);
-                              return cleanPhone ? (
-                                <a
-                                  href={getDirectWhatsAppUrl(row)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[10px] shadow hover:scale-105 transition-all"
-                                  title={`Direct WhatsApp chat with +${cleanPhone}`}
-                                >
-                                  <FaWhatsapp size={13} /> +{cleanPhone}
-                                </a>
-                              ) : (
-                                <a
-                                  href={getDirectWhatsAppUrl(row)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[10px] shadow hover:scale-105 transition-all"
-                                  title="Number not saved. Opens WhatsApp with message pre-typed so you can select contact manually."
-                                >
-                                  <FaWhatsapp size={13} /> Share Msg
-                                </a>
-                              );
-                            })()}
                           </div>
                         </div>
 
-                        {/* Accordion Child Detail Table */}
-                        {isExpanded && (
-                          <div className="p-4 bg-slate-50/90 border-b border-slate-200 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                <FaLayerGroup className="text-indigo-600" />
-                                {frequency === "weekly"
-                                  ? `Weekly Breakdown (${row.periodMonth})`
-                                  : frequency === "daily"
+                        {/* Type Badge */}
+                        <div className="w-24 text-left flex-shrink-0">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${row.targetType === "MR" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+                            {row.targetType === "MR" ? "MR Target" : "Party Target"}
+                          </span>
+                        </div>
+
+                        {/* Sales Target */}
+                        <div className="w-32 text-right font-extrabold text-slate-800 flex-shrink-0">
+                          ₹{formatINR(row.salesTarget)}
+                        </div>
+
+                        {/* Actual Sales */}
+                        <div className="w-36 text-right font-extrabold text-emerald-700 flex-shrink-0">
+                          ₹{formatINR(row.monthlyActualSales)}
+                        </div>
+
+                        {/* Sales Ach % */}
+                        <div className="w-28 text-center flex-shrink-0">
+                          <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[11px] ${row.salesAchPercent >= 100
+                            ? "bg-emerald-100 text-emerald-800"
+                            : row.salesAchPercent >= 80
+                              ? "bg-indigo-100 text-indigo-800"
+                              : "bg-rose-100 text-rose-800"
+                            }`}>
+                            {row.salesAchPercent}%
+                          </span>
+                        </div>
+
+                        {/* Collection Target */}
+                        <div className="w-36 text-right font-extrabold text-slate-800 flex-shrink-0">
+                          ₹{formatINR(row.collectionTarget)}
+                        </div>
+
+                        {/* Actual Collection */}
+                        <div className="w-36 text-right font-extrabold text-indigo-700 flex-shrink-0">
+                          ₹{formatINR(row.monthlyActualCollection)}
+                        </div>
+
+                        {/* Collection Ach % */}
+                        <div className="w-28 text-center flex-shrink-0">
+                          <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[11px] ${row.collectionAchPercent >= 100
+                            ? "bg-indigo-100 text-indigo-800"
+                            : row.collectionAchPercent >= 80
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-amber-100 text-amber-800"
+                            }`}>
+                            {row.collectionAchPercent}%
+                          </span>
+                        </div>
+
+                        {/* Gift / Scheme Status */}
+                        <div className="w-36 text-center flex-shrink-0">
+                          {row.hasGiftScheme ? (
+                            row.activeGiftSlab ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                                <FaGift className="text-amber-600" size={10} /> {row.activeGiftSlab.giftName}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                                Scheme Active
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-normal">-</span>
+                          )}
+                        </div>
+
+                        {/* Direct WhatsApp Action Button */}
+                        <div className="w-36 text-center flex-shrink-0 pl-2">
+                          {(() => {
+                            const cleanPhone = formatWhatsAppPhone(row.phoneNumber);
+                            return cleanPhone ? (
+                              <a
+                                href={getDirectWhatsAppUrl(row)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[10px] shadow hover:scale-105 transition-all"
+                                title={`Direct WhatsApp chat with +${cleanPhone}`}
+                              >
+                                <FaWhatsapp size={13} /> +{cleanPhone}
+                              </a>
+                            ) : (
+                              <a
+                                href={getDirectWhatsAppUrl(row)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[10px] shadow hover:scale-105 transition-all"
+                                title="Number not saved. Opens WhatsApp with message pre-typed so you can select contact manually."
+                              >
+                                <FaWhatsapp size={13} /> Share Msg
+                              </a>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* Accordion Child Detail Table */}
+                      {isExpanded && (
+                        <div className="p-4 bg-slate-50/90 border-b border-slate-200 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                              <FaLayerGroup className="text-indigo-600" />
+                              {frequency === "weekly"
+                                ? `Weekly Breakdown (${row.periodMonth})`
+                                : frequency === "daily"
                                   ? `Day-Wise Breakdown (${row.periodMonth})`
                                   : `Monthly Details & Weekly Preview (${row.periodMonth})`}
-                              </h5>
-                              <span className="text-[10px] font-semibold text-slate-500">
-                                Assigned MR: {row.mrName}
-                              </span>
-                            </div>
-
-                            {/* Weekly Table Breakdown */}
-                            {(frequency === "weekly" || frequency === "monthly") && (
-                              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                                <table className="w-full text-left text-[11px]">
-                                  <thead>
-                                    <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                      <th className="p-2.5">Week Period</th>
-                                      <th className="p-2.5 text-right">Weekly Sales Target</th>
-                                      <th className="p-2.5 text-right text-emerald-700">Actual Sales</th>
-                                      <th className="p-2.5 text-center">Sales Ach %</th>
-                                      <th className="p-2.5 text-right">Weekly Collection Target</th>
-                                      <th className="p-2.5 text-right text-indigo-700">Actual Collection</th>
-                                      <th className="p-2.5 text-center">Coll Ach %</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100">
-                                    {row.weeklyBreakdown.map((w) => (
-                                      <tr key={w.weekNo} className="hover:bg-slate-50">
-                                        <td className="p-2.5 font-bold text-slate-900">
-                                          {w.label} <span className="text-[10px] text-slate-400 font-normal">({w.startDate} to {w.endDate})</span>
-                                        </td>
-                                        <td className="p-2.5 text-right font-semibold">₹{formatINR(w.weeklySalesTarget)}</td>
-                                        <td className="p-2.5 text-right font-extrabold text-emerald-700">₹{formatINR(w.weekActualSales)}</td>
-                                        <td className="p-2.5 text-center font-bold">
-                                          <span className={`px-2 py-0.5 rounded ${w.salesAchPercent >= 100 ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>
-                                            {w.salesAchPercent}%
-                                          </span>
-                                        </td>
-                                        <td className="p-2.5 text-right font-semibold">₹{formatINR(w.weeklyCollectionTarget)}</td>
-                                        <td className="p-2.5 text-right font-extrabold text-indigo-700">₹{formatINR(w.weekActualCollection)}</td>
-                                        <td className="p-2.5 text-center font-bold">
-                                          <span className={`px-2 py-0.5 rounded ${w.collectionAchPercent >= 100 ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-700"}`}>
-                                            {w.collectionAchPercent}%
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-
-                            {/* Daily Table Breakdown */}
-                            {frequency === "daily" && (
-                              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white max-h-72">
-                                <table className="w-full text-left text-[11px]">
-                                  <thead className="sticky top-0 bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                    <tr>
-                                      <th className="p-2.5">Date</th>
-                                      <th className="p-2.5 text-right">Daily Sales Target</th>
-                                      <th className="p-2.5 text-right text-emerald-700">Actual Daily Sales</th>
-                                      <th className="p-2.5 text-center">Sales Ach %</th>
-                                      <th className="p-2.5 text-right">Daily Collection Target</th>
-                                      <th className="p-2.5 text-right text-indigo-700">Actual Daily Collection</th>
-                                      <th className="p-2.5 text-center">Coll Ach %</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100">
-                                    {row.dailyBreakdown.map((d) => (
-                                      <tr key={d.day} className={d.dayActualSales > 0 || d.dayActualCollection > 0 ? "bg-amber-50/30" : ""}>
-                                        <td className="p-2.5 font-bold text-slate-800">{d.date}</td>
-                                        <td className="p-2.5 text-right font-semibold text-slate-600">₹{formatINR(d.dailySalesTarget)}</td>
-                                        <td className="p-2.5 text-right font-extrabold text-emerald-700">₹{formatINR(d.dayActualSales)}</td>
-                                        <td className="p-2.5 text-center font-bold">{d.salesAchPercent}%</td>
-                                        <td className="p-2.5 text-right font-semibold text-slate-600">₹{formatINR(d.dailyCollectionTarget)}</td>
-                                        <td className="p-2.5 text-right font-extrabold text-indigo-700">₹{formatINR(d.dayActualCollection)}</td>
-                                        <td className="p-2.5 text-center font-bold">{d.collectionAchPercent}%</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
+                            </h5>
+                            <span className="text-[10px] font-semibold text-slate-500">
+                              Assigned MR: {row.mrName}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+
+                          {/* Weekly Table Breakdown */}
+                          {(frequency === "weekly" || frequency === "monthly") && (
+                            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                              <table className="w-full text-left text-[11px]">
+                                <thead>
+                                  <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                                    <th className="p-2.5">Week Period</th>
+                                    <th className="p-2.5 text-right">Weekly Sales Target</th>
+                                    <th className="p-2.5 text-right text-emerald-700">Actual Sales</th>
+                                    <th className="p-2.5 text-center">Sales Ach %</th>
+                                    <th className="p-2.5 text-right">Weekly Collection Target</th>
+                                    <th className="p-2.5 text-right text-indigo-700">Actual Collection</th>
+                                    <th className="p-2.5 text-center">Coll Ach %</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {row.weeklyBreakdown.map((w) => (
+                                    <tr key={w.weekNo} className="hover:bg-slate-50">
+                                      <td className="p-2.5 font-bold text-slate-900">
+                                        {w.label} <span className="text-[10px] text-slate-400 font-normal">({w.startDate} to {w.endDate})</span>
+                                      </td>
+                                      <td className="p-2.5 text-right font-semibold">₹{formatINR(w.weeklySalesTarget)}</td>
+                                      <td className="p-2.5 text-right font-extrabold text-emerald-700">₹{formatINR(w.weekActualSales)}</td>
+                                      <td className="p-2.5 text-center font-bold">
+                                        <span className={`px-2 py-0.5 rounded ${w.salesAchPercent >= 100 ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>
+                                          {w.salesAchPercent}%
+                                        </span>
+                                      </td>
+                                      <td className="p-2.5 text-right font-semibold">₹{formatINR(w.weeklyCollectionTarget)}</td>
+                                      <td className="p-2.5 text-right font-extrabold text-indigo-700">₹{formatINR(w.weekActualCollection)}</td>
+                                      <td className="p-2.5 text-center font-bold">
+                                        <span className={`px-2 py-0.5 rounded ${w.collectionAchPercent >= 100 ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-700"}`}>
+                                          {w.collectionAchPercent}%
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Daily Table Breakdown */}
+                          {frequency === "daily" && (
+                            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white max-h-72">
+                              <table className="w-full text-left text-[11px]">
+                                <thead className="sticky top-0 bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                                  <tr>
+                                    <th className="p-2.5">Date</th>
+                                    <th className="p-2.5 text-right">Daily Sales Target</th>
+                                    <th className="p-2.5 text-right text-emerald-700">Actual Daily Sales</th>
+                                    <th className="p-2.5 text-center">Sales Ach %</th>
+                                    <th className="p-2.5 text-right">Daily Collection Target</th>
+                                    <th className="p-2.5 text-right text-indigo-700">Actual Daily Collection</th>
+                                    <th className="p-2.5 text-center">Coll Ach %</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {row.dailyBreakdown.map((d) => (
+                                    <tr key={d.day} className={d.dayActualSales > 0 || d.dayActualCollection > 0 ? "bg-amber-50/30" : ""}>
+                                      <td className="p-2.5 font-bold text-slate-800">{d.date}</td>
+                                      <td className="p-2.5 text-right font-semibold text-slate-600">₹{formatINR(d.dailySalesTarget)}</td>
+                                      <td className="p-2.5 text-right font-extrabold text-emerald-700">₹{formatINR(d.dayActualSales)}</td>
+                                      <td className="p-2.5 text-center font-bold">{d.salesAchPercent}%</td>
+                                      <td className="p-2.5 text-right font-semibold text-slate-600">₹{formatINR(d.dailyCollectionTarget)}</td>
+                                      <td className="p-2.5 text-right font-extrabold text-indigo-700">₹{formatINR(d.dayActualCollection)}</td>
+                                      <td className="p-2.5 text-center font-bold">{d.collectionAchPercent}%</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          </div>
         )}
       </div>
     </div>

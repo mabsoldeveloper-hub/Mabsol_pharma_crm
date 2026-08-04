@@ -509,7 +509,7 @@ export default function SalesReturnPage() {
     };
 
     return (
-        <div className="p-3 sm:p-6 space-y-4 max-w-7xl mx-auto">
+        <div className="container-fluid p-3 sm:p-6 space-y-4 ">
             {/* Top Navigation & Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -538,21 +538,19 @@ export default function SalesReturnPage() {
                 <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
                     <button
                         onClick={() => setActiveTab("new")}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                            activeTab === "new"
-                                ? "bg-rose-600 text-white shadow-sm"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeTab === "new"
+                            ? "bg-rose-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                            }`}
                     >
                         <FaPlus size={11} /> New Credit Note
                     </button>
                     <button
                         onClick={() => setActiveTab("history")}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                            activeTab === "history"
-                                ? "bg-rose-600 text-white shadow-sm"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeTab === "history"
+                            ? "bg-rose-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                            }`}
                     >
                         <FaUndoAlt size={11} /> Return History
                     </button>
@@ -1125,11 +1123,10 @@ export default function SalesReturnPage() {
                                             <div
                                                 key={inv.vcn}
                                                 onClick={() => setSelectedInvoice(inv)}
-                                                className={`p-3 rounded-xl border transition cursor-pointer ${
-                                                    isSelected
-                                                        ? "bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 shadow-xs"
-                                                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100/80 dark:hover:bg-slate-700/60"
-                                                }`}
+                                                className={`p-3 rounded-xl border transition cursor-pointer ${isSelected
+                                                    ? "bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 shadow-xs"
+                                                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100/80 dark:hover:bg-slate-700/60"
+                                                    }`}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-mono font-bold text-xs text-rose-600 dark:text-rose-400">
