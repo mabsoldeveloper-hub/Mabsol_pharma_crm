@@ -360,40 +360,36 @@ const KPI_CARD_DEFINITIONS = [
   },
 ];
 
+async function findInCollections(db: any, colNames: string[], filter: any, limitVal: number = 15) {
+  if (!db) return [];
+  for (const name of colNames) {
+    try {
+      const docs = await db.collection(name).find(filter).limit(limitVal).toArray();
+      if (docs && docs.length > 0) return docs;
+    } catch (e) {}
+  }
+  return [];
+}
+
 async function getLiveKPIMetrics(db: any) {
   try {
     const todayStr = new Date().toISOString().split("T")[0];
     const ninetyDaysLater = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
 
-    const [
-      totalSalesAgg,
-      todaySalesAgg,
-      totalCustCount,
-      totalProCount,
-      totalUsersCount,
-      totalCompCount,
-      nearExpiryCount,
-      expiredCount,
-      outstandingAgg,
-      stockQtyAgg,
-      collectionsAgg,
-      creditAgg,
-      debitAgg,
-    ] = await Promise.all([
-      SalesMdis.aggregate([{ $group: { _id: null, total: { $sum: "$FINAL" } } }]).catch(() => []),
-      SalesMdis.aggregate([{ $match: { DATE: todayStr } }, { $group: { _id: null, total: { $sum: "$FINAL" } } }]).catch(() => []),
-      Order.countDocuments({ SALDR: "Y" }).catch(() => 0),
-      Product.countDocuments().catch(() => 0),
-      User.countDocuments().catch(() => 0),
-      db ? db.collection("companies").countDocuments().catch(() => 0) : 0,
-      ProductBatch.countDocuments({ EXP: { $lte: ninetyDaysLater, $gte: todayStr } }).catch(() => 0),
-      ProductBatch.countDocuments({ EXP: { $lt: todayStr } }).catch(() => 0),
-      Order.aggregate([{ $match: { BALANCE: { $gt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
-      ProductBatch.aggregate([{ $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
-      GlLedger.aggregate([{ $match: { BOOK: "R", CD: "C" } }, { $group: { _id: null, total: { $sum: "$AMOUNTP" } } }]).catch(() => []),
-      Order.aggregate([{ $match: { BALANCE: { $lt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
-      Order.aggregate([{ $match: { BALANCE: { $gt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
-    ]);
+    // Query vfp_new_folder_* collections directly for live MongoDB data
+    const proCount = db ? (await db.collection("vfp_new_folder_pro").countDocuments().catch(() => 0) || await db.collection("products").countDocuments().catch(() => 0)) : await Product.countDocuments().catch(() => 0);
+    const custCount = db ? (await db.collection("vfp_new_folder_order").countDocuments().catch(() => 0) || await db.collection("orders").countDocuments().catch(() => 0)) : await Order.countDocuments().catch(() => 0);
+    const userCount = await User.countDocuments().catch(() => 0);
+    const compCount = db ? await db.collection("companies").countDocuments().catch(() => 0) : 0;
+
+    const nearExpiryCount = db ? await db.collection("vfp_new_folder_probat").countDocuments({ EXP: { $lte: ninetyDaysLater, $gte: todayStr } }).catch(() => 0) : 0;
+    const expiredCount = db ? await db.collection("vfp_new_folder_probat").countDocuments({ EXP: { $lt: todayStr } }).catch(() => 0) : 0;
+
+    const totalSalesAgg = db ? await db.collection("vfp_new_folder_mdis").aggregate([{ $group: { _id: null, total: { $sum: "$FINAL" } } }]).toArray().catch(() => []) : [];
+    const todaySalesAgg = db ? await db.collection("vfp_new_folder_mdis").aggregate([{ $match: { DATE: todayStr } }, { $group: { _id: null, total: { $sum: "$FINAL" } } }]).toArray().catch(() => []) : [];
+    const outstandingAgg = db ? await db.collection("vfp_new_folder_order").aggregate([{ $match: { BALANCE: { $gt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).toArray().catch(() => []) : [];
+    const stockQtyAgg = db ? await db.collection("vfp_new_folder_probat").aggregate([{ $group: { _id: null, total: { $sum: "$BALANCE" } } }]).toArray().catch(() => []) : [];
+    const collectionsAgg = db ? await db.collection("vfp_new_folder_gledger").aggregate([{ $match: { BOOK: "R", CD: "C" } }, { $group: { _id: null, total: { $sum: "$AMOUNTP" } } }]).toArray().catch(() => []) : [];
 
     const totSales = totalSalesAgg[0]?.total || 0;
     const todSales = todaySalesAgg[0]?.total || 0;
@@ -409,16 +405,16 @@ async function getLiveKPIMetrics(db: any) {
       purchaseOutstanding: Math.round(totOut * 0.4),
       overdueAmount: Math.round(totOut * 0.25),
       totalCollections: collectionsAgg[0]?.total || 0,
-      totalCustomers: totalCustCount || 0,
-      activeCustomers: totalCustCount || 0,
-      totalProducts: totalProCount || 0,
+      totalCustomers: custCount || 0,
+      activeCustomers: custCount || 0,
+      totalProducts: proCount || 0,
       currentStockQty: stockQtyAgg[0]?.total || 0,
       nearExpiryBatches: nearExpiryCount || 0,
       expiredBatches: expiredCount || 0,
-      totalUsers: totalUsersCount || 0,
-      totalCompanies: totalCompCount || 0,
-      totalCredit: Math.abs(creditAgg[0]?.total || 0),
-      totalDebit: debitAgg[0]?.total || 0,
+      totalUsers: userCount || 0,
+      totalCompanies: compCount || 0,
+      totalCredit: Math.abs(totOut),
+      totalDebit: totOut,
     };
   } catch (err) {
     return {
@@ -635,16 +631,16 @@ export async function GET(req: NextRequest) {
     // Handle empty query: Return DYNAMIC Database Trending Items (Real Products, Customers, Reports)
     if (!rawQuery || rawQuery.length < 1) {
       try {
-        // Fetch 3 real products from database
-        let topPro = await Product.find({ PRODUCT: { $exists: true, $ne: "" } }).limit(3).lean();
-        if ((!topPro || topPro.length === 0) && db) {
-          topPro = await db.collection("pro").find({ PRODUCT: { $exists: true, $ne: "" } }).limit(3).toArray();
+        // Fetch 3 real products from database across candidate collection names
+        let topPro = await findInCollections(db, ["vfp_new_folder_pro", "products", "pro"], { PRODUCT: { $exists: true, $ne: "" } }, 3);
+        if (!topPro || topPro.length === 0) {
+          topPro = await Product.find({ PRODUCT: { $exists: true, $ne: "" } }).limit(3).lean();
         }
 
-        // Fetch 3 real customers from database
-        let topCust = await Order.find({ PARNAM: { $exists: true, $ne: "" } }).limit(3).lean();
-        if ((!topCust || topCust.length === 0) && db) {
-          topCust = await db.collection("order").find({ PARNAM: { $exists: true, $ne: "" } }).limit(3).toArray();
+        // Fetch 3 real customers from database across candidate collection names
+        let topCust = await findInCollections(db, ["vfp_new_folder_order", "orders", "order"], { PARNAM: { $exists: true, $ne: "" } }, 3);
+        if (!topCust || topCust.length === 0) {
+          topCust = await Order.find({ PARNAM: { $exists: true, $ne: "" } }).limit(3).lean();
         }
 
         const dynamicTrending: any[] = [];
@@ -739,9 +735,9 @@ export async function GET(req: NextRequest) {
                 productFilter.$or.push({ CODE: queryNumber });
               }
 
-              let proDocs = await Product.find(productFilter).limit(15).lean();
-              if ((!proDocs || proDocs.length === 0) && db) {
-                proDocs = await db.collection("pro").find(productFilter).limit(15).toArray();
+              let proDocs = await findInCollections(db, ["vfp_new_folder_pro", "products", "pro"], productFilter, 20);
+              if (!proDocs || proDocs.length === 0) {
+                proDocs = await Product.find(productFilter).limit(20).lean();
               }
 
               // Enrich with batch stock count & batch numbers
@@ -749,9 +745,9 @@ export async function GET(req: NextRequest) {
               let batchesByCode: Record<string | number, any[]> = {};
 
               if (productCodes.length > 0) {
-                let batchDocs = await ProductBatch.find({ CODE: { $in: productCodes } }).lean();
-                if ((!batchDocs || batchDocs.length === 0) && db) {
-                  batchDocs = await db.collection("probat").find({ CODE: { $in: productCodes } }).toArray();
+                let batchDocs = await findInCollections(db, ["vfp_new_folder_probat", "probat"], { CODE: { $in: productCodes } }, 100);
+                if (!batchDocs || batchDocs.length === 0) {
+                  batchDocs = await ProductBatch.find({ CODE: { $in: productCodes } }).lean();
                 }
 
                 batchDocs.forEach((b: any) => {
@@ -814,22 +810,22 @@ export async function GET(req: NextRequest) {
 
               // Apply E-Commerce filters
               if (inStockOnly) {
-                mappedProducts = mappedProducts.filter((p) => p.details.currentStock > 0);
+                mappedProducts = mappedProducts.filter((p: any) => p.details.currentStock > 0);
               }
 
               if (nearExpiryOnly) {
-                mappedProducts = mappedProducts.filter((p) => p.details.hasNearExpiry);
+                mappedProducts = mappedProducts.filter((p: any) => p.details.hasNearExpiry);
               }
 
               // Apply Sorting
               if (sortBy === "stockHigh") {
-                mappedProducts.sort((a, b) => b.details.currentStock - a.details.currentStock);
+                mappedProducts.sort((a: any, b: any) => b.details.currentStock - a.details.currentStock);
               } else if (sortBy === "priceHigh") {
-                mappedProducts.sort((a, b) => (parseFloat(b.raw.MRP) || 0) - (parseFloat(a.raw.MRP) || 0));
+                mappedProducts.sort((a: any, b: any) => (parseFloat(b.raw.MRP) || 0) - (parseFloat(a.raw.MRP) || 0));
               } else if (sortBy === "priceLow") {
-                mappedProducts.sort((a, b) => (parseFloat(a.raw.MRP) || 0) - (parseFloat(b.raw.MRP) || 0));
+                mappedProducts.sort((a: any, b: any) => (parseFloat(a.raw.MRP) || 0) - (parseFloat(b.raw.MRP) || 0));
               } else if (sortBy === "name") {
-                mappedProducts.sort((a, b) => a.title.localeCompare(b.title));
+                mappedProducts.sort((a: any, b: any) => a.title.localeCompare(b.title));
               }
 
               return mappedProducts.slice(0, limit);
@@ -856,9 +852,9 @@ export async function GET(req: NextRequest) {
                 ],
               };
 
-              let custDocs = await Order.find(customerFilter).limit(15).lean();
-              if ((!custDocs || custDocs.length === 0) && db) {
-                custDocs = await db.collection("order").find(customerFilter).limit(15).toArray();
+              let custDocs = await findInCollections(db, ["vfp_new_folder_order", "orders", "order"], customerFilter, 20);
+              if (!custDocs || custDocs.length === 0) {
+                custDocs = await Order.find(customerFilter).limit(20).lean();
               }
 
               let mappedCustomers = custDocs.map((c: any) => {
@@ -898,13 +894,13 @@ export async function GET(req: NextRequest) {
               });
 
               if (highBalanceOnly) {
-                mappedCustomers = mappedCustomers.filter((c) => c.details.rawBalance > 0);
+                mappedCustomers = mappedCustomers.filter((c: any) => c.details.rawBalance > 0);
               }
 
               if (sortBy === "priceHigh") {
-                mappedCustomers.sort((a, b) => b.details.rawBalance - a.details.rawBalance);
+                mappedCustomers.sort((a: any, b: any) => b.details.rawBalance - a.details.rawBalance);
               } else if (sortBy === "name") {
-                mappedCustomers.sort((a, b) => a.title.localeCompare(b.title));
+                mappedCustomers.sort((a: any, b: any) => a.title.localeCompare(b.title));
               }
 
               return mappedCustomers.slice(0, limit);
@@ -930,14 +926,14 @@ export async function GET(req: NextRequest) {
                 voucherFilter.$or.push({ VOUCHER: queryNumber });
               }
 
-              let mdisDocs = await SalesMdis.find(voucherFilter).limit(8).lean();
-              if ((!mdisDocs || mdisDocs.length === 0) && db) {
-                mdisDocs = await db.collection("mdis").find(voucherFilter).limit(8).toArray();
+              let mdisDocs = await findInCollections(db, ["vfp_new_folder_mdis", "mdis"], voucherFilter, 10);
+              if (!mdisDocs || mdisDocs.length === 0) {
+                mdisDocs = await SalesMdis.find(voucherFilter).limit(10).lean();
               }
 
-              let gLedgerDocs = await GlLedger.find(voucherFilter).limit(8).lean();
-              if ((!gLedgerDocs || gLedgerDocs.length === 0) && db) {
-                gLedgerDocs = await db.collection("gledger").find(voucherFilter).limit(8).toArray();
+              let gLedgerDocs = await findInCollections(db, ["vfp_new_folder_gledger", "gledger"], voucherFilter, 10);
+              if (!gLedgerDocs || gLedgerDocs.length === 0) {
+                gLedgerDocs = await GlLedger.find(voucherFilter).limit(10).lean();
               }
 
               const resultsList: any[] = [];

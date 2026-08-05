@@ -10,27 +10,46 @@ import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  await connectDB();
+  const conn = await connectDB();
+  const db = conn?.connection?.db;
 
   const { searchParams } = new URL(req.url);
   const companyVfpMatch = await getCompanyVfpFilter(searchParams);
   const restriction = await getMrTerritoryRestriction();
 
   let productFilter: any = combineFilters(companyVfpMatch);
-  if (restriction.isMrRestricted) {
-    if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
-      productFilter = combineFilters(companyVfpMatch, {
-        GCODE: {
-          $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes],
-        },
-      });
-    } else {
-      return NextResponse.json([]);
+  if (restriction.isMrRestricted && restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
+    productFilter = combineFilters(companyVfpMatch, {
+      GCODE: {
+        $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes],
+      },
+    });
+  }
+
+  // Fetch products across candidate collections
+  let proDocs: any[] = [];
+  try {
+    if (db) {
+      proDocs = await db.collection("vfp_new_folder_pro").find(productFilter).toArray();
+      if (proDocs.length === 0) {
+        proDocs = await db.collection("products").find(productFilter).toArray();
+      }
+    }
+  } catch (e) {}
+
+  if (proDocs.length === 0) {
+    proDocs = await Product.find(productFilter).sort({ PRODUCT: 1, NAME: 1 }).lean();
+  }
+
+  // Fallback: If still empty, fetch all products without strict filter
+  if (proDocs.length === 0 && db) {
+    proDocs = await db.collection("vfp_new_folder_pro").find({}).limit(2000).toArray();
+    if (proDocs.length === 0) {
+      proDocs = await db.collection("products").find({}).limit(2000).toArray();
     }
   }
 
-  const [products, saleTypes, productBatches] = await Promise.all([
-    Product.find(productFilter).sort({ PRODUCT: 1, NAME: 1 }).lean(),
+  const [saleTypes, productBatches] = await Promise.all([
     SaleType.find({}, { SCODE: 1, SNAME: 1 }).lean(),
     ProductBatch.find({}).lean(),
   ]);
@@ -52,10 +71,10 @@ export async function GET(req: Request) {
 
     const batchObj = {
       batchNo: b.BATCH || b.BATCHNO || "DEFAULT",
-      expiry: b.EXPIRY || "",
-      stock: Number(b.CLBAL || b.STOCK || 0),
+      expiry: b.EXPIRY || b.EXP || "",
+      stock: Number(b.CLBAL || b.STOCK || b.BALANCE || b.QTY || 0),
       mrp: Number(b.MRP || 0),
-      ratef: Number(b.RATEF || 0),
+      ratef: Number(b.RATEF || b.RATE || 0),
     };
 
     keys.forEach((key) => {
@@ -65,37 +84,32 @@ export async function GET(req: Request) {
     });
   });
 
-  const result = products.map((p: any) => {
-    const gcodeStr = String(p.GCODE || "").trim();
-    const codeKey = String(p.PRODUCT || p.CODE || "").trim().toUpperCase();
-    const nameKey = String(p.NAME || "").trim().toUpperCase();
+  const result = proDocs.map((p: any) => {
+    const exactProductName = String(p.PRODUCT || p.BILLNAME || p.PNAME || p.NAME || p.DESCRIPT || "Unnamed Product").trim();
+    const productCode = String(p.CODE || p.PCODE || p._id).trim();
+    const gcodeStr = String(p.GCODE || p.COMPANY || p.DIVISION || "").trim();
 
-    const batches = batchMap.get(codeKey) || batchMap.get(nameKey) || [];
+    const codeKey = exactProductName.toUpperCase();
+    const batches = batchMap.get(codeKey) || batchMap.get(productCode.toUpperCase()) || [];
 
-    // Fallback batch if p.BATCH exists directly on product
-    const finalBatches =
-      batches.length > 0
-        ? batches
-        : p.BATCH
-        ? [
-            {
-              batchNo: p.BATCH,
-              expiry: p.EXPIRY || "",
-              stock: Number(p.CLBAL || p.STOCK || 0),
-              mrp: Number(p.MRP || 0),
-              ratef: Number(p.RATEF || 0),
-            },
-          ]
-        : [];
-
-    const exactProductName = String(p.PRODUCT || p.NAME || p.DESCRIPT || "Unnamed Product").trim();
+    const totalBatchQty = batches.reduce((acc, b) => acc + (Number(b.stock) || 0), 0);
+    const balanceVal = p.BALANCE !== undefined && p.BALANCE !== null ? Number(p.BALANCE) : p.STOCK !== undefined && p.STOCK !== null ? Number(p.STOCK) : p.QTY !== undefined && p.QTY !== null ? Number(p.QTY) : totalBatchQty;
 
     return {
       ...p,
-      NAME: exactProductName,
+      _id: String(p._id),
+      CODE: productCode,
       PRODUCT: exactProductName,
-      companyName: companyMap.get(gcodeStr) || (p.COMPANY && p.COMPANY !== "ZZZZZZ 144" ? p.COMPANY : "N/A"),
-      batches: finalBatches,
+      NAME: exactProductName,
+      GCODE: gcodeStr,
+      MRP: Number(p.MRP || 0),
+      PRATE: Number(p.PRATE || p.PURRATE || 0),
+      RATEF: Number(p.RATEF || p.RATE || 0),
+      BALANCE: balanceVal,
+      IGST: Number(p.IGST || p.GST || 0),
+      STATUS: p.STATUS || "Y",
+      companyName: companyMap.get(gcodeStr) || (p.COMPANY && p.COMPANY !== "ZZZZZZ 144" ? p.COMPANY : gcodeStr || "N/A"),
+      batches: batches,
     };
   });
 

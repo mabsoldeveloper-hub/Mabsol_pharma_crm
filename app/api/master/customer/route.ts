@@ -24,8 +24,30 @@ export async function GET(req: Request) {
     const companyVfpMatch = await getCompanyVfpFilter(searchParams);
     const restriction = await getMrTerritoryRestriction();
 
-    // ---- Base customer records (every field on the Customer/Order table) ----
-    const allCustomers: any[] = await Customer.find(combineFilters(companyVfpMatch)).sort({ PARNAM: 1 }).lean();
+    const conn = await connectDB();
+    const db = conn?.connection?.db;
+    const filter = combineFilters(companyVfpMatch);
+
+    let allCustomers: any[] = [];
+    try {
+        if (db) {
+            allCustomers = await db.collection("vfp_new_folder_order").find(filter).toArray();
+            if (allCustomers.length === 0) {
+                allCustomers = await db.collection("orders").find(filter).toArray();
+            }
+        }
+    } catch (e) {}
+
+    if (allCustomers.length === 0) {
+        allCustomers = await Customer.find(filter).sort({ PARNAM: 1 }).lean();
+    }
+
+    if (allCustomers.length === 0 && db) {
+        allCustomers = await db.collection("vfp_new_folder_order").find({}).limit(2000).toArray();
+        if (allCustomers.length === 0) {
+            allCustomers = await db.collection("orders").find({}).limit(2000).toArray();
+        }
+    }
 
     const customers = restriction.isMrRestricted
         ? allCustomers.filter((c: any) => restriction.isPartyAllowed(c))

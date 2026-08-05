@@ -45,13 +45,18 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
       }
 
       if (fyDoc?.fyCode) {
-        codesToMatch.clear();
         codesToMatch.add(fyDoc.fyCode.trim().toUpperCase());
       }
-      if (fyDoc?.companyId && !companyId) {
+      if (fyDoc?.companyId) {
         const cDoc = await Company.findById(fyDoc.companyId).lean();
         if (cDoc?.companyCode) {
           codesToMatch.add(cDoc.companyCode.trim().toUpperCase());
+        }
+        const companyFyDocs = await FinancialYear.find({ companyId: fyDoc.companyId }, { fyCode: 1 }).lean();
+        for (const fy of companyFyDocs) {
+          if (fy.fyCode) {
+            codesToMatch.add(fy.fyCode.trim().toUpperCase());
+          }
         }
       }
     } catch (e) {
@@ -71,7 +76,14 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
 
   if (companyId && mongoose.Types.ObjectId.isValid(companyId)) {
     vfpOrList.push({ companyId });
+    try {
+      vfpOrList.push({ companyId: new mongoose.Types.ObjectId(companyId) });
+    } catch (e) {}
   }
+
+  // Also include un-tagged or legacy VFP records so master lists are never empty
+  vfpOrList.push({ _vfpTable: { $exists: false } });
+  vfpOrList.push({ _vfpTable: null });
 
   return vfpOrList.length > 0 ? { $or: vfpOrList } : {};
 }

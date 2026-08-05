@@ -66,10 +66,16 @@ export default function GlobalSearchModal({
   initialQuery = "",
 }: GlobalSearchModalProps) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [showRawJson, setShowRawJson] = useState(false);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Salim Voice Search & Vocal Response (TTS) State
   const [selectedLang] = useState("en-IN");
@@ -580,10 +586,10 @@ export default function GlobalSearchModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[99999] flex items-start justify-center pt-2 sm:pt-8 px-2 sm:px-4 bg-slate-950/75 backdrop-blur-md transition-all animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 z-[999999] flex items-start justify-center pt-2 sm:pt-8 px-2 sm:px-4 bg-slate-950/80 backdrop-blur-md transition-all animate-fadeIn">
       {/* Background click to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
@@ -591,7 +597,7 @@ export default function GlobalSearchModal({
       <div
         className={`relative w-full ${
           showGuide ? "max-w-6xl" : "max-w-4xl"
-        } bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] z-10 transition-all duration-300 transform scale-100`}
+        } bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] z-10 transition-all duration-300 transform scale-100`}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
@@ -1282,57 +1288,98 @@ export default function GlobalSearchModal({
       {/* Deep Detail Slide-Over Modal */}
       {selectedItem && (
         <div
-          className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn"
-          onClick={() => setSelectedItem(null)}
+          className="fixed inset-0 z-[1000001] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-fadeIn"
+          onClick={() => {
+            setSelectedItem(null);
+            setShowRawJson(false);
+          }}
         >
           <div
-            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] z-10"
+            className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh] z-10"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 bg-slate-900 text-white border-b border-slate-800">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 rounded-xl bg-indigo-600 text-white shrink-0">
-                  <Sparkles className="w-5 h-5" />
+            {/* Modal Header */}
+            <div className="relative overflow-hidden bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 p-5 text-white border-b border-indigo-900/60 shadow-lg">
+              <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="relative z-10 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shrink-0">
+                    {selectedItem.type === "product" && <Package className="w-5 h-5" />}
+                    {selectedItem.type === "customer" && <Users className="w-5 h-5" />}
+                    {selectedItem.type === "voucher" && <FileText className="w-5 h-5" />}
+                    {selectedItem.type === "user" && <UserCheck className="w-5 h-5" />}
+                    {selectedItem.type === "kpi" && <TrendingUp className="w-5 h-5" />}
+                    {selectedItem.type === "navigation" && <Compass className="w-5 h-5" />}
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 text-[10px] font-extrabold uppercase tracking-wider border border-indigo-400/30">
+                        {selectedItem.category}
+                      </span>
+                      {selectedItem.type === "product" && selectedItem.details?.currentStock > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[10px] font-bold border border-emerald-400/30">
+                          In Stock ({selectedItem.details.currentStock})
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-black text-white truncate mt-0.5 tracking-tight">
+                      {selectedItem.title}
+                    </h3>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-                    {selectedItem.category} Full Detail View
-                  </span>
-                  <h3 className="text-base sm:text-lg font-bold text-white truncate">
-                    {selectedItem.title}
-                  </h3>
+
+                <button
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setShowRawJson(false);
+                  }}
+                  className="p-2 rounded-2xl bg-white/10 text-slate-300 hover:text-white hover:bg-white/20 transition-all cursor-pointer shrink-0 border border-white/10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-5 flex-1 max-h-[72vh] bg-slate-50/50">
+              {/* Subtitle / Path Banner */}
+              <div className="p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-100 flex items-start gap-3">
+                <Info className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
+                <div className="min-w-0 text-xs">
+                  <span className="font-extrabold text-indigo-950">Record Overview</span>
+                  <p className="text-indigo-800 font-medium leading-relaxed mt-0.5">
+                    {selectedItem.subtitle || "Detailed record metrics and database information."}
+                  </p>
                 </div>
               </div>
 
-              <button
-                onClick={() => setSelectedItem(null)}
-                className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-5 overflow-y-auto space-y-5 flex-1 max-h-[70vh]">
               {/* Formatted Key Details Grid */}
               <div>
-                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-3">
-                  Summary & Metrics
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-indigo-600" />
+                  Key Attributes & Metrics
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {Object.entries(selectedItem.details || {}).map(([key, val]) => {
-                    if (key === "batches") return null;
+                    if (key === "batches" || val === null || val === undefined) return null;
+                    if (typeof val === "object") return null;
+
+                    const formattedKey = key
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/^./, (str) => str.toUpperCase());
+
                     return (
                       <div
                         key={key}
-                        className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-center"
+                        className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-center transition-all hover:border-indigo-200"
                       >
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
-                          {key.replace(/([A-Z])/g, " $1")}
+                        <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+                          {formattedKey}
                         </span>
-                        <span className="text-sm font-extrabold text-slate-800 mt-0.5 truncate">
-                          {String(val || "N/A")}
+                        <span className="text-sm font-extrabold text-slate-900 mt-0.5 truncate">
+                          {String(val)}
                         </span>
                       </div>
                     );
@@ -1345,64 +1392,93 @@ export default function GlobalSearchModal({
                 selectedItem.details?.batches &&
                 selectedItem.details.batches.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">
-                      Batch-wise Stock Breakdown ({selectedItem.details.batches.length})
-                    </h4>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
-                          <tr>
-                            <th className="p-2.5">Batch No</th>
-                            <th className="p-2.5">Expiry</th>
-                            <th className="p-2.5">Available Qty</th>
-                            <th className="p-2.5">MRP</th>
-                            <th className="p-2.5">Sale Rate</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                          {selectedItem.details.batches.map((b: any, bIdx: number) => (
-                            <tr key={bIdx} className="hover:bg-slate-50">
-                              <td className="p-2.5 font-bold text-indigo-700">{b.batchNo}</td>
-                              <td className="p-2.5 text-slate-600">{b.exp}</td>
-                              <td className="p-2.5">
-                                <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
-                                  {b.qty}
-                                </span>
-                              </td>
-                              <td className="p-2.5">{b.mrp}</td>
-                              <td className="p-2.5">{b.rate}</td>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Boxes className="w-3.5 h-3.5 text-emerald-600" />
+                        Batch Breakdown ({selectedItem.details.batches.length})
+                      </h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Available Godown Batches
+                      </span>
+                    </div>
+
+                    <div className="border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs bg-white">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead className="bg-slate-100/80 text-slate-600 font-bold border-b border-slate-200">
+                            <tr>
+                              <th className="p-3">Batch No</th>
+                              <th className="p-3">Expiry Date</th>
+                              <th className="p-3">Available Qty</th>
+                              <th className="p-3">MRP</th>
+                              <th className="p-3">Sale Rate</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                            {selectedItem.details.batches.map((b: any, bIdx: number) => (
+                              <tr key={bIdx} className="hover:bg-indigo-50/40 transition-colors">
+                                <td className="p-3 font-extrabold text-indigo-700">{b.batchNo || "N/A"}</td>
+                                <td className="p-3 text-slate-600 font-medium">{b.exp || "N/A"}</td>
+                                <td className="p-3">
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black">
+                                    {b.qty} Units
+                                  </span>
+                                </td>
+                                <td className="p-3 font-bold text-slate-800">{b.mrp || "N/A"}</td>
+                                <td className="p-3 font-bold text-slate-800">{b.rate || "N/A"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
 
-              {/* Full Raw Object Dump */}
-              <div>
-                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">
-                  Full Database Record JSON
-                </h4>
-                <div className="p-3 bg-slate-900 text-slate-200 rounded-xl text-xs font-mono overflow-x-auto max-h-48">
-                  <pre>{JSON.stringify(selectedItem.raw, null, 2)}</pre>
-                </div>
+              {/* Technical Data / Raw JSON Toggle */}
+              <div className="pt-2 border-t border-slate-200/80">
+                <button
+                  onClick={() => setShowRawJson((v) => !v)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 cursor-pointer py-1"
+                >
+                  <Command className="w-3.5 h-3.5" />
+                  <span>{showRawJson ? "Hide Technical Database Data" : "View Technical Database Fields"}</span>
+                </button>
+
+                {showRawJson && (
+                  <div className="mt-2.5 p-3.5 bg-slate-950 text-slate-200 rounded-2xl text-xs font-mono overflow-x-auto max-h-48 shadow-inner border border-slate-800">
+                    <pre>{JSON.stringify(selectedItem.raw || selectedItem, null, 2)}</pre>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between p-4 bg-slate-50 border-t border-slate-200">
-              <button
-                onClick={() => copyDetailsToClipboard(selectedItem)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-              >
-                {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                <span>{copied ? "Copied to Clipboard!" : "Copy Record Data"}</span>
-              </button>
+            {/* Modal Footer */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 p-4 bg-white border-t border-slate-200/80 shadow-md">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => copyDetailsToClipboard(selectedItem)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all border border-slate-200/80 cursor-pointer"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-600" />}
+                  <span>{copied ? "Copied!" : "Copy Record Data"}</span>
+                </button>
+
+                <button
+                  onClick={() => speakText(`${selectedItem.title}. ${selectedItem.subtitle || ""}`)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all border border-indigo-200/80 cursor-pointer"
+                >
+                  <Volume2 className="w-4 h-4 text-indigo-600" />
+                  <span>Listen Voice 🔊</span>
+                </button>
+              </div>
 
               <button
-                onClick={() => handleItemClick(selectedItem)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                onClick={() => {
+                  setSelectedItem(null);
+                  handleItemClick(selectedItem);
+                }}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-extrabold shadow-md transition-all cursor-pointer"
               >
                 <span>Navigate to Record Page</span>
                 <ExternalLink className="w-4 h-4" />
@@ -1411,7 +1487,8 @@ export default function GlobalSearchModal({
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
