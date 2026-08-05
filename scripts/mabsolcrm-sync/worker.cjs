@@ -1021,8 +1021,10 @@ function hashJson(value) {
 }
 
 function sanitizeCollectionName(value) {
-  const base = value.split('_')[0];
-  return base.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
+  let cleaned = String(value || "").trim().replace(/\$/g, "");
+  cleaned = cleaned.replace(/_[a-z]?\d+$/i, "");
+  cleaned = cleaned.replace(/[\$_]+$/, "");
+  return cleaned.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
 }
 
 function escapeRegExp(value) {
