@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   FolderOpen, 
   Database, 
@@ -11,7 +11,10 @@ import {
   Plus,
   X,
   Check,
-  Edit2
+  Edit2,
+  CheckCircle2,
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 
 interface VfpSyncActionsProps {
@@ -92,6 +95,20 @@ export default function VfpSyncActions({
   });
 
   const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  // Live sync progress state
+  const [syncProgress, setSyncProgress] = useState<{
+    isRunning: boolean;
+    totalTables: number;
+    doneTables: number;
+    failedTables: number;
+    runningTables: string[];
+    completedTables: { tableName: string; importedCount: number }[];
+    failedTablesList: { tableName: string; error?: string }[];
+    startedAt?: string;
+  } | null>(null);
+  const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isSyncingRef = useRef(false);
   
   // Scanned folder DBF files
   const [folderDbfFiles, setFolderDbfFiles] = useState<string[]>([]);
@@ -395,6 +412,66 @@ export default function VfpSyncActions({
     saveConfiguration(dataDir, "selected", [], autoSync, autoSyncInterval, true);
   }
 
+  // Stop progress polling helper
+  const stopProgressPolling = useCallback(() => {
+    if (progressPollRef.current) {
+      clearInterval(progressPollRef.current);
+      progressPollRef.current = null;
+    }
+    isSyncingRef.current = false;
+  }, []);
+
+  // Start progress polling — polls every 2s until sync finishes
+  const startProgressPolling = useCallback(() => {
+    stopProgressPolling();
+    isSyncingRef.current = true;
+    const startTime = Date.now();
+    const GRACE_PERIOD_MS = 4000; // don't declare done for at least 4s after start
+
+    const poll = async () => {
+      if (!isSyncingRef.current) return;
+      try {
+        const res = await fetch("/api/mabsolcrmsync/progress");
+        const data = await res.json();
+        if (!data.success) return;
+
+        setSyncProgress({
+          isRunning: data.isRunning,
+          totalTables: data.totalTables || 0,
+          doneTables: data.doneTables || 0,
+          failedTables: data.failedTables || 0,
+          runningTables: data.runningTables || [],
+          completedTables: data.completedTables || [],
+          failedTablesList: data.failedTablesList || [],
+          startedAt: data.startedAt,
+        });
+
+        // Only declare done if grace period has passed (avoids race condition on first poll)
+        const graceElapsed = Date.now() - startTime > GRACE_PERIOD_MS;
+        if (!data.isRunning && isSyncingRef.current && graceElapsed) {
+          stopProgressPolling();
+          setBusyAction(null);
+          setMessage({
+            type: data.failedTables > 0 ? "info" : "success",
+            text: `Sync complete! ${data.doneTables || 0} table(s) done${data.failedTables > 0 ? `, ${data.failedTables} failed` : ""}.`,
+          });
+          router.refresh();
+        }
+      } catch {
+        // ignore poll errors
+      }
+    };
+
+    // Poll immediately then every 2s
+    poll();
+    progressPollRef.current = setInterval(poll, 2000);
+  }, [router, stopProgressPolling]);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => stopProgressPolling();
+  }, [stopProgressPolling]);
+
   // Client-side Auto Sync Scheduler Effect
   useEffect(() => {
     if (!autoSync || selectedFiles.length === 0) return;
@@ -415,9 +492,10 @@ export default function VfpSyncActions({
   async function triggerSyncNow(isAuto: boolean = false) {
     if (selectedFiles.length === 0) return;
     setBusyAction("sync");
+    setSyncProgress(null);
     setMessage({ 
       type: "info", 
-      text: isAuto ? "Running scheduled background auto-sync..." : "Syncing DBF tables..." 
+      text: isAuto ? "Running scheduled background auto-sync..." : "Starting DBF sync in background..." 
     });
 
     try {
@@ -427,19 +505,29 @@ export default function VfpSyncActions({
       const data = await response.json();
 
       if (data.success) {
-        setMessage({ 
-          type: data.queued && !data.workerOnline ? "info" : "success", 
-          text: data.message || (isAuto 
-            ? `Auto-sync completed! Synced ${data.result?.importedTables || 0} table(s), ${data.result?.importedRows || 0} row(s).` 
-            : `Sync completed! Synced ${data.result?.importedTables || 0} table(s), ${data.result?.importedRows || 0} row(s).`)
-        });
-        router.refresh();
+        if (data.result?.background) {
+          // Background sync started — begin polling for live progress
+          setMessage({ 
+            type: "info", 
+            text: `Sync running in background... Tracking progress live below.` 
+          });
+          startProgressPolling();
+          // Do NOT call router.refresh() here — wait until polling detects completion
+        } else {
+          // Queued mode (cloud/offline worker)
+          setMessage({ 
+            type: data.queued && !data.workerOnline ? "info" : "success", 
+            text: data.message || "Sync queued."
+          });
+          setBusyAction(null);
+          router.refresh();
+        }
       } else {
         setMessage({ type: "error", text: data.error || "Failed to trigger sync." });
+        setBusyAction(null);
       }
     } catch {
       setMessage({ type: "error", text: "Error occurred while executing sync." });
-    } finally {
       setBusyAction(null);
     }
   }
@@ -447,6 +535,8 @@ export default function VfpSyncActions({
   // Trigger cancel sync
   async function triggerCancelSync() {
     setBusyAction("cancel");
+    stopProgressPolling();
+    setSyncProgress(null);
     setMessage({ type: "info", text: "Cancelling sync and disabling Auto-sync..." });
 
     if (autoSync) {
@@ -1021,6 +1111,106 @@ export default function VfpSyncActions({
                 Pushes local DBF changes to the CRM table immediately and manages worker background tasks.
               </p>
             </div>
+
+            {/* Live Sync Progress Panel */}
+            {syncProgress && (
+              <div
+                className="border border-slate-200/80 bg-slate-50/60 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300"
+                style={{ borderRadius: "16px" }}
+              >
+                {/* Progress Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/60 bg-white">
+                  <div className="flex items-center gap-2">
+                    {syncProgress.isRunning ? (
+                      <Loader2 size={14} className="text-sky-500 animate-spin" />
+                    ) : syncProgress.failedTables > 0 ? (
+                      <AlertCircle size={14} className="text-amber-500" />
+                    ) : (
+                      <CheckCircle2 size={14} className="text-emerald-500" />
+                    )}
+                    <span className="text-xs font-bold text-slate-800">
+                      {syncProgress.isRunning ? "Sync in Progress..." : "Sync Complete"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold font-mono text-slate-400">
+                    {syncProgress.doneTables}/{syncProgress.totalTables > 0 ? syncProgress.totalTables : "?"} tables
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                {syncProgress.totalTables > 0 && (
+                  <div className="px-4 pt-3 pb-1">
+                    <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.round((syncProgress.doneTables / syncProgress.totalTables) * 100)}%`,
+                          background: syncProgress.isRunning
+                            ? "linear-gradient(90deg,#38bdf8,#6366f1)"
+                            : syncProgress.failedTables > 0
+                            ? "#f59e0b"
+                            : "#10b981",
+                        }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono mt-1 text-right">
+                      {syncProgress.totalTables > 0
+                        ? `${Math.round((syncProgress.doneTables / syncProgress.totalTables) * 100)}%`
+                        : ""}
+                    </div>
+                  </div>
+                )}
+
+                {/* Currently running tables */}
+                {syncProgress.isRunning && syncProgress.runningTables.length > 0 && (
+                  <div className="px-4 py-2">
+                    <div className="text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-1">Now syncing</div>
+                    {syncProgress.runningTables.map((t) => (
+                      <div key={t} className="flex items-center gap-1.5 text-xs text-slate-600 font-mono py-0.5">
+                        <Loader2 size={11} className="text-sky-500 animate-spin shrink-0" />
+                        <span className="truncate">{t}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Completed tables list */}
+                {syncProgress.completedTables.length > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1 mt-2">Completed</div>
+                    <div className="max-h-[160px] overflow-y-auto space-y-0.5 pr-1">
+                      {syncProgress.completedTables.map((t, i) => (
+                        <div
+                          key={t.tableName + i}
+                          className="flex items-center justify-between gap-2 text-[11px] font-mono py-0.5 border-b border-slate-100 last:border-0"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />
+                            <span className="text-slate-700 truncate">{t.tableName}</span>
+                          </div>
+                          <span className="text-slate-400 shrink-0 whitespace-nowrap">
+                            {t.importedCount.toLocaleString()} rows
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Failed tables list */}
+                {syncProgress.failedTablesList.length > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">Failed</div>
+                    {syncProgress.failedTablesList.map((t, i) => (
+                      <div key={t.tableName + i} className="flex items-start gap-1.5 text-[11px] font-mono py-0.5">
+                        <AlertCircle size={11} className="text-red-400 shrink-0 mt-0.5" />
+                        <span className="text-red-600 truncate">{t.tableName}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
         </div>

@@ -14,40 +14,31 @@ export async function performDirectServerSync(userEmail: string) {
   await dbConnect();
 
   const email = userEmail || "global";
-  let config: any =
-    (await VfpConfig.findOne({ email }).lean()) ||
-    (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean());
 
-  if (!config) {
-    config = (await VfpConfig.findOne({}).sort({ updatedAt: -1 }).lean()) || {};
-  }
+  // STRICT USER ISOLATION: Only look up THIS user's own config — never fall back to other users
+  const config: any =
+    (await VfpConfig.findOne({ email }).lean()) ||
+    (await VfpConfig.findOne({ key: "vfp_sync_config", email }).lean()) ||
+    null;
 
   let dataDir: string = config?.consoleSyncDir || config?.sourceDir || config?.dataDir || process.env.VFP_DATA_DIR || "";
   const enabledFiles: string[] = config?.enabledFiles || [];
 
+  // User-specific upload directory (browser-uploaded DBF files)
   const sanitizedEmail = (userEmail || "global").replace(/[^a-zA-Z0-9_-]/g, "_");
   const uploadDir = path.join(process.cwd(), "data", "vfp_uploads", sanitizedEmail);
 
-  // Fallback 1: check if DBF files were uploaded via browser to server storage
+  // Fallback: check if DBF files were uploaded via browser to THIS USER's server storage
   if ((!dataDir || !fs.existsSync(dataDir)) && fs.existsSync(uploadDir)) {
     dataDir = uploadDir;
   }
 
-  // Fallback 2: search all stored configurations in database for a valid existing directory path
-  if (!dataDir || !fs.existsSync(dataDir)) {
-    const allConfigs = await VfpConfig.find({}).lean();
-    for (const c of allConfigs) {
-      const candidate = (c as any).consoleSyncDir || (c as any).sourceDir || (c as any).dataDir;
-      if (candidate && fs.existsSync(candidate)) {
-        dataDir = candidate;
-        break;
-      }
-    }
-  }
+  // REMOVED: Cross-user fallback that searched all configs in DB.
+  // That fallback was incorrectly picking up other users' folder paths.
 
   if (!dataDir || !fs.existsSync(dataDir)) {
     throw new Error(
-      `No valid DBF data directory path configured on server (${dataDir || "None"}). On AWS live deployment, please select DBF files in browser to upload or start the local desktop sync worker ('run_local_sync.bat').`
+      `No valid DBF data directory configured for user ${email}. Please set your folder path in the Sync Console or upload DBF files via the browser.`
     );
   }
 
@@ -150,6 +141,18 @@ async function importSingleDbfFile(
     },
     { upsert: true }
   );
+
+  // Write a "running" log entry so live progress polling can see this table is active
+  await VfpSyncLog.create({
+    runId,
+    email,
+    tableName,
+    fileName,
+    action: "dbf_to_crm",
+    status: "running",
+    message: `Processing ${fileName}...`,
+    startedAt,
+  });
 
   try {
     const stats = fs.statSync(filePath);
