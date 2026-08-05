@@ -97,9 +97,6 @@ export default function VfpSyncActions({
   const [folderDbfFiles, setFolderDbfFiles] = useState<string[]>([]);
   const [scanningFolder, setScanningFolder] = useState(false);
 
-  // Selected browser file objects for direct upload to server
-  const [selectedBrowserFiles, setSelectedBrowserFiles] = useState<File[]>([]);
-
   // Native file & directory input refs
   const nativeFolderInputRef = useRef<HTMLInputElement>(null);
   const nativeFileInputRef = useRef<HTMLInputElement>(null);
@@ -120,8 +117,6 @@ export default function VfpSyncActions({
   const handleNativeFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const fileArray = Array.from(files);
-      setSelectedBrowserFiles(fileArray);
       const firstFile = files[0] as any;
 
       // 1. Extract full disk path if available from Electron/local browser
@@ -199,8 +194,6 @@ export default function VfpSyncActions({
   const handleNativeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const fileArray = Array.from(files);
-      setSelectedBrowserFiles((prev) => [...prev, ...fileArray]);
       const newFileNames: string[] = [];
       let detectedFolderPath = dataDir;
 
@@ -420,44 +413,14 @@ export default function VfpSyncActions({
 
   // Trigger manual or auto sync now
   async function triggerSyncNow(isAuto: boolean = false) {
-    if (selectedFiles.length === 0 && selectedBrowserFiles.length === 0) return;
+    if (selectedFiles.length === 0) return;
     setBusyAction("sync");
     setMessage({ 
       type: "info", 
-      text: isAuto ? "Running scheduled background auto-sync..." : "Starting data sync..." 
+      text: isAuto ? "Running scheduled background auto-sync..." : "Syncing DBF tables..." 
     });
 
     try {
-      if (selectedBrowserFiles.length > 0) {
-        setMessage({ type: "info", text: "Uploading selected DBF files to cloud server & syncing..." });
-        const formData = new FormData();
-        selectedBrowserFiles.forEach((file) => {
-          const name = file.name.toLowerCase();
-          if (name.endsWith(".dbf") || name.endsWith(".fpt") || name.endsWith(".cdx")) {
-            formData.append("files", file);
-          }
-        });
-
-        const uploadRes = await fetch("/api/mabsolcrmsync/upload-dbf", {
-          method: "POST",
-          body: formData,
-        });
-        const uploadData = await uploadRes.json();
-
-        if (uploadData.success) {
-          setMessage({
-            type: "success",
-            text: uploadData.message || `Uploaded & synced ${uploadData.result?.importedTables || 0} table(s), ${uploadData.result?.importedRows || 0} row(s)!`
-          });
-          setSelectedBrowserFiles([]);
-          router.refresh();
-          return;
-        } else {
-          setMessage({ type: "error", text: uploadData.error || "Failed to upload DBF files." });
-          return;
-        }
-      }
-
       const response = await fetch("/api/mabsolcrmsync/sync-now", {
         method: "POST",
       });
