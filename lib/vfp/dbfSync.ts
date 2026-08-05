@@ -482,9 +482,12 @@ function hashJson(value: any) {
 }
 
 function sanitizeCollectionName(value: string) {
-  // Use the full name (not just prefix before underscore GLMONTH_E10, GLMONTH_I04
-  // each get their own distinct MongoDB collection instead of all mapping to the same one.
-  return value.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
+  // Strip trailing year/financial-year/branch suffix (e.g. _I06, _F17, _E10, _I04, _04, etc.)
+  // so GLEDGER_I06 -> "gledger" -> collection: "vfp_new_folder_gledger"
+  let cleaned = value.trim().replace(/\$/g, "");
+  cleaned = cleaned.replace(/_[a-z]?\d+$/i, "");
+  cleaned = cleaned.replace(/[\$_]+$/, "");
+  return cleaned.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
 }
 
 function decodeText(buffer: Buffer) {
