@@ -90,8 +90,22 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const isLinuxServer = process.platform !== "win32";
+    const isWindowsPath = /^[a-zA-Z]:/i.test(targetDir);
+
     // Resolve directory details
     if (!fs.existsSync(targetDir)) {
+      if (isLinuxServer && isWindowsPath) {
+        return NextResponse.json({
+          success: true,
+          currentDir: targetDir,
+          parentDir: path.dirname(targetDir),
+          drives: [],
+          directories: [],
+          files: [],
+          isWindowsClientPath: true,
+        });
+      }
       return NextResponse.json({ success: false, error: "Directory does not exist." }, { status: 400 });
     }
 
