@@ -208,23 +208,16 @@ async function runSync(reason, targetEmail) {
       );
 
       if (currentEnabledFiles && currentEnabledFiles.length > 0) {
-        const enabledSet = new Set(currentEnabledFiles.map((f) => f.toLowerCase()));
+        const enabledSet = new Set(
+          currentEnabledFiles.map((f) => path.basename(f).toLowerCase())
+        );
         files = files.filter((filePath) => {
-          const relativePath = path
-            .relative(currentDataDir, filePath)
-            .replace(/\\/g, "/")
-            .toLowerCase();
-          const baseNameWithoutExt = relativePath.replace(/\.[^.]+$/, "");
+          const baseName = path.basename(filePath).toLowerCase();
+          const baseNameWithoutExt = baseName.replace(/\.[^.]+$/, "");
 
-          if (enabledSet.has(relativePath)) {
-            return true;
-          }
-
-          const matchingDbfRelative = `${baseNameWithoutExt}.dbf`;
-          if (enabledSet.has(matchingDbfRelative)) {
-            return true;
-          }
-
+          if (enabledSet.has(baseName)) return true;
+          if (enabledSet.has(`${baseNameWithoutExt}.dbf`)) return true;
+          if (enabledSet.has(baseNameWithoutExt)) return true;
           return false;
         });
       }
