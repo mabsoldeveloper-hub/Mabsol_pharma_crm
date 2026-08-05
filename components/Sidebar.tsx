@@ -318,7 +318,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           )}
           <span className="relative">{icon}</span>
         </span>
-        <span className="truncate transition-opacity duration-200">{label}</span>
+        <span className="leading-tight transition-opacity duration-200">{label}</span>
       </Link>
     );
   };
@@ -341,18 +341,19 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     return (
       <Link
         href={href}
-        className={`group/sub flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all duration-200 ease-out ${active
+        title={label}
+        className={`group/sub flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[12.5px] transition-all duration-200 ease-out ${active
           ? `bg-white/60 dark:bg-white/10 font-semibold ${c.activeText} shadow-sm`
           : `text-gray-500 dark:text-gray-400 hover:bg-white/40 dark:hover:bg-white/5 ${c.hoverText}`
           }`}
       >
         <span
-          className={`text-[12px] transition-colors duration-200 ${active ? c.activeText : `text-gray-400 ${c.subHoverIcon}`
+          className={`text-[12px] shrink-0 transition-colors duration-200 ${active ? c.activeText : `text-gray-400 ${c.subHoverIcon}`
             }`}
         >
           {icon}
         </span>
-        <span className="truncate">{label}</span>
+        <span className="leading-tight break-words flex-1 font-medium">{label}</span>
       </Link>
     );
   };
@@ -447,7 +448,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         {/* Inline accordion (expanded sidebar) */}
         {!iconOnly && (
           <ul
-            className={`flex flex-col gap-0.5 ml-[18px] pl-3 border-l-2 border-slate-200/60 dark:border-white/10 overflow-hidden transition-all duration-300 ease-out ${open ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
+            className={`flex flex-col gap-0.5 ml-2.5 pl-2 border-l-2 border-slate-200/60 dark:border-white/10 overflow-hidden transition-all duration-300 ease-out ${open ? "max-h-[1000px] opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
               }`}
           >
             {items}
