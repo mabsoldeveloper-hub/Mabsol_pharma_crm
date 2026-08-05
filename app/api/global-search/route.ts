@@ -22,11 +22,11 @@ function cleanSpokenQuery(input: string, assistantName: string = "Salim"): strin
   const nameEscaped = (assistantName || "Salim").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   // Dynamic regex pattern to match greetings + assistant name
-  // Matches: "hi salim", "hey salim", "hello salim", "suno salim", "salim bhai", "salim", "saliem", "saleem", "selim", "hey jarvis", etc.
+  // Matches: "hi salim", "hey salim", "hello salim", "suno salim", "salim bhai", "salim ji", "salim", "saliem", "saleem", "selim", "hey jarvis", etc.
   const greetingAndNamePatterns = [
-    new RegExp(`\\b(hi|hey|hello|suno|listen|ok|okay)\\s+(${nameEscaped}|salim|saleem|saliem|selim|jarvis|alexa|siri|crm)\\b`, "gi"),
+    new RegExp(`\\b(hi|hey|hello|suno|listen|ok|okay|aaye|namaste|haaye)\\s+(${nameEscaped}|salim|saleem|saliem|selim|jarvis|alexa|siri|crm)\\b`, "gi"),
     new RegExp(`\\b(${nameEscaped}|salim|saleem|saliem|selim)(\\s+bhai|\\s+ji)?\\b`, "gi"),
-    /\b(hi|hey|hello|suno)\b/gi,
+    /\b(hi|hey|hello|suno|listen)\b/gi,
   ];
 
   greetingAndNamePatterns.forEach((pattern) => {
@@ -35,15 +35,14 @@ function cleanSpokenQuery(input: string, assistantName: string = "Salim"): strin
 
   const spokenFillers = [
     /\b(dikhao|dikhaao|dikhaye|dikhayen)\b/gi,
-    /\b(kholo|kholiye|open|open page)\b/gi,
-    /\b(batao|bataiye|show me|show|find me|find)\b/gi,
-    /\b(mujhe|mujhko|please|plz)\b/gi,
-    /\b(search karo|search karain|search for)\b/gi,
-    /\b(check karo|check karain)\b/gi,
+    /\b(kholo|kholiye|open|open page|nav|navigate to)\b/gi,
+    /\b(batao|bataiye|show me|show|find me|find|search for|tell me)\b/gi,
+    /\b(mujhe|mujhko|mujhe batao|please|plz|bhai)\b/gi,
+    /\b(search karo|search karain|check karo|check karain)\b/gi,
     /\b(ka ledger|ki ledger|ka bill|ke bill|parchi|hisaab)\b/gi,
-    /\b(ka stock|ki stock|ka report|ki report)\b/gi,
-    /\b(list all|where is|par jao)\b/gi,
-    /\b(kitna hai|kitni hai|kitne hain|kitna|kitni|kitne|bhi|kya)\b/gi,
+    /\b(ka stock|ki stock|ka report|ki report|ka balance|ki balance)\b/gi,
+    /\b(list all|where is|par jao|jana hai)\b/gi,
+    /\b(kitna hai|kitni hai|kitne hain|kitna|kitni|kitne|bhi|kya|hai|hain|kiska|kiske|konsi|konse|konsa)\b/gi,
   ];
 
   spokenFillers.forEach((pattern) => {
@@ -549,69 +548,66 @@ function generateVocalSummary(query: string, results: any, actionCmd: any): stri
 
   if (actionCmd) {
     if (actionCmd.command === "OPEN_RESULT_INDEX") {
-      return `Opening result number ${actionCmd.index + 1}.`;
+      return `Result number ${actionCmd.index + 1} open kar raha hu.`;
     }
     if (actionCmd.command === "OPEN_RESULT_TITLE") {
-      return `Opening ${actionCmd.targetTitle}.`;
+      return `${actionCmd.targetTitle} open kar raha hu.`;
     }
     if (actionCmd.command === "EXPORT_EXCEL") {
-      return "Exporting report data to Excel.";
+      return "Report data Excel me export kar raha hu.";
     }
     if (actionCmd.command === "NAVIGATE_CREATE_BILL") {
-      return "Opening Sales Invoice creation page.";
+      return "Naya Sales Invoice creation page open kar raha hu.";
     }
     if (actionCmd.command === "TOGGLE_IN_STOCK") {
-      return "Filtering in-stock items only.";
+      return "In-stock items filter apply kar diya hai.";
     }
     if (actionCmd.command === "TOGGLE_NEAR_EXPIRY") {
-      return "Filtering near expiry batches expiring in 90 days.";
+      return "Near expiry batches filter apply kar diya hai.";
     }
   }
 
-  // Hinglish / English KPI match
+  // KPI Card match
   const navResults = results.navigation || [];
   const kpiMatch = navResults.find((r: any) => r.type === "kpi");
   if (kpiMatch) {
-    return `${kpiMatch.title}. Click to view details.`;
+    const metricTitle = kpiMatch.raw?.kpi?.title || kpiMatch.details?.metricName || kpiMatch.title;
+    const val = kpiMatch.details?.liveValue || "";
+    return `${metricTitle} ${val} hai. Details dekhne ke liye click karein.`;
   }
 
-  // Hinglish Intent: Top Outstanding / Dues ("sabse jyada baaki kiska hai", "who owes the most")
+  // Intent: Top Dues / Outstanding
   if (q.includes("who owes") || q.includes("highest outstanding") || q.includes("top outstanding") || q.includes("sabse jyada baaki") || q.includes("jyada baaki")) {
     const topCust = (results.customers || [])[0];
     if (topCust) {
-      return `Sabse jyada outstanding ${topCust.title} ka hai with balance ${topCust.details.outstandingBalance}.`;
+      return `Sabse jyada outstanding ${topCust.title} ka hai, total balance ${topCust.details.outstandingBalance} hai.`;
     }
-  }
-
-  // Hinglish Intent: Today's Sales ("aaj ki sale", "today sales", "kitni sale hui")
-  if (q.includes("aaj ki sale") || q.includes("today sales") || q.includes("kitni sale")) {
-    return `Today's sales summary updated in KPI card. Check search results.`;
   }
 
   // Products result
   if (results.products && results.products.length > 0) {
     const topProd = results.products[0];
-    return `Found ${results.products.length} products. Top result is ${topProd.title}, available stock is ${topProd.details.currentStock} units.`;
+    return `${results.products.length} products mil gaye hain. Sabse pehla result ${topProd.title} hai, available stock ${topProd.details.currentStock} units hai.`;
   }
 
   // Customers result
   if (results.customers && results.customers.length > 0) {
     const topCust = results.customers[0];
-    return `Found ${results.customers.length} customer parties. Top match is ${topCust.title}.`;
+    return `${results.customers.length} customer parties mil gayi hain. Top match ${topCust.title} hai.`;
   }
 
   // Invoices / Vouchers result
   if (results.vouchers && results.vouchers.length > 0) {
     const topV = results.vouchers[0];
-    return `Found ${results.vouchers.length} vouchers matching ${query}. ${topV.title} for amount ${topV.details.netAmount || topV.details.debitAmount || ""}.`;
+    return `${results.vouchers.length} vouchers mil gaye hain. Top result ${topV.title} amount ${topV.details.netAmount || topV.details.debitAmount || ""} hai.`;
   }
 
   // Navigation page match
   if (navResults.length > 0) {
-    return `Opening ${navResults[0].title}.`;
+    return `${navResults[0].title} page open kar raha hu.`;
   }
 
-  return `No matching records found for ${query}.`;
+  return `${query} ke liye koi matching record nahi mila.`;
 }
 
 export async function GET(req: NextRequest) {
