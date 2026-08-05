@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import VfpSyncCommand from "@/models/VfpSyncCommand";
-import VfpSyncLog from "@/models/VfpSyncLog";
 import VfpConfig from "@/models/VfpConfig";
 import VfpSettingLog from "@/models/VfpSettingLog";
+import VfpWorkerHeartbeat from "@/models/VfpWorkerHeartbeat";
 import { getCurrentUser } from "@/lib/auth";
-
 import { performDirectServerSync } from "@/lib/vfp/dbfSync";
+import fs from "fs";
+import path from "path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip") || "127.0.0.1";
+    const ipAddress =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      request.headers.get("x-real-ip") ||
+      "127.0.0.1";
     let body: any = {};
     try {
       body = await request.json();
@@ -28,7 +32,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get active VFP configuration for fallbacks
-    const config = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
+    const config =
+      (await VfpConfig.findOne({ email: user.email })) ||
+      (await VfpConfig.findOne({ key: "vfp_sync_config" }));
 
     const {
       userName = config?.userName || user.name || "Unknown",
@@ -37,7 +43,6 @@ export async function POST(request: NextRequest) {
       vfpExePath = config?.vfpExePath || "Unknown",
     } = body;
 
-    // Create entry in VfpSettingLog to log who did the sync and when
     await VfpSettingLog.create({
       email: user.email,
       ipAddress,
@@ -47,17 +52,53 @@ export async function POST(request: NextRequest) {
       vfpExePath,
       action: "sync_triggered",
       status: "success",
-      message: `Direct server sync manually triggered from dashboard.`,
+      message: `Sync manually triggered from dashboard.`,
     });
 
-    // Execute direct server-side DBF sync
-    const syncResult = await performDirectServerSync(user.email);
+    const dataDir: string =
+      config?.consoleSyncDir || config?.sourceDir || config?.dataDir || process.env.VFP_DATA_DIR || "";
 
-    return NextResponse.json({
-      success: true,
-      message: `DBF synchronization completed! Synced ${syncResult.importedTables} table(s), ${syncResult.importedRows} row(s).`,
-      result: syncResult,
-    });
+    const sanitizedEmail = user.email.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const uploadDir = path.join(process.cwd(), "data", "vfp_uploads", sanitizedEmail);
+
+    const canSyncDirectlyOnServer = (dataDir && fs.existsSync(dataDir)) || fs.existsSync(uploadDir);
+
+    if (canSyncDirectlyOnServer) {
+      // Execute direct server-side DBF sync if folder exists on server machine or uploaded
+      const syncResult = await performDirectServerSync(user.email);
+      return NextResponse.json({
+        success: true,
+        message: `DBF synchronization completed! Synced ${syncResult.importedTables} table(s), ${syncResult.importedRows} row(s).`,
+        result: syncResult,
+      });
+    } else {
+      // AWS Live Cloud mode: Folder is on client's Windows PC (e.g., D:\VfpNew\MANCHANDA)
+      // Queue command for the desktop sync worker
+      await VfpSyncCommand.create({
+        email: user.email,
+        command: user.email,
+        status: "queued",
+        createdAt: new Date(),
+      });
+
+      const heartbeat = await VfpWorkerHeartbeat.findOne({}).sort({ lastSeenAt: -1 }).lean();
+      const lastSeenAt = (heartbeat as any)?.lastSeenAt ? new Date((heartbeat as any).lastSeenAt) : null;
+      const workerOnline = lastSeenAt && Date.now() - lastSeenAt.getTime() < 30000;
+
+      return NextResponse.json({
+        success: true,
+        queued: true,
+        workerOnline,
+        message: workerOnline
+          ? `Sync command queued! Local desktop sync worker is ONLINE and syncing ${dataDir || "DBF folder"}.`
+          : `Sync command queued in Cloud! Local worker is OFFLINE. Start 'run_local_sync.bat' on your local PC or upload DBF files.`,
+        result: {
+          importedTables: 0,
+          importedRows: 0,
+          queued: true,
+        },
+      });
+    }
   } catch (error: unknown) {
     return NextResponse.json(
       {
