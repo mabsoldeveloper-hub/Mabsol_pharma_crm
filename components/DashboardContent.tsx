@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import KPICards from "@/components/KPICards";
-import DashboardCharts from "@/components/DashboardCharts";
+import DashboardCharts, { PurchaseDashboardCharts, CreditDashboardCharts } from "@/components/DashboardCharts";
 import AnalyticsCards from "@/components/AnalyticsCards";
 import LiquidMeters from "@/components/LiquidMeters";
 import {
@@ -321,7 +321,7 @@ export default function DashboardContent() {
                 <>
                     <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
                     <KPICards kpis={data?.kpis} />
-                    <DashboardCharts charts={data?.charts} />
+                    <CreditDashboardCharts charts={data?.charts} />
                 </>
             )}
 
@@ -329,7 +329,7 @@ export default function DashboardContent() {
             {activeTab === "purchase" && (
                 <>
                     <KPICards kpis={data?.kpis} />
-                    <DashboardCharts charts={data?.charts} />
+                    <PurchaseDashboardCharts charts={data?.charts} />
                     <AnalyticsCards analytics={data?.analytics} />
                 </>
             )}
