@@ -447,7 +447,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         {/* Inline accordion (expanded sidebar) */}
         {!iconOnly && (
           <ul
-            className={`flex flex-col gap-0.5 ml-[18px] pl-3 border-l-2 border-slate-200/60 dark:border-white/10 overflow-hidden transition-all duration-300 ease-out ${open ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
+            className={`flex flex-col gap-0.5 ml-[18px] pl-3 border-l-2 border-slate-200/60 dark:border-white/10 overflow-hidden transition-all duration-300 ease-out ${open ? "max-h-[1000px] opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
               }`}
           >
             {items}
