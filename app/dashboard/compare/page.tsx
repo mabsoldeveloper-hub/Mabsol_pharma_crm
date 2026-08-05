@@ -110,7 +110,7 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
         <div className="relative rounded-[24px] sm:rounded-[28px] border border-white/60 bg-white/40 backdrop-blur-2xl shadow-[0_8px_32px_rgba(31,41,55,0.08)] p-4 sm:p-6 overflow-hidden">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
             <div className="mb-4 sm:mb-5">
-                <h3 className="text-[14px] sm:text-[15px] font-bold text-gray-900 tracking-tight m-0">{title}</h3>
+                <h4 className="text-[14px] sm:text-[15px] font-bold text-gray-900 tracking-tight m-0">{title}</h4>
                 {subtitle && <p className="text-xs text-gray-500 mt-0.5 m-0">{subtitle}</p>}
             </div>
             {children}
