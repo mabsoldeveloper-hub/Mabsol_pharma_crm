@@ -87,7 +87,7 @@ export default function GlobalSearchModal({
         window.speechSynthesis.cancel();
       }
       if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (e) {}
+        try { recognitionRef.current.abort(); } catch (e) { }
       }
       setIsListening(false);
       setVocalSpeaking(false);
@@ -158,7 +158,7 @@ export default function GlobalSearchModal({
             setVocalSpeaking(true);
             setVocalText(text);
             if (recognitionRef.current) {
-              try { recognitionRef.current.abort(); } catch (e) {}
+              try { recognitionRef.current.abort(); } catch (e) { }
             }
           };
 
@@ -207,14 +207,14 @@ export default function GlobalSearchModal({
   useEffect(() => {
     if (isOpen && autoVoiceStart) {
       if (onVoiceStartHandled) onVoiceStartHandled();
-      if (!initialQuery && !query) {
+      if (!initialQuery || !initialQuery.trim()) {
         const timer = setTimeout(() => {
           speakText(greetingText || "Haan ji! Main aapki kya help kar sakta hu?");
         }, 250);
         return () => clearTimeout(timer);
       }
     }
-  }, [isOpen, autoVoiceStart, onVoiceStartHandled, speakText, greetingText, initialQuery, query]);
+  }, [isOpen, autoVoiceStart, initialQuery, onVoiceStartHandled, speakText, greetingText]);
 
   const stopSpeaking = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -236,7 +236,7 @@ export default function GlobalSearchModal({
   const toggleVoiceSearch = () => {
     if (isListening) {
       if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
+        try { recognitionRef.current.stop(); } catch (e) { }
       }
       setIsListening(false);
       return;
@@ -253,7 +253,7 @@ export default function GlobalSearchModal({
 
     try {
       if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (e) {}
+        try { recognitionRef.current.abort(); } catch (e) { }
       }
 
       const rec = new SpeechRecognition();
@@ -350,7 +350,7 @@ export default function GlobalSearchModal({
             setDynamicTrending(data.trending);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [isOpen, query]);
 
@@ -589,9 +589,8 @@ export default function GlobalSearchModal({
 
       {/* Main Search Modal Container */}
       <div
-        className={`relative w-full ${
-          showGuide ? "max-w-6xl" : "max-w-4xl"
-        } bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] z-10 transition-all duration-300 transform scale-100`}
+        className={`relative w-full ${showGuide ? "max-w-6xl" : "max-w-4xl"
+          } bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] z-10 transition-all duration-300 transform scale-100`}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
@@ -637,11 +636,10 @@ export default function GlobalSearchModal({
                 if (vocalSpeaking) stopSpeaking();
                 setVocalEnabled((v) => !v);
               }}
-              className={`p-2 rounded-xl border text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                vocalEnabled
+              className={`p-2 rounded-xl border text-xs font-bold transition-all shrink-0 cursor-pointer ${vocalEnabled
                   ? "bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100"
                   : "bg-slate-100 text-slate-400 border-slate-200"
-              }`}
+                }`}
               title={vocalEnabled ? `${assistantName} Vocal Answers Enabled (Click to Mute)` : `${assistantName} Vocal Answers Muted (Click to Enable)`}
             >
               {vocalEnabled ? <Volume2 className="w-4 h-4 text-indigo-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
@@ -650,11 +648,10 @@ export default function GlobalSearchModal({
             {/* Microphone Button */}
             <button
               onClick={toggleVoiceSearch}
-              className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all cursor-pointer ${
-                isListening
+              className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all cursor-pointer ${isListening
                   ? "bg-rose-600 text-white shadow-lg scale-105 animate-pulse"
                   : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80"
-              }`}
+                }`}
               title={isListening ? "Stop Voice Search" : `Speak to Search (${assistantName} Voice AI)`}
             >
               {isListening ? (
@@ -671,11 +668,10 @@ export default function GlobalSearchModal({
           {/* Toggle Guide Sidebar Button */}
           <button
             onClick={() => setShowGuide((v) => !v)}
-            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shrink-0 ${
-              showGuide
+            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shrink-0 ${showGuide
                 ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                 : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-            }`}
+              }`}
             title="Toggle Search Capabilities Guide"
           >
             <BookOpen className="w-3.5 h-3.5" />
@@ -699,11 +695,10 @@ export default function GlobalSearchModal({
             <div className="flex items-center gap-3.5 min-w-0 relative z-10">
               {/* Voice Orb */}
               <div
-                className={`relative flex items-center justify-center w-8 h-8 rounded-full ${
-                  isListening
+                className={`relative flex items-center justify-center w-8 h-8 rounded-full ${isListening
                     ? "bg-gradient-to-tr from-rose-500 via-purple-500 to-cyan-400 animate-pulse scale-110 shadow-rose-500/50"
                     : "bg-gradient-to-tr from-cyan-400 via-indigo-500 to-pink-500 animate-spin [animation-duration:4s] shadow-indigo-500/50"
-                } shadow-lg p-0.5 shrink-0`}
+                  } shadow-lg p-0.5 shrink-0`}
               >
                 <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center">
                   {isListening ? (
@@ -729,8 +724,8 @@ export default function GlobalSearchModal({
                   {vocalSpeaking
                     ? `"${vocalText}"`
                     : transcriptPreview
-                    ? `Hearing: "${transcriptPreview}"`
-                    : `Listening... Speak request or say "Pehla kholo"`}
+                      ? `Hearing: "${transcriptPreview}"`
+                      : `Listening... Speak request or say "Pehla kholo"`}
                 </p>
               </div>
             </div>
@@ -789,11 +784,10 @@ export default function GlobalSearchModal({
                     setActiveCategory(cat.id);
                     setSelectedIndex(0);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer ${
-                    isActive
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer ${isActive
                       ? "bg-indigo-600 text-white shadow-sm font-bold"
                       : "bg-white text-slate-600 hover:bg-slate-200/70 border border-slate-200/70"
-                  }`}
+                    }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span>{cat.label}</span>
@@ -814,11 +808,10 @@ export default function GlobalSearchModal({
               {/* In-Stock Only Chip */}
               <button
                 onClick={() => setInStockOnly((v) => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                  inStockOnly
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${inStockOnly
                     ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 {inStockOnly ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
                 <span>In Stock Only 📦</span>
@@ -827,11 +820,10 @@ export default function GlobalSearchModal({
               {/* Near Expiry Filter Chip */}
               <button
                 onClick={() => setNearExpiryOnly((v) => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                  nearExpiryOnly
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${nearExpiryOnly
                     ? "bg-amber-600 text-white border-amber-600 shadow-2xs"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 {nearExpiryOnly ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
                 <span>Expiring Soon (&lt; 90 Days) ⏳</span>
@@ -840,11 +832,10 @@ export default function GlobalSearchModal({
               {/* High Balance Filter Chip */}
               <button
                 onClick={() => setHighBalanceOnly((v) => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                  highBalanceOnly
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${highBalanceOnly
                     ? "bg-rose-600 text-white border-rose-600 shadow-2xs"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 {highBalanceOnly ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
                 <span>Outstanding &gt; 0 💰</span>
@@ -1001,28 +992,26 @@ export default function GlobalSearchModal({
                           key={item.id}
                           onClick={() => handleItemClick(item)}
                           onMouseEnter={() => setSelectedIndex(index)}
-                          className={`group relative flex items-center justify-between gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
-                            isSelected
+                          className={`group relative flex items-center justify-between gap-3 p-3 rounded-xl cursor-pointer transition-all border ${isSelected
                               ? "bg-indigo-50/90 border-indigo-200 shadow-sm"
                               : "bg-white hover:bg-slate-50 border-transparent"
-                          }`}
+                            }`}
                         >
                           {/* Left Icon & Details */}
                           <div className="flex items-start gap-3 min-w-0">
                             <div
-                              className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 mt-0.5 shadow-2xs ${
-                                item.type === "kpi"
+                              className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 mt-0.5 shadow-2xs ${item.type === "kpi"
                                   ? "bg-gradient-to-br from-indigo-500 to-emerald-600 text-white shadow-sm"
                                   : item.type === "product"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : item.type === "customer"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : item.type === "voucher"
-                                  ? "bg-indigo-100 text-indigo-700"
-                                  : item.type === "user"
-                                  ? "bg-sky-100 text-sky-700"
-                                  : "bg-slate-100 text-slate-700"
-                              }`}
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : item.type === "customer"
+                                      ? "bg-amber-100 text-amber-700"
+                                      : item.type === "voucher"
+                                        ? "bg-indigo-100 text-indigo-700"
+                                        : item.type === "user"
+                                          ? "bg-sky-100 text-sky-700"
+                                          : "bg-slate-100 text-slate-700"
+                                }`}
                             >
                               {item.type === "kpi" && <TrendingUp className="w-4 h-4 text-white" />}
                               {item.type === "product" && <Package className="w-4 h-4" />}
@@ -1060,19 +1049,18 @@ export default function GlobalSearchModal({
                                   {item.badges.map((b: any, bIdx: number) => (
                                     <span
                                       key={bIdx}
-                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                        b.color === "emerald"
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${b.color === "emerald"
                                           ? "bg-emerald-100 text-emerald-800"
                                           : b.color === "rose"
-                                          ? "bg-rose-100 text-rose-800"
-                                          : b.color === "amber"
-                                          ? "bg-amber-100 text-amber-800"
-                                          : b.color === "blue"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : b.color === "indigo"
-                                          ? "bg-indigo-100 text-indigo-800"
-                                          : "bg-slate-100 text-slate-700"
-                                      }`}
+                                            ? "bg-rose-100 text-rose-800"
+                                            : b.color === "amber"
+                                              ? "bg-amber-100 text-amber-800"
+                                              : b.color === "blue"
+                                                ? "bg-blue-100 text-blue-800"
+                                                : b.color === "indigo"
+                                                  ? "bg-indigo-100 text-indigo-800"
+                                                  : "bg-slate-100 text-slate-700"
+                                        }`}
                                     >
                                       {b.label}
                                     </span>

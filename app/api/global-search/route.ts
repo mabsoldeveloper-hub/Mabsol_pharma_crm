@@ -13,47 +13,54 @@ function escapeRegex(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Spoken Voice Search Cleaner - removes spoken filler words & dynamic assistant wake names across English, Hindi, Urdu & Hinglish
-function cleanSpokenQuery(input: string, assistantName?: string): string {
+// Spoken Voice Search Cleaner - removes spoken filler words and dynamic assistant names across English, Hindi, Urdu & Hinglish
+function cleanSpokenQuery(input: string, assistantName: string = "Salim"): string {
   if (!input) return "";
   let text = input.trim();
 
-  // Dynamic Assistant Name & Wake Trigger Stripping (e.g. "Hi Salim", "Hey Salim", "Salim bhai")
-  const targetName = (assistantName || "Salim").trim();
-  const escapedName = escapeRegex(targetName);
+  // Escaped assistant name for regex
+  const nameEscaped = (assistantName || "Salim").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  const assistantPatterns = [
-    new RegExp(`^\\b(hi|hey|hello|ok|suno|bol|bolo|haan|ji)\\s+${escapedName}\\b\\s*`, "gi"),
-    new RegExp(`^\\b${escapedName}\\s+(bhai|ji|ai|assistant)?\\b\\s*`, "gi"),
-    new RegExp(`\\b(hi|hey|hello|ok)\\s+${escapedName}\\b`, "gi"),
-    new RegExp(`\\b${escapedName}\\s*(bhai|ji)?\\b`, "gi"),
-    /\b(hi|hey|hello|ok)\s+salim\b/gi,
-    /\bsalim\s*(bhai|ji)?\b/gi,
+  // Dynamic regex pattern to match greetings + assistant name
+  // Matches: "hi salim", "hey salim", "hello salim", "suno salim", "salim bhai", "salim ji", "salim", "saliem", "saleem", "selim", "hey jarvis", etc.
+  const greetingAndNamePatterns = [
+    new RegExp(`\\b(hi|hey|hello|suno|listen|ok|okay|aaye|namaste|haaye)\\s+(${nameEscaped}|salim|saleem|saliem|selim|jarvis|alexa|siri|crm)\\b`, "gi"),
+    new RegExp(`\\b(${nameEscaped}|salim|saleem|saliem|selim)(\\s+bhai|\\s+ji)?\\b`, "gi"),
+    /\b(hi|hey|hello|suno|listen)\b/gi,
   ];
 
-  assistantPatterns.forEach((pattern) => {
-    text = text.replace(pattern, " ");
+  greetingAndNamePatterns.forEach((pattern) => {
+    text = text.replace(pattern, "");
   });
 
   const spokenFillers = [
     /\b(dikhao|dikhaao|dikhaye|dikhayen)\b/gi,
-    /\b(kholo|kholiye|open|open page)\b/gi,
-    /\b(batao|bataiye|show me|show|find me|find)\b/gi,
-    /\b(mujhe|mujhko|please|plz)\b/gi,
-    /\b(search karo|search karain|search for)\b/gi,
-    /\b(check karo|check karain)\b/gi,
+    /\b(kholo|kholiye|open|open page|nav|navigate to)\b/gi,
+    /\b(batao|bataiye|show me|show|find me|find|search for|tell me)\b/gi,
+    /\b(mujhe|mujhko|mujhe batao|please|plz|bhai)\b/gi,
+    /\b(search karo|search karain|check karo|check karain)\b/gi,
     /\b(ka ledger|ki ledger|ka bill|ke bill|parchi|hisaab)\b/gi,
-    /\b(ka stock|ki stock|ka report|ki report)\b/gi,
-    /\b(list all|where is|par jao)\b/gi,
+    /\b(ka stock|ki stock|ka report|ki report|ka balance|ki balance)\b/gi,
+    /\b(list all|where is|par jao|jana hai)\b/gi,
+    /\b(kitna hai|kitni hai|kitne hain|kitna|kitni|kitne|bhi|kya|hai|hain|kiska|kiske|konsi|konse|konsa)\b/gi,
   ];
 
-  let cleaned = text;
   spokenFillers.forEach((pattern) => {
-    cleaned = cleaned.replace(pattern, " ");
+    text = text.replace(pattern, "");
   });
 
-  cleaned = cleaned.replace(/\s+/g, " ").trim();
-  return cleaned.length > 0 ? cleaned : input.trim();
+  text = text.replace(/\s+/g, " ").trim();
+
+  // Fallback if cleaning removed all text
+  if (text.length === 0) {
+    let fallback = input.trim();
+    greetingAndNamePatterns.forEach((pattern) => {
+      fallback = fallback.replace(pattern, "");
+    });
+    return fallback.replace(/\s+/g, " ").trim();
+  }
+
+  return text;
 }
 
 // Typo correction dictionary for common pharma terms & reports
@@ -557,69 +564,66 @@ function generateVocalSummary(query: string, results: any, actionCmd: any): stri
 
   if (actionCmd) {
     if (actionCmd.command === "OPEN_RESULT_INDEX") {
-      return `Opening result number ${actionCmd.index + 1}.`;
+      return `Result number ${actionCmd.index + 1} open kar raha hu.`;
     }
     if (actionCmd.command === "OPEN_RESULT_TITLE") {
-      return `Opening ${actionCmd.targetTitle}.`;
+      return `${actionCmd.targetTitle} open kar raha hu.`;
     }
     if (actionCmd.command === "EXPORT_EXCEL") {
-      return "Exporting report data to Excel.";
+      return "Report data Excel me export kar raha hu.";
     }
     if (actionCmd.command === "NAVIGATE_CREATE_BILL") {
-      return "Opening Sales Invoice creation page.";
+      return "Naya Sales Invoice creation page open kar raha hu.";
     }
     if (actionCmd.command === "TOGGLE_IN_STOCK") {
-      return "Filtering in-stock items only.";
+      return "In-stock items filter apply kar diya hai.";
     }
     if (actionCmd.command === "TOGGLE_NEAR_EXPIRY") {
-      return "Filtering near expiry batches expiring in 90 days.";
+      return "Near expiry batches filter apply kar diya hai.";
     }
   }
 
-  // Hinglish / English KPI match
+  // KPI Card match
   const navResults = results.navigation || [];
   const kpiMatch = navResults.find((r: any) => r.type === "kpi");
   if (kpiMatch) {
-    return `${kpiMatch.title}. Click to view details.`;
+    const metricTitle = kpiMatch.raw?.kpi?.title || kpiMatch.details?.metricName || kpiMatch.title;
+    const val = kpiMatch.details?.liveValue || "";
+    return `${metricTitle} ${val} hai. Details dekhne ke liye click karein.`;
   }
 
-  // Hinglish Intent: Top Outstanding / Dues ("sabse jyada baaki kiska hai", "who owes the most")
+  // Intent: Top Dues / Outstanding
   if (q.includes("who owes") || q.includes("highest outstanding") || q.includes("top outstanding") || q.includes("sabse jyada baaki") || q.includes("jyada baaki")) {
     const topCust = (results.customers || [])[0];
     if (topCust) {
-      return `Sabse jyada outstanding ${topCust.title} ka hai with balance ${topCust.details.outstandingBalance}.`;
+      return `Sabse jyada outstanding ${topCust.title} ka hai, total balance ${topCust.details.outstandingBalance} hai.`;
     }
-  }
-
-  // Hinglish Intent: Today's Sales ("aaj ki sale", "today sales", "kitni sale hui")
-  if (q.includes("aaj ki sale") || q.includes("today sales") || q.includes("kitni sale")) {
-    return `Today's sales summary updated in KPI card. Check search results.`;
   }
 
   // Products result
   if (results.products && results.products.length > 0) {
     const topProd = results.products[0];
-    return `Found ${results.products.length} products. Top result is ${topProd.title}, available stock is ${topProd.details.currentStock} units.`;
+    return `${results.products.length} products mil gaye hain. Sabse pehla result ${topProd.title} hai, available stock ${topProd.details.currentStock} units hai.`;
   }
 
   // Customers result
   if (results.customers && results.customers.length > 0) {
     const topCust = results.customers[0];
-    return `Found ${results.customers.length} customer parties. Top match is ${topCust.title}.`;
+    return `${results.customers.length} customer parties mil gayi hain. Top match ${topCust.title} hai.`;
   }
 
   // Invoices / Vouchers result
   if (results.vouchers && results.vouchers.length > 0) {
     const topV = results.vouchers[0];
-    return `Found ${results.vouchers.length} vouchers matching ${query}. ${topV.title} for amount ${topV.details.netAmount || topV.details.debitAmount || ""}.`;
+    return `${results.vouchers.length} vouchers mil gaye hain. Top result ${topV.title} amount ${topV.details.netAmount || topV.details.debitAmount || ""} hai.`;
   }
 
   // Navigation page match
   if (navResults.length > 0) {
-    return `Opening ${navResults[0].title}.`;
+    return `${navResults[0].title} page open kar raha hu.`;
   }
 
-  return `No matching records found for ${query}.`;
+  return `${query} ke liye koi matching record nahi mila.`;
 }
 
 export async function GET(req: NextRequest) {
@@ -705,8 +709,9 @@ export async function GET(req: NextRequest) {
     const highBalanceOnly = searchParams.get("highBalance") === "true";
     const sortBy = searchParams.get("sortBy") || "relevance";
 
+    const assistantName = searchParams.get("assistantName") || searchParams.get("assistant") || "Salim";
+
     // Spoken query cleaning & Typo check ("Did You Mean?")
-    const assistantName = searchParams.get("assistantName") || "Salim";
     const cleanedQuery = cleanSpokenQuery(rawQuery, assistantName);
     const lowerQuery = cleanedQuery.toLowerCase();
     const suggestedQuery = TYPO_MAP[lowerQuery] || null;
@@ -724,425 +729,425 @@ export async function GET(req: NextRequest) {
       // 1. PRODUCTS & STOCK SEARCH
       (category === "all" || category === "products")
         ? (async () => {
-            try {
-              const productFilter: any = {
-                $or: [
-                  { PRODUCT: regex },
-                  { BILLNAME: regex },
-                  { PACKING: regex },
-                  { GCODE: regex },
-                  { RACKNO: regex },
-                  { COMPOSITION: regex },
-                ],
-              };
-              if (queryNumber !== null) {
-                productFilter.$or.push({ CODE: queryNumber });
-              }
-
-              let proDocs = await Product.find(productFilter).limit(15).lean();
-              if ((!proDocs || proDocs.length === 0) && db) {
-                proDocs = await db.collection("pro").find(productFilter).limit(15).toArray();
-              }
-
-              // Enrich with batch stock count & batch numbers
-              const productCodes = proDocs.map((p: any) => p.CODE).filter(Boolean);
-              let batchesByCode: Record<string | number, any[]> = {};
-
-              if (productCodes.length > 0) {
-                let batchDocs = await ProductBatch.find({ CODE: { $in: productCodes } }).lean();
-                if ((!batchDocs || batchDocs.length === 0) && db) {
-                  batchDocs = await db.collection("probat").find({ CODE: { $in: productCodes } }).toArray();
-                }
-
-                batchDocs.forEach((b: any) => {
-                  if (!batchesByCode[b.CODE]) batchesByCode[b.CODE] = [];
-                  batchesByCode[b.CODE].push(b);
-                });
-              }
-
-              let mappedProducts = proDocs.map((p: any) => {
-                const pBatches = batchesByCode[p.CODE] || [];
-                const totalBatchQty = pBatches.reduce((acc, b) => acc + (Number(b.BALANCE || b.QTY) || 0), 0);
-                const currentStock = p.BALANCE !== undefined && p.BALANCE !== null ? Number(p.BALANCE) : totalBatchQty;
-                const stockValue = currentStock * (Number(p.PRATE) || Number(p.MRP) || 0);
-
-                // Near expiry check (< 90 days)
-                const ninetyDaysLater = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
-                const hasNearExpiryBatch = pBatches.some((b) => b.EXP && b.EXP <= ninetyDaysLater);
-
-                return {
-                  id: `prod_${p._id || p.CODE}`,
-                  type: "product",
-                  category: "Products & Stock",
-                  title: p.PRODUCT || p.BILLNAME || `Product #${p.CODE}`,
-                  subtitle: `Code: ${p.CODE || "N/A"} | Pack: ${p.PACKING || "Std"} | Mfg/Co: ${p.GCODE || "General"}`,
-                  details: {
-                    productCode: p.CODE,
-                    productName: p.PRODUCT,
-                    billName: p.BILLNAME,
-                    packing: p.PACKING,
-                    groupCode: p.GCODE,
-                    rackNo: p.RACKNO,
-                    mrp: p.MRP ? `₹${p.MRP}` : "N/A",
-                    saleRate: p.PRATE ? `₹${p.PRATE}` : "N/A",
-                    purchaseRate: p.LPRATE ? `₹${p.LPRATE}` : "N/A",
-                    currentStock: currentStock,
-                    stockValue: `₹${stockValue.toLocaleString("en-IN")}`,
-                    batchCount: pBatches.length,
-                    hasNearExpiry: hasNearExpiryBatch,
-                    batches: pBatches.slice(0, 10).map((b: any) => ({
-                      batchNo: b.BATCHNO || "N/A",
-                      exp: b.EXP || "N/A",
-                      qty: b.BALANCE || b.QTY || 0,
-                      mrp: b.MRP ? `₹${b.MRP}` : "N/A",
-                      rate: b.PRATE ? `₹${b.PRATE}` : "N/A",
-                    })),
-                  },
-                  badges: [
-                    {
-                      label: currentStock > 0 ? `In Stock: ${currentStock}` : "Out of Stock ⚠️",
-                      color: currentStock > 0 ? "emerald" : "rose",
-                    },
-                    p.MRP ? { label: `MRP: ₹${p.MRP}`, color: "blue" } : null,
-                    p.PRATE ? { label: `Rate: ₹${p.PRATE}`, color: "indigo" } : null,
-                    hasNearExpiryBatch ? { label: "Near Expiry ⏳", color: "amber" } : null,
-                  ].filter(Boolean),
-                  actionUrl: `/dashboard/reports/product?search=${encodeURIComponent(p.PRODUCT || p.CODE || "")}`,
-                  raw: p,
-                };
-              });
-
-              // Apply E-Commerce filters
-              if (inStockOnly) {
-                mappedProducts = mappedProducts.filter((p) => p.details.currentStock > 0);
-              }
-
-              if (nearExpiryOnly) {
-                mappedProducts = mappedProducts.filter((p) => p.details.hasNearExpiry);
-              }
-
-              // Apply Sorting
-              if (sortBy === "stockHigh") {
-                mappedProducts.sort((a, b) => b.details.currentStock - a.details.currentStock);
-              } else if (sortBy === "priceHigh") {
-                mappedProducts.sort((a, b) => (parseFloat(b.raw.MRP) || 0) - (parseFloat(a.raw.MRP) || 0));
-              } else if (sortBy === "priceLow") {
-                mappedProducts.sort((a, b) => (parseFloat(a.raw.MRP) || 0) - (parseFloat(b.raw.MRP) || 0));
-              } else if (sortBy === "name") {
-                mappedProducts.sort((a, b) => a.title.localeCompare(b.title));
-              }
-
-              return mappedProducts.slice(0, limit);
-            } catch (err) {
-              console.error("Global search products error:", err);
-              return [];
+          try {
+            const productFilter: any = {
+              $or: [
+                { PRODUCT: regex },
+                { BILLNAME: regex },
+                { PACKING: regex },
+                { GCODE: regex },
+                { RACKNO: regex },
+                { COMPOSITION: regex },
+              ],
+            };
+            if (queryNumber !== null) {
+              productFilter.$or.push({ CODE: queryNumber });
             }
-          })()
+
+            let proDocs = await Product.find(productFilter).limit(15).lean();
+            if ((!proDocs || proDocs.length === 0) && db) {
+              proDocs = await db.collection("pro").find(productFilter).limit(15).toArray();
+            }
+
+            // Enrich with batch stock count & batch numbers
+            const productCodes = proDocs.map((p: any) => p.CODE).filter(Boolean);
+            let batchesByCode: Record<string | number, any[]> = {};
+
+            if (productCodes.length > 0) {
+              let batchDocs = await ProductBatch.find({ CODE: { $in: productCodes } }).lean();
+              if ((!batchDocs || batchDocs.length === 0) && db) {
+                batchDocs = await db.collection("probat").find({ CODE: { $in: productCodes } }).toArray();
+              }
+
+              batchDocs.forEach((b: any) => {
+                if (!batchesByCode[b.CODE]) batchesByCode[b.CODE] = [];
+                batchesByCode[b.CODE].push(b);
+              });
+            }
+
+            let mappedProducts = proDocs.map((p: any) => {
+              const pBatches = batchesByCode[p.CODE] || [];
+              const totalBatchQty = pBatches.reduce((acc, b) => acc + (Number(b.BALANCE || b.QTY) || 0), 0);
+              const currentStock = p.BALANCE !== undefined && p.BALANCE !== null ? Number(p.BALANCE) : totalBatchQty;
+              const stockValue = currentStock * (Number(p.PRATE) || Number(p.MRP) || 0);
+
+              // Near expiry check (< 90 days)
+              const ninetyDaysLater = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
+              const hasNearExpiryBatch = pBatches.some((b) => b.EXP && b.EXP <= ninetyDaysLater);
+
+              return {
+                id: `prod_${p._id || p.CODE}`,
+                type: "product",
+                category: "Products & Stock",
+                title: p.PRODUCT || p.BILLNAME || `Product #${p.CODE}`,
+                subtitle: `Code: ${p.CODE || "N/A"} | Pack: ${p.PACKING || "Std"} | Mfg/Co: ${p.GCODE || "General"}`,
+                details: {
+                  productCode: p.CODE,
+                  productName: p.PRODUCT,
+                  billName: p.BILLNAME,
+                  packing: p.PACKING,
+                  groupCode: p.GCODE,
+                  rackNo: p.RACKNO,
+                  mrp: p.MRP ? `₹${p.MRP}` : "N/A",
+                  saleRate: p.PRATE ? `₹${p.PRATE}` : "N/A",
+                  purchaseRate: p.LPRATE ? `₹${p.LPRATE}` : "N/A",
+                  currentStock: currentStock,
+                  stockValue: `₹${stockValue.toLocaleString("en-IN")}`,
+                  batchCount: pBatches.length,
+                  hasNearExpiry: hasNearExpiryBatch,
+                  batches: pBatches.slice(0, 10).map((b: any) => ({
+                    batchNo: b.BATCHNO || "N/A",
+                    exp: b.EXP || "N/A",
+                    qty: b.BALANCE || b.QTY || 0,
+                    mrp: b.MRP ? `₹${b.MRP}` : "N/A",
+                    rate: b.PRATE ? `₹${b.PRATE}` : "N/A",
+                  })),
+                },
+                badges: [
+                  {
+                    label: currentStock > 0 ? `In Stock: ${currentStock}` : "Out of Stock ⚠️",
+                    color: currentStock > 0 ? "emerald" : "rose",
+                  },
+                  p.MRP ? { label: `MRP: ₹${p.MRP}`, color: "blue" } : null,
+                  p.PRATE ? { label: `Rate: ₹${p.PRATE}`, color: "indigo" } : null,
+                  hasNearExpiryBatch ? { label: "Near Expiry ⏳", color: "amber" } : null,
+                ].filter(Boolean),
+                actionUrl: `/dashboard/reports/product?search=${encodeURIComponent(p.PRODUCT || p.CODE || "")}`,
+                raw: p,
+              };
+            });
+
+            // Apply E-Commerce filters
+            if (inStockOnly) {
+              mappedProducts = mappedProducts.filter((p) => p.details.currentStock > 0);
+            }
+
+            if (nearExpiryOnly) {
+              mappedProducts = mappedProducts.filter((p) => p.details.hasNearExpiry);
+            }
+
+            // Apply Sorting
+            if (sortBy === "stockHigh") {
+              mappedProducts.sort((a, b) => b.details.currentStock - a.details.currentStock);
+            } else if (sortBy === "priceHigh") {
+              mappedProducts.sort((a, b) => (parseFloat(b.raw.MRP) || 0) - (parseFloat(a.raw.MRP) || 0));
+            } else if (sortBy === "priceLow") {
+              mappedProducts.sort((a, b) => (parseFloat(a.raw.MRP) || 0) - (parseFloat(b.raw.MRP) || 0));
+            } else if (sortBy === "name") {
+              mappedProducts.sort((a, b) => a.title.localeCompare(b.title));
+            }
+
+            return mappedProducts.slice(0, limit);
+          } catch (err) {
+            console.error("Global search products error:", err);
+            return [];
+          }
+        })()
         : Promise.resolve([]),
 
       // 2. CUSTOMERS & PARTIES SEARCH
       (category === "all" || category === "customers")
         ? (async () => {
-            try {
-              const customerFilter: any = {
-                $or: [
-                  { PARNAM: regex },
-                  { MAILNAM: regex },
-                  { CODEP: regex },
-                  { CITY: regex },
-                  { GSTNO: regex },
-                  { PHONE1: regex },
-                  { CODER: regex },
-                ],
-              };
+          try {
+            const customerFilter: any = {
+              $or: [
+                { PARNAM: regex },
+                { MAILNAM: regex },
+                { CODEP: regex },
+                { CITY: regex },
+                { GSTNO: regex },
+                { PHONE1: regex },
+                { CODER: regex },
+              ],
+            };
 
-              let custDocs = await Order.find(customerFilter).limit(15).lean();
-              if ((!custDocs || custDocs.length === 0) && db) {
-                custDocs = await db.collection("order").find(customerFilter).limit(15).toArray();
-              }
-
-              let mappedCustomers = custDocs.map((c: any) => {
-                const balance = Number(c.BALANCE || 0);
-                const isDebit = balance > 0;
-
-                return {
-                  id: `cust_${c._id || c.CODEP}`,
-                  type: "customer",
-                  category: "Customers & Parties",
-                  title: c.PARNAM || c.MAILNAM || `Customer ${c.CODEP}`,
-                  subtitle: `Code: ${c.CODEP || "N/A"} | Station/City: ${c.CITY || "N/A"} | GST: ${c.GSTNO || "Unregistered"}`,
-                  details: {
-                    customerCode: c.CODEP,
-                    partyName: c.PARNAM,
-                    mailName: c.MAILNAM,
-                    city: c.CITY,
-                    phone: c.PHONE1 || "N/A",
-                    gstNo: c.GSTNO || "N/A",
-                    outstandingBalance: `₹${Math.abs(balance).toLocaleString("en-IN")} ${isDebit ? "Dr" : "Cr"}`,
-                    rawBalance: balance,
-                    creditLimit: c.CREDIT ? `₹${Number(c.CREDIT).toLocaleString("en-IN")}` : "No Limit",
-                    dueDays: c.DUEDAYS || c.CREDITD || 0,
-                    orderNo: c.ORDNO || "N/A",
-                  },
-                  badges: [
-                    {
-                      label: `Bal: ₹${Math.abs(balance).toLocaleString("en-IN")} ${isDebit ? "Dr" : "Cr"}`,
-                      color: balance > 0 ? "amber" : "emerald",
-                    },
-                    c.CITY ? { label: c.CITY, color: "sky" } : null,
-                    c.GSTNO ? { label: "GST Registered", color: "indigo" } : null,
-                  ].filter(Boolean),
-                  actionUrl: `/dashboard/reports/customer?search=${encodeURIComponent(c.PARNAM || c.CODEP || "")}`,
-                  raw: c,
-                };
-              });
-
-              if (highBalanceOnly) {
-                mappedCustomers = mappedCustomers.filter((c) => c.details.rawBalance > 0);
-              }
-
-              if (sortBy === "priceHigh") {
-                mappedCustomers.sort((a, b) => b.details.rawBalance - a.details.rawBalance);
-              } else if (sortBy === "name") {
-                mappedCustomers.sort((a, b) => a.title.localeCompare(b.title));
-              }
-
-              return mappedCustomers.slice(0, limit);
-            } catch (err) {
-              console.error("Global search customers error:", err);
-              return [];
+            let custDocs = await Order.find(customerFilter).limit(15).lean();
+            if ((!custDocs || custDocs.length === 0) && db) {
+              custDocs = await db.collection("order").find(customerFilter).limit(15).toArray();
             }
-          })()
+
+            let mappedCustomers = custDocs.map((c: any) => {
+              const balance = Number(c.BALANCE || 0);
+              const isDebit = balance > 0;
+
+              return {
+                id: `cust_${c._id || c.CODEP}`,
+                type: "customer",
+                category: "Customers & Parties",
+                title: c.PARNAM || c.MAILNAM || `Customer ${c.CODEP}`,
+                subtitle: `Code: ${c.CODEP || "N/A"} | Station/City: ${c.CITY || "N/A"} | GST: ${c.GSTNO || "Unregistered"}`,
+                details: {
+                  customerCode: c.CODEP,
+                  partyName: c.PARNAM,
+                  mailName: c.MAILNAM,
+                  city: c.CITY,
+                  phone: c.PHONE1 || "N/A",
+                  gstNo: c.GSTNO || "N/A",
+                  outstandingBalance: `₹${Math.abs(balance).toLocaleString("en-IN")} ${isDebit ? "Dr" : "Cr"}`,
+                  rawBalance: balance,
+                  creditLimit: c.CREDIT ? `₹${Number(c.CREDIT).toLocaleString("en-IN")}` : "No Limit",
+                  dueDays: c.DUEDAYS || c.CREDITD || 0,
+                  orderNo: c.ORDNO || "N/A",
+                },
+                badges: [
+                  {
+                    label: `Bal: ₹${Math.abs(balance).toLocaleString("en-IN")} ${isDebit ? "Dr" : "Cr"}`,
+                    color: balance > 0 ? "amber" : "emerald",
+                  },
+                  c.CITY ? { label: c.CITY, color: "sky" } : null,
+                  c.GSTNO ? { label: "GST Registered", color: "indigo" } : null,
+                ].filter(Boolean),
+                actionUrl: `/dashboard/reports/customer?search=${encodeURIComponent(c.PARNAM || c.CODEP || "")}`,
+                raw: c,
+              };
+            });
+
+            if (highBalanceOnly) {
+              mappedCustomers = mappedCustomers.filter((c) => c.details.rawBalance > 0);
+            }
+
+            if (sortBy === "priceHigh") {
+              mappedCustomers.sort((a, b) => b.details.rawBalance - a.details.rawBalance);
+            } else if (sortBy === "name") {
+              mappedCustomers.sort((a, b) => a.title.localeCompare(b.title));
+            }
+
+            return mappedCustomers.slice(0, limit);
+          } catch (err) {
+            console.error("Global search customers error:", err);
+            return [];
+          }
+        })()
         : Promise.resolve([]),
 
       // 3. VOUCHERS & INVOICES SEARCH
       (category === "all" || category === "vouchers")
         ? (async () => {
-            try {
-              const voucherFilter: any = {
-                $or: [
-                  { VCN: regex },
-                  { CODEP: regex },
-                  { REMARK1: regex },
-                ],
-              };
-              if (queryNumber !== null) {
-                voucherFilter.$or.push({ VOUCHER: queryNumber });
-              }
-
-              let mdisDocs = await SalesMdis.find(voucherFilter).limit(8).lean();
-              if ((!mdisDocs || mdisDocs.length === 0) && db) {
-                mdisDocs = await db.collection("mdis").find(voucherFilter).limit(8).toArray();
-              }
-
-              let gLedgerDocs = await GlLedger.find(voucherFilter).limit(8).lean();
-              if ((!gLedgerDocs || gLedgerDocs.length === 0) && db) {
-                gLedgerDocs = await db.collection("gledger").find(voucherFilter).limit(8).toArray();
-              }
-
-              const resultsList: any[] = [];
-              const seenIds = new Set();
-
-              mdisDocs.forEach((m: any) => {
-                const vKey = `mdis_${m._id || m.VCN || m.VOUCHER}`;
-                if (seenIds.has(vKey)) return;
-                seenIds.add(vKey);
-
-                const amount = Number(m.FINAL || m.AMOUNTT || m.AMOUNTP || 0);
-
-                resultsList.push({
-                  id: vKey,
-                  type: "voucher",
-                  category: "Invoices & Sales",
-                  title: `Invoice #${m.VCN || m.VOUCHER}`,
-                  subtitle: `Party Code: ${m.CODEP || "N/A"} | Date: ${m.DATE || m.CDATE || "N/A"} | Godown: ${m.GODWON || "Main"}`,
-                  details: {
-                    invoiceNo: m.VCN || m.VOUCHER,
-                    voucherNo: m.VOUCHER,
-                    customerCode: m.CODEP,
-                    invoiceDate: m.DATE || m.CDATE,
-                    netAmount: `₹${amount.toLocaleString("en-IN")}`,
-                    rawAmount: amount,
-                    totalQty: m.ISSUEQTY || "N/A",
-                    challanNo: m.CHALLAN || "N/A",
-                    dsm: m.DSM || "N/A",
-                  },
-                  badges: [
-                    { label: `₹${amount.toLocaleString("en-IN")}`, color: "indigo" },
-                    { label: m.DATE || "Invoice", color: "slate" },
-                  ],
-                  actionUrl: `/dashboard/reports/sales-receipt?search=${encodeURIComponent(m.VCN || m.VOUCHER || "")}`,
-                  raw: m,
-                });
-              });
-
-              gLedgerDocs.forEach((g: any) => {
-                const gKey = `gledger_${g._id || g.VOUCHER}`;
-                if (seenIds.has(gKey)) return;
-                seenIds.add(gKey);
-
-                const debit = Number(g.DEBIT || 0);
-                const credit = Number(g.CREDIT || 0);
-                const amount = debit || credit || 0;
-
-                resultsList.push({
-                  id: gKey,
-                  type: "voucher",
-                  category: "Invoices & Vouchers",
-                  title: `Voucher #${g.VCN || g.VOUCHER || "N/A"} (${g.TYPE || g.BOOK || "Voucher"})`,
-                  subtitle: `Code: ${g.CODE || g.CODE1 || "N/A"} | Date: ${g.DATE || "N/A"} | Particulars: ${g.REMARK1 || "N/A"}`,
-                  details: {
-                    voucherNo: g.VOUCHER || g.VCN,
-                    voucherType: g.TYPE || g.BOOK || "General Ledger",
-                    partyCode: g.CODE || g.CODE1,
-                    date: g.DATE,
-                    debitAmount: debit ? `₹${debit.toLocaleString("en-IN")}` : "₹0",
-                    creditAmount: credit ? `₹${credit.toLocaleString("en-IN")}` : "₹0",
-                    rawAmount: amount,
-                    remark: g.REMARK1 || "N/A",
-                  },
-                  badges: [
-                    { label: debit ? `Dr ₹${debit.toLocaleString("en-IN")}` : `Cr ₹${credit.toLocaleString("en-IN")}`, color: debit ? "amber" : "emerald" },
-                    { label: g.TYPE || "Voucher", color: "violet" },
-                  ],
-                  actionUrl: `/dashboard/reports/sales-receipt?search=${encodeURIComponent(g.VOUCHER || g.VCN || "")}`,
-                  raw: g,
-                });
-              });
-
-              if (sortBy === "priceHigh") {
-                resultsList.sort((a, b) => b.details.rawAmount - a.details.rawAmount);
-              }
-
-              return resultsList.slice(0, limit);
-            } catch (err) {
-              console.error("Global search vouchers error:", err);
-              return [];
+          try {
+            const voucherFilter: any = {
+              $or: [
+                { VCN: regex },
+                { CODEP: regex },
+                { REMARK1: regex },
+              ],
+            };
+            if (queryNumber !== null) {
+              voucherFilter.$or.push({ VOUCHER: queryNumber });
             }
-          })()
+
+            let mdisDocs = await SalesMdis.find(voucherFilter).limit(8).lean();
+            if ((!mdisDocs || mdisDocs.length === 0) && db) {
+              mdisDocs = await db.collection("mdis").find(voucherFilter).limit(8).toArray();
+            }
+
+            let gLedgerDocs = await GlLedger.find(voucherFilter).limit(8).lean();
+            if ((!gLedgerDocs || gLedgerDocs.length === 0) && db) {
+              gLedgerDocs = await db.collection("gledger").find(voucherFilter).limit(8).toArray();
+            }
+
+            const resultsList: any[] = [];
+            const seenIds = new Set();
+
+            mdisDocs.forEach((m: any) => {
+              const vKey = `mdis_${m._id || m.VCN || m.VOUCHER}`;
+              if (seenIds.has(vKey)) return;
+              seenIds.add(vKey);
+
+              const amount = Number(m.FINAL || m.AMOUNTT || m.AMOUNTP || 0);
+
+              resultsList.push({
+                id: vKey,
+                type: "voucher",
+                category: "Invoices & Sales",
+                title: `Invoice #${m.VCN || m.VOUCHER}`,
+                subtitle: `Party Code: ${m.CODEP || "N/A"} | Date: ${m.DATE || m.CDATE || "N/A"} | Godown: ${m.GODWON || "Main"}`,
+                details: {
+                  invoiceNo: m.VCN || m.VOUCHER,
+                  voucherNo: m.VOUCHER,
+                  customerCode: m.CODEP,
+                  invoiceDate: m.DATE || m.CDATE,
+                  netAmount: `₹${amount.toLocaleString("en-IN")}`,
+                  rawAmount: amount,
+                  totalQty: m.ISSUEQTY || "N/A",
+                  challanNo: m.CHALLAN || "N/A",
+                  dsm: m.DSM || "N/A",
+                },
+                badges: [
+                  { label: `₹${amount.toLocaleString("en-IN")}`, color: "indigo" },
+                  { label: m.DATE || "Invoice", color: "slate" },
+                ],
+                actionUrl: `/dashboard/reports/sales-receipt?search=${encodeURIComponent(m.VCN || m.VOUCHER || "")}`,
+                raw: m,
+              });
+            });
+
+            gLedgerDocs.forEach((g: any) => {
+              const gKey = `gledger_${g._id || g.VOUCHER}`;
+              if (seenIds.has(gKey)) return;
+              seenIds.add(gKey);
+
+              const debit = Number(g.DEBIT || 0);
+              const credit = Number(g.CREDIT || 0);
+              const amount = debit || credit || 0;
+
+              resultsList.push({
+                id: gKey,
+                type: "voucher",
+                category: "Invoices & Vouchers",
+                title: `Voucher #${g.VCN || g.VOUCHER || "N/A"} (${g.TYPE || g.BOOK || "Voucher"})`,
+                subtitle: `Code: ${g.CODE || g.CODE1 || "N/A"} | Date: ${g.DATE || "N/A"} | Particulars: ${g.REMARK1 || "N/A"}`,
+                details: {
+                  voucherNo: g.VOUCHER || g.VCN,
+                  voucherType: g.TYPE || g.BOOK || "General Ledger",
+                  partyCode: g.CODE || g.CODE1,
+                  date: g.DATE,
+                  debitAmount: debit ? `₹${debit.toLocaleString("en-IN")}` : "₹0",
+                  creditAmount: credit ? `₹${credit.toLocaleString("en-IN")}` : "₹0",
+                  rawAmount: amount,
+                  remark: g.REMARK1 || "N/A",
+                },
+                badges: [
+                  { label: debit ? `Dr ₹${debit.toLocaleString("en-IN")}` : `Cr ₹${credit.toLocaleString("en-IN")}`, color: debit ? "amber" : "emerald" },
+                  { label: g.TYPE || "Voucher", color: "violet" },
+                ],
+                actionUrl: `/dashboard/reports/sales-receipt?search=${encodeURIComponent(g.VOUCHER || g.VCN || "")}`,
+                raw: g,
+              });
+            });
+
+            if (sortBy === "priceHigh") {
+              resultsList.sort((a, b) => b.details.rawAmount - a.details.rawAmount);
+            }
+
+            return resultsList.slice(0, limit);
+          } catch (err) {
+            console.error("Global search vouchers error:", err);
+            return [];
+          }
+        })()
         : Promise.resolve([]),
 
       // 4. SALES TEAM & MR SEARCH
       (category === "all" || category === "users")
         ? (async () => {
-            try {
-              const userFilter: any = {
-                $or: [
-                  { name: regex },
-                  { email: regex },
-                  { phone: regex },
-                  { headquarter: regex },
-                  { roleType: regex },
-                  { zoneCode: regex },
-                  { regionCode: regex },
-                ],
-              };
+          try {
+            const userFilter: any = {
+              $or: [
+                { name: regex },
+                { email: regex },
+                { phone: regex },
+                { headquarter: regex },
+                { roleType: regex },
+                { zoneCode: regex },
+                { regionCode: regex },
+              ],
+            };
 
-              const userDocs = await User.find(userFilter)
-                .select("-password")
-                .limit(8)
-                .lean();
+            const userDocs = await User.find(userFilter)
+              .select("-password")
+              .limit(8)
+              .lean();
 
-              return userDocs.map((u: any) => ({
-                id: `user_${u._id}`,
-                type: "user",
-                category: "Sales Team & MR",
-                title: u.name,
-                subtitle: `Role: ${u.roleType || "MR"} | HQ: ${u.headquarter || "N/A"} | Email: ${u.email}`,
-                details: {
-                  name: u.name,
-                  email: u.email,
-                  phone: u.phone || "N/A",
-                  roleType: u.roleType || "MR",
-                  headquarter: u.headquarter || "N/A",
-                  zoneCode: u.zoneCode || "N/A",
-                  regionCode: u.regionCode || "N/A",
-                  profilePhoto: u.profilePhoto || null,
-                },
-                badges: [
-                  { label: u.roleType || "MR", color: "blue" },
-                  u.headquarter ? { label: `HQ: ${u.headquarter}`, color: "teal" } : null,
-                ].filter(Boolean),
-                actionUrl: `/dashboard/mr-territory?search=${encodeURIComponent(u.name || "")}`,
-                raw: u,
-              }));
-            } catch (err) {
-              console.error("Global search users error:", err);
-              return [];
-            }
-          })()
+            return userDocs.map((u: any) => ({
+              id: `user_${u._id}`,
+              type: "user",
+              category: "Sales Team & MR",
+              title: u.name,
+              subtitle: `Role: ${u.roleType || "MR"} | HQ: ${u.headquarter || "N/A"} | Email: ${u.email}`,
+              details: {
+                name: u.name,
+                email: u.email,
+                phone: u.phone || "N/A",
+                roleType: u.roleType || "MR",
+                headquarter: u.headquarter || "N/A",
+                zoneCode: u.zoneCode || "N/A",
+                regionCode: u.regionCode || "N/A",
+                profilePhoto: u.profilePhoto || null,
+              },
+              badges: [
+                { label: u.roleType || "MR", color: "blue" },
+                u.headquarter ? { label: `HQ: ${u.headquarter}`, color: "teal" } : null,
+              ].filter(Boolean),
+              actionUrl: `/dashboard/mr-territory?search=${encodeURIComponent(u.name || "")}`,
+              raw: u,
+            }));
+          } catch (err) {
+            console.error("Global search users error:", err);
+            return [];
+          }
+        })()
         : Promise.resolve([]),
 
       // 5. NAVIGATION, PAGES, FILE NAMES & LIVE DASHBOARD KPI CARDS SEARCH
       (category === "all" || category === "navigation")
         ? (async () => {
-            const cleanQuery = query.toLowerCase().replace(/[\s\-_.]/g, "");
+          const cleanQuery = query.toLowerCase().replace(/[\s\-_.]/g, "");
 
-            // 1. Search KPI Cards Definitions
-            const kpiMatches = KPI_CARD_DEFINITIONS.filter((kpi) => {
-              const inTitle = kpi.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
-              const inKeywords = kpi.keywords.some((k) => k.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery));
-              return inTitle || inKeywords;
+          // 1. Search KPI Cards Definitions
+          const kpiMatches = KPI_CARD_DEFINITIONS.filter((kpi) => {
+            const inTitle = kpi.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
+            const inKeywords = kpi.keywords.some((k) => k.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery));
+            return inTitle || inKeywords;
+          });
+
+          let kpiResults: any[] = [];
+          if (kpiMatches.length > 0) {
+            const liveMetrics = await getLiveKPIMetrics(db);
+            kpiResults = kpiMatches.map((kpi, idx) => {
+              const val = kpi.getValue(liveMetrics);
+              return {
+                id: `kpi_${idx}_${kpi.key}`,
+                type: "kpi",
+                category: "Dashboard KPI Metric 📊",
+                title: `${kpi.title}: ${val}`,
+                subtitle: `Live Dashboard KPI Card • Click to open ${kpi.title} section`,
+                details: {
+                  metricName: kpi.title,
+                  liveValue: val,
+                  route: kpi.path,
+                  keywords: kpi.keywords.join(", "),
+                },
+                badges: [
+                  { label: `Live Value: ${val}`, color: kpi.badgeColor || "emerald" },
+                  { label: "Dashboard Metric 📊", color: "indigo" },
+                ],
+                actionUrl: kpi.path,
+                raw: { kpi, val },
+              };
             });
+          }
 
-            let kpiResults: any[] = [];
-            if (kpiMatches.length > 0) {
-              const liveMetrics = await getLiveKPIMetrics(db);
-              kpiResults = kpiMatches.map((kpi, idx) => {
-                const val = kpi.getValue(liveMetrics);
-                return {
-                  id: `kpi_${idx}_${kpi.key}`,
-                  type: "kpi",
-                  category: "Dashboard KPI Metric 📊",
-                  title: `${kpi.title}: ${val}`,
-                  subtitle: `Live Dashboard KPI Card • Click to open ${kpi.title} section`,
-                  details: {
-                    metricName: kpi.title,
-                    liveValue: val,
-                    route: kpi.path,
-                    keywords: kpi.keywords.join(", "),
-                  },
-                  badges: [
-                    { label: `Live Value: ${val}`, color: kpi.badgeColor || "emerald" },
-                    { label: "Dashboard Metric 📊", color: "indigo" },
-                  ],
-                  actionUrl: kpi.path,
-                  raw: { kpi, val },
-                };
-              });
-            }
+          // 2. Search Page & Navigation Items
+          const matches = APP_PAGES.filter((page) => {
+            const inTitle = page.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
+            const inPath = page.path.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
+            const inFileName = (page.fileName || "").toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
+            const inKeywords = page.keywords.some((k) => k.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery));
+            return inTitle || inPath || inFileName || inKeywords;
+          });
 
-            // 2. Search Page & Navigation Items
-            const matches = APP_PAGES.filter((page) => {
-              const inTitle = page.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
-              const inPath = page.path.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
-              const inFileName = (page.fileName || "").toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
-              const inKeywords = page.keywords.some((k) => k.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery));
-              return inTitle || inPath || inFileName || inKeywords;
-            });
-
-            const navResults = matches.map((p, idx) => ({
-              id: `nav_${idx}_${p.path}`,
-              type: "navigation",
-              category: p.category || "Navigation & Pages",
+          const navResults = matches.map((p, idx) => ({
+            id: `nav_${idx}_${p.path}`,
+            type: "navigation",
+            category: p.category || "Navigation & Pages",
+            title: p.title,
+            subtitle: `Route: ${p.path} • File: ${p.fileName || "Page Link"}`,
+            details: {
               title: p.title,
-              subtitle: `Route: ${p.path} • File: ${p.fileName || "Page Link"}`,
-              details: {
-                title: p.title,
-                route: p.path,
-                fileName: p.fileName || "N/A",
-                keywords: p.keywords.join(", "),
-              },
-              badges: [
-                { label: "Page Link", color: "cyan" },
-                p.fileName ? { label: p.fileName.split("/").pop() || p.fileName, color: "indigo" } : null,
-              ].filter(Boolean),
-              actionUrl: p.path,
-              raw: p,
-            }));
+              route: p.path,
+              fileName: p.fileName || "N/A",
+              keywords: p.keywords.join(", "),
+            },
+            badges: [
+              { label: "Page Link", color: "cyan" },
+              p.fileName ? { label: p.fileName.split("/").pop() || p.fileName, color: "indigo" } : null,
+            ].filter(Boolean),
+            actionUrl: p.path,
+            raw: p,
+          }));
 
-            return [...kpiResults, ...navResults];
-          })()
+          return [...kpiResults, ...navResults];
+        })()
         : Promise.resolve([]),
     ]);
 
