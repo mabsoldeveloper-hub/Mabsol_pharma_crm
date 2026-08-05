@@ -318,7 +318,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           )}
           <span className="relative">{icon}</span>
         </span>
-        <span className="truncate transition-opacity duration-200">{label}</span>
+        <span className="leading-tight whitespace-normal break-words transition-opacity duration-200">{label}</span>
       </Link>
     );
   };
@@ -352,7 +352,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         >
           {icon}
         </span>
-        <span className="truncate">{label}</span>
+        <span className="leading-tight whitespace-normal break-words">{label}</span>
       </Link>
     );
   };
@@ -414,7 +414,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               : `text-gray-600 dark:text-gray-400 hover:text-gray-800 ${c.hoverText}`
               }`}
           >
-            <span className="flex items-center gap-3">
+            <span className="flex items-center gap-3 min-w-0 flex-1 text-left">
               <span
                 className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
                   ? "icon-chip-active text-white scale-105"
@@ -434,11 +434,11 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                 )}
                 <span className="relative">{icon}</span>
               </span>
-              <span>{label}</span>
+              <span className="leading-tight whitespace-normal break-words text-left">{label}</span>
             </span>
             <FaChevronDown
               size={11}
-              className={`text-gray-400 transition-transform duration-300 ease-out ${c.hoverText} ${open ? "rotate-180" : ""
+              className={`text-gray-400 transition-transform duration-300 ease-out shrink-0 ml-1 ${c.hoverText} ${open ? "rotate-180" : ""
                 }`}
             />
           </button>
