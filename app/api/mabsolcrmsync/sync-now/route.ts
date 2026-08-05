@@ -64,12 +64,19 @@ export async function POST(request: NextRequest) {
     const canSyncDirectlyOnServer = (dataDir && fs.existsSync(dataDir)) || fs.existsSync(uploadDir);
 
     if (canSyncDirectlyOnServer) {
-      // Execute direct server-side DBF sync if folder exists on server machine or uploaded
-      const syncResult = await performDirectServerSync(user.email);
+      // Execute direct server-side DBF sync in background so HTTP connection does not time out on large DBF tables
+      performDirectServerSync(user.email).catch((err) => {
+        console.error("Direct server sync background error:", err);
+      });
+
       return NextResponse.json({
         success: true,
-        message: `DBF synchronization completed! Synced ${syncResult.importedTables} table(s), ${syncResult.importedRows} row(s).`,
-        result: syncResult,
+        message: `DBF synchronization started in background! Processing all selected DBF tables...`,
+        result: {
+          importedTables: 0,
+          importedRows: 0,
+          background: true,
+        },
       });
     } else {
       // AWS Live Cloud mode: Folder is on client's Windows PC (e.g., D:\VfpNew\MANCHANDA)

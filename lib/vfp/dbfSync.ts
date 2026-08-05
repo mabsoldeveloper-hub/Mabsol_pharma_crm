@@ -14,40 +14,31 @@ export async function performDirectServerSync(userEmail: string) {
   await dbConnect();
 
   const email = userEmail || "global";
-  let config: any =
-    (await VfpConfig.findOne({ email }).lean()) ||
-    (await VfpConfig.findOne({ key: "vfp_sync_config" }).lean());
 
-  if (!config) {
-    config = (await VfpConfig.findOne({}).sort({ updatedAt: -1 }).lean()) || {};
-  }
+  // STRICT USER ISOLATION: Only look up THIS user's own config — never fall back to other users
+  const config: any =
+    (await VfpConfig.findOne({ email }).lean()) ||
+    (await VfpConfig.findOne({ key: "vfp_sync_config", email }).lean()) ||
+    null;
 
   let dataDir: string = config?.consoleSyncDir || config?.sourceDir || config?.dataDir || process.env.VFP_DATA_DIR || "";
   const enabledFiles: string[] = config?.enabledFiles || [];
 
+  // User-specific upload directory (browser-uploaded DBF files)
   const sanitizedEmail = (userEmail || "global").replace(/[^a-zA-Z0-9_-]/g, "_");
   const uploadDir = path.join(process.cwd(), "data", "vfp_uploads", sanitizedEmail);
 
-  // Fallback 1: check if DBF files were uploaded via browser to server storage
+  // Fallback: check if DBF files were uploaded via browser to THIS USER's server storage
   if ((!dataDir || !fs.existsSync(dataDir)) && fs.existsSync(uploadDir)) {
     dataDir = uploadDir;
   }
 
-  // Fallback 2: search all stored configurations in database for a valid existing directory path
-  if (!dataDir || !fs.existsSync(dataDir)) {
-    const allConfigs = await VfpConfig.find({}).lean();
-    for (const c of allConfigs) {
-      const candidate = (c as any).consoleSyncDir || (c as any).sourceDir || (c as any).dataDir;
-      if (candidate && fs.existsSync(candidate)) {
-        dataDir = candidate;
-        break;
-      }
-    }
-  }
+  // REMOVED: Cross-user fallback that searched all configs in DB.
+  // That fallback was incorrectly picking up other users' folder paths.
 
   if (!dataDir || !fs.existsSync(dataDir)) {
     throw new Error(
-      `No valid DBF data directory path configured on server (${dataDir || "None"}). On AWS live deployment, please select DBF files in browser to upload or start the local desktop sync worker ('run_local_sync.bat').`
+      `No valid DBF data directory configured for user ${email}. Please set your folder path in the Sync Console or upload DBF files via the browser.`
     );
   }
 
@@ -67,17 +58,23 @@ export async function performDirectServerSync(userEmail: string) {
     isValidTableFile(path.basename(filePath))
   );
 
-  if (enabledFiles && enabledFiles.length > 0) {
-    const enabledSet = new Set(enabledFiles.map((f) => f.toLowerCase()));
+  // Only apply the enabledFiles filter when syncing from a non-upload directory
+  // (e.g. a configured local VFP folder path).
+  // When dataDir IS the upload folder, we trust only the physical files that were
+  // just written there — the enabledFiles config may still reference stale entries
+  // from a previous upload session (e.g. GLMONTH_F17, DIS_F17, GLMONTH_E10).
+  const isUploadDir = dataDir === uploadDir;
+  if (!isUploadDir && enabledFiles && enabledFiles.length > 0) {
+    const enabledSet = new Set(
+      enabledFiles.map((f) => path.basename(f).toLowerCase())
+    );
     files = files.filter((filePath) => {
-      const relativePath = path
-        .relative(dataDir, filePath)
-        .replace(/\\/g, "/")
-        .toLowerCase();
-      const baseNameWithoutExt = relativePath.replace(/\.[^.]+$/, "");
+      const baseName = path.basename(filePath).toLowerCase();
+      const baseNameWithoutExt = baseName.replace(/\.[^.]+$/, "");
 
-      if (enabledSet.has(relativePath)) return true;
+      if (enabledSet.has(baseName)) return true;
       if (enabledSet.has(`${baseNameWithoutExt}.dbf`)) return true;
+      if (enabledSet.has(baseNameWithoutExt)) return true;
       return false;
     });
   }
@@ -151,6 +148,18 @@ async function importSingleDbfFile(
     { upsert: true }
   );
 
+  // Write a "running" log entry so live progress polling can see this table is active
+  await VfpSyncLog.create({
+    runId,
+    email,
+    tableName,
+    fileName,
+    action: "dbf_to_crm",
+    status: "running",
+    message: `Processing ${fileName}...`,
+    startedAt,
+  });
+
   try {
     const stats = fs.statSync(filePath);
     const dbf = readDbf(filePath);
@@ -176,56 +185,38 @@ async function importSingleDbfFile(
     );
 
     const collection = mongoose.connection.collection(targetCollection);
-    await collection.createIndex(
-      { _vfpTable: 1, _vfpSourceKey: 1 },
-      { unique: true }
-    );
+    await collection.dropIndexes().catch(() => {});
+    await collection.deleteMany({});
+
+    const docs = dbf.rows.map((row: any) => {
+      const sourceKey = buildSourceKey(row, primaryKeyFields);
+      return {
+        ...row.data,
+        _vfpTable: tableName,
+        _vfpSourceKey: sourceKey,
+        _vfpRowNumber: row.rowNumber,
+        _vfpFileName: fileName,
+        _vfpFileMtimeMs: stats.mtimeMs,
+        _vfpDeleted: row.deleted,
+        _vfpSyncRunId: runId,
+        _vfpSyncedAt: new Date(),
+      };
+    });
 
     let importedCount = 0;
-    let tableHash = "";
-    const bulkOps: any[] = [];
-
-    for (const row of dbf.rows) {
-      const sourceKey = buildSourceKey(row, primaryKeyFields);
-      const rowHash = hashJson(row.data);
-      tableHash = hashJson(`${tableHash}:${rowHash}`);
-
-      bulkOps.push({
-        updateOne: {
-          filter: { _vfpTable: tableName, _vfpSourceKey: sourceKey },
-          update: {
-            $set: {
-              ...row.data,
-              _vfpTable: tableName,
-              _vfpSourceKey: sourceKey,
-              _vfpRowNumber: row.rowNumber,
-              _vfpRowHash: rowHash,
-              _vfpFileName: fileName,
-              _vfpFileMtimeMs: stats.mtimeMs,
-              _vfpDeleted: row.deleted,
-              _vfpSyncRunId: runId,
-              _vfpSyncedAt: new Date(),
-            },
-          },
-          upsert: true,
-        },
-      });
-
-      if (bulkOps.length >= 1000) {
-        await collection.bulkWrite(bulkOps, { ordered: false });
-        importedCount += bulkOps.length;
-        bulkOps.length = 0;
+    const BATCH_SIZE = 5000;
+    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+      const chunk = docs.slice(i, i + BATCH_SIZE);
+      if (chunk.length > 0) {
+        await collection.insertMany(chunk, { ordered: false });
+        importedCount += chunk.length;
       }
-    }
-
-    if (bulkOps.length > 0) {
-      await collection.bulkWrite(bulkOps, { ordered: false });
-      importedCount += bulkOps.length;
     }
 
     // Previously synced records are preserved; upsert appends new records and updates existing ones without deleting old data
 
     const syncDateLabel = getSyncDateLabel(new Date());
+    const tableHash = `${stats.mtimeMs}-${dbf.recordCount}`;
     await VfpSyncState.updateOne(
       { tableName, email },
       {
@@ -321,7 +312,7 @@ function isValidTableFile(fileName: string) {
   return true;
 }
 
-function readDbf(filePath: string) {
+export function readDbf(filePath: string) {
   const buffer = fs.readFileSync(filePath);
   const recordCount = buffer.readUInt32LE(4);
   const headerLength = buffer.readUInt16LE(8);
@@ -481,7 +472,7 @@ function buildSourceKey(row: any, primaryKeyFields: string[]) {
       .map((field) => String(row.data[field] ?? "").trim())
       .filter(Boolean)
       .join(":");
-    if (key) return key;
+    if (key) return `${key}:${row.rowNumber}`;
   }
   return `row:${row.rowNumber}`;
 }
@@ -491,8 +482,12 @@ function hashJson(value: any) {
 }
 
 function sanitizeCollectionName(value: string) {
-  const base = value.split("_")[0];
-  return base.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
+  // Strip trailing year/financial-year/branch suffix (e.g. _I06, _F17, _E10, _I05, _04, etc.)
+  // so GLEDGER_I06 -> "gledger" -> collection: "vfp_new_folder_gledger"
+  let cleaned = value.trim().replace(/\$/g, "");
+  cleaned = cleaned.replace(/_[a-z]?\d+$/i, "");
+  cleaned = cleaned.replace(/[\$_]+$/, "");
+  return cleaned.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
 }
 
 function decodeText(buffer: Buffer) {
