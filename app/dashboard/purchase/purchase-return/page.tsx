@@ -263,7 +263,7 @@ function PurchaseReturnContent() {
     if (activeTab === "history") {
       fetchHistory();
     }
-  }, [activeTab, historyPage, historySearch]);
+  }, [activeTab, historyPage, historySearch, selectedCompany?._id, selectedFY?._id, selectedFY?.fyCode]);
 
   const fetchNextVcn = async () => {
     try {
@@ -322,6 +322,9 @@ function PurchaseReturnContent() {
         limit: "15",
         search: historySearch,
       });
+      if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+      if (selectedFY?._id) params.set("fyId", selectedFY._id);
+      if (selectedFY?.fyCode) params.set("fyCode", selectedFY.fyCode);
 
       const res = await fetch(`/api/purchase/purchase-return?${params.toString()}`);
       if (res.ok) {
