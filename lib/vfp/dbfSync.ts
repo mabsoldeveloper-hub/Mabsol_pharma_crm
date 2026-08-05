@@ -25,7 +25,15 @@ export async function performDirectServerSync(userEmail: string) {
   let dataDir: string = config?.consoleSyncDir || config?.sourceDir || config?.dataDir || process.env.VFP_DATA_DIR || "";
   const enabledFiles: string[] = config?.enabledFiles || [];
 
-  // Fallback: search all stored configurations in database for a valid existing directory path
+  const sanitizedEmail = (userEmail || "global").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const uploadDir = path.join(process.cwd(), "data", "vfp_uploads", sanitizedEmail);
+
+  // Fallback 1: check if DBF files were uploaded via browser to server storage
+  if ((!dataDir || !fs.existsSync(dataDir)) && fs.existsSync(uploadDir)) {
+    dataDir = uploadDir;
+  }
+
+  // Fallback 2: search all stored configurations in database for a valid existing directory path
   if (!dataDir || !fs.existsSync(dataDir)) {
     const allConfigs = await VfpConfig.find({}).lean();
     for (const c of allConfigs) {
@@ -39,7 +47,7 @@ export async function performDirectServerSync(userEmail: string) {
 
   if (!dataDir || !fs.existsSync(dataDir)) {
     throw new Error(
-      `No valid DBF data directory path configured on server (${dataDir || "None"}). Please verify the folder path in the 'SELECTED FILES FOLDER LOCATION' field.`
+      `No valid DBF data directory path configured on server (${dataDir || "None"}). On AWS live deployment, please select DBF files in browser to upload or start the local desktop sync worker ('run_local_sync.bat').`
     );
   }
 
