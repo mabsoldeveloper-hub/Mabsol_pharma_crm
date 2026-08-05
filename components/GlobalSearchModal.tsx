@@ -55,6 +55,7 @@ interface GlobalSearchModalProps {
   onClose: () => void;
   autoVoiceStart?: boolean;
   onVoiceStartHandled?: () => void;
+  initialQuery?: string;
 }
 
 export default function GlobalSearchModal({
@@ -62,6 +63,7 @@ export default function GlobalSearchModal({
   onClose,
   autoVoiceStart = false,
   onVoiceStartHandled,
+  initialQuery = "",
 }: GlobalSearchModalProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -205,12 +207,14 @@ export default function GlobalSearchModal({
   useEffect(() => {
     if (isOpen && autoVoiceStart) {
       if (onVoiceStartHandled) onVoiceStartHandled();
-      const timer = setTimeout(() => {
-        speakText(greetingText || "Haan ji! Main aapki kya help kar sakta hu?");
-      }, 250);
-      return () => clearTimeout(timer);
+      if (!initialQuery && !query) {
+        const timer = setTimeout(() => {
+          speakText(greetingText || "Haan ji! Main aapki kya help kar sakta hu?");
+        }, 250);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [isOpen, autoVoiceStart, onVoiceStartHandled, speakText, greetingText]);
+  }, [isOpen, autoVoiceStart, onVoiceStartHandled, speakText, greetingText, initialQuery, query]);
 
   const stopSpeaking = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -384,6 +388,9 @@ export default function GlobalSearchModal({
   // Focus input & handle vocal speech cleanup when modal state changes
   useEffect(() => {
     if (isOpen) {
+      if (initialQuery) {
+        setQuery(initialQuery);
+      }
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -398,7 +405,7 @@ export default function GlobalSearchModal({
       setSortBy("relevance");
       setShowGuide(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialQuery]);
 
   // Debounced search API fetch with filters & Alexa Speech Synthesis trigger
   useEffect(() => {
@@ -421,6 +428,7 @@ export default function GlobalSearchModal({
     const timer = setTimeout(() => {
       const params = new URLSearchParams({
         q: query,
+        assistantName: assistantName || "Salim",
         category: activeCategory,
         inStock: inStockOnly ? "true" : "false",
         nearExpiry: nearExpiryOnly ? "true" : "false",

@@ -13,10 +13,27 @@ function escapeRegex(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Spoken Voice Search Cleaner - removes spoken filler words across English, Hindi, Urdu & Hinglish
-function cleanSpokenQuery(input: string): string {
+// Spoken Voice Search Cleaner - removes spoken filler words & dynamic assistant wake names across English, Hindi, Urdu & Hinglish
+function cleanSpokenQuery(input: string, assistantName?: string): string {
   if (!input) return "";
   let text = input.trim();
+
+  // Dynamic Assistant Name & Wake Trigger Stripping (e.g. "Hi Salim", "Hey Salim", "Salim bhai")
+  const targetName = (assistantName || "Salim").trim();
+  const escapedName = escapeRegex(targetName);
+
+  const assistantPatterns = [
+    new RegExp(`^\\b(hi|hey|hello|ok|suno|bol|bolo|haan|ji)\\s+${escapedName}\\b\\s*`, "gi"),
+    new RegExp(`^\\b${escapedName}\\s+(bhai|ji|ai|assistant)?\\b\\s*`, "gi"),
+    new RegExp(`\\b(hi|hey|hello|ok)\\s+${escapedName}\\b`, "gi"),
+    new RegExp(`\\b${escapedName}\\s*(bhai|ji)?\\b`, "gi"),
+    /\b(hi|hey|hello|ok)\s+salim\b/gi,
+    /\bsalim\s*(bhai|ji)?\b/gi,
+  ];
+
+  assistantPatterns.forEach((pattern) => {
+    text = text.replace(pattern, " ");
+  });
 
   const spokenFillers = [
     /\b(dikhao|dikhaao|dikhaye|dikhayen)\b/gi,
@@ -32,11 +49,11 @@ function cleanSpokenQuery(input: string): string {
 
   let cleaned = text;
   spokenFillers.forEach((pattern) => {
-    cleaned = cleaned.replace(pattern, "");
+    cleaned = cleaned.replace(pattern, " ");
   });
 
   cleaned = cleaned.replace(/\s+/g, " ").trim();
-  return cleaned.length > 0 ? cleaned : text;
+  return cleaned.length > 0 ? cleaned : input.trim();
 }
 
 // Typo correction dictionary for common pharma terms & reports
@@ -93,6 +110,8 @@ const APP_PAGES = [
   // Area & Comparison
   { title: "Area Management", category: "Navigation", path: "/dashboard/area", fileName: "app/dashboard/area/page.tsx", keywords: ["area", "locations", "zones", "stations"], icon: "building" },
   { title: "Comparison Tool & Analytics", category: "Navigation", path: "/dashboard/compare", fileName: "app/dashboard/compare/page.tsx", keywords: ["comparison", "compare", "sales comparison", "period comparison", "analytics"], icon: "boxes" },
+  { title: "Financial Year Wise Comparison", category: "Navigation", path: "/dashboard/compare/fy-wise", fileName: "app/dashboard/compare/fy-wise/page.tsx", keywords: ["fy wise comparison", "fy compare", "financial year comparison"], icon: "calendar" },
+  { title: "FY Area Wise Comparison Map", category: "Navigation", path: "/dashboard/compare/fy-area-wise", fileName: "app/dashboard/compare/fy-area-wise/page.tsx", keywords: ["fy area map", "area comparison map", "territory compare"], icon: "map-pin" },
 
   // Users & Permissions
   { title: "User Management", category: "Navigation", path: "/dashboard/users", fileName: "app/dashboard/users/page.tsx", keywords: ["user management", "users", "employee list", "staff", "create user"], icon: "users" },
@@ -104,16 +123,28 @@ const APP_PAGES = [
   { title: "Inventory Dashboard", category: "Navigation", path: "/dashboard/inventory/dashboard", fileName: "app/dashboard/inventory/dashboard/page.tsx", keywords: ["inventory dashboard", "stock overview", "inventory analytics"], icon: "layout-dashboard" },
   { title: "Inventory Products List", category: "Navigation", path: "/dashboard/inventory/products", fileName: "app/dashboard/inventory/products/page.tsx", keywords: ["inventory products", "stock items", "products list"], icon: "package" },
   { title: "Current Stock & Warehouse", category: "Navigation", path: "/dashboard/stock", fileName: "app/dashboard/stock/page.tsx", keywords: ["stock", "current stock", "warehouse", "godown", "batch stock"], icon: "warehouse" },
+  { title: "Batch Expiry Liquidator", category: "Navigation", path: "/dashboard/stock/expiry-liquidator", fileName: "app/dashboard/stock/expiry-liquidator/page.tsx", keywords: ["expiry liquidator", "batch expiry liquidator", "clearance stock", "expiry discount", "expiry alert"], icon: "warehouse" },
   { title: "Current Stock Inventory Report", category: "Navigation", path: "/dashboard/reports/product?view=stock", fileName: "app/dashboard/reports/product/page.tsx", keywords: ["current stock inventory", "available stock", "godown", "warehouse stock"], icon: "boxes" },
 
   // Sales Module
   { title: "Sales Dashboard", category: "Navigation", path: "/dashboard/sales/dashboard", fileName: "app/dashboard/sales/dashboard/page.tsx", keywords: ["sales dashboard", "sales analytics", "revenue dashboard"], icon: "layout-dashboard" },
   { title: "Sales Invoices List", category: "Navigation", path: "/dashboard/sales/invoice", fileName: "app/dashboard/sales/invoice/page.tsx", keywords: ["invoices list", "sales invoice", "bills", "invoice history"], icon: "file-invoice" },
   { title: "Sales Outstanding Balances", category: "Navigation", path: "/dashboard/sales/outstanding", fileName: "app/dashboard/sales/outstanding/page.tsx", keywords: ["sales outstanding", "due payment", "pending bill", "receivables"], icon: "clock" },
+  { title: "Bad Debt & Credit Risk", category: "Navigation", path: "/dashboard/credit-risk/bad-debts", fileName: "app/dashboard/credit-risk/bad-debts/page.tsx", keywords: ["bad debt", "credit risk", "risk management", "npa", "defaulters"], icon: "user-shield" },
   { title: "Create Sale Invoice", category: "Navigation", path: "/dashboard/sales/invoice/create", fileName: "app/dashboard/sales/invoice/create/page.tsx", keywords: ["create sale invoice", "new bill", "billing entry", "billing"], icon: "plus-circle" },
   { title: "Sales Return Entry & Report", category: "Navigation", path: "/dashboard/sales/sale-return", fileName: "app/dashboard/sales/sale-return/page.tsx", keywords: ["sales return", "sale-return", "credit note", "return entry", "refund"], icon: "undo" },
   { title: "Receipt Entry & Collection", category: "Navigation", path: "/dashboard/sales/receipt", fileName: "app/dashboard/sales/receipt/page.tsx", keywords: ["receipt entry", "receipt", "payment collection", "voucher receipt"], icon: "receipt" },
   { title: "Orders List & Processing", category: "Navigation", path: "/dashboard/orders", fileName: "app/dashboard/orders/page.tsx", keywords: ["orders", "sales order", "pending orders"], icon: "clipboard-list" },
+
+  // Purchase Module
+  { title: "Purchase Dashboard", category: "Navigation", path: "/dashboard/purchase/dashboard", fileName: "app/dashboard/purchase/dashboard/page.tsx", keywords: ["purchase dashboard", "vendor analytics", "purchase summary"], icon: "layout-dashboard" },
+  { title: "Purchase Invoices List", category: "Navigation", path: "/dashboard/purchase/invoice", fileName: "app/dashboard/purchase/invoice/page.tsx", keywords: ["purchase invoices", "vendor bills", "purchase list"], icon: "file-invoice" },
+  { title: "Purchase Outstanding", category: "Navigation", path: "/dashboard/purchase/outstanding", fileName: "app/dashboard/purchase/outstanding/page.tsx", keywords: ["purchase outstanding", "vendor dues", "payables"], icon: "clock" },
+  { title: "Create Purchase Bill", category: "Navigation", path: "/dashboard/purchase/invoice/create", fileName: "app/dashboard/purchase/invoice/create/page.tsx", keywords: ["create purchase bill", "new purchase bill", "vendor invoice entry"], icon: "plus-circle" },
+  { title: "AI Bill Entry (Photo/PDF)", category: "Navigation", path: "/dashboard/purchase/ai-entry", fileName: "app/dashboard/purchase/ai-entry/page.tsx", keywords: ["ai bill entry", "photo bill", "pdf bill OCR", "smart bill scanner"], icon: "camera" },
+  { title: "Purchase Return Entry & Report", category: "Navigation", path: "/dashboard/purchase/purchase-return", fileName: "app/dashboard/purchase/purchase-return/page.tsx", keywords: ["purchase return", "debit note", "vendor return"], icon: "undo" },
+  { title: "Payment Entry", category: "Navigation", path: "/dashboard/purchase/payment", fileName: "app/dashboard/purchase/payment/page.tsx", keywords: ["payment entry", "vendor payment", "paid voucher"], icon: "receipt" },
+  { title: "Purchase Orders", category: "Navigation", path: "/dashboard/purchase/orders", fileName: "app/dashboard/purchase/orders/page.tsx", keywords: ["purchase orders", "po", "vendor orders"], icon: "clipboard-list" },
 
   // Customers
   { title: "Customer Master & Ledgers", category: "Navigation", path: "/dashboard/customers", fileName: "app/dashboard/customers/page.tsx", keywords: ["customers", "list customers", "customer list", "parties", "ledger", "dealers", "clients"], icon: "users" },
@@ -140,6 +171,7 @@ const APP_PAGES = [
   { title: "Sales Receipt Collection Report", category: "Navigation", path: "/dashboard/reports/sales-receipt", fileName: "app/dashboard/reports/sales-receipt/page.tsx", keywords: ["sales receipt report", "collection report", "payment report"], icon: "receipt" },
   { title: "Sales Return Credit Note Report", category: "Navigation", path: "/dashboard/reports/sales-return", fileName: "app/dashboard/reports/sales-return/page.tsx", keywords: ["sales return report", "credit note report"], icon: "undo" },
   { title: "Target vs Actual Sales Report", category: "Navigation", path: "/dashboard/reports/target-vs-actual", fileName: "app/dashboard/reports/target-vs-actual/page.tsx", keywords: ["target vs actual", "achievement report", "mr performance"], icon: "target" },
+  { title: "GST Reports Overview", category: "Navigation", path: "/dashboard/gst-reports", fileName: "app/dashboard/gst-reports/page.tsx", keywords: ["gst reports", "gst", "gstr", "tax overview"], icon: "chart-bar" },
   { title: "GSTR-1 GST Tax Report", category: "Navigation", path: "/dashboard/gst-reports/gstr1", fileName: "app/dashboard/gst-reports/gstr1/page.tsx", keywords: ["gst", "gstr1", "gstr-1", "tax report", "b2b", "hsn", "gst-reports"], icon: "file-spreadsheet" },
 
   // MR Field Force
@@ -149,6 +181,7 @@ const APP_PAGES = [
 
   // General Settings & Profile
   { title: "System & Company Settings", category: "Navigation", path: "/dashboard/settings", fileName: "app/dashboard/settings/page.tsx", keywords: ["settings", "general settings", "config", "system settings"], icon: "cog" },
+  { title: "AI Voice Assistant Settings 🎙️", category: "Navigation", path: "/dashboard/voice-settings", fileName: "app/dashboard/voice-settings/page.tsx", keywords: ["voice settings", "ai voice", "assistant settings", "salim voice", "wake word", "voice-settings"], icon: "mic" },
   { title: "User Profile & Account", category: "Navigation", path: "/dashboard/profile", fileName: "app/dashboard/profile/page.tsx", keywords: ["profile", "my profile", "account settings", "user profile"], icon: "user" },
 ];
 
@@ -673,7 +706,8 @@ export async function GET(req: NextRequest) {
     const sortBy = searchParams.get("sortBy") || "relevance";
 
     // Spoken query cleaning & Typo check ("Did You Mean?")
-    const cleanedQuery = cleanSpokenQuery(rawQuery);
+    const assistantName = searchParams.get("assistantName") || "Salim";
+    const cleanedQuery = cleanSpokenQuery(rawQuery, assistantName);
     const lowerQuery = cleanedQuery.toLowerCase();
     const suggestedQuery = TYPO_MAP[lowerQuery] || null;
     const query = suggestedQuery || cleanedQuery;
