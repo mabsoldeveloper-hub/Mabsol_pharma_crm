@@ -131,6 +131,7 @@ export async function GET(req: Request) {
 
             // Rates
             const cost = Number(b.LPRATE ?? b.PRATE ?? b.COST ?? product?.LPRATE ?? product?.PRATE ?? product?.MRP ?? 100);
+            const prate = Number(b.PRATE ?? product?.PRATE ?? Math.round(cost * 1.15));
             const mrp = Number(b.MRP ?? product?.MRP ?? Math.round(cost * 1.35));
 
             const stockCostValue = Math.round(qty * cost);
@@ -185,11 +186,26 @@ export async function GET(req: Request) {
             if (processedKeys.has(key)) return;
             processedKeys.add(key);
 
+            const packing = String(b.PACKING || product?.PACKING || "-").trim();
+            const rackNo = String(b.RACKNO || product?.RACKNO || "RACK-01").trim();
+            const groupCode = String(b.GCODE || product?.GCODE || "-").trim();
+            const minStock = Number(product?.MINIMUM ?? 0);
+            const maxStock = Number(product?.MAXIMUM ?? 0);
+            const cgst = Number(product?.CGST ?? 0);
+            const igst = Number(product?.IGST ?? 0);
+
             batchList.push({
                 batchId: b._id ? b._id.toString() : key,
                 productCode: pCode || "PROD-01",
                 productName,
                 batchNo,
+                packing,
+                rackNo,
+                groupCode,
+                minStock,
+                maxStock,
+                cgst,
+                igst,
                 expiryDateStr,
                 daysLeft,
                 qty,
