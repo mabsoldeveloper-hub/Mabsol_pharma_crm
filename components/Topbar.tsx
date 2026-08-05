@@ -30,6 +30,7 @@ export default function Topbar({
   // Dynamic Voice Assistant ("Hey [Name]") State & Listener
   const [assistantName, setAssistantName] = useState("Salim");
   const [autoVoiceStart, setAutoVoiceStart] = useState(false);
+  const [initialVoiceQuery, setInitialVoiceQuery] = useState("");
   const [wakewordEnabled, setWakewordEnabled] = useState(true);
   const [salimToast, setSalimToast] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -107,6 +108,7 @@ export default function Topbar({
             setSalimToast(true);
             setTimeout(() => setSalimToast(false), 3500);
 
+            setInitialVoiceQuery(transcript);
             setAutoVoiceStart(true);
             setSearchOpen(true);
           }
@@ -638,9 +640,13 @@ export default function Topbar({
 
       <GlobalSearchModal
         isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
+        onClose={() => {
+          setSearchOpen(false);
+          setInitialVoiceQuery("");
+        }}
         autoVoiceStart={autoVoiceStart}
         onVoiceStartHandled={() => setAutoVoiceStart(false)}
+        initialQuery={initialVoiceQuery}
       />
     </div>
   );

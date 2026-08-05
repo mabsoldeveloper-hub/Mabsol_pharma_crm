@@ -13,10 +13,25 @@ function escapeRegex(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Spoken Voice Search Cleaner - removes spoken filler words across English, Hindi, Urdu & Hinglish
-function cleanSpokenQuery(input: string): string {
+// Spoken Voice Search Cleaner - removes spoken filler words and dynamic assistant names across English, Hindi, Urdu & Hinglish
+function cleanSpokenQuery(input: string, assistantName: string = "Salim"): string {
   if (!input) return "";
   let text = input.trim();
+
+  // Escaped assistant name for regex
+  const nameEscaped = (assistantName || "Salim").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Dynamic regex pattern to match greetings + assistant name
+  // Matches: "hi salim", "hey salim", "hello salim", "suno salim", "salim bhai", "salim", "saliem", "saleem", "selim", "hey jarvis", etc.
+  const greetingAndNamePatterns = [
+    new RegExp(`\\b(hi|hey|hello|suno|listen|ok|okay)\\s+(${nameEscaped}|salim|saleem|saliem|selim|jarvis|alexa|siri|crm)\\b`, "gi"),
+    new RegExp(`\\b(${nameEscaped}|salim|saleem|saliem|selim)(\\s+bhai|\\s+ji)?\\b`, "gi"),
+    /\b(hi|hey|hello|suno)\b/gi,
+  ];
+
+  greetingAndNamePatterns.forEach((pattern) => {
+    text = text.replace(pattern, "");
+  });
 
   const spokenFillers = [
     /\b(dikhao|dikhaao|dikhaye|dikhayen)\b/gi,
@@ -28,15 +43,25 @@ function cleanSpokenQuery(input: string): string {
     /\b(ka ledger|ki ledger|ka bill|ke bill|parchi|hisaab)\b/gi,
     /\b(ka stock|ki stock|ka report|ki report)\b/gi,
     /\b(list all|where is|par jao)\b/gi,
+    /\b(kitna hai|kitni hai|kitne hain|kitna|kitni|kitne|bhi|kya)\b/gi,
   ];
 
-  let cleaned = text;
   spokenFillers.forEach((pattern) => {
-    cleaned = cleaned.replace(pattern, "");
+    text = text.replace(pattern, "");
   });
 
-  cleaned = cleaned.replace(/\s+/g, " ").trim();
-  return cleaned.length > 0 ? cleaned : text;
+  text = text.replace(/\s+/g, " ").trim();
+
+  // Fallback if cleaning removed all text
+  if (text.length === 0) {
+    let fallback = input.trim();
+    greetingAndNamePatterns.forEach((pattern) => {
+      fallback = fallback.replace(pattern, "");
+    });
+    return fallback.replace(/\s+/g, " ").trim();
+  }
+
+  return text;
 }
 
 // Typo correction dictionary for common pharma terms & reports
@@ -672,8 +697,10 @@ export async function GET(req: NextRequest) {
     const highBalanceOnly = searchParams.get("highBalance") === "true";
     const sortBy = searchParams.get("sortBy") || "relevance";
 
+    const assistantName = searchParams.get("assistantName") || searchParams.get("assistant") || "Salim";
+
     // Spoken query cleaning & Typo check ("Did You Mean?")
-    const cleanedQuery = cleanSpokenQuery(rawQuery);
+    const cleanedQuery = cleanSpokenQuery(rawQuery, assistantName);
     const lowerQuery = cleanedQuery.toLowerCase();
     const suggestedQuery = TYPO_MAP[lowerQuery] || null;
     const query = suggestedQuery || cleanedQuery;
