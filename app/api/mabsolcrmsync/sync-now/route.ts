@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
-      // AWS Live Cloud mode: Folder is on client's Windows PC (e.g., D:\VfpNew\MANCHANDA)
+      // AWS Live Cloud mode: Folder is on client's Windows PC 
       // Queue command for the desktop sync worker
       await VfpSyncCommand.create({
         email: user.email,
