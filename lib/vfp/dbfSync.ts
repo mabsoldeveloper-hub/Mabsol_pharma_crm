@@ -176,56 +176,38 @@ async function importSingleDbfFile(
     );
 
     const collection = mongoose.connection.collection(targetCollection);
-    await collection.createIndex(
-      { _vfpTable: 1, _vfpSourceKey: 1 },
-      { unique: true }
-    );
+    await collection.dropIndexes().catch(() => {});
+    await collection.deleteMany({});
+
+    const docs = dbf.rows.map((row: any) => {
+      const sourceKey = buildSourceKey(row, primaryKeyFields);
+      return {
+        ...row.data,
+        _vfpTable: tableName,
+        _vfpSourceKey: sourceKey,
+        _vfpRowNumber: row.rowNumber,
+        _vfpFileName: fileName,
+        _vfpFileMtimeMs: stats.mtimeMs,
+        _vfpDeleted: row.deleted,
+        _vfpSyncRunId: runId,
+        _vfpSyncedAt: new Date(),
+      };
+    });
 
     let importedCount = 0;
-    let tableHash = "";
-    const bulkOps: any[] = [];
-
-    for (const row of dbf.rows) {
-      const sourceKey = buildSourceKey(row, primaryKeyFields);
-      const rowHash = row.data._vfpRowHash || hashJson(row.data);
-      tableHash = `${tableHash}:${rowHash}`;
-
-      bulkOps.push({
-        updateOne: {
-          filter: { _vfpTable: tableName, _vfpSourceKey: sourceKey },
-          update: {
-            $set: {
-              ...row.data,
-              _vfpTable: tableName,
-              _vfpSourceKey: sourceKey,
-              _vfpRowNumber: row.rowNumber,
-              _vfpRowHash: rowHash,
-              _vfpFileName: fileName,
-              _vfpFileMtimeMs: stats.mtimeMs,
-              _vfpDeleted: row.deleted,
-              _vfpSyncRunId: runId,
-              _vfpSyncedAt: new Date(),
-            },
-          },
-          upsert: true,
-        },
-      });
-
-      if (bulkOps.length >= 2500) {
-        await collection.bulkWrite(bulkOps, { ordered: false });
-        importedCount += bulkOps.length;
-        bulkOps.length = 0;
+    const BATCH_SIZE = 5000;
+    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+      const chunk = docs.slice(i, i + BATCH_SIZE);
+      if (chunk.length > 0) {
+        await collection.insertMany(chunk, { ordered: false });
+        importedCount += chunk.length;
       }
-    }
-
-    if (bulkOps.length > 0) {
-      await collection.bulkWrite(bulkOps, { ordered: false });
-      importedCount += bulkOps.length;
     }
 
     // Previously synced records are preserved; upsert appends new records and updates existing ones without deleting old data
 
     const syncDateLabel = getSyncDateLabel(new Date());
+    const tableHash = `${stats.mtimeMs}-${dbf.recordCount}`;
     await VfpSyncState.updateOne(
       { tableName, email },
       {
@@ -321,7 +303,7 @@ function isValidTableFile(fileName: string) {
   return true;
 }
 
-function readDbf(filePath: string) {
+export function readDbf(filePath: string) {
   const buffer = fs.readFileSync(filePath);
   const recordCount = buffer.readUInt32LE(4);
   const headerLength = buffer.readUInt16LE(8);
@@ -481,7 +463,7 @@ function buildSourceKey(row: any, primaryKeyFields: string[]) {
       .map((field) => String(row.data[field] ?? "").trim())
       .filter(Boolean)
       .join(":");
-    if (key) return key;
+    if (key) return `${key}:${row.rowNumber}`;
   }
   return `row:${row.rowNumber}`;
 }
