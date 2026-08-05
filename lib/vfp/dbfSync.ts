@@ -187,8 +187,8 @@ async function importSingleDbfFile(
 
     for (const row of dbf.rows) {
       const sourceKey = buildSourceKey(row, primaryKeyFields);
-      const rowHash = hashJson(row.data);
-      tableHash = hashJson(`${tableHash}:${rowHash}`);
+      const rowHash = row.data._vfpRowHash || hashJson(row.data);
+      tableHash = `${tableHash}:${rowHash}`;
 
       bulkOps.push({
         updateOne: {
@@ -211,7 +211,7 @@ async function importSingleDbfFile(
         },
       });
 
-      if (bulkOps.length >= 1000) {
+      if (bulkOps.length >= 2500) {
         await collection.bulkWrite(bulkOps, { ordered: false });
         importedCount += bulkOps.length;
         bulkOps.length = 0;
