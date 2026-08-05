@@ -33,6 +33,15 @@ export async function POST(request: NextRequest) {
 
     const uploadedFileNames: string[] = [];
 
+    // Recursively wipe the entire upload directory before writing new files.
+    // fs.unlinkSync only deletes files — subdirectories like MANCHANDA/ would be silently
+    // skipped, leaving GLMONTH_F17, DIS_F17, GLMONTH_E10 etc. behind.
+    // fs.rmSync with recursive:true removes everything including nested folders.
+    if (fs.existsSync(uploadDir)) {
+      fs.rmSync(uploadDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(uploadDir, { recursive: true });
+
     for (const file of files) {
       if (typeof file === "object" && file.name) {
         const arrayBuffer = await file.arrayBuffer();

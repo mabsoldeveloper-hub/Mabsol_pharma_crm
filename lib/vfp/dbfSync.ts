@@ -58,7 +58,13 @@ export async function performDirectServerSync(userEmail: string) {
     isValidTableFile(path.basename(filePath))
   );
 
-  if (enabledFiles && enabledFiles.length > 0) {
+  // Only apply the enabledFiles filter when syncing from a non-upload directory
+  // (e.g. a configured local VFP folder path).
+  // When dataDir IS the upload folder, we trust only the physical files that were
+  // just written there — the enabledFiles config may still reference stale entries
+  // from a previous upload session (e.g. GLMONTH_F17, DIS_F17, GLMONTH_E10).
+  const isUploadDir = dataDir === uploadDir;
+  if (!isUploadDir && enabledFiles && enabledFiles.length > 0) {
     const enabledSet = new Set(
       enabledFiles.map((f) => path.basename(f).toLowerCase())
     );
@@ -476,8 +482,12 @@ function hashJson(value: any) {
 }
 
 function sanitizeCollectionName(value: string) {
-  const base = value.split("_")[0];
-  return base.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
+  // Strip trailing year/financial-year/branch suffix (e.g. _I06, _F17, _E10, _I05, _04, etc.)
+  // so GLEDGER_I06 -> "gledger" -> collection: "vfp_new_folder_gledger"
+  let cleaned = value.trim().replace(/\$/g, "");
+  cleaned = cleaned.replace(/_[a-z]?\d+$/i, "");
+  cleaned = cleaned.replace(/[\$_]+$/, "");
+  return cleaned.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
 }
 
 function decodeText(buffer: Buffer) {
