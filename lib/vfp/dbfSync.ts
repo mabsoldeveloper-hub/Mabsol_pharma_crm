@@ -62,7 +62,7 @@ export async function performDirectServerSync(userEmail: string) {
   // (e.g. a configured local VFP folder path).
   // When dataDir IS the upload folder, we trust only the physical files that were
   // just written there — the enabledFiles config may still reference stale entries
-  // from a previous upload session (e.g. GLMONTH_F17, DIS_F17, GLMONTH_E10).
+  // from a previous upload session (e.g. GLMONTH_E10).
   const isUploadDir = dataDir === uploadDir;
   if (!isUploadDir && enabledFiles && enabledFiles.length > 0) {
     const enabledSet = new Set(
@@ -185,7 +185,7 @@ async function importSingleDbfFile(
     );
 
     const collection = mongoose.connection.collection(targetCollection);
-    await collection.dropIndexes().catch(() => {});
+    await collection.dropIndexes().catch(() => { });
     await collection.deleteMany({});
 
     const docs = dbf.rows.map((row: any) => {
@@ -393,8 +393,8 @@ function parseFieldValue(raw: Buffer, field: any) {
       return ["Y", "y", "T", "t"].includes(text)
         ? true
         : ["N", "n", "F", "f"].includes(text)
-        ? false
-        : null;
+          ? false
+          : null;
     case "M":
     case "G":
     case "P":
@@ -482,12 +482,9 @@ function hashJson(value: any) {
 }
 
 function sanitizeCollectionName(value: string) {
-  // Strip trailing year/financial-year/branch suffix (e.g. _I06, _F17, _E10, _I05, _04, etc.)
-  // so GLEDGER_I06 -> "gledger" -> collection: "vfp_new_folder_gledger"
-  let cleaned = value.trim().replace(/\$/g, "");
-  cleaned = cleaned.replace(/_[a-z]?\d+$/i, "");
-  cleaned = cleaned.replace(/[\$_]+$/, "");
-  return cleaned.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
+  // Use the full name (not just prefix before underscore GLMONTH_E10, GLMONTH_I04
+  // each get their own distinct MongoDB collection instead of all mapping to the same one.
+  return value.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+/, "");
 }
 
 function decodeText(buffer: Buffer) {
