@@ -124,13 +124,23 @@ export default async function VfpDashboardPage({
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-950 m-0 leading-tight">Migrate Data Control</h1>
               <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-2xl m-0 mt-1">Monitor local folder changes, DBF imports, file snapshots, and queued updates from one dashboard.</p>
             </div>
-            <span 
-              className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-bold px-4 py-1.5 border border-emerald-200/80 shadow-2xs whitespace-nowrap shrink-0 btn-pill"
-              style={{ borderRadius: "9999px" }}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Sync active
-            </span>
+            {status.workerOnline ? (
+              <span 
+                className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-bold px-4 py-1.5 border border-emerald-200/80 shadow-2xs whitespace-nowrap shrink-0 btn-pill"
+                style={{ borderRadius: "9999px" }}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Worker Online
+              </span>
+            ) : (
+              <span 
+                className="inline-flex items-center gap-2 bg-amber-50 text-amber-700 text-xs font-bold px-4 py-1.5 border border-amber-200/80 shadow-2xs whitespace-nowrap shrink-0 btn-pill"
+                style={{ borderRadius: "9999px" }}
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                AWS Cloud Mode
+              </span>
+            )}
           </div>
         </div>
 

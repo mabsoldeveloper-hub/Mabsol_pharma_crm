@@ -33,15 +33,6 @@ export async function POST(request: NextRequest) {
 
     const uploadedFileNames: string[] = [];
 
-    // Recursively wipe the entire upload directory before writing new files.
-    // fs.unlinkSync only deletes files — subdirectories like / would be silently
-    // skipped, leaving  GLMONTH_E10 etc. behind.
-    // fs.rmSync with recursive:true removes everything including nested folders.
-    if (fs.existsSync(uploadDir)) {
-      fs.rmSync(uploadDir, { recursive: true, force: true });
-    }
-    fs.mkdirSync(uploadDir, { recursive: true });
-
     for (const file of files) {
       if (typeof file === "object" && file.name) {
         const arrayBuffer = await file.arrayBuffer();
@@ -52,9 +43,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const dbfFiles = uploadedFileNames.filter((f) => f.toLowerCase().endsWith(".dbf"));
+    // Get all DBF files present in the upload directory (preserving previous uploads)
+    const allUploadDbfFiles = fs.readdirSync(uploadDir).filter((f) => f.toLowerCase().endsWith(".dbf"));
 
-    // Save uploaded folder location as active configuration in VfpConfig
+    // Merge existing enabled files with all uploaded DBF files
+    const existingConfig = await VfpConfig.findOne({ email: user.email }).lean() as any;
+    const currentEnabled: string[] = existingConfig?.enabledFiles || [];
+    const mergedEnabledFiles = Array.from(new Set([...currentEnabled, ...allUploadDbfFiles]));
+
+    // Save uploaded folder location and merged enabled files in VfpConfig
     await VfpConfig.updateOne(
       { email: user.email },
       {
@@ -62,7 +59,7 @@ export async function POST(request: NextRequest) {
           email: user.email,
           consoleSyncDir: uploadDir,
           dataDir: uploadDir,
-          enabledFiles: dbfFiles.length > 0 ? dbfFiles : uploadedFileNames,
+          enabledFiles: mergedEnabledFiles,
         },
       },
       { upsert: true }
@@ -73,7 +70,7 @@ export async function POST(request: NextRequest) {
         $set: {
           consoleSyncDir: uploadDir,
           dataDir: uploadDir,
-          enabledFiles: dbfFiles.length > 0 ? dbfFiles : uploadedFileNames,
+          enabledFiles: mergedEnabledFiles,
         },
       },
       { upsert: true }

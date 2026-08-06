@@ -61,7 +61,11 @@ export async function POST(request: NextRequest) {
     const sanitizedEmail = user.email.replace(/[^a-zA-Z0-9_-]/g, "_");
     const uploadDir = path.join(process.cwd(), "data", "vfp_uploads", sanitizedEmail);
 
-    const canSyncDirectlyOnServer = (dataDir && fs.existsSync(dataDir)) || fs.existsSync(uploadDir);
+    const hasUploadedDbfs =
+      fs.existsSync(uploadDir) &&
+      fs.readdirSync(uploadDir).some((f) => f.toLowerCase().endsWith(".dbf"));
+
+    const canSyncDirectlyOnServer = (dataDir && fs.existsSync(dataDir)) || hasUploadedDbfs;
 
     if (canSyncDirectlyOnServer) {
       // Execute direct server-side DBF sync in background so HTTP connection does not time out on large DBF tables
