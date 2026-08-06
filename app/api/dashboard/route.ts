@@ -346,6 +346,7 @@ export async function GET(req: Request) {
     currentStock,
     nearExpiryBatches,
     expiredBatches,
+    totalBatches,
 
     // ---- NEW: 5 new KPI cards ----
     totalUsers,
@@ -405,6 +406,7 @@ export async function GET(req: Request) {
     sumField(Product, productFilter, "BALANCE"),
     ProductBatch.countDocuments(combineFilters(batchFilter, { EXP: { $ne: null, $gte: today, $lte: near90 } })),
     ProductBatch.countDocuments(combineFilters(batchFilter, { EXP: { $ne: null, $lt: today } })),
+    ProductBatch.countDocuments(batchFilter),
 
     // ---- NEW: 5 new KPI queries ----
     // 1. Total Users
@@ -564,7 +566,7 @@ export async function GET(req: Request) {
       },
     ]),
 
-    // Stock Value = BALANCE * PRATE
+    // Stock Value = BALANCE * MRP
     Product.aggregate([
       { $match: productFilter },
       {
@@ -574,7 +576,7 @@ export async function GET(req: Request) {
             $sum: {
               $multiply: [
                 { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
-                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$MRP", to: "double", onError: 0, onNull: 0 } },
               ],
             },
           },
@@ -582,7 +584,7 @@ export async function GET(req: Request) {
       },
     ]),
 
-    // Expired Stock Value
+    // Expired Stock Value (MRP)
     ProductBatch.aggregate([
       { $match: { ...batchFilter, EXP: { $ne: null, $lt: today } } },
       {
@@ -592,7 +594,7 @@ export async function GET(req: Request) {
             $sum: {
               $multiply: [
                 { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
-                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$MRP", to: "double", onError: 0, onNull: 0 } },
               ],
             },
           },
@@ -600,7 +602,7 @@ export async function GET(req: Request) {
       },
     ]),
 
-    // Near Expiry Stock Value
+    // Near Expiry Stock Value (MRP)
     ProductBatch.aggregate([
       { $match: { ...batchFilter, EXP: { $ne: null, $gte: today, $lte: near90 } } },
       {
@@ -610,7 +612,7 @@ export async function GET(req: Request) {
             $sum: {
               $multiply: [
                 { $convert: { input: "$BALANCE", to: "double", onError: 0, onNull: 0 } },
-                { $convert: { input: "$PRATE", to: "double", onError: 0, onNull: 0 } },
+                { $convert: { input: "$MRP", to: "double", onError: 0, onNull: 0 } },
               ],
             },
           },
@@ -914,6 +916,7 @@ export async function GET(req: Request) {
       currentStock,
       nearExpiryBatches,
       expiredBatches,
+      totalBatches,
 
       // ---- NEW: 5 new KPI fields ----
       totalUsers,
@@ -921,6 +924,7 @@ export async function GET(req: Request) {
       totalCredit,
       totalDebit,
       activeCustomers,
+      totalStockValuation: stockValue,
 
       // ---- Purchase & Sales Extra KPI fields ----
       totalPurchases,

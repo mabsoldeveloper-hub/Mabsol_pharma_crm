@@ -26,7 +26,7 @@ export default function LiquidMeters({ kpis, analytics }: LiquidMetersProps) {
     );
 
     // 2. Stock Health Safety Score
-    const totalBatches = Math.max(1, Number(kpis?.totalProducts ?? 50));
+    const totalBatches = Math.max(1, Number(kpis?.totalBatches ?? kpis?.totalProducts ?? 50));
     const expiredCount = Number(kpis?.expiredBatches ?? 0);
     const nearExpiryCount = Number(kpis?.nearExpiryBatches ?? 0);
     const safeStockCount = Math.max(0, totalBatches - expiredCount - nearExpiryCount);
