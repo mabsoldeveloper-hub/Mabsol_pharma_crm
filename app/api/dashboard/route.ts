@@ -693,26 +693,34 @@ export async function GET(req: Request) {
     ? ((monthlySales - lastMonthSales) / lastMonthSales) * 100
     : 0;
 
-  // ---- Purchase & Sales Extra Metrics ----
-  const webBills = await PurchaseBill.find(companyId ? { companyId } : {}).lean().catch(() => []);
-  const webOrders = await PurchaseOrder.find(companyId ? { companyId } : {}).lean().catch(() => []);
-  const webReturns = await PurchaseReturn.find(companyId ? { companyId } : {}).lean().catch(() => []);
-  const webPayments = await PurchasePayment.find(companyId ? { companyId } : {}).lean().catch(() => []);
+// ---- Purchase & Sales Extra Metrics ----
+  // Build FY date-range filters for each web purchase model (all use String
+  // YYYY-MM-DD date fields so buildFYDateQuery works directly). When FY is
+  // "ALL" (startDate/endDate null) these resolve to {} -> all data.
+  const billDateMatch = buildFYDateQuery("billDate", startDate, endDate);
+  const poDateMatch = buildFYDateQuery("poDate", startDate, endDate);
+  const returnDateMatch = buildFYDateQuery("returnDate", startDate, endDate);
+  const paymentDateMatch = buildFYDateQuery("paymentDate", startDate, endDate);
+
+  const webBills = await PurchaseBill.find(combineFilters(companyId ? { companyId } : {}, billDateMatch)).lean().catch(() => []);
+  const webOrders = await PurchaseOrder.find(combineFilters(companyId ? { companyId } : {}, poDateMatch)).lean().catch(() => []);
+  const webReturns = await PurchaseReturn.find(combineFilters(companyId ? { companyId } : {}, returnDateMatch)).lean().catch(() => []);
+  const webPayments = await PurchasePayment.find(combineFilters(companyId ? { companyId } : {}, paymentDateMatch)).lean().catch(() => []);
 
   const webPurchasesVal = (webBills || []).reduce((s: number, b: any) => s + Number(b.netAmount || 0), 0);
-  const vfpPurchasesVal = await sumField(SalesMdis, { ...companyVfpMatch, TYPE: { $in: ["P", "PURCHASE"] } }, "FINAL");
+  const vfpPurchasesVal = await sumField(SalesMdis, combineFilters({ TYPE: { $in: ["P", "PURCHASE"] } }, dateMatchMDIS, companyVfpMatch), "FINAL");
   const totalPurchases = webPurchasesVal + vfpPurchasesVal;
 
   const totalPurchaseOrders = (webOrders || []).length;
 
   const webReturnsVal = (webReturns || []).reduce((s: number, r: any) => s + Number(r.netAmount || 0), 0);
-  const vfpReturnsVal = await sumField(SalesMdis, { ...companyVfpMatch, TYPE: { $in: ["D", "PR", "DEBIT"] } }, "FINAL");
+  const vfpReturnsVal = await sumField(SalesMdis, combineFilters({ TYPE: { $in: ["D", "PR", "DEBIT"] } }, dateMatchMDIS, companyVfpMatch), "FINAL");
   const purchaseReturns = webReturnsVal + vfpReturnsVal;
 
   const webPaymentsVal = (webPayments || []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
   const totalSupplierPayments = webPaymentsVal;
 
-  const salesReturns = await sumField(SalesMdis, { ...companyVfpMatch, TYPE: { $in: ["R", "SR", "CREDIT"] } }, "FINAL");
+  const salesReturns = await sumField(SalesMdis, combineFilters({ TYPE: { $in: ["R", "SR", "CREDIT"] } }, dateMatchMDIS, companyVfpMatch), "FINAL");
 
   // Dedicated Purchase Charts Data
   const topSuppliersMap = new Map<string, number>();
