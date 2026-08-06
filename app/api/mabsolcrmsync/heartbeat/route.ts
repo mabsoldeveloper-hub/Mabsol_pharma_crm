@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import VfpWorkerHeartbeat from "@/models/VfpWorkerHeartbeat";
 import VfpSyncCommand from "@/models/VfpSyncCommand";
+import VfpConfig from "@/models/VfpConfig";
 import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -29,7 +30,12 @@ export async function POST(request: NextRequest) {
 
     // Get current user if authenticated session exists
     const user = await getCurrentUser();
-    const targetEmail = email || user?.email || "global";
+    const targetEmail = email || user?.email || "";
+
+    // Fetch user's active VfpConfig from MongoDB to get dynamic SELECTED FILES FOLDER LOCATION
+    const config = (await VfpConfig.findOne({ email: targetEmail })) || (await VfpConfig.findOne({ key: "vfp_sync_config" }));
+    const configuredDir: string = config?.consoleSyncDir || config?.sourceDir || config?.dataDir || "";
+    const enabledFiles: string[] = config?.enabledFiles || [];
 
     // Upsert worker heartbeat in MongoDB
     await VfpWorkerHeartbeat.updateOne(
@@ -38,11 +44,11 @@ export async function POST(request: NextRequest) {
         $set: {
           workerId,
           status,
-          dataDir,
+          dataDir: dataDir || configuredDir,
           lastSeenAt: new Date(),
           lastRunReason,
           lastError,
-          email: targetEmail,
+          email: targetEmail || "global",
         },
       },
       { upsert: true }
@@ -55,11 +61,11 @@ export async function POST(request: NextRequest) {
         $set: {
           workerId: "global-desktop-worker",
           status,
-          dataDir,
+          dataDir: dataDir || configuredDir,
           lastSeenAt: new Date(),
           lastRunReason,
           lastError,
-          email: targetEmail,
+          email: targetEmail || "global",
         },
       },
       { upsert: true }
@@ -68,12 +74,14 @@ export async function POST(request: NextRequest) {
     // Check for pending queued sync commands
     const pendingCommands = await VfpSyncCommand.find({
       status: "queued",
-      ...(targetEmail !== "global" ? { email: targetEmail } : {}),
+      ...(targetEmail && targetEmail !== "global" ? { email: targetEmail } : {}),
     }).lean();
 
     return NextResponse.json({
       success: true,
       workerOnline: true,
+      configuredDir,
+      enabledFiles,
       pendingCommands: pendingCommands.map((c: any) => ({
         id: c._id.toString(),
         command: c.command,
