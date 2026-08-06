@@ -32,16 +32,31 @@ export default function LiquidMeters({ kpis, analytics }: LiquidMetersProps) {
     const safeStockCount = Math.max(0, totalBatches - expiredCount - nearExpiryCount);
     const stockHealthScore = Math.min(100, Math.round((safeStockCount / totalBatches) * 100));
 
-    // 3. Outstanding Risk Meter (Overdue vs Total Outstanding)
-    const totalOut = Number(kpis?.totalOutstanding ?? 1);
+    // 3. Credit Risk Meter — arc fills RED to show DANGER level (overdueRatio)
+    // Higher overdueRatio = more arc filled = more danger visible at a glance
+    const totalOutAmt = Number(kpis?.totalOutstanding ?? 0);
+    const totalOut = Math.max(1, totalOutAmt);
     const overdueAmt = Number(kpis?.overdueAmount ?? 0);
-    const overdueRatio = totalOut > 0 ? Math.min(100, Math.round((overdueAmt / totalOut) * 100)) : 0;
-    const creditSafetyScore = 100 - overdueRatio;
+    const overdueRatio = totalOut > 0 ? Math.min(100, Math.round((Math.min(overdueAmt, totalOut) / totalOut) * 100)) : 0;
+    // creditRiskLevel = how filled the arc is (100% overdue = arc completely filled with red)
+    const creditRiskLevel = overdueRatio; // arc driven by RISK, not safety
+    const creditSafetyScore = 100 - overdueRatio; // kept for label text only
 
-    // 4. Sales Pace Meter (Today vs Average Daily Sales)
+    // 4. Sales Velocity Meter
     const todaySales = Number(kpis?.todaySales ?? 0);
-    const avgDailySales = Number(analytics?.avgDailySales ?? 1);
+    const avgDailySalesRaw = Number(analytics?.avgDailySales ?? 0);
+    const yearlySales = Number(kpis?.yearlySales ?? kpis?.totalSales ?? 0);
+    const avgDailySales = avgDailySalesRaw > 0 ? avgDailySalesRaw : (yearlySales > 0 ? yearlySales / 365 : 0);
+    // Primary: today's sales pace vs daily benchmark
     const salesPaceRatio = avgDailySales > 0 ? Math.min(150, Math.round((todaySales / avgDailySales) * 100)) : 0;
+    // Fallback when todaySales=0: FY completion rate — how much of expected-by-now sales achieved
+    // Expected by today = avgDailySales * dayOfYear
+    const dayOfYear = Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86400000);
+    const expectedSalesByNow = avgDailySales * dayOfYear;
+    const fyCompletionRate = expectedSalesByNow > 0 ? Math.min(120, Math.round((yearlySales / expectedSalesByNow) * 100)) : 0;
+    // Use fyCompletionRate when no today sales — gives a meaningful filled gauge
+    const displayPaceRatio = todaySales > 0 ? Math.min(100, salesPaceRatio) : Math.min(100, fyCompletionRate);
+    const isPaceToday = todaySales > 0;
 
     // SVG Math for Circular Rings
     const radius = 48;
@@ -275,7 +290,7 @@ export default function LiquidMeters({ kpis, analytics }: LiquidMetersProps) {
                         </div>
                     </div>
 
-                    {/* Semi-Circle Speedometer Arc */}
+                    {/* Semi-Circle Speedometer Arc — fills RED based on RISK level */}
                     <div className="relative flex flex-col items-center justify-center my-1 pt-2">
                         <svg className="w-36 h-20" viewBox="0 0 120 65">
                             {/* Track Arc */}
@@ -286,41 +301,52 @@ export default function LiquidMeters({ kpis, analytics }: LiquidMetersProps) {
                                 strokeWidth="10"
                                 strokeLinecap="round"
                             />
-                            {/* Progress Arc */}
+                            {/* Risk Arc — fills based on overdueRatio so 100% risk = full arc */}
                             <path
                                 d="M 10 60 A 50 50 0 0 1 110 60"
                                 fill="none"
-                                stroke="url(#roseGradient)"
+                                stroke="url(#riskGradient)"
                                 strokeWidth="10"
                                 strokeDasharray={semiCircumference}
-                                strokeDashoffset={semiCircumference - (semiCircumference * creditSafetyScore) / 100}
+                                strokeDashoffset={semiCircumference - (semiCircumference * creditRiskLevel) / 100}
                                 strokeLinecap="round"
                                 className="transition-all duration-1000 ease-out"
                             />
                             <defs>
-                                <linearGradient id="roseGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor="#f43f5e" />
-                                    <stop offset="50%" stopColor="#fb923c" />
-                                    <stop offset="100%" stopColor="#10b981" />
+                                {/* Green → Orange → Red: left=safe, right=danger */}
+                                <linearGradient id="riskGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stopColor="#10b981" />
+                                    <stop offset="50%" stopColor="#f59e0b" />
+                                    <stop offset="100%" stopColor="#f43f5e" />
                                 </linearGradient>
                             </defs>
                         </svg>
 
                         <div className="absolute bottom-0 text-center">
-                            <span className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight font-sans">
-                                {creditSafetyScore}<span className="text-xs text-slate-500 font-normal">/100</span>
+                            <span className={`text-2xl font-extrabold tracking-tight font-sans ${
+                                creditRiskLevel >= 80 ? "text-rose-600" : creditRiskLevel >= 50 ? "text-amber-600" : "text-emerald-600"
+                            }`}>
+                                {creditRiskLevel}<span className="text-xs font-normal text-slate-500">%</span>
                             </span>
                             <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                                {overdueRatio <= 20 ? "Low Credit Risk" : overdueRatio <= 50 ? "Moderate Overdue" : "High Overdue Warning"}
+                                {creditRiskLevel <= 20 ? "✅ Low Risk" : creditRiskLevel <= 50 ? "⚠️ Moderate" : "🚨 High Risk"}
                             </p>
                         </div>
                     </div>
 
-                    <div className="mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500 font-medium">Overdue Dues:</span>
-                        <span className="font-semibold text-rose-600 dark:text-rose-400">
-                            ₹{overdueAmt.toLocaleString("en-IN")} ({overdueRatio}%)
-                        </span>
+                    <div className="mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-0.5 text-[11px]">
+                        <div className="flex items-center justify-between">
+                            <span className="text-slate-500 font-medium">Overdue Amount:</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">
+                                ₹{overdueAmt.toLocaleString("en-IN")}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-slate-400">Total Outstanding:</span>
+                            <span className="font-medium text-slate-600 dark:text-slate-300">
+                                ₹{Number(kpis?.totalOutstanding ?? 0).toLocaleString("en-IN")} ({overdueRatio}%)
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -358,7 +384,7 @@ export default function LiquidMeters({ kpis, analytics }: LiquidMetersProps) {
                         </div>
                     </div>
 
-                    {/* Radial Progress Ring */}
+                    {/* Radial Progress Ring — shows today pace OR FY completion rate */}
                     <div className="relative flex items-center justify-center my-2">
                         <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
                             <circle
@@ -376,7 +402,7 @@ export default function LiquidMeters({ kpis, analytics }: LiquidMetersProps) {
                                 stroke="url(#purpleGradient)"
                                 strokeWidth="10"
                                 strokeDasharray={circumference}
-                                strokeDashoffset={circumference - (circumference * Math.min(100, salesPaceRatio)) / 100}
+                                strokeDashoffset={circumference - (circumference * displayPaceRatio) / 100}
                                 strokeLinecap="round"
                                 fill="transparent"
                                 className="transition-all duration-1000 ease-out"
@@ -391,19 +417,35 @@ export default function LiquidMeters({ kpis, analytics }: LiquidMetersProps) {
 
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                             <span className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight font-sans">
-                                {salesPaceRatio}<span className="text-xs text-purple-600 font-semibold">%</span>
+                                {displayPaceRatio}<span className="text-xs text-purple-600 font-semibold">%</span>
                             </span>
                             <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                                {salesPaceRatio >= 100 ? "Ahead of Avg" : "Building Pace"}
+                                {isPaceToday
+                                    ? (salesPaceRatio >= 100 ? "🔥 Ahead of Avg" : "Building Pace")
+                                    : (fyCompletionRate >= 100 ? "🏆 On Track" : fyCompletionRate >= 75 ? "Good Pace" : "Below Target")}
                             </span>
                         </div>
                     </div>
 
-                    <div className="mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500 font-medium">Daily Avg Benchmark:</span>
-                        <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            ₹{avgDailySales.toLocaleString("en-IN")}
-                        </span>
+                    <div className="mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-0.5 text-[11px]">
+                        <div className="flex items-center justify-between">
+                            <span className="text-slate-500 font-medium">
+                                {isPaceToday ? "Today vs Benchmark:" : "FY Completion Rate:"}
+                            </span>
+                            <span className="font-semibold text-purple-700 dark:text-purple-300">
+                                {displayPaceRatio}%
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-slate-400">
+                                {isPaceToday ? "Daily Avg Benchmark:" : "Total FY Sales:"}
+                            </span>
+                            <span className="font-medium text-slate-700 dark:text-slate-200">
+                                {isPaceToday
+                                    ? `₹${Math.round(avgDailySales).toLocaleString("en-IN")}/day`
+                                    : `₹${Math.round(yearlySales).toLocaleString("en-IN")}`}
+                            </span>
+                        </div>
                     </div>
                 </div>
 

@@ -674,7 +674,15 @@ export async function GET(req: Request) {
   const invCount = invoiceCount[0]?.count || 1;
   const avgInvoiceValue = totalSales / invCount;
   const dayOfMonth = new Date().getDate();
-  const avgDailySales = monthlySales / dayOfMonth;
+  // If monthlySales is 0 (e.g. no data for current month / VFP data from previous FY),
+  // fall back to yearlySales / 365 so the daily benchmark is meaningful.
+  const avgDailySales = monthlySales > 0
+    ? monthlySales / dayOfMonth
+    : yearlySales > 0
+      ? yearlySales / 365
+      : totalSales > 0
+        ? totalSales / 365
+        : 0;
   const avgCustomerSale = totalCustomers ? totalSales / totalCustomers : 0;
   const stockValue = stockValueRow[0]?.value ?? 0;
   const expiredStockValue = expiredStockValueRow[0]?.value ?? 0;
