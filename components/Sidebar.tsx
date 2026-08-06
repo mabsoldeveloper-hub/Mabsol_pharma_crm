@@ -289,9 +289,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     return (
       <Link
         href={href}
-        className={`glass-nav-item relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] transition-all duration-300 ease-out group ${active
+        className={`glass-nav-item relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] transition-all duration-300 ease-out group no-underline select-none ${active
           ? `glass-nav-item-active font-semibold ${c.activeText}`
-          : `text-gray-600 dark:text-gray-400 hover:text-gray-800 ${c.hoverText}`
+          : `text-gray-700 dark:text-gray-200 hover:text-gray-900 ${c.hoverText}`
           }`}
       >
         {active && (
@@ -342,9 +342,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       <Link
         href={href}
         title={label}
-        className={`group/sub flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[12.5px] transition-all duration-200 ease-out ${active
+        className={`group/sub flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[12.5px] transition-all duration-200 ease-out no-underline select-none ${active
           ? `bg-white/60 dark:bg-white/10 font-semibold ${c.activeText} shadow-sm`
-          : `text-gray-500 dark:text-gray-400 hover:bg-white/40 dark:hover:bg-white/5 ${c.hoverText}`
+          : `text-gray-600 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-white/5 ${c.hoverText}`
           }`}
       >
         <span
@@ -371,7 +371,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     icon: React.ReactNode;
     label: string;
     open: boolean;
-    onClick: () => void;
+    onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
     active: boolean;
     items: React.ReactNode;
     color: ColorKey;
@@ -387,9 +387,13 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       >
         {iconOnly ? (
           <button
+            type="button"
             title={label}
-            onClick={onClick}
-            className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out shrink-0 ${active
+            onClick={(e) => {
+              e.preventDefault();
+              onClick(e);
+            }}
+            className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out shrink-0 select-none ${active
               ? "text-white scale-105 shadow-md"
               : `glass-icon-chip ${c.iconText} hover:scale-110 hover:-rotate-3`
               }`}
@@ -409,10 +413,14 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           </button>
         ) : (
           <button
-            onClick={onClick}
-            className={`glass-nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-[13.5px] transition-all duration-300 ease-out group ${active
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onClick(e);
+            }}
+            className={`glass-nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-[13.5px] transition-all duration-300 ease-out group select-none ${active
               ? `glass-nav-item-active font-semibold ${c.activeText}`
-              : `text-gray-600 dark:text-gray-400 hover:text-gray-800 ${c.hoverText}`
+              : `text-gray-700 dark:text-gray-200 hover:text-gray-900 ${c.hoverText}`
               }`}
           >
             <span className="flex items-center gap-3 min-w-0 flex-1 text-left">
@@ -445,14 +453,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           </button>
         )}
 
-        {/* Inline accordion (expanded sidebar) */}
+        {/* Inline accordion (expanded sidebar) using CSS grid-template-rows */}
         {!iconOnly && (
-          <ul
-            className={`flex flex-col gap-0.5 ml-[18px] pl-3 border-l-2 border-slate-200/60 dark:border-white/10 overflow-hidden transition-all duration-300 ease-out ${open ? "max-h-[1000px] opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"
-              }`}
-          >
-            {items}
-          </ul>
+          <div className={`sidebar-submenu ${open ? "open" : ""}`}>
+            <div className="sidebar-submenu-inner">
+              <ul className="flex flex-col gap-0.5 ml-4 pl-1.5 border-l-2 border-slate-200/60 dark:border-white/10 my-1">
+                {items}
+              </ul>
+            </div>
+          </div>
         )}
 
         {/* Hover flyout (collapsed icon-only sidebar) */}
@@ -529,7 +538,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
           {/* Nav List */}
           <div
-            className={`flex-1 min-h-0 py-4 sidebar-scroll ${iconOnly ? "px-0 overflow-visible" : "px-3 overflow-y-auto"
+            className={`flex-1 min-h-0 py-3 sidebar-scroll ${iconOnly ? "px-0 overflow-visible" : "px-2.5 overflow-y-auto"
               }`}
           >
             <ul className={`flex flex-col ${iconOnly ? "items-center gap-2" : "gap-1.5"}`}>
@@ -1188,84 +1197,151 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       <style>{`
         .glass-sidebar {
           background:
-            linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.28) 40%, rgba(255,255,255,0.38) 100%);
-          backdrop-filter: blur(28px) saturate(180%) brightness(1.04);
-          -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.04);
-          border-right: 1px solid rgba(255,255,255,0.5);
+            linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(245,247,252,0.78) 50%, rgba(255,255,255,0.82) 100%);
+          backdrop-filter: blur(36px) saturate(200%) brightness(1.03);
+          -webkit-backdrop-filter: blur(36px) saturate(200%) brightness(1.03);
+          border-right: 1px solid rgba(255,255,255,0.7);
           box-shadow:
-            inset -1px 0 0 rgba(255,255,255,0.5),
-            inset 1px 0 1px rgba(255,255,255,0.8),
-            4px 0 32px rgba(31,38,135,0.08),
+            inset -1px 0 0 rgba(255,255,255,0.6),
+            inset 1px 0 1px rgba(255,255,255,0.9),
+            6px 0 36px rgba(31,38,135,0.08),
             1px 0 0 rgba(31,38,135,0.04);
         }
         .dark .glass-sidebar {
           background:
-            linear-gradient(180deg, rgba(20,22,44,0.7) 0%, rgba(20,22,44,0.5) 100%);
-          border-right: 1px solid rgba(255,255,255,0.08);
+            linear-gradient(180deg, rgba(20,22,44,0.85) 0%, rgba(15,17,35,0.88) 100%);
+          border-right: 1px solid rgba(255,255,255,0.1);
         }
         .glass-sidebar-specular {
-          background: radial-gradient(140% 60% at 15% 0%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.15) 35%, transparent 65%);
-          mix-blend-mode: screen;
-        }
-        .dark .glass-sidebar-specular {
-          background: radial-gradient(140% 60% at 15% 0%, rgba(255,255,255,0.12) 0%, transparent 55%);
+          background: radial-gradient(140% 60% at 15% 0%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.2) 35%, transparent 65%);
+          mix-blend-mode: overlay;
         }
 
+        .glass-nav-item {
+          color: #334155;
+        }
+        .dark .glass-nav-item {
+          color: #f1f5f9;
+        }
         .glass-nav-item:hover {
-          background: rgba(255,255,255,0.45);
-          box-shadow: inset 0 1px 1px rgba(255,255,255,0.8), 0 2px 8px rgba(31,38,135,0.06);
+          background: rgba(255,255,255,0.75);
+          color: #0f172a;
+          box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 3px 12px rgba(31,38,135,0.08);
         }
         .dark .glass-nav-item:hover {
-          background: rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.1);
+          color: #ffffff;
         }
         .glass-nav-item-active {
-          background: rgba(255,255,255,0.6);
+          background: rgba(255,255,255,0.88);
+          color: #0f172a;
           box-shadow:
-            inset 0 1px 1px rgba(255,255,255,0.9),
+            inset 0 1px 1px rgba(255,255,255,1),
             inset 0 -1px 2px rgba(0,0,0,0.03),
-            0 4px 14px rgba(31,38,135,0.1);
+            0 4px 16px rgba(31,38,135,0.12);
         }
         .dark .glass-nav-item-active {
-          background: rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.14);
+          color: #ffffff;
         }
 
         .glass-icon-chip {
-          background: rgba(255,255,255,0.5);
-          box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -2px 3px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.04);
-          border: 1px solid rgba(255,255,255,0.6);
+          background: rgba(255,255,255,0.65);
+          box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), inset 0 -2px 3px rgba(0,0,0,0.03), 0 2px 5px rgba(0,0,0,0.05);
+          border: 1px solid rgba(255,255,255,0.8);
         }
         .dark .glass-icon-chip {
-          background: rgba(255,255,255,0.06);
-          border-color: rgba(255,255,255,0.08);
-        }
-
-        .glass-flyout {
-          background:
-            linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.7) 100%);
-          backdrop-filter: blur(24px) saturate(180%);
-          -webkit-backdrop-filter: blur(24px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.6);
-          box-shadow:
-            inset 0 1px 1px rgba(255,255,255,0.9),
-            0 16px 40px -8px rgba(31,38,135,0.2);
-        }
-        .dark .glass-flyout {
-          background: rgba(28,31,58,0.9);
-          border-color: rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(255,255,255,0.12);
         }
 
         .glass-profile-chip {
-          background: rgba(255,255,255,0.4);
-          border: 1px solid rgba(255,255,255,0.5);
-          box-shadow: inset 0 1px 1px rgba(255,255,255,0.8), 0 2px 8px rgba(31,38,135,0.06);
+          background: rgba(255,255,255,0.65);
+          border: 1px solid rgba(255,255,255,0.8);
+          box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), 0 3px 10px rgba(31,38,135,0.08);
         }
         .dark .glass-profile-chip {
-          background: rgba(255,255,255,0.05);
-          border-color: rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(255,255,255,0.12);
+        }
+
+        .sidebar-submenu {
+          display: grid;
+          grid-template-rows: 0fr;
+          transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+          opacity: 0;
+        }
+        .sidebar-submenu.open {
+          grid-template-rows: 1fr;
+          opacity: 1;
+        }
+        .sidebar-submenu-inner {
+          overflow: hidden;
+        }
+
+        .glass-sidebar a,
+        .glass-sidebar button {
+          text-decoration: none !important;
+          outline: none;
+        }
+        .glass-sidebar a:hover,
+        .glass-sidebar a:focus,
+        .glass-sidebar a:active {
+          text-decoration: none !important;
         }
 
         .sidebar-scroll {
           scrollbar-width: thin;
+          scroll-behavior: smooth;
+        }
+
+        /* Apple Light Liquid Glass Aesthetics for Responsive Mobile */
+        @media (max-width: 991px) {
+          .glass-sidebar {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(240, 243, 250, 0.9) 100%) !important;
+            backdrop-filter: blur(36px) saturate(200%) brightness(1.03) !important;
+            -webkit-backdrop-filter: blur(36px) saturate(200%) brightness(1.03) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.85) !important;
+            box-shadow: 12px 0 45px rgba(31, 38, 135, 0.15), inset 1px 0 1px rgba(255, 255, 255, 0.95) !important;
+          }
+          .glass-sidebar .glass-nav-item {
+            color: #1e293b !important;
+          }
+          .glass-sidebar .glass-nav-item:hover {
+            background: rgba(255, 255, 255, 0.85) !important;
+            color: #0f172a !important;
+          }
+          .glass-sidebar .glass-nav-item-active {
+            background: rgba(255, 255, 255, 0.95) !important;
+            color: #0f172a !important;
+            box-shadow: inset 0 1px 1px #ffffff, 0 4px 16px rgba(31, 38, 135, 0.14) !important;
+          }
+          .glass-sidebar .group\/sub {
+            color: #334155 !important;
+          }
+          .glass-sidebar .group\/sub:hover {
+            background: rgba(255, 255, 255, 0.75) !important;
+            color: #0f172a !important;
+          }
+          .glass-sidebar .glass-profile-chip {
+            background: rgba(255, 255, 255, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.9) !important;
+          }
+          .glass-sidebar .glass-profile-chip div {
+            color: #0f172a !important;
+          }
+          .glass-sidebar .glass-profile-chip .text-gray-500 {
+            color: #64748b !important;
+          }
+          .glass-sidebar .text-gray-600,
+          .glass-sidebar .text-gray-500,
+          .glass-sidebar .text-gray-400 {
+            color: #475569 !important;
+          }
+          .glass-sidebar .glass-icon-chip {
+            background: rgba(255, 255, 255, 0.8) !important;
+            border-color: rgba(255, 255, 255, 0.9) !important;
+          }
         }
         .glass-sidebar:has(.px-2) .sidebar-scroll {
           scrollbar-width: none !important;

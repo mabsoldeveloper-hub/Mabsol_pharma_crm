@@ -48,13 +48,19 @@ body {
   border-color: #374151 !important;
 }
 
+a {
+  text-decoration: none;
+}
+
 .nav-link {
   transition: all 0.3s ease;
+  text-decoration: none !important;
 }
 
 .nav-link:hover {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
+  text-decoration: none !important;
 }
 
 .sidebar-active {
