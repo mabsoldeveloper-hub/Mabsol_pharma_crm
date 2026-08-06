@@ -51,7 +51,9 @@ export default function DashboardLayout({
     style={{
       position: "fixed",
       inset: 0,
-      background: "rgba(0,0,0,.5)",
+      background: "rgba(15, 23, 42, 0.45)",
+      backdropFilter: "blur(8px)",
+      WebkitBackdropFilter: "blur(8px)",
       zIndex: 1040,
     }}
   />

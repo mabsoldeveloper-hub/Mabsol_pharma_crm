@@ -1197,48 +1197,63 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       <style>{`
         .glass-sidebar {
           background:
-            linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(245,247,252,0.78) 50%, rgba(255,255,255,0.82) 100%);
+            linear-gradient(160deg, rgba(248,249,255,0.98) 0%, rgba(241,244,255,0.95) 50%, rgba(247,249,255,0.97) 100%);
           backdrop-filter: blur(36px) saturate(200%) brightness(1.03);
           -webkit-backdrop-filter: blur(36px) saturate(200%) brightness(1.03);
-          border-right: 1px solid rgba(255,255,255,0.7);
+          border-right: 1px solid rgba(99,102,241,0.12);
           box-shadow:
-            inset -1px 0 0 rgba(255,255,255,0.6),
-            inset 1px 0 1px rgba(255,255,255,0.9),
-            6px 0 36px rgba(31,38,135,0.08),
-            1px 0 0 rgba(31,38,135,0.04);
+            inset -1px 0 0 rgba(255,255,255,0.9),
+            inset 1px 0 1px rgba(255,255,255,1),
+            8px 0 48px rgba(79,70,229,0.07),
+            2px 0 0 rgba(99,102,241,0.05);
+          position: relative;
         }
         .dark .glass-sidebar {
           background:
-            linear-gradient(180deg, rgba(20,22,44,0.85) 0%, rgba(15,17,35,0.88) 100%);
+            linear-gradient(180deg, rgba(20,22,44,0.88) 0%, rgba(15,17,35,0.92) 100%);
           border-right: 1px solid rgba(255,255,255,0.1);
         }
+        .glass-sidebar::before {
+          content: "";
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 220px;
+          background: radial-gradient(120% 80% at 20% 0%, rgba(139,92,246,0.07) 0%, rgba(99,102,241,0.05) 35%, rgba(56,189,248,0.03) 70%, transparent 100%);
+          pointer-events: none;
+          z-index: 0;
+        }
         .glass-sidebar-specular {
-          background: radial-gradient(140% 60% at 15% 0%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.2) 35%, transparent 65%);
+          background: radial-gradient(140% 60% at 15% 0%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.3) 35%, transparent 65%);
           mix-blend-mode: overlay;
         }
 
         .glass-nav-item {
           color: #334155;
+          transform: translateX(0);
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
         }
         .dark .glass-nav-item {
           color: #f1f5f9;
         }
         .glass-nav-item:hover {
-          background: rgba(255,255,255,0.75);
+          background: rgba(255,255,255,0.92);
           color: #0f172a;
-          box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 3px 12px rgba(31,38,135,0.08);
+          transform: translateX(3px);
+          box-shadow: inset 0 1px 1px rgba(255,255,255,1), 0 2px 14px rgba(79,70,229,0.09);
         }
         .dark .glass-nav-item:hover {
           background: rgba(255,255,255,0.1);
           color: #ffffff;
+          transform: translateX(3px);
         }
         .glass-nav-item-active {
-          background: rgba(255,255,255,0.88);
+          background: rgba(255,255,255,0.98);
           color: #0f172a;
+          transform: translateX(0) !important;
           box-shadow:
             inset 0 1px 1px rgba(255,255,255,1),
-            inset 0 -1px 2px rgba(0,0,0,0.03),
-            0 4px 16px rgba(31,38,135,0.12);
+            0 4px 22px rgba(79,70,229,0.16),
+            0 1px 4px rgba(79,70,229,0.08);
         }
         .dark .glass-nav-item-active {
           background: rgba(255,255,255,0.14);
@@ -1246,9 +1261,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         }
 
         .glass-icon-chip {
-          background: rgba(255,255,255,0.65);
-          box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), inset 0 -2px 3px rgba(0,0,0,0.03), 0 2px 5px rgba(0,0,0,0.05);
-          border: 1px solid rgba(255,255,255,0.8);
+          background: rgba(248,249,255,0.88);
+          box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 2px 6px rgba(79,70,229,0.06);
+          border: 1px solid rgba(99,102,241,0.12);
         }
         .dark .glass-icon-chip {
           background: rgba(255,255,255,0.08);
@@ -1256,9 +1271,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         }
 
         .glass-profile-chip {
-          background: rgba(255,255,255,0.65);
-          border: 1px solid rgba(255,255,255,0.8);
-          box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), 0 3px 10px rgba(31,38,135,0.08);
+          background: rgba(255,255,255,0.92);
+          border: 1px solid rgba(99,102,241,0.12);
+          box-shadow: inset 0 1px 1px rgba(255,255,255,1), 0 4px 16px rgba(79,70,229,0.08);
         }
         .dark .glass-profile-chip {
           background: rgba(255,255,255,0.08);
@@ -1277,6 +1292,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         }
         .sidebar-submenu-inner {
           overflow: hidden;
+        }
+        .sidebar-submenu ul {
+          border-left-color: rgba(99,102,241,0.22) !important;
         }
 
         .glass-sidebar a,
@@ -1298,34 +1316,36 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         /* Apple Light Liquid Glass Aesthetics for Responsive Mobile */
         @media (max-width: 991px) {
           .glass-sidebar {
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(240, 243, 250, 0.9) 100%) !important;
+            background: linear-gradient(160deg, rgba(248,249,255,0.98) 0%, rgba(240,244,255,0.96) 100%) !important;
             backdrop-filter: blur(36px) saturate(200%) brightness(1.03) !important;
             -webkit-backdrop-filter: blur(36px) saturate(200%) brightness(1.03) !important;
-            border-right: 1px solid rgba(255, 255, 255, 0.85) !important;
-            box-shadow: 12px 0 45px rgba(31, 38, 135, 0.15), inset 1px 0 1px rgba(255, 255, 255, 0.95) !important;
+            border-right: 1px solid rgba(99,102,241,0.18) !important;
+            box-shadow: 12px 0 60px rgba(79,70,229,0.18), inset 1px 0 1px rgba(255,255,255,0.95) !important;
           }
           .glass-sidebar .glass-nav-item {
             color: #1e293b !important;
+            min-height: 44px !important;
           }
           .glass-sidebar .glass-nav-item:hover {
-            background: rgba(255, 255, 255, 0.85) !important;
+            background: rgba(255, 255, 255, 0.92) !important;
             color: #0f172a !important;
           }
           .glass-sidebar .glass-nav-item-active {
-            background: rgba(255, 255, 255, 0.95) !important;
+            background: rgba(255, 255, 255, 0.98) !important;
             color: #0f172a !important;
-            box-shadow: inset 0 1px 1px #ffffff, 0 4px 16px rgba(31, 38, 135, 0.14) !important;
+            box-shadow: inset 0 1px 1px #ffffff, 0 4px 22px rgba(79,70,229,0.16) !important;
           }
           .glass-sidebar .group\/sub {
             color: #334155 !important;
+            min-height: 38px !important;
           }
           .glass-sidebar .group\/sub:hover {
-            background: rgba(255, 255, 255, 0.75) !important;
+            background: rgba(255, 255, 255, 0.8) !important;
             color: #0f172a !important;
           }
           .glass-sidebar .glass-profile-chip {
-            background: rgba(255, 255, 255, 0.8) !important;
-            border: 1px solid rgba(255, 255, 255, 0.9) !important;
+            background: rgba(255, 255, 255, 0.92) !important;
+            border: 1px solid rgba(99, 102, 241, 0.15) !important;
           }
           .glass-sidebar .glass-profile-chip div {
             color: #0f172a !important;
@@ -1339,8 +1359,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
             color: #475569 !important;
           }
           .glass-sidebar .glass-icon-chip {
-            background: rgba(255, 255, 255, 0.8) !important;
-            border-color: rgba(255, 255, 255, 0.9) !important;
+            background: rgba(248, 249, 255, 0.92) !important;
+            border-color: rgba(99, 102, 241, 0.15) !important;
           }
         }
         .glass-sidebar:has(.px-2) .sidebar-scroll {
@@ -1352,10 +1372,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           width: 0px !important;
         }
         .sidebar-scroll::-webkit-scrollbar {
-          width: 4px;
+          width: 3px;
         }
         .sidebar-scroll::-webkit-scrollbar-thumb {
-          background-color: rgba(52, 56, 114, 0.18);
+          background-color: rgba(99, 102, 241, 0.22);
           border-radius: 999px;
           transition: background-color 0.2s ease;
         }
