@@ -28,7 +28,11 @@ export async function POST() {
     const sanitizedEmail = user.email.replace(/[^a-zA-Z0-9_-]/g, "_");
     const uploadDir = path.join(process.cwd(), "data", "vfp_uploads", sanitizedEmail);
 
-    const canSyncDirectlyOnServer = (dataDir && fs.existsSync(dataDir)) || fs.existsSync(uploadDir);
+    const hasUploadedDbfs =
+      fs.existsSync(uploadDir) &&
+      fs.readdirSync(uploadDir).some((f) => f.toLowerCase().endsWith(".dbf"));
+
+    const canSyncDirectlyOnServer = (dataDir && fs.existsSync(dataDir)) || hasUploadedDbfs;
 
     if (canSyncDirectlyOnServer) {
       const syncResult = await performDirectServerSync(user.email);

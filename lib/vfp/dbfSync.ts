@@ -28,8 +28,12 @@ export async function performDirectServerSync(userEmail: string) {
   const sanitizedEmail = (userEmail || "global").replace(/[^a-zA-Z0-9_-]/g, "_");
   const uploadDir = path.join(process.cwd(), "data", "vfp_uploads", sanitizedEmail);
 
+  const hasUploadedFiles =
+    fs.existsSync(uploadDir) &&
+    fs.readdirSync(uploadDir).some((f) => f.toLowerCase().endsWith(".dbf"));
+
   // Fallback: check if DBF files were uploaded via browser to THIS USER's server storage
-  if ((!dataDir || !fs.existsSync(dataDir)) && fs.existsSync(uploadDir)) {
+  if ((!dataDir || !fs.existsSync(dataDir)) && hasUploadedFiles) {
     dataDir = uploadDir;
   }
 
@@ -185,8 +189,7 @@ async function importSingleDbfFile(
     );
 
     const collection = mongoose.connection.collection(targetCollection);
-    await collection.dropIndexes().catch(() => { });
-    await collection.deleteMany({});
+    await collection.createIndex({ _vfpFileName: 1, _vfpSourceKey: 1 }).catch(() => { });
 
     const docs = dbf.rows.map((row: any) => {
       const sourceKey = buildSourceKey(row, primaryKeyFields);
@@ -204,11 +207,18 @@ async function importSingleDbfFile(
     });
 
     let importedCount = 0;
-    const BATCH_SIZE = 5000;
+    const BATCH_SIZE = 2000;
     for (let i = 0; i < docs.length; i += BATCH_SIZE) {
       const chunk = docs.slice(i, i + BATCH_SIZE);
       if (chunk.length > 0) {
-        await collection.insertMany(chunk, { ordered: false });
+        const ops = chunk.map((doc: any) => ({
+          updateOne: {
+            filter: { _vfpFileName: fileName, _vfpSourceKey: doc._vfpSourceKey },
+            update: { $set: doc },
+            upsert: true,
+          },
+        }));
+        await collection.bulkWrite(ops, { ordered: false });
         importedCount += chunk.length;
       }
     }

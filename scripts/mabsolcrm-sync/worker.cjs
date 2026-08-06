@@ -482,8 +482,7 @@ async function importDbfFile(filePath, runId, email, dataDir) {
     );
 
     const collection = mongoose.connection.collection(targetCollection);
-    await collection.dropIndexes().catch(() => {});
-    await collection.deleteMany({});
+    await collection.createIndex({ _vfpFileName: 1, _vfpSourceKey: 1 }).catch(() => {});
 
     const docs = dbf.rows.map((row) => {
       const sourceKey = buildSourceKey(row, primaryKeyFields);
@@ -501,11 +500,18 @@ async function importDbfFile(filePath, runId, email, dataDir) {
     });
 
     let importedCount = 0;
-    const BATCH_SIZE = 5000;
+    const BATCH_SIZE = 2000;
     for (let i = 0; i < docs.length; i += BATCH_SIZE) {
       const chunk = docs.slice(i, i + BATCH_SIZE);
       if (chunk.length > 0) {
-        await collection.insertMany(chunk, { ordered: false });
+        const ops = chunk.map((doc) => ({
+          updateOne: {
+            filter: { _vfpFileName: fileName, _vfpSourceKey: doc._vfpSourceKey },
+            update: { $set: doc },
+            upsert: true,
+          },
+        }));
+        await collection.bulkWrite(ops, { ordered: false });
         importedCount += chunk.length;
       }
     }

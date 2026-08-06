@@ -14,7 +14,14 @@ import {
   Edit2,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  UploadCloud,
+  Laptop,
+  Server,
+  Terminal,
+  Download,
+  Copy,
+  HelpCircle
 } from "lucide-react";
 
 interface VfpSyncActionsProps {
@@ -113,6 +120,58 @@ export default function VfpSyncActions({
   // Scanned folder DBF files
   const [folderDbfFiles, setFolderDbfFiles] = useState<string[]>([]);
   const [scanningFolder, setScanningFolder] = useState(false);
+
+  // Direct DBF Upload & Worker Setup Modal State
+  const [uploading, setUploading] = useState(false);
+  const [showWorkerModal, setShowWorkerModal] = useState(false);
+  const [copiedCmd, setCopiedCmd] = useState(false);
+  const directDbfInputRef = useRef<HTMLInputElement>(null);
+
+  // Direct Browser Upload Handler for AWS Linux Cloud
+  const handleDirectDbfUpload = async (files: FileList | File[] | null) => {
+    if (!files || files.length === 0) return;
+    const dbfFiles = Array.from(files).filter((f) => f.name.toLowerCase().endsWith(".dbf"));
+    if (dbfFiles.length === 0) {
+      setMessage({ type: "error", text: "Please select valid .DBF files to upload." });
+      return;
+    }
+
+    setUploading(true);
+    setMessage({
+      type: "info",
+      text: `Uploading ${dbfFiles.length} DBF file(s) to AWS Cloud server storage & syncing...`,
+    });
+
+    const formData = new FormData();
+    dbfFiles.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/upload-dbf", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setMessage({
+          type: "success",
+          text: data.message || `Uploaded ${dbfFiles.length} DBF file(s) and synced successfully!`,
+        });
+        if (data.uploadedFileNames && data.uploadedFileNames.length > 0) {
+          setSelectedFiles((prev) => Array.from(new Set([...prev, ...data.uploadedFileNames])));
+        }
+        router.refresh();
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to upload DBF files." });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Error occurred while uploading DBF files." });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Native file & directory input refs
   const nativeFolderInputRef = useRef<HTMLInputElement>(null);
@@ -1038,17 +1097,49 @@ export default function VfpSyncActions({
           </div>
 
           <div className="space-y-4 min-w-0">
+            {/* WORKER STATUS & SETUP CARD */}
             <div 
               className="border border-slate-200/80 p-4 sm:p-5 bg-white space-y-4 shadow-2xs"
               style={{ borderRadius: "20px" }}
             >
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">WORKER STATUS</span>
-                <div className="flex items-center gap-1 text-xs text-slate-500 font-mono">
-                  <Clock size={12} className="text-slate-400" />
-                  <span>Last sync:</span>
-                  <span className="font-bold text-slate-800">{formatDate(lastSyncedAt)}</span>
+                <div className="flex items-center gap-1.5">
+                  {workerOnline ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Worker ONLINE
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      Worker OFFLINE
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400 font-mono">
+                    <Clock size={11} />
+                    <span>{formatDate(lastSyncedAt)}</span>
+                  </div>
                 </div>
+              </div>
+
+              {/* Worker setup guide banner button */}
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs text-slate-700 min-w-0">
+                  <Laptop size={15} className="text-teal-600 shrink-0" />
+                  <div className="truncate">
+                    <span className="font-bold text-slate-900 block text-[11px]">AWS Cloud & PC Worker</span>
+                    <span className="text-[10px] text-slate-500 block truncate">Sync FoxPro/Marg DBF from local Windows PC</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowWorkerModal(true)}
+                  className="px-2.5 py-1 text-[11px] font-bold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 rounded-lg shadow-2xs shrink-0 cursor-pointer transition-all inline-flex items-center gap-1"
+                >
+                  <HelpCircle size={12} className="text-teal-600" />
+                  <span>Setup Guide</span>
+                </button>
               </div>
 
               <div className="flex flex-col gap-1.5 pt-1 w-full">
@@ -1090,17 +1181,10 @@ export default function VfpSyncActions({
                       ? "border-red-500 bg-red-50 text-red-700 hover:bg-red-100 shadow-2xs cursor-pointer"
                       : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
                   }`} 
-                  style={{ borderRadius: "9999px", marginTop: "12px" }}
+                  style={{ borderRadius: "9999px", marginTop: "8px" }}
                   onClick={triggerCancelSync}
                   disabled={!autoSync && busyAction !== "sync"}
                   type="button"
-                  title={
-                    autoSync 
-                      ? "Click to cancel and disable Auto-sync" 
-                      : busyAction === "sync" 
-                      ? "Click to cancel active sync" 
-                      : "Cancel sync is available when Auto-sync or manual sync is active"
-                  }
                 >
                   <X size={14} className={busyAction === "cancel" ? "animate-spin text-red-600" : busyAction === "sync" || autoSync ? "text-red-600" : "text-slate-400"} />
                   <span>{busyAction === "cancel" ? "Cancelling..." : "Cancel sync"}</span>
@@ -1108,8 +1192,65 @@ export default function VfpSyncActions({
               </div>
 
               <p className="text-[11px] text-slate-400 leading-relaxed text-center max-w-xs mx-auto m-0 pt-0.5">
-                Pushes local DBF changes to the CRM table immediately and manages worker background tasks.
+                Pushes DBF changes to CRM tables immediately and manages worker background tasks.
               </p>
+            </div>
+
+            {/* DIRECT CLOUD DBF UPLOAD CARD */}
+            <div
+              className="border border-teal-200/70 p-4 sm:p-5 bg-gradient-to-b from-teal-50/40 to-white space-y-3 shadow-2xs"
+              style={{ borderRadius: "20px" }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+                    <UploadCloud size={16} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block leading-snug">Upload DBF to Cloud</span>
+                    <span className="text-[10px] text-slate-500 block">Direct browser upload to AWS Linux server</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Drag and drop / select area */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleDirectDbfUpload(e.dataTransfer.files);
+                  }
+                }}
+                onClick={() => directDbfInputRef.current?.click()}
+                className="border-2 border-dashed border-teal-200 hover:border-teal-400 bg-white/80 p-4 rounded-xl text-center cursor-pointer transition-all hover:bg-teal-50/30 group"
+              >
+                <input
+                  type="file"
+                  ref={directDbfInputRef}
+                  accept=".dbf"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={(e) => handleDirectDbfUpload(e.target.files)}
+                />
+                {uploading ? (
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold text-teal-700 py-1">
+                    <Loader2 size={16} className="animate-spin text-teal-600" />
+                    <span>Uploading DBF files & syncing...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <UploadCloud size={22} className="mx-auto text-teal-600 group-hover:scale-110 transition-transform" />
+                    <div className="text-xs font-bold text-slate-800">
+                      Drop <span className="text-teal-600 font-mono">.DBF</span> files here, or <span className="underline">browse</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Supports multiple DBF tables (e.g. CUST.DBF, ITEM.DBF)
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Live Sync Progress Panel */}
@@ -1229,6 +1370,123 @@ export default function VfpSyncActions({
         >
           <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-current" />
           <span>{message.text}</span>
+        </div>
+      )}
+
+      {/* Worker Setup Guide Modal for AWS Linux Cloud vs Windows Local PC */}
+      {showWorkerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div 
+            className="bg-white border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-200"
+            style={{ borderRadius: "24px" }}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+                  <Laptop size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 m-0 leading-tight">Desktop Sync Worker Guide</h3>
+                  <span className="text-xs text-slate-500 font-medium">AWS Linux Cloud ↔ Windows Local PC Setup</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWorkerModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 space-y-5 text-slate-800 text-xs leading-relaxed max-h-[75vh] overflow-y-auto">
+              
+              {/* Architecture explanation banner */}
+              <div className="p-4 bg-teal-50/70 border border-teal-200/80 rounded-2xl space-y-1.5">
+                <div className="font-bold text-teal-900 flex items-center gap-1.5 text-xs">
+                  <Server size={14} className="text-teal-700 shrink-0" />
+                  <span>How sync works on AWS Cloud Deployment:</span>
+                </div>
+                <p className="text-[11px] text-teal-800 m-0 leading-normal">
+                  AWS Linux Cloud cannot directly access Windows local drives like <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold border border-teal-200 text-teal-900">C:\VFP\DATA</code> across the internet. Running the local desktop worker on your office Windows PC bridges your local FoxPro/Marg ERP files directly to AWS Cloud!
+                </p>
+              </div>
+
+              {/* Step 1: Download & Run .bat */}
+              <div className="space-y-2 pt-1 border-t border-slate-100">
+                <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                  <span>Option A: Run 'run_local_sync.bat' on your local Windows PC</span>
+                </div>
+                <p className="text-[11px] text-slate-500 m-0 pl-7">
+                  Download the ready-to-run batch script and launch it on the Windows PC where your Mabsol/FoxPro DBF data resides:
+                </p>
+                <div className="pl-7 pt-1 flex items-center gap-2">
+                  <a
+                    href="/api/mabsolcrmsync/download-worker"
+                    download="run_local_sync.bat"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                  >
+                    <Download size={14} />
+                    <span>Download run_local_sync.bat</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Step 2: Run via Terminal / Node */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                  <span>Option B: Launch worker via Command Prompt / Terminal</span>
+                </div>
+                <p className="text-[11px] text-slate-500 m-0 pl-7">
+                  Open terminal in your project directory and run the sync worker node script directly:
+                </p>
+                <div className="pl-7 pt-1">
+                  <div className="p-3 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded-xl flex items-center justify-between gap-2 shadow-inner">
+                    <span className="truncate">node scripts/mabsolcrm-sync/worker.cjs</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText("node scripts/mabsolcrm-sync/worker.cjs");
+                        setCopiedCmd(true);
+                        setTimeout(() => setCopiedCmd(false), 2000);
+                      }}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                    >
+                      {copiedCmd ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                      <span>{copiedCmd ? "Copied!" : "Copy"}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3: Direct Upload Alternative */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
+                  <span className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                  <span>Option C: Direct Browser Upload (No Worker Needed)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 m-0 pl-7">
+                  Don't want to run a local script? Simply drag and drop your <code className="font-mono text-slate-800 font-bold bg-slate-100 px-1 py-0.5 rounded">.DBF</code> files into the <strong>Upload DBF to Cloud</strong> dropzone on the dashboard.
+                </p>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/60 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setShowWorkerModal(false)}
+                className="px-5 py-2 text-xs font-bold bg-slate-900 text-white hover:bg-black rounded-xl transition-all shadow-xs cursor-pointer"
+              >
+                Close Guide
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
