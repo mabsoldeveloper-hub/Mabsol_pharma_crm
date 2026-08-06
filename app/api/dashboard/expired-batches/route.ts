@@ -55,19 +55,31 @@ export async function GET(req: NextRequest) {
 
         if (restriction.isMrRestricted) {
             if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
-                batchFilter.COMPANY = { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] };
+                const compRegexes = restriction.allowedCompanyCodes.map((code: string) => new RegExp(`_${code}$|^${code}$`, "i"));
+                batchFilter = combineFilters(batchFilter, {
+                    $or: [
+                        { _vfpTable: { $in: compRegexes } },
+                        { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } },
+                        { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                    ]
+                });
             } else if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
-                batchFilter.CODEP = { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] };
+                batchFilter = combineFilters(batchFilter, { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } });
             } else {
-                batchFilter.CODEP = "NONE_MATCH";
+                batchFilter = combineFilters(batchFilter, { CODEP: "NONE_MATCH" });
             }
         }
 
         if (company) {
-            batchFilter.$or = [
-                { COMPANY: company },
-                { GCODE: company },
-            ];
+            const compRegex = new RegExp(`_${company}$|^${company}$`, "i");
+            batchFilter = combineFilters(batchFilter, {
+                $or: [
+                    { _vfpTable: compRegex },
+                    { COMPANY: new RegExp(`^${company}$`, "i") },
+                    { GCODE: new RegExp(`^${company}$`, "i") },
+                    { companyCode: new RegExp(`^${company}$`, "i") }
+                ]
+            });
         }
 
         if (search) {
@@ -97,7 +109,7 @@ export async function GET(req: NextRequest) {
         else if (sortBy === "PRODUCT") sortOption.PRODUCT = sortOrder;
         else sortOption.EXP = sortOrder;
 
-        const [totalCount, batchDocs, summaryAgg, distinctCompanies, distinctProducts] = await Promise.all([
+        const [totalCount, batchDocs, summaryAgg, distinctCompanies, distinctVfpTables, distinctProducts] = await Promise.all([
             ProductBatch.countDocuments(batchFilter),
             ProductBatch.find(batchFilter)
                 .sort(sortOption)
@@ -127,11 +139,18 @@ export async function GET(req: NextRequest) {
                 }
             ]),
             ProductBatch.distinct("COMPANY", batchFilter),
+            ProductBatch.distinct("_vfpTable", batchFilter),
             ProductBatch.distinct("CODE", batchFilter)
         ]);
 
-        const companiesList = distinctCompanies
-            .filter(Boolean)
+        const extractedCodes = new Set<string>();
+        distinctCompanies.filter(Boolean).forEach((cCode: string) => extractedCodes.add(String(cCode).trim()));
+        distinctVfpTables.filter(Boolean).forEach((tbl: string) => {
+            const code = String(tbl).replace(/^PROBAT_/i, "").trim();
+            if (code) extractedCodes.add(code);
+        });
+
+        const companiesList = Array.from(extractedCodes)
             .map((cCode: string) => {
                 const code = String(cCode).trim();
                 return {
@@ -150,7 +169,7 @@ export async function GET(req: NextRequest) {
             const exp = b.EXP || null;
             const daysExpired = daysAgo(exp);
 
-            const compCode = String(b.COMPANY || b.GCODE || "").trim();
+            const compCode = String(b.COMPANY || b.GCODE || (b._vfpTable ? b._vfpTable.replace(/^PROBAT_/i, "") : "") || "").trim();
 
             return {
                 id: b._id.toString(),

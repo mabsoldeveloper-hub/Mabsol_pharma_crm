@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
-import { combineFilters } from "@/lib/companyVfpHelper";
+import { combineFilters, getCompanyVfpFilter } from "@/lib/companyVfpHelper";
 
 import SalesDis from "@/models/SalesDis";
 import SalesMdis from "@/models/SalesMdis";
@@ -172,40 +172,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const companyId = searchParams.get("companyId");
-  const fyId = searchParams.get("fyId");
-
-  let activeCompanyCode = "";
-  let activeFyCode = "";
-
-  if (companyId) {
-    const compDoc = await Company.findById(companyId).lean();
-    if (compDoc?.companyCode) activeCompanyCode = compDoc.companyCode;
-  }
-
-  if (fyId && fyId !== "ALL") {
-    const fyDoc = await FinancialYear.findById(fyId).lean();
-    if (fyDoc?.fyCode) activeFyCode = fyDoc.fyCode;
-    if (!activeCompanyCode && fyDoc?.companyId) {
-      const cDoc = await Company.findById(fyDoc.companyId).lean();
-      if (cDoc?.companyCode) activeCompanyCode = cDoc.companyCode;
-    }
-  }
-
-  const vfpOrList: any[] = [];
-  if (activeCompanyCode) {
-    vfpOrList.push({ _vfpTable: new RegExp(`_${activeCompanyCode}$`, "i") });
-    vfpOrList.push({ companyCode: activeCompanyCode });
-    vfpOrList.push({ COMPANY: activeCompanyCode });
-  }
-  if (activeFyCode && activeFyCode !== activeCompanyCode) {
-    vfpOrList.push({ _vfpTable: new RegExp(`_${activeFyCode}$`, "i") });
-    vfpOrList.push({ fyCode: activeFyCode });
-  }
-  if (companyId) {
-    vfpOrList.push({ companyId: companyId });
-  }
-
-  const companyVfpMatch = vfpOrList.length > 0 ? { $or: vfpOrList } : {};
+  const companyVfpMatch = await getCompanyVfpFilter(searchParams);
 
   const fyRange = await getFYDateRange(searchParams);
   const { startDate, endDate } = fyRange;
