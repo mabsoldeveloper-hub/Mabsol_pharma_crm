@@ -105,6 +105,22 @@ export async function performDirectServerSync(userEmail: string) {
 
   // Preserve existing metadata for all tables without deleting unscanned table states
 
+  // If dataDir was the browser upload folder (data/vfp_uploads/<sanitizedEmail>),
+  // clean up the temp .DBF files from server disk storage now that MongoDB holds 100% of data
+  if (isUploadDir && fs.existsSync(uploadDir)) {
+    try {
+      const filesInUploadDir = fs.readdirSync(uploadDir);
+      for (const file of filesInUploadDir) {
+        const filePath = path.join(uploadDir, file);
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    } catch (cleanErr) {
+      console.error("[dbfSync] Error cleaning up temp upload files:", cleanErr);
+    }
+  }
+
   await VfpSyncLog.create({
     runId,
     email,
