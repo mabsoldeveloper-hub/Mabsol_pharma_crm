@@ -28,11 +28,11 @@ export default function Topbar({
   const [companyName, setCompanyName] = useState<string>("");
 
   // Dynamic Voice Assistant ("Hey [Name]") State & Listener
-  const [assistantName, setAssistantName] = useState("Salim");
+  const [assistantName, setAssistantName] = useState("AI Assistant");
   const [autoVoiceStart, setAutoVoiceStart] = useState(false);
   const [initialVoiceQuery, setInitialVoiceQuery] = useState("");
   const [wakewordEnabled, setWakewordEnabled] = useState(true);
-  const [salimToast, setSalimToast] = useState(false);
+  const [assistantToast, setAssistantToast] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const bgRecognitionRef = useRef<any>(null);
@@ -92,21 +92,20 @@ export default function Topbar({
           }
 
           const lower = transcript.toLowerCase();
-          const targetName = (assistantName || "Salim").toLowerCase().trim();
+          const targetName = (assistantName || "AI Assistant").toLowerCase().trim();
 
           const isTriggered =
             lower.includes(targetName) ||
             lower.includes(`hey ${targetName}`) ||
             lower.includes(`hi ${targetName}`) ||
-            lower.includes(`hello ${targetName}`) ||
-            (targetName === "salim" && (lower.includes("saliem") || lower.includes("saleem") || lower.includes("selim")));
+            lower.includes(`hello ${targetName}`);
 
           if (isTriggered) {
             console.log(`${assistantName} Wake-Word Triggered:`, transcript);
             try { rec.abort(); } catch (e) {}
 
-            setSalimToast(true);
-            setTimeout(() => setSalimToast(false), 3500);
+            setAssistantToast(true);
+            setTimeout(() => setAssistantToast(false), 3500);
 
             setInitialVoiceQuery(transcript);
             setAutoVoiceStart(true);
@@ -133,7 +132,7 @@ export default function Topbar({
         bgRecognitionRef.current = rec;
         rec.start();
       } catch (e) {
-        console.warn("Background Salim listener error:", e);
+        console.warn("Background AI Assistant listener error:", e);
       }
     };
 
@@ -631,7 +630,7 @@ export default function Topbar({
       </div>
 
       {/* Voice Assistant Activated Toast Banner */}
-      {salimToast && (
+      {assistantToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100000] flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-slate-950 text-white text-xs font-bold shadow-2xl border border-indigo-500/50 animate-bounce">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
           <span>🎙️ {assistantName} Voice Assistant Activated! (&quot;Hey {assistantName}&quot; detected)</span>

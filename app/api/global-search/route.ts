@@ -5,6 +5,10 @@ import ProductBatch from "@/models/ProductBatch";
 import Order from "@/models/Order";
 import GlLedger from "@/models/GlLedger";
 import SalesMdis from "@/models/SalesMdis";
+import PurchaseBill from "@/models/PurchaseBill";
+import PurchaseOrder from "@/models/PurchaseOrder";
+import PurchasePayment from "@/models/PurchasePayment";
+import PurchaseReturn from "@/models/PurchaseReturn";
 import User from "@/models/User";
 import Category from "@/models/Category";
 import Division from "@/models/Division";
@@ -14,18 +18,17 @@ function escapeRegex(text: string) {
 }
 
 // Spoken Voice Search Cleaner - removes spoken filler words and dynamic assistant names across English, Hindi, Urdu & Hinglish
-function cleanSpokenQuery(input: string, assistantName: string = "Salim"): string {
+function cleanSpokenQuery(input: string, assistantName: string = "AI Assistant"): string {
   if (!input) return "";
   let text = input.trim();
 
   // Escaped assistant name for regex
-  const nameEscaped = (assistantName || "Salim").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const nameEscaped = (assistantName || "AI Assistant").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   // Dynamic regex pattern to match greetings + assistant name
-  // Matches: "hi salim", "hey salim", "hello salim", "suno salim", "salim bhai", "salim ji", "salim", "saliem", "saleem", "selim", "hey jarvis", etc.
   const greetingAndNamePatterns = [
-    new RegExp(`\\b(hi|hey|hello|suno|listen|ok|okay|aaye|namaste|haaye)\\s+(${nameEscaped}|salim|saleem|saliem|selim|jarvis|alexa|siri|crm)\\b`, "gi"),
-    new RegExp(`\\b(${nameEscaped}|salim|saleem|saliem|selim)(\\s+bhai|\\s+ji)?\\b`, "gi"),
+    new RegExp(`\\b(hi|hey|hello|suno|listen|ok|okay|aaye|namaste|haaye)\\s+(${nameEscaped}|jarvis|alexa|siri|crm|ai)\\b`, "gi"),
+    new RegExp(`\\b(${nameEscaped})(\\s+bhai|\\s+ji)?\\b`, "gi"),
     /\b(hi|hey|hello|suno|listen)\b/gi,
   ];
 
@@ -48,6 +51,9 @@ function cleanSpokenQuery(input: string, assistantName: string = "Salim"): strin
   spokenFillers.forEach((pattern) => {
     text = text.replace(pattern, "");
   });
+
+  // Strip emojis from query string for clean regex searching
+  text = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "");
 
   text = text.replace(/\s+/g, " ").trim();
 
@@ -91,6 +97,10 @@ const TYPO_MAP: Record<string, string> = {
 const APP_PAGES = [
   // Core Dashboards & Sidebar Components
   { title: "Dashboard Overview", category: "Navigation", path: "/dashboard", fileName: "app/dashboard/page.tsx", keywords: ["home", "analytics", "dashboard", "kpi", "summary", "main", "sidebar", "sidebar links", "topbar", "file name", "filename"], icon: "layout-dashboard" },
+  { title: "Executive AI Dashboard 🤖", category: "Navigation", path: "/dashboard/executive-ai", fileName: "app/dashboard/executive-ai/page.tsx", keywords: ["executive ai", "executive-ai", "ai dashboard", "cfo dashboard", "sales purchase ai", "ai insights", "executive overview", "widgets", "visualization"], icon: "sparkles" },
+  { title: "Purchase & Sales Combined Analytics 📈", category: "Navigation", path: "/dashboard/purchase-sales-analytics", fileName: "app/dashboard/purchase-sales-analytics/page.tsx", keywords: ["purchase sales analytics", "purchase-sales-analytics", "combined analytics", "growth matrix", "sales vs purchase", "purchase comparison", "purchase and sales"], icon: "trending-up" },
+  { title: "Vouchers & Accounting Log 📄", category: "Navigation", path: "/dashboard/voucher", fileName: "app/dashboard/voucher/page.tsx", keywords: ["voucher", "vouchers", "accounting voucher", "journal entry", "journal", "receipt voucher", "payment voucher"], icon: "file-text" },
+  { title: "Custom Analytics & Report Builder 📊", category: "Navigation", path: "/dashboard/report", fileName: "app/dashboard/report/page.tsx", keywords: ["report", "analytics report", "sales report", "custom report", "data report"], icon: "bar-chart" },
   { title: "Sidebar Navigation Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/Sidebar.tsx", keywords: ["sidebar", "side bar", "sidebar links", "navigation bar", "menu", "nav", "file name", "filename"], icon: "compass" },
   { title: "Topbar Header Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/Topbar.tsx", keywords: ["topbar", "top bar", "header", "search bar", "global search", "file name", "filename"], icon: "compass" },
   { title: "Global Search Modal Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/GlobalSearchModal.tsx", keywords: ["global search", "search modal", "command palette", "file name", "filename"], icon: "search" },
@@ -122,8 +132,10 @@ const APP_PAGES = [
 
   // Users & Permissions
   { title: "User Management", category: "Navigation", path: "/dashboard/users", fileName: "app/dashboard/users/page.tsx", keywords: ["user management", "users", "employee list", "staff", "create user"], icon: "users" },
+  { title: "Create New User", category: "Navigation", path: "/dashboard/users/create", fileName: "app/dashboard/users/create/page.tsx", keywords: ["create user", "add user", "new employee", "staff entry"], icon: "user-plus" },
   { title: "Permission Management", category: "Navigation", path: "/dashboard/permissions", fileName: "app/dashboard/permissions/page.tsx", keywords: ["permission", "permissions", "access control", "privileges", "module access"], icon: "shield-check" },
   { title: "Roles & Role Permissions", category: "Navigation", path: "/dashboard/roles", fileName: "app/dashboard/roles/page.tsx", keywords: ["roles", "role permissions", "role-permissions", "admin role", "manager role"], icon: "lock" },
+  { title: "Create Role & Permissions", category: "Navigation", path: "/dashboard/roles/create", fileName: "app/dashboard/roles/create/page.tsx", keywords: ["create role", "add role", "new role"], icon: "lock" },
   { title: "User Permissions Matrix", category: "Navigation", path: "/dashboard/user-permissions", fileName: "app/dashboard/user-permissions/page.tsx", keywords: ["user permissions", "user-permissions", "rights", "access matrix"], icon: "user-check" },
 
   // Inventory
@@ -148,10 +160,16 @@ const APP_PAGES = [
   { title: "Purchase Invoices List", category: "Navigation", path: "/dashboard/purchase/invoice", fileName: "app/dashboard/purchase/invoice/page.tsx", keywords: ["purchase invoices", "vendor bills", "purchase list"], icon: "file-invoice" },
   { title: "Purchase Outstanding", category: "Navigation", path: "/dashboard/purchase/outstanding", fileName: "app/dashboard/purchase/outstanding/page.tsx", keywords: ["purchase outstanding", "vendor dues", "payables"], icon: "clock" },
   { title: "Create Purchase Bill", category: "Navigation", path: "/dashboard/purchase/invoice/create", fileName: "app/dashboard/purchase/invoice/create/page.tsx", keywords: ["create purchase bill", "new purchase bill", "vendor invoice entry"], icon: "plus-circle" },
+  { title: "Create Purchase Order", category: "Navigation", path: "/dashboard/purchase/orders/create", fileName: "app/dashboard/purchase/orders/create/page.tsx", keywords: ["create purchase order", "new po", "create po"], icon: "plus-circle" },
   { title: "AI Bill Entry (Photo/PDF)", category: "Navigation", path: "/dashboard/purchase/ai-entry", fileName: "app/dashboard/purchase/ai-entry/page.tsx", keywords: ["ai bill entry", "photo bill", "pdf bill OCR", "smart bill scanner"], icon: "camera" },
   { title: "Purchase Return Entry & Report", category: "Navigation", path: "/dashboard/purchase/purchase-return", fileName: "app/dashboard/purchase/purchase-return/page.tsx", keywords: ["purchase return", "debit note", "vendor return"], icon: "undo" },
   { title: "Payment Entry", category: "Navigation", path: "/dashboard/purchase/payment", fileName: "app/dashboard/purchase/payment/page.tsx", keywords: ["payment entry", "vendor payment", "paid voucher"], icon: "receipt" },
   { title: "Purchase Orders", category: "Navigation", path: "/dashboard/purchase/orders", fileName: "app/dashboard/purchase/orders/page.tsx", keywords: ["purchase orders", "po", "vendor orders"], icon: "clipboard-list" },
+  { title: "Purchase Reports Hub", category: "Navigation", path: "/dashboard/purchase/reports", fileName: "app/dashboard/purchase/reports/page.tsx", keywords: ["purchase reports", "vendor reports"], icon: "chart-bar" },
+  { title: "Purchase Returns Report", category: "Navigation", path: "/dashboard/purchase/reports/returns", fileName: "app/dashboard/purchase/reports/returns/page.tsx", keywords: ["purchase returns report", "vendor return log"], icon: "undo" },
+  { title: "Purchase Payments Report", category: "Navigation", path: "/dashboard/purchase/reports/payments", fileName: "app/dashboard/purchase/reports/payments/page.tsx", keywords: ["purchase payments report", "vendor payment log"], icon: "receipt" },
+  { title: "Purchase Orders Report", category: "Navigation", path: "/dashboard/purchase/reports/orders", fileName: "app/dashboard/purchase/reports/orders/page.tsx", keywords: ["purchase orders report", "vendor po log"], icon: "clipboard-list" },
+  { title: "Purchase Invoices Log Report", category: "Navigation", path: "/dashboard/purchase/reports/invoices", fileName: "app/dashboard/purchase/reports/invoices/page.tsx", keywords: ["purchase invoices report", "vendor bills log"], icon: "file-invoice" },
 
   // Customers
   { title: "Customer Master & Ledgers", category: "Navigation", path: "/dashboard/customers", fileName: "app/dashboard/customers/page.tsx", keywords: ["customers", "list customers", "customer list", "parties", "ledger", "dealers", "clients"], icon: "users" },
@@ -177,9 +195,13 @@ const APP_PAGES = [
   { title: "Outstanding Receivables Report", category: "Navigation", path: "/dashboard/reports/outstanding", fileName: "app/dashboard/reports/outstanding/page.tsx", keywords: ["outstanding report", "pending payment report", "due report"], icon: "clock" },
   { title: "Sales Receipt Collection Report", category: "Navigation", path: "/dashboard/reports/sales-receipt", fileName: "app/dashboard/reports/sales-receipt/page.tsx", keywords: ["sales receipt report", "collection report", "payment report"], icon: "receipt" },
   { title: "Sales Return Credit Note Report", category: "Navigation", path: "/dashboard/reports/sales-return", fileName: "app/dashboard/reports/sales-return/page.tsx", keywords: ["sales return report", "credit note report"], icon: "undo" },
+  { title: "Purchase Return Debit Notes Report", category: "Navigation", path: "/dashboard/reports/purchase-return", fileName: "app/dashboard/reports/purchase-return/page.tsx", keywords: ["purchase return report", "debit note report"], icon: "undo" },
   { title: "Target vs Actual Sales Report", category: "Navigation", path: "/dashboard/reports/target-vs-actual", fileName: "app/dashboard/reports/target-vs-actual/page.tsx", keywords: ["target vs actual", "achievement report", "mr performance"], icon: "target" },
+  { title: "Batch & Expiry Detailed Report", category: "Navigation", path: "/dashboard/reports/batch", fileName: "app/dashboard/reports/batch/page.tsx", keywords: ["batch report", "batch expiry report", "batch stock", "medicine batch"], icon: "package" },
   { title: "GST Reports Overview", category: "Navigation", path: "/dashboard/gst-reports", fileName: "app/dashboard/gst-reports/page.tsx", keywords: ["gst reports", "gst", "gstr", "tax overview"], icon: "chart-bar" },
   { title: "GSTR-1 GST Tax Report", category: "Navigation", path: "/dashboard/gst-reports/gstr1", fileName: "app/dashboard/gst-reports/gstr1/page.tsx", keywords: ["gst", "gstr1", "gstr-1", "tax report", "b2b", "hsn", "gst-reports"], icon: "file-spreadsheet" },
+  { title: "GST Detailed Tax Report", category: "Navigation", path: "/dashboard/reports/gst", fileName: "app/dashboard/reports/gst/page.tsx", keywords: ["gst report", "tax breakdown", "gst summary"], icon: "file-spreadsheet" },
+  { title: "MR Territory Field Report", category: "Navigation", path: "/dashboard/reports/mr-territory-report", fileName: "app/dashboard/reports/mr-territory-report/page.tsx", keywords: ["mr territory report", "field visit report", "territory coverage"], icon: "map-pin" },
 
   // MR Field Force
   { title: "MR Customer Assignment", category: "Navigation", path: "/dashboard/mr-customer-assignment", fileName: "app/dashboard/mr-customer-assignment/page.tsx", keywords: ["mr assignment", "assign customer", "territory mapping", "mr-customer-assignment"], icon: "user-plus" },
@@ -188,7 +210,7 @@ const APP_PAGES = [
 
   // General Settings & Profile
   { title: "System & Company Settings", category: "Navigation", path: "/dashboard/settings", fileName: "app/dashboard/settings/page.tsx", keywords: ["settings", "general settings", "config", "system settings"], icon: "cog" },
-  { title: "AI Voice Assistant Settings 🎙️", category: "Navigation", path: "/dashboard/voice-settings", fileName: "app/dashboard/voice-settings/page.tsx", keywords: ["voice settings", "ai voice", "assistant settings", "salim voice", "wake word", "voice-settings"], icon: "mic" },
+  { title: "AI Voice Assistant Settings 🎙️", category: "Navigation", path: "/dashboard/voice-settings", fileName: "app/dashboard/voice-settings/page.tsx", keywords: ["voice settings", "ai voice", "assistant settings", "voice assistant", "wake word", "voice-settings"], icon: "mic" },
   { title: "User Profile & Account", category: "Navigation", path: "/dashboard/profile", fileName: "app/dashboard/profile/page.tsx", keywords: ["profile", "my profile", "account settings", "user profile"], icon: "user" },
 ];
 
@@ -683,12 +705,14 @@ export async function GET(req: NextRequest) {
           { label: "Target vs Actual Sales", category: "MR Performance 🎯", query: "Target", actionUrl: "/dashboard/reports/target-vs-actual", type: "navigation" }
         );
 
+        const assistantNameParam = searchParams.get("assistantName") || searchParams.get("assistant") || "AI Assistant";
+
         return NextResponse.json({
           success: true,
           query: "",
           didYouMean: null,
           totalResults: 0,
-          vocalSummary: "Welcome to Salim Voice Search. Speak or type to search products, customers, stock, and vouchers.",
+          vocalSummary: `Welcome to ${assistantNameParam} Voice Search. Speak or type to search products, customers, stock, and vouchers.`,
           trending: dynamicTrending,
           results: {
             products: [],
@@ -709,7 +733,7 @@ export async function GET(req: NextRequest) {
     const highBalanceOnly = searchParams.get("highBalance") === "true";
     const sortBy = searchParams.get("sortBy") || "relevance";
 
-    const assistantName = searchParams.get("assistantName") || searchParams.get("assistant") || "Salim";
+    const assistantName = searchParams.get("assistantName") || searchParams.get("assistant") || "AI Assistant";
 
     // Spoken query cleaning & Typo check ("Did You Mean?")
     const cleanedQuery = cleanSpokenQuery(rawQuery, assistantName);
@@ -920,46 +944,200 @@ export async function GET(req: NextRequest) {
         })()
         : Promise.resolve([]),
 
-      // 3. VOUCHERS & INVOICES SEARCH
+      // 3. VOUCHERS, INVOICES, PURCHASE & SALES TRANSACTIONS SEARCH (DYNAMIC ACROSS ALL SECTIONS)
       (category === "all" || category === "vouchers")
         ? (async () => {
           try {
-            const voucherFilter: any = {
-              $or: [
-                { VCN: regex },
-                { CODEP: regex },
-                { REMARK1: regex },
-              ],
-            };
-            if (queryNumber !== null) {
-              voucherFilter.$or.push({ VOUCHER: queryNumber });
-            }
-
-            let mdisDocs = await SalesMdis.find(voucherFilter).limit(8).lean();
-            if ((!mdisDocs || mdisDocs.length === 0) && db) {
-              mdisDocs = await db.collection("mdis").find(voucherFilter).limit(8).toArray();
-            }
-
-            let gLedgerDocs = await GlLedger.find(voucherFilter).limit(8).lean();
-            if ((!gLedgerDocs || gLedgerDocs.length === 0) && db) {
-              gLedgerDocs = await db.collection("gledger").find(voucherFilter).limit(8).toArray();
-            }
-
             const resultsList: any[] = [];
             const seenIds = new Set();
 
-            mdisDocs.forEach((m: any) => {
+            const stringFilter: any = {
+              $or: [
+                { billNumber: regex },
+                { supplierInvoiceNo: regex },
+                { poNumber: regex },
+                { voucherNo: regex },
+                { vcn: regex },
+                { VCN: regex },
+                { VOUCHER: regex },
+                { CODEP: regex },
+                { vendorName: regex },
+                { customerName: regex },
+                { REMARK1: regex },
+                { remarks: regex },
+                { reason: regex },
+              ],
+            };
+            if (queryNumber !== null) {
+              stringFilter.$or.push({ VOUCHER: queryNumber }, { billNumber: queryNumber }, { poNumber: queryNumber });
+            }
+
+            // --- A. PURCHASE BILLS / INVOICES ---
+            let purBills = await PurchaseBill.find(stringFilter).limit(8).lean();
+            if ((!purBills || purBills.length === 0) && db) {
+              purBills = await db.collection("purchasebills").find(stringFilter).limit(8).toArray();
+              if (!purBills || purBills.length === 0) {
+                purBills = await db.collection("purmdis").find(stringFilter).limit(8).toArray();
+              }
+            }
+            (purBills || []).forEach((b: any) => {
+              const bKey = `pur_bill_${b._id || b.billNumber || b.supplierInvoiceNo}`;
+              if (seenIds.has(bKey)) return;
+              seenIds.add(bKey);
+              const amt = Number(b.netAmount || b.FINAL || b.totalAmount || 0);
+
+              resultsList.push({
+                id: bKey,
+                type: "voucher",
+                category: "Purchase Invoices 🛒",
+                title: `Purchase Bill #${b.billNumber || b.supplierInvoiceNo || b.VCN}`,
+                subtitle: `Vendor: ${b.vendorName || b.CODEP || "N/A"} | Date: ${b.billDate || b.DATE || "N/A"} | Status: ${b.paymentStatus || "Pending"}`,
+                details: {
+                  billNumber: b.billNumber || b.supplierInvoiceNo || b.VCN,
+                  vendorName: b.vendorName || b.CODEP,
+                  billDate: b.billDate || b.DATE,
+                  netAmount: `₹${amt.toLocaleString("en-IN")}`,
+                  rawAmount: amt,
+                  paymentStatus: b.paymentStatus || "Pending",
+                  itemCount: Array.isArray(b.items) ? b.items.length : "N/A",
+                },
+                badges: [
+                  { label: `₹${amt.toLocaleString("en-IN")}`, color: "rose" },
+                  { label: "Purchase Bill 🛒", color: "violet" },
+                ],
+                actionUrl: `/dashboard/purchase/invoice?search=${encodeURIComponent(b.billNumber || b.vendorName || "")}`,
+                raw: b,
+              });
+            });
+
+            // --- B. PURCHASE ORDERS ---
+            let purOrders = await PurchaseOrder.find(stringFilter).limit(8).lean();
+            if ((!purOrders || purOrders.length === 0) && db) {
+              purOrders = await db.collection("purchaseorders").find(stringFilter).limit(8).toArray();
+              if (!purOrders || purOrders.length === 0) {
+                purOrders = await db.collection("purord").find(stringFilter).limit(8).toArray();
+              }
+            }
+            (purOrders || []).forEach((po: any) => {
+              const poKey = `pur_po_${po._id || po.poNumber}`;
+              if (seenIds.has(poKey)) return;
+              seenIds.add(poKey);
+              const amt = Number(po.netTotal || po.totalAmount || 0);
+
+              resultsList.push({
+                id: poKey,
+                type: "voucher",
+                category: "Purchase Orders 📦",
+                title: `Purchase Order #${po.poNumber}`,
+                subtitle: `Vendor: ${po.vendorName || po.vendorCode || "N/A"} | PO Date: ${po.poDate || "N/A"} | Status: ${po.status || "Pending"}`,
+                details: {
+                  poNumber: po.poNumber,
+                  vendorName: po.vendorName,
+                  poDate: po.poDate,
+                  netTotal: `₹${amt.toLocaleString("en-IN")}`,
+                  rawAmount: amt,
+                  status: po.status || "Pending",
+                },
+                badges: [
+                  { label: `₹${amt.toLocaleString("en-IN")}`, color: "blue" },
+                  { label: "Purchase Order 📦", color: "sky" },
+                ],
+                actionUrl: `/dashboard/purchase/orders?search=${encodeURIComponent(po.poNumber || po.vendorName || "")}`,
+                raw: po,
+              });
+            });
+
+            // --- C. PURCHASE PAYMENTS ---
+            let purPayments = await PurchasePayment.find(stringFilter).limit(8).lean();
+            if ((!purPayments || purPayments.length === 0) && db) {
+              purPayments = await db.collection("purchasepayments").find(stringFilter).limit(8).toArray();
+              if (!purPayments || purPayments.length === 0) {
+                purPayments = await db.collection("purpay").find(stringFilter).limit(8).toArray();
+              }
+            }
+            (purPayments || []).forEach((pay: any) => {
+              const payKey = `pur_pay_${pay._id || pay.voucherNo}`;
+              if (seenIds.has(payKey)) return;
+              seenIds.add(payKey);
+              const amt = Number(pay.amount || 0);
+
+              resultsList.push({
+                id: payKey,
+                type: "voucher",
+                category: "Purchase Payments 💸",
+                title: `Payment Voucher #${pay.voucherNo}`,
+                subtitle: `Vendor: ${pay.vendorName || "N/A"} | Date: ${pay.paymentDate || "N/A"} | Mode: ${pay.paymentMode || "Bank"}`,
+                details: {
+                  voucherNo: pay.voucherNo,
+                  vendorName: pay.vendorName,
+                  paymentDate: pay.paymentDate,
+                  paymentMode: pay.paymentMode,
+                  amount: `₹${amt.toLocaleString("en-IN")}`,
+                  rawAmount: amt,
+                  refNo: pay.refNo || "N/A",
+                },
+                badges: [
+                  { label: `₹${amt.toLocaleString("en-IN")}`, color: "emerald" },
+                  { label: pay.paymentMode || "Payment", color: "teal" },
+                ],
+                actionUrl: `/dashboard/purchase/payment?search=${encodeURIComponent(pay.voucherNo || pay.vendorName || "")}`,
+                raw: pay,
+              });
+            });
+
+            // --- D. PURCHASE RETURNS (DEBIT NOTES) ---
+            let purReturns = await PurchaseReturn.find(stringFilter).limit(8).lean();
+            if ((!purReturns || purReturns.length === 0) && db) {
+              purReturns = await db.collection("purchasereturns").find(stringFilter).limit(8).toArray();
+              if (!purReturns || purReturns.length === 0) {
+                purReturns = await db.collection("purret").find(stringFilter).limit(8).toArray();
+              }
+            }
+            (purReturns || []).forEach((ret: any) => {
+              const retKey = `pur_ret_${ret._id || ret.vcn}`;
+              if (seenIds.has(retKey)) return;
+              seenIds.add(retKey);
+              const amt = Number(ret.netAmount || 0);
+
+              resultsList.push({
+                id: retKey,
+                type: "voucher",
+                category: "Purchase Returns ↩️",
+                title: `Purchase Return Debit Note #${ret.vcn}`,
+                subtitle: `Vendor: ${ret.vendorName || "N/A"} | Date: ${ret.returnDate || "N/A"} | Reason: ${ret.reason || "Return"}`,
+                details: {
+                  returnNo: ret.vcn,
+                  vendorName: ret.vendorName,
+                  returnDate: ret.returnDate,
+                  reason: ret.reason,
+                  netAmount: `₹${amt.toLocaleString("en-IN")}`,
+                  rawAmount: amt,
+                },
+                badges: [
+                  { label: `₹${amt.toLocaleString("en-IN")}`, color: "amber" },
+                  { label: "Debit Note ↩️", color: "orange" },
+                ],
+                actionUrl: `/dashboard/purchase/purchase-return?search=${encodeURIComponent(ret.vcn || ret.vendorName || "")}`,
+                raw: ret,
+              });
+            });
+
+            // --- E. SALES INVOICES (MDIS) ---
+            let mdisDocs = await SalesMdis.find(stringFilter).limit(8).lean();
+            if ((!mdisDocs || mdisDocs.length === 0) && db) {
+              mdisDocs = await db.collection("mdis").find(stringFilter).limit(8).toArray();
+            }
+            (mdisDocs || []).forEach((m: any) => {
               const vKey = `mdis_${m._id || m.VCN || m.VOUCHER}`;
               if (seenIds.has(vKey)) return;
               seenIds.add(vKey);
-
               const amount = Number(m.FINAL || m.AMOUNTT || m.AMOUNTP || 0);
 
               resultsList.push({
                 id: vKey,
                 type: "voucher",
-                category: "Invoices & Sales",
-                title: `Invoice #${m.VCN || m.VOUCHER}`,
+                category: "Sales Invoices 🧾",
+                title: `Sales Invoice #${m.VCN || m.VOUCHER}`,
                 subtitle: `Party Code: ${m.CODEP || "N/A"} | Date: ${m.DATE || m.CDATE || "N/A"} | Godown: ${m.GODWON || "Main"}`,
                 details: {
                   invoiceNo: m.VCN || m.VOUCHER,
@@ -969,19 +1147,22 @@ export async function GET(req: NextRequest) {
                   netAmount: `₹${amount.toLocaleString("en-IN")}`,
                   rawAmount: amount,
                   totalQty: m.ISSUEQTY || "N/A",
-                  challanNo: m.CHALLAN || "N/A",
-                  dsm: m.DSM || "N/A",
                 },
                 badges: [
                   { label: `₹${amount.toLocaleString("en-IN")}`, color: "indigo" },
-                  { label: m.DATE || "Invoice", color: "slate" },
+                  { label: m.DATE || "Sales Invoice", color: "slate" },
                 ],
                 actionUrl: `/dashboard/reports/sales-receipt?search=${encodeURIComponent(m.VCN || m.VOUCHER || "")}`,
                 raw: m,
               });
             });
 
-            gLedgerDocs.forEach((g: any) => {
+            // --- F. GENERAL LEDGERS (GLEDGER) ---
+            let gLedgerDocs = await GlLedger.find(stringFilter).limit(8).lean();
+            if ((!gLedgerDocs || gLedgerDocs.length === 0) && db) {
+              gLedgerDocs = await db.collection("gledger").find(stringFilter).limit(8).toArray();
+            }
+            (gLedgerDocs || []).forEach((g: any) => {
               const gKey = `gledger_${g._id || g.VOUCHER}`;
               if (seenIds.has(gKey)) return;
               seenIds.add(gKey);
@@ -993,7 +1174,7 @@ export async function GET(req: NextRequest) {
               resultsList.push({
                 id: gKey,
                 type: "voucher",
-                category: "Invoices & Vouchers",
+                category: "General Ledger Vouchers 📄",
                 title: `Voucher #${g.VCN || g.VOUCHER || "N/A"} (${g.TYPE || g.BOOK || "Voucher"})`,
                 subtitle: `Code: ${g.CODE || g.CODE1 || "N/A"} | Date: ${g.DATE || "N/A"} | Particulars: ${g.REMARK1 || "N/A"}`,
                 details: {
@@ -1014,6 +1195,57 @@ export async function GET(req: NextRequest) {
                 raw: g,
               });
             });
+
+            // --- G. DYNAMIC MONGODB COLLECTION AUTO-DISCOVERY ---
+            // Scans any newly created transaction collections dynamically (e.g. salret, salrec, purdrcr, vouchers, etc.)
+            if (db) {
+              try {
+                const allCols = await db.listCollections().toArray();
+                const txnColNames = allCols
+                  .map((c) => c.name)
+                  .filter((name) =>
+                    /^(pur|sal|bill|order|vouch|pay|ret|ledg|inv|rec)/i.test(name) &&
+                    !["pro", "probat", "order", "users", "sessions", "categories", "divisions"].includes(name)
+                  );
+
+                for (const colName of txnColNames) {
+                  const docs = await db.collection(colName).find(stringFilter).limit(4).toArray();
+                  (docs || []).forEach((d: any, idx: number) => {
+                    const dynKey = `dyn_${colName}_${d._id || idx}`;
+                    if (seenIds.has(dynKey)) return;
+                    seenIds.add(dynKey);
+
+                    const docNo = d.VCN || d.VOUCHER || d.billNumber || d.poNumber || d.voucherNo || d.receiptNo || `#${idx + 1}`;
+                    const party = d.vendorName || d.customerName || d.PARNAM || d.CODEP || d.CODE || "N/A";
+                    const amt = Number(d.netAmount || d.netTotal || d.FINAL || d.amount || d.DEBIT || d.CREDIT || 0);
+
+                    resultsList.push({
+                      id: dynKey,
+                      type: "voucher",
+                      category: `Database Collection: ${colName.toUpperCase()} 🔄`,
+                      title: `${colName.toUpperCase()} Doc ${docNo}`,
+                      subtitle: `Party: ${party} | Date: ${d.DATE || d.billDate || d.poDate || d.paymentDate || "N/A"}`,
+                      details: {
+                        collection: colName,
+                        docNo: docNo,
+                        party: party,
+                        amount: `₹${amt.toLocaleString("en-IN")}`,
+                        rawAmount: amt,
+                        raw: d,
+                      },
+                      badges: [
+                        { label: `₹${amt.toLocaleString("en-IN")}`, color: "indigo" },
+                        { label: colName, color: "slate" },
+                      ],
+                      actionUrl: `/dashboard/reports?search=${encodeURIComponent(String(docNo))}`,
+                      raw: d,
+                    });
+                  });
+                }
+              } catch (autoErr) {
+                console.error("Dynamic auto-discovery collection search error:", autoErr);
+              }
+            }
 
             if (sortBy === "priceHigh") {
               resultsList.sort((a, b) => b.details.rawAmount - a.details.rawAmount);

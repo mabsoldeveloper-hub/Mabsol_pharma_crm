@@ -71,7 +71,7 @@ export default function GlobalSearchModal({
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
-  // Salim Voice Search & Vocal Response (TTS) State
+  // AI Voice Search & Vocal Response (TTS) State
   const [selectedLang] = useState("en-IN");
   const [isListening, setIsListening] = useState(false);
   const [transcriptPreview, setTranscriptPreview] = useState("");
@@ -95,13 +95,13 @@ export default function GlobalSearchModal({
     }
   }, [isOpen]);
 
-  // Salim Speech Synthesis (TTS Vocal Replies)
+  // Speech Synthesis (TTS Vocal Replies)
   const [vocalEnabled, setVocalEnabled] = useState(true);
   const [vocalSpeaking, setVocalSpeaking] = useState(false);
   const [vocalText, setVocalText] = useState<string | null>(null);
 
-  // Voice Selector for Salim Speech Synthesis (Prefers Male/Neutral Voices)
-  const getSalimVoice = () => {
+  // Voice Selector for Speech Synthesis
+  const getAssistantVoice = () => {
     if (typeof window === "undefined" || !window.speechSynthesis) return null;
     const voices = window.speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return null;
@@ -146,12 +146,12 @@ export default function GlobalSearchModal({
 
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.rate = 0.95; // Natural cadence
-          utterance.pitch = 1.0; // Friendly natural pitch for Salim
+          utterance.pitch = 1.0; // Friendly natural pitch
           utterance.lang = "en-IN"; // Set locale
 
-          const salimVoice = getSalimVoice();
-          if (salimVoice) {
-            utterance.voice = salimVoice;
+          const assistantVoice = getAssistantVoice();
+          if (assistantVoice) {
+            utterance.voice = assistantVoice;
           }
 
           utterance.onstart = () => {
@@ -165,7 +165,7 @@ export default function GlobalSearchModal({
           utterance.onend = () => {
             setVocalSpeaking(false);
             setVocalText(null);
-            // Salim Dialogue Loop: Automatically turn on microphone AFTER assistant finishes speaking ONLY IF modal is still open!
+            // AI Assistant Dialogue Loop: Automatically turn on microphone AFTER assistant finishes speaking ONLY IF modal is still open!
             setTimeout(() => {
               if (isOpenRef.current) {
                 toggleVoiceSearch();
@@ -187,7 +187,7 @@ export default function GlobalSearchModal({
     [vocalEnabled]
   );
 
-  const [assistantName, setAssistantName] = useState("Salim");
+  const [assistantName, setAssistantName] = useState("AI Assistant");
   const [greetingText, setGreetingText] = useState("Haan ji! Main aapki kya help kar sakta hu?");
 
   useEffect(() => {
@@ -354,21 +354,69 @@ export default function GlobalSearchModal({
     }
   }, [isOpen, query]);
 
-  const saveRecentSearch = (term: string) => {
-    if (!term || term.trim().length < 2) return;
+  const stripEmojis = (str: string) => {
+    if (!str) return "";
+    return str.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "").trim();
+  };
+
+  const saveRecentSearch = (itemOrTerm: any) => {
+    if (!itemOrTerm) return;
+    let entry: { title: string; query: string; actionUrl?: string | null };
+
+    if (typeof itemOrTerm === "string") {
+      const clean = stripEmojis(itemOrTerm);
+      entry = { title: itemOrTerm, query: clean || itemOrTerm };
+    } else {
+      const title = itemOrTerm.title || itemOrTerm.label || "";
+      const clean = stripEmojis(title);
+      entry = {
+        title: title,
+        query: clean || title,
+        actionUrl: itemOrTerm.actionUrl || null,
+      };
+    }
+
+    if (!entry.title || entry.title.trim().length < 2) return;
+
     try {
-      const updated = [term, ...recentSearches.filter((s) => s !== term)].slice(0, 6);
-      setRecentSearches(updated);
+      const updated = [
+        entry,
+        ...recentSearches.filter((s: any) => {
+          const sTitle = typeof s === "string" ? s : s.title;
+          return sTitle !== entry.title;
+        }),
+      ].slice(0, 8);
+
+      setRecentSearches(updated as any);
       localStorage.setItem("mabsol_recent_searches", JSON.stringify(updated));
     } catch (e) {
-      // ignore
+      console.error("Error saving recent search:", e);
     }
   };
 
-  const removeRecentSearch = (e: React.MouseEvent, term: string) => {
+  const handleRecentClick = (item: any) => {
+    if (item && typeof item === "object" && item.actionUrl) {
+      onClose();
+      router.push(item.actionUrl);
+      return;
+    }
+
+    const rawStr = typeof item === "string" ? item : (item.query || item.title || "");
+    const cleanStr = stripEmojis(rawStr);
+    setQuery(cleanStr || rawStr);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  const removeRecentSearch = (e: React.MouseEvent, targetItem: any) => {
     e.stopPropagation();
-    const updated = recentSearches.filter((s) => s !== term);
-    setRecentSearches(updated);
+    const targetTitle = typeof targetItem === "string" ? targetItem : targetItem.title;
+    const updated = recentSearches.filter((s: any) => {
+      const sTitle = typeof s === "string" ? s : s.title;
+      return sTitle !== targetTitle;
+    });
+    setRecentSearches(updated as any);
     try {
       localStorage.setItem("mabsol_recent_searches", JSON.stringify(updated));
     } catch (e) {
@@ -428,7 +476,7 @@ export default function GlobalSearchModal({
     const timer = setTimeout(() => {
       const params = new URLSearchParams({
         q: query,
-        assistantName: assistantName || "Salim",
+        assistantName: assistantName || "AI Assistant",
         category: activeCategory,
         inStock: inStockOnly ? "true" : "false",
         nearExpiry: nearExpiryOnly ? "true" : "false",
@@ -561,7 +609,7 @@ export default function GlobalSearchModal({
   };
 
   const handleItemClick = (item: any) => {
-    saveRecentSearch(item.title);
+    saveRecentSearch(item);
 
     if (item.actionUrl) {
       onClose();
@@ -896,19 +944,22 @@ export default function GlobalSearchModal({
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {recentSearches.map((term) => (
-                        <div
-                          key={term}
-                          onClick={() => setQuery(term)}
-                          className="group flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 text-xs font-medium rounded-lg cursor-pointer transition-all border border-slate-200/60"
-                        >
-                          <span>{term}</span>
-                          <X
-                            className="w-3 h-3 text-slate-400 hover:text-rose-600 transition-colors"
-                            onClick={(e) => removeRecentSearch(e, term)}
-                          />
-                        </div>
-                      ))}
+                      {recentSearches.map((item: any, idx: number) => {
+                        const displayTitle = typeof item === "string" ? item : item.title;
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => handleRecentClick(item)}
+                            className="group flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 text-xs font-semibold rounded-xl cursor-pointer transition-all border border-slate-200 shadow-2xs"
+                          >
+                            <span>{displayTitle}</span>
+                            <X
+                              className="w-3.5 h-3.5 text-slate-400 group-hover:text-white/80 hover:scale-125 transition-all shrink-0"
+                              onClick={(e) => removeRecentSearch(e, item)}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
