@@ -198,6 +198,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   const [fyOpen, setFyOpen] = useState(false);
   const [vfpOpen, setVfpOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [customFormsOpen, setCustomFormsOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -215,6 +216,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     if (pathname.startsWith("/dashboard/financial-year")) setFyOpen(true);
     if (pathname.startsWith("/dashboard/mabsolcrmsync")) setVfpOpen(true);
     if (pathname.startsWith("/dashboard/compare")) setCompareOpen(true);
+    if (pathname.startsWith("/dashboard/custom-forms")) setCustomFormsOpen(true);
   }, [pathname]);
 
   const [user, setUser] = useState<any>(null);
@@ -580,6 +582,37 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     color="sky"
                   />
                 </li>
+                {/* Dynamic Custom Form Studio */}
+                <Group
+                  icon={<FaSlidersH />}
+                  label="Form Studio (Custom)"
+                  open={customFormsOpen}
+                  onClick={() => setCustomFormsOpen(!customFormsOpen)}
+                  active={pathname.startsWith("/dashboard/custom-forms")}
+                  color="violet"
+                  items={
+                    <>
+                      <li>
+                        <SubLink
+                          href="/dashboard/custom-forms"
+                          icon={<FaListUl />}
+                          label="Saved Forms Hub"
+                          active={pathname === "/dashboard/custom-forms"}
+                          color="violet"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/custom-forms/builder"
+                          icon={<FaPlusCircle />}
+                          label="Create New Form"
+                          active={pathname === "/dashboard/custom-forms/builder"}
+                          color="violet"
+                        />
+                      </li>
+                    </>
+                  }
+                />
               </PermissionGate>
               {/* ################ master Start here ##################### */}
               <PermissionGate permission="master.view">
