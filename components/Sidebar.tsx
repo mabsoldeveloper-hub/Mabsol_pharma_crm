@@ -41,6 +41,7 @@ import {
   FaCamera,
   FaBalanceScale,
   FaMapMarkerAlt,
+  FaBrain,
 } from "react-icons/fa";
 
 
@@ -547,9 +548,18 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   <NavLink
                     href="/dashboard"
                     icon={<FaTachometerAlt />}
-                    label="Dashboard"
+                    label="Standard Dashboard"
                     active={pathname === "/dashboard"}
                     color="indigo"
+                  />
+                </li>
+                <li>
+                  <NavLink
+                    href="/dashboard/executive-ai"
+                    icon={<FaBrain />}
+                    label="Executive AI Dashboard"
+                    active={pathname === "/dashboard/executive-ai"}
+                    color="violet"
                   />
                 </li>
                 <li>
