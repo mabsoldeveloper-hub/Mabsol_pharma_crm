@@ -571,6 +571,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     color="rose"
                   />
                 </li>
+                <li>
+                  <NavLink
+                    href="/dashboard/purchase-sales-analytics"
+                    icon={<FaChartBar />}
+                    label="Purchase & Sale Analytics"
+                    active={pathname === "/dashboard/purchase-sales-analytics" || pathname.startsWith("/dashboard/purchase-sales-analytics")}
+                    color="sky"
+                  />
+                </li>
               </PermissionGate>
               {/* ################ master Start here ##################### */}
               <PermissionGate permission="master.view">

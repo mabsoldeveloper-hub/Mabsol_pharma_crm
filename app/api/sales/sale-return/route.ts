@@ -9,6 +9,7 @@ import Product from "@/models/Product";
 import ProductBatch from "@/models/ProductBatch";
 import GLedger from "@/models/GLedger";
 import Pendings from "@/models/Pendings";
+import { combineFilters, getCompanyVfpFilter } from "@/lib/companyVfpHelper";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { consumeNextVoucherNumber, peekNextVoucherNumber } from "@/lib/voucherSeriesHelper";
 
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
         await connectDB();
 
         const { searchParams } = new URL(req.url);
+        const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const action = searchParams.get("action");
 
         // Action 1: Preview next voucher number for Return series
@@ -55,11 +57,11 @@ export async function GET(req: NextRequest) {
         if (action === "metrics") {
             const [totalAgg, todayAgg] = await Promise.all([
                 SalesMdis.aggregate([
-                    { $match: { $or: [{ TYPE: "SR" }, { INVTYPE: "R" }, { VCN: /^RET/i }] } },
+                    { $match: combineFilters({ $or: [{ TYPE: "SR" }, { INVTYPE: "R" }, { VCN: /^RET/i }] }, companyVfpMatch) },
                     { $group: { _id: null, totalAmount: { $sum: "$FINAL" }, count: { $sum: 1 } } }
                 ]),
                 SalesMdis.aggregate([
-                    { $match: { $or: [{ TYPE: "SR" }, { INVTYPE: "R" }, { VCN: /^RET/i }], DATE: todayStr() } },
+                    { $match: combineFilters({ $or: [{ TYPE: "SR" }, { INVTYPE: "R" }, { VCN: /^RET/i }], DATE: todayStr() }, companyVfpMatch) },
                     { $group: { _id: null, totalAmount: { $sum: "$FINAL" }, count: { $sum: 1 } } }
                 ])
             ]);
@@ -84,11 +86,14 @@ export async function GET(req: NextRequest) {
 
             // Find all Sale Invoices for this customer (excluding returns)
             const invoiceHeaders = await SalesMdis.find(
-                {
-                    $or: partyConds,
-                    TYPE: { $ne: "SR" },
-                    INVTYPE: { $ne: "R" },
-                },
+                combineFilters(
+                    {
+                        $or: partyConds,
+                        TYPE: { $ne: "SR" },
+                        INVTYPE: { $ne: "R" },
+                    },
+                    companyVfpMatch
+                ),
                 { VCN: 1, VOUCHER: 1, BILLNO: 1, DATE: 1, FINAL: 1, AMOUNTT: 1, TAXAMO: 1, REMARKS: 1 }
             )
                 .sort({ DATE: -1, createdAt: -1 })
@@ -202,13 +207,16 @@ export async function GET(req: NextRequest) {
         const restriction = await getMrTerritoryRestriction();
 
         // Build filter for Sales Returns (INVTYPE: "R" or TYPE: "SR" or VCN starts with RET/SR)
-        const filter: any = {
-            $or: [
-                { TYPE: "SR" },
-                { INVTYPE: "R" },
-                { VCN: { $regex: "^(RET|SR|CN)-", $options: "i" } },
-            ],
-        };
+        const filter: any = combineFilters(
+            {
+                $or: [
+                    { TYPE: "SR" },
+                    { INVTYPE: "R" },
+                    { VCN: { $regex: "^(RET|SR|CN)-", $options: "i" } },
+                ],
+            },
+            companyVfpMatch
+        );
 
         if (restriction.isMrRestricted && restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
             filter.CODEP = { $in: restriction.allowedOrdnos };
