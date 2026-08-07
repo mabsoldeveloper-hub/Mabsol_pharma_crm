@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import { combineFilters, getCompanyVfpFilter } from "@/lib/companyVfpHelper";
-import { buildFYDateQuery } from "@/lib/financialYearHelper";
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 import SalesMdis from "@/models/SalesMdis";
 import SalesDis from "@/models/SalesDis";
 import PurchaseBill from "@/models/PurchaseBill";
@@ -15,6 +15,36 @@ import mongoose from "mongoose";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+/**
+ * Standardized sumField helper identical to main Dashboard API (app/api/dashboard/route.ts).
+ * Converts string/number values safely and handles VFP AMOUNTT + TAXAMO fallback.
+ */
+async function sumField(model: any, match: Record<string, any>, field: string = "FINAL") {
+  const [row] = await model.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: null,
+        total: {
+          $sum: {
+            $cond: [
+              { $gt: [{ $convert: { input: `$${field}`, to: "double", onError: 0, onNull: 0 } }, 0] },
+              { $convert: { input: `$${field}`, to: "double", onError: 0, onNull: 0 } },
+              {
+                $add: [
+                  { $convert: { input: "$AMOUNTT", to: "double", onError: 0, onNull: 0 } },
+                  { $convert: { input: "$TAXAMO", to: "double", onError: 0, onNull: 0 } },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    },
+  ]);
+  return row?.total ?? 0;
+}
+
 export async function GET(request: Request) {
   try {
     await dbConnect();
@@ -25,90 +55,59 @@ export async function GET(request: Request) {
     const fyIdParam = searchParams.get("fyId") || "ALL";
     const paymentStatus = searchParams.get("paymentStatus") || "ALL";
     const categoryFilter = searchParams.get("category") || "ALL";
-    const startDateParam = searchParams.get("startDate");
-    const endDateParam = searchParams.get("endDate");
 
+    // 1. Resolve Financial Year & Date Ranges (Same precedence as Main Dashboard)
+    const fyRange = await getFYDateRange(searchParams);
+    let startDateStr = fyRange.startDate;
+    let endDateStr = fyRange.endDate;
+
+    const now = new Date();
+
+    // Override date range ONLY if explicit short range is chosen and fyId is not explicitly controlling dates
+    if (range === "today") {
+      startDateStr = now.toISOString().slice(0, 10);
+      endDateStr = now.toISOString().slice(0, 10);
+    } else if (range === "7days") {
+      const d = new Date();
+      d.setDate(now.getDate() - 7);
+      startDateStr = d.toISOString().slice(0, 10);
+      endDateStr = now.toISOString().slice(0, 10);
+    } else if (range === "this_month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      startDateStr = start.toISOString().slice(0, 10);
+      endDateStr = end.toISOString().slice(0, 10);
+    } else if (range === "this_quarter") {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      const start = new Date(now.getFullYear(), qMonth, 1);
+      const end = new Date(now.getFullYear(), qMonth + 3, 0);
+      startDateStr = start.toISOString().slice(0, 10);
+      endDateStr = end.toISOString().slice(0, 10);
+    } else if (range === "custom") {
+      const s = searchParams.get("startDate");
+      const e = searchParams.get("endDate");
+      if (s && e) {
+        startDateStr = s.slice(0, 10);
+        endDateStr = e.slice(0, 10);
+      }
+    } else if (!startDateStr || !endDateStr) {
+      const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      startDateStr = `${fyStartYear}-04-01`;
+      endDateStr = `${fyStartYear + 1}-03-31`;
+    }
+
+    // 2. Build Standard Filters matching Main Dashboard API
     const companyVfpFilter = await getCompanyVfpFilter(searchParams);
 
-    // Build Mongo Company Match for modern collections
+    const mdisDateMatch = buildFYDateQuery("DATE", startDateStr, endDateStr);
+    const purchaseBillDateMatch = buildFYDateQuery("billDate", startDateStr, endDateStr);
+    const purchaseReturnDateMatch = buildFYDateQuery("returnDate", startDateStr, endDateStr);
+
     const companyFilter: any = {};
     if (companyIdParam && companyIdParam !== "ALL" && mongoose.Types.ObjectId.isValid(companyIdParam)) {
       companyFilter.companyId = companyIdParam;
     }
 
-    // Calculate Date Range accurately
-    let startDateStr: string | null = null;
-    let endDateStr: string | null = null;
-
-    const now = new Date();
-
-    if (fyIdParam && fyIdParam !== "ALL") {
-      try {
-        let fyDoc: any = null;
-        if (mongoose.Types.ObjectId.isValid(fyIdParam)) {
-          fyDoc = await FinancialYear.findById(fyIdParam).lean();
-        } else {
-          fyDoc = await FinancialYear.findOne({ fyCode: new RegExp(`^${fyIdParam}$`, "i") }).lean();
-        }
-        if (fyDoc?.startDate && fyDoc?.endDate) {
-          startDateStr = new Date(fyDoc.startDate).toISOString().slice(0, 10);
-          endDateStr = new Date(fyDoc.endDate).toISOString().slice(0, 10);
-        }
-      } catch (e) {
-        console.error("Error loading FY dates:", e);
-      }
-    }
-
-    if (!startDateStr || !endDateStr) {
-      if (startDateParam && endDateParam && range === "custom") {
-        startDateStr = startDateParam.slice(0, 10);
-        endDateStr = endDateParam.slice(0, 10);
-      } else if (range === "today") {
-        startDateStr = now.toISOString().slice(0, 10);
-        endDateStr = now.toISOString().slice(0, 10);
-      } else if (range === "7days") {
-        const d = new Date();
-        d.setDate(now.getDate() - 7);
-        startDateStr = d.toISOString().slice(0, 10);
-        endDateStr = now.toISOString().slice(0, 10);
-      } else if (range === "this_month") {
-        const start = new Date(now.getFullYear(), now.getMonth(), 1);
-        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        startDateStr = start.toISOString().slice(0, 10);
-        endDateStr = end.toISOString().slice(0, 10);
-      } else if (range === "this_quarter") {
-        const qMonth = Math.floor(now.getMonth() / 3) * 3;
-        const start = new Date(now.getFullYear(), qMonth, 1);
-        const end = new Date(now.getFullYear(), qMonth + 3, 0);
-        startDateStr = start.toISOString().slice(0, 10);
-        endDateStr = end.toISOString().slice(0, 10);
-      } else if (range === "this_fy") {
-        const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-        startDateStr = `${fyStartYear}-04-01`;
-        endDateStr = `${fyStartYear + 1}-03-31`;
-      } else {
-        const d = new Date();
-        d.setFullYear(now.getFullYear() - 1);
-        startDateStr = d.toISOString().slice(0, 10);
-        endDateStr = now.toISOString().slice(0, 10);
-      }
-    }
-
-    // Build Date queries using helper
-    const mdisDateMatch = buildFYDateQuery("DATE", startDateStr, endDateStr);
-    const purchaseBillDateMatch = buildFYDateQuery("billDate", startDateStr, endDateStr);
-    const purchaseReturnDateMatch = buildFYDateQuery("returnDate", startDateStr, endDateStr);
-
-    const amountSumExpr = {
-      $sum: {
-        $ifNull: [
-          "$FINAL",
-          { $ifNull: ["$NETAMT", { $ifNull: ["$TOTAMT", { $ifNull: ["$AMOUNT", 0] }] }] }
-        ]
-      }
-    };
-
-    // Category filter for VFP or modern
     let vfpCategoryFilter: any = {};
     if (categoryFilter && categoryFilter !== "ALL") {
       vfpCategoryFilter = {
@@ -120,28 +119,31 @@ export async function GET(request: Request) {
       };
     }
 
-    // Combine filters
+    // Standard MDIS Sale Filter matching main dashboard: TYPE: "S"
     const mdisSaleFilter = combineFilters(
-      { TYPE: "S", TRANSFER: { $ne: "P" } },
+      { TYPE: "S" },
       companyVfpFilter,
       mdisDateMatch,
       vfpCategoryFilter
     );
 
-    const mdisSaleReturnFilter = combineFilters(
-      { TYPE: { $in: ["R", "SR", "RETURN", "CREDIT_NOTE"] }, TRANSFER: { $ne: "P" } },
-      companyVfpFilter,
-      mdisDateMatch
-    );
-
+    // Standard MDIS Purchase Filter matching main dashboard: TYPE: { $in: ["P", "PURCHASE"] }
     const mdisVfpPurchaseFilter = combineFilters(
       { TYPE: { $in: ["P", "PURCHASE"] } },
       companyVfpFilter,
       mdisDateMatch
     );
 
+    // MDIS Sale Returns Filter: TYPE: { $in: ["SR", "R", "RETURN"] }
+    const mdisSaleReturnFilter = combineFilters(
+      { TYPE: { $in: ["SR", "R", "RETURN"] } },
+      companyVfpFilter,
+      mdisDateMatch
+    );
+
+    // MDIS Purchase Returns Filter: TYPE: { $in: ["D", "PR", "DEBIT"] }
     const mdisVfpPurchaseReturnFilter = combineFilters(
-      { TYPE: { $in: ["PR", "PURCHASE_RETURN", "DEBIT_NOTE"] } },
+      { TYPE: { $in: ["D", "PR", "DEBIT"] } },
       companyVfpFilter,
       mdisDateMatch
     );
@@ -156,7 +158,7 @@ export async function GET(request: Request) {
       purchaseReturnDateMatch
     );
 
-    // Run parallel DB Aggregations
+    // 3. Execute Parallel DB Queries for Standard Cards Data
     let dbSalesTotal = 0;
     let dbSaleReturnsTotal = 0;
     let dbVfpPurchasesTotal = 0;
@@ -166,26 +168,26 @@ export async function GET(request: Request) {
 
     try {
       const [
-        salesAgg,
-        saleReturnsAgg,
-        vfpPurchasesAgg,
+        salesVal,
+        saleReturnsVal,
+        vfpPurchasesVal,
         webPurchasesAgg,
-        vfpPurchaseReturnsAgg,
+        vfpPurchaseReturnsVal,
         webPurchaseReturnsAgg
       ] = await Promise.all([
-        SalesMdis.aggregate([{ $match: mdisSaleFilter }, { $group: { _id: null, total: amountSumExpr } }]),
-        SalesMdis.aggregate([{ $match: mdisSaleReturnFilter }, { $group: { _id: null, total: amountSumExpr } }]),
-        SalesMdis.aggregate([{ $match: mdisVfpPurchaseFilter }, { $group: { _id: null, total: amountSumExpr } }]),
+        sumField(SalesMdis, mdisSaleFilter, "FINAL"),
+        sumField(SalesMdis, mdisSaleReturnFilter, "FINAL"),
+        sumField(SalesMdis, mdisVfpPurchaseFilter, "FINAL"),
         PurchaseBill.aggregate([{ $match: webPurchaseFilter }, { $group: { _id: null, total: { $sum: "$netAmount" } } }]),
-        SalesMdis.aggregate([{ $match: mdisVfpPurchaseReturnFilter }, { $group: { _id: null, total: amountSumExpr } }]),
+        sumField(SalesMdis, mdisVfpPurchaseReturnFilter, "FINAL"),
         PurchaseReturn.aggregate([{ $match: webPurchaseReturnFilter }, { $group: { _id: null, total: { $sum: "$netAmount" } } }]),
       ]);
 
-      if (salesAgg.length > 0) dbSalesTotal = salesAgg[0].total || 0;
-      if (saleReturnsAgg.length > 0) dbSaleReturnsTotal = saleReturnsAgg[0].total || 0;
-      if (vfpPurchasesAgg.length > 0) dbVfpPurchasesTotal = vfpPurchasesAgg[0].total || 0;
+      dbSalesTotal = salesVal || 0;
+      dbSaleReturnsTotal = saleReturnsVal || 0;
+      dbVfpPurchasesTotal = vfpPurchasesVal || 0;
       if (webPurchasesAgg.length > 0) dbWebPurchasesTotal = webPurchasesAgg[0].total || 0;
-      if (vfpPurchaseReturnsAgg.length > 0) dbVfpPurchaseReturnsTotal = vfpPurchaseReturnsAgg[0].total || 0;
+      dbVfpPurchaseReturnsTotal = vfpPurchaseReturnsVal || 0;
       if (webPurchaseReturnsAgg.length > 0) dbWebPurchaseReturnsTotal = webPurchaseReturnsAgg[0].total || 0;
     } catch (e) {
       console.error("Error aggregating purchase & sales metrics:", e);
@@ -202,25 +204,42 @@ export async function GET(request: Request) {
     const grossMarginPercent = netSales > 0 ? Math.round((grossProfit / netSales) * 1000) / 10 : 0;
     const purchaseUtilizationRate = totalPurchases > 0 ? Math.min(100, Math.round((totalSales / totalPurchases) * 100)) : 0;
 
-    // 1. Dual Monthly Trend Data Aggregation (Apr to Mar)
+    // 4. Monthly Dual Trend Data Aggregation using $substr to prevent coercible to date runtime error
     const monthNames = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-    const monthSalesMap = new Map<number, number>();
-    const monthPurchaseMap = new Map<number, number>();
+    const monthSalesMap = new Map<string, number>();
+    const monthPurchaseMap = new Map<string, number>();
 
     try {
       const salesMonthly = await SalesMdis.aggregate([
         { $match: mdisSaleFilter },
         {
           $group: {
-            _id: { $month: "$DATE" },
-            total: amountSumExpr
+            _id: { $substr: ["$DATE", 0, 7] },
+            total: {
+              $sum: {
+                $cond: [
+                  { $gt: [{ $convert: { input: "$FINAL", to: "double", onError: 0, onNull: 0 } }, 0] },
+                  { $convert: { input: "$FINAL", to: "double", onError: 0, onNull: 0 } },
+                  {
+                    $add: [
+                      { $convert: { input: "$AMOUNTT", to: "double", onError: 0, onNull: 0 } },
+                      { $convert: { input: "$TAXAMO", to: "double", onError: 0, onNull: 0 } },
+                    ],
+                  },
+                ],
+              },
+            }
           }
         }
       ]);
 
       salesMonthly.forEach((m: any) => {
-        if (m._id && typeof m._id === "number") {
-          monthSalesMap.set(m._id, m.total || 0);
+        if (m._id && typeof m._id === "string") {
+          const parts = m._id.split("-");
+          if (parts.length >= 2) {
+            const mNum = parseInt(parts[1], 10);
+            if (!isNaN(mNum)) monthSalesMap.set(String(mNum), m.total || 0);
+          }
         }
       });
 
@@ -228,16 +247,35 @@ export async function GET(request: Request) {
         { $match: mdisVfpPurchaseFilter },
         {
           $group: {
-            _id: { $month: "$DATE" },
-            total: amountSumExpr
+            _id: { $substr: ["$DATE", 0, 7] },
+            total: {
+              $sum: {
+                $cond: [
+                  { $gt: [{ $convert: { input: "$FINAL", to: "double", onError: 0, onNull: 0 } }, 0] },
+                  { $convert: { input: "$FINAL", to: "double", onError: 0, onNull: 0 } },
+                  {
+                    $add: [
+                      { $convert: { input: "$AMOUNTT", to: "double", onError: 0, onNull: 0 } },
+                      { $convert: { input: "$TAXAMO", to: "double", onError: 0, onNull: 0 } },
+                    ],
+                  },
+                ],
+              },
+            }
           }
         }
       ]);
 
       vfpPurchaseMonthly.forEach((m: any) => {
-        if (m._id && typeof m._id === "number") {
-          const current = monthPurchaseMap.get(m._id) || 0;
-          monthPurchaseMap.set(m._id, current + (m.total || 0));
+        if (m._id && typeof m._id === "string") {
+          const parts = m._id.split("-");
+          if (parts.length >= 2) {
+            const mNum = parseInt(parts[1], 10);
+            if (!isNaN(mNum)) {
+              const current = monthPurchaseMap.get(String(mNum)) || 0;
+              monthPurchaseMap.set(String(mNum), current + (m.total || 0));
+            }
+          }
         }
       });
     } catch (e) {
@@ -247,11 +285,10 @@ export async function GET(request: Request) {
     // FY Month index order: Apr (4), May (5) ... Dec (12), Jan (1), Feb (2), Mar (3)
     const fyMonthNumbers = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
     const dualTrendData = monthNames.map((month, idx) => {
-      const monthNum = fyMonthNumbers[idx];
-      const dbSales = monthSalesMap.get(monthNum) || 0;
-      const dbPurchases = monthPurchaseMap.get(monthNum) || 0;
+      const monthNumStr = String(fyMonthNumbers[idx]);
+      const dbSales = monthSalesMap.get(monthNumStr) || 0;
+      const dbPurchases = monthPurchaseMap.get(monthNumStr) || 0;
 
-      // Fallback distribution for visual rendering if DB total is available
       const salesVal = dbSales > 0 ? Math.round(dbSales) : (totalSales > 0 ? Math.round((totalSales / 12) * (0.8 + Math.sin(idx * 0.5) * 0.2)) : 0);
       const purchaseVal = dbPurchases > 0 ? Math.round(dbPurchases) : (totalPurchases > 0 ? Math.round((totalPurchases / 12) * (0.85 + Math.cos(idx * 0.5) * 0.2)) : 0);
       const netSpread = salesVal - purchaseVal;
@@ -267,7 +304,7 @@ export async function GET(request: Request) {
       };
     });
 
-    // 2. Category Profit Share & Trade Matrix
+    // 5. Category Profit Share & Trade Matrix
     let categoriesData: any[] = [];
     try {
       const categoryAgg = await SalesDis.aggregate([
@@ -313,7 +350,7 @@ export async function GET(request: Request) {
       ];
     }
 
-    // 3. Trade Flow & Funnel Steps
+    // 6. Trade Flow & Funnel Steps
     const tradeFunnelData = [
       { stage: "Purchase Orders Raised", amount: Math.round(totalPurchases * 1.1), count: Math.max(1, Math.round(totalPurchases / 50000)), percentage: 100 },
       { stage: "Stock Inward Receipts", amount: totalPurchases, count: Math.max(1, Math.round(totalPurchases / 55000)), percentage: 90 },
@@ -323,7 +360,7 @@ export async function GET(request: Request) {
       { stage: "Retained Profit Value", amount: Math.max(0, grossProfit), count: Math.max(1, Math.round(totalSales / 15000)), percentage: 55 },
     ];
 
-    // 4. Category Performance Radar Data
+    // 7. Category Performance Radar Data
     const categoryRadarData = [
       { metric: "Sales Volume", Antibiotics: 92, Cardiac: 85, Analgesics: 78, Vitamins: 65, Derma: 58 },
       { metric: "Purchase Spend", Antibiotics: 88, Cardiac: 80, Analgesics: 72, Vitamins: 60, Derma: 54 },
@@ -332,7 +369,7 @@ export async function GET(request: Request) {
       { metric: "Turnover Velocity", Antibiotics: 90, Cardiac: 86, Analgesics: 80, Vitamins: 72, Derma: 64 },
     ];
 
-    // 5. Top Item Treemap Grid (Aggregated from real products/dis)
+    // 8. Top Item Treemap Grid
     let treemapItemsData: any[] = [];
     try {
       const topProductsAgg = await SalesDis.aggregate([
@@ -379,7 +416,7 @@ export async function GET(request: Request) {
       ];
     }
 
-    // 6. Payment & Returns Breakdown
+    // 9. Payment & Returns Breakdown
     const salesPaymentBreakdown = [
       { mode: "Credit / Account", value: Math.round(totalSales * 0.62), color: "#3b82f6" },
       { mode: "Cash Payment", value: Math.round(totalSales * 0.23), color: "#10b981" },
@@ -394,7 +431,7 @@ export async function GET(request: Request) {
 
     const returnsComparison = [
       { type: "Sale Returns", amount: totalSaleReturns, ratio: totalSales > 0 ? Math.round((totalSaleReturns / totalSales) * 1000) / 10 : 0 },
-      { type: "Purchase Returns", amount: totalPurchaseReturns, ratio: totalPurchases > 0 ? Math.round((totalPurchaseReturns / totalPurchases) * 1000) / 10 : 0 },
+      { type: "Purchase Returns", amount: totalPurchaseReturns, ratio: totalPurchases > 0 ? Math.round((totalPurchases / totalPurchases) * 1000) / 10 : 0 },
     ];
 
     // Metadata for filter dropdowns
