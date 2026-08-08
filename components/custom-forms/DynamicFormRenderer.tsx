@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { FaPaperPlane, FaCheck, FaExclamationTriangle, FaLock } from "react-icons/fa";
+import { FaPaperPlane, FaCheck, FaExclamationTriangle, FaLock, FaStar } from "react-icons/fa";
 import { FormFieldConfig, IFormCondition } from "./FormBuilder";
+import SignaturePad from "./SignaturePad";
+import GpsLocationPicker from "./GpsLocationPicker";
+import FileUploadField from "./FileUploadField";
+import RepeaterTableField from "./RepeaterTableField";
 
 interface DynamicFormRendererProps {
   template: {
@@ -319,6 +323,53 @@ export default function DynamicFormRenderer({
                           {opt}
                         </label>
                       ))}
+                    </div>
+                  ) : field.type === "signature" ? (
+                    <SignaturePad
+                      value={value}
+                      readOnly={readOnly}
+                      onChange={(val) => handleChange(field.key, val)}
+                    />
+                  ) : field.type === "gps" ? (
+                    <GpsLocationPicker
+                      value={value}
+                      readOnly={readOnly}
+                      onChange={(val) => handleChange(field.key, val)}
+                    />
+                  ) : field.type === "fileUpload" ? (
+                    <FileUploadField
+                      value={value}
+                      readOnly={readOnly}
+                      onChange={(val) => handleChange(field.key, val)}
+                    />
+                  ) : field.type === "repeaterTable" ? (
+                    <div className="col-span-full">
+                      <RepeaterTableField
+                        value={value}
+                        readOnly={readOnly}
+                        onChange={(val) => handleChange(field.key, val)}
+                      />
+                    </div>
+                  ) : field.type === "rating" ? (
+                    <div className="flex items-center gap-2 pt-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          disabled={readOnly}
+                          onClick={() => handleChange(field.key, star)}
+                          className={`text-xl transition-all ${
+                            Number(value) >= star
+                              ? "text-amber-400 scale-110"
+                              : "text-slate-300 dark:text-slate-700 hover:text-amber-300"
+                          }`}
+                        >
+                          <FaStar />
+                        </button>
+                      ))}
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-400 ml-2">
+                        {value ? `${value} / 5 Stars` : "Select rating"}
+                      </span>
                     </div>
                   ) : null}
 

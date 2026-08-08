@@ -54,4 +54,8 @@ FormSubmissionSchema.index({ formId: 1, createdAt: -1 });
 FormSubmissionSchema.index({ formId: 1, status: 1 });
 FormSubmissionSchema.index({ companyId: 1, financialYear: 1 });
 
-export default models.FormSubmission || model("FormSubmission", FormSubmissionSchema);
+if (mongoose.models.FormSubmission) {
+  delete mongoose.models.FormSubmission;
+}
+
+export default mongoose.model("FormSubmission", FormSubmissionSchema);

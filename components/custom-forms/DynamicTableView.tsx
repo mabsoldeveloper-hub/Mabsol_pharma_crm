@@ -31,6 +31,109 @@ interface DynamicTableViewProps {
   onRefresh?: () => void;
 }
 
+function formatCellValue(val: any, fieldType?: string, onInspect?: (title: string, type: string, val: any) => void, fieldLabel?: string) {
+  if (val === null || val === undefined || val === "") {
+    return <span className="text-slate-300 dark:text-slate-600">-</span>;
+  }
+
+  if (typeof val === "boolean") {
+    return val ? (
+      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 rounded font-semibold text-[10px]">
+        Yes
+      </span>
+    ) : (
+      <span className="px-2 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 rounded text-[10px]">
+        No
+      </span>
+    );
+  }
+
+  // File Upload Object
+  if (typeof val === "object" && val !== null && val.url) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <a
+          href={val.url}
+          target="_blank"
+          rel="noreferrer"
+          className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold inline-flex items-center gap-1 transition-all shadow-2xs"
+        >
+          👁️ View File
+        </a>
+        <span className="text-[10px] text-slate-400 truncate max-w-[90px]">{val.name || "File"}</span>
+      </div>
+    );
+  }
+
+  // GPS Stamp Object
+  if (typeof val === "object" && val !== null && val.lat && val.lng) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <a
+          href={`https://www.google.com/maps?q=${val.lat},${val.lng}`}
+          target="_blank"
+          rel="noreferrer"
+          className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold inline-flex items-center gap-1 transition-all shadow-2xs"
+        >
+          📍 GPS Map
+        </a>
+        <span className="text-[10px] text-slate-500 truncate max-w-[100px]">{val.address || `${val.lat.toFixed(3)}, ${val.lng.toFixed(3)}`}</span>
+      </div>
+    );
+  }
+
+  // Repeater Table Array
+  if (Array.isArray(val)) {
+    return (
+      <button
+        type="button"
+        onClick={() => onInspect && onInspect(fieldLabel || "Line Items Table", "repeaterTable", val)}
+        className="px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10px] font-bold inline-flex items-center gap-1 transition-all shadow-2xs"
+      >
+        📦 View {val.length} Line Items
+      </button>
+    );
+  }
+
+  // Signature or Base64 Image
+  if (typeof val === "string" && (val.startsWith("data:image") || val.includes("/uploads/"))) {
+    return (
+      <button
+        type="button"
+        onClick={() => onInspect && onInspect(fieldLabel || "Uploaded Media / Signature", "image", val)}
+        className="flex items-center gap-1.5 group cursor-pointer"
+      >
+        <img
+          src={val}
+          alt="Attachment"
+          className="h-8 max-w-[80px] object-contain border border-slate-200 dark:border-slate-700 rounded p-0.5 bg-white group-hover:scale-105 transition-all"
+        />
+        <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold underline">
+          View
+        </span>
+      </button>
+    );
+  }
+
+  if (fieldType === "rating") {
+    return <span className="font-semibold text-amber-500">⭐ {val} / 5</span>;
+  }
+
+  if (typeof val === "object") {
+    return (
+      <button
+        type="button"
+        onClick={() => onInspect && onInspect(fieldLabel || "Data Details", "json", val)}
+        className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded text-[10px] font-semibold"
+      >
+        View Object Data
+      </button>
+    );
+  }
+
+  return String(val);
+}
+
 export default function DynamicTableView({
   template,
   submissions,
@@ -41,6 +144,15 @@ export default function DynamicTableView({
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [inspectMedia, setInspectMedia] = useState<{
+    title: string;
+    type: string;
+    value: any;
+  } | null>(null);
+
+  const handleInspect = (title: string, type: string, value: any) => {
+    setInspectMedia({ title, type, value });
+  };
 
   const publicUrl = typeof window !== "undefined"
     ? `${window.location.origin}/public-form/${template.formId}`
@@ -211,25 +323,9 @@ export default function DynamicTableView({
                     {/* Dynamic Fields */}
                     {template.fields.map((field) => {
                       const val = sub.data ? sub.data[field.key] : "";
-                      let displayVal = val;
-
-                      if (typeof val === "boolean") {
-                        displayVal = val ? (
-                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 rounded font-semibold text-[10px]">
-                            Yes
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 rounded text-[10px]">
-                            No
-                          </span>
-                        );
-                      } else if (val === null || val === undefined || val === "") {
-                        displayVal = <span className="text-slate-300 dark:text-slate-600">-</span>;
-                      }
-
                       return (
                         <td key={field.key} className="py-3 px-4 text-slate-700 dark:text-slate-300">
-                          {displayVal}
+                          {formatCellValue(val, field.type, handleInspect, field.label)}
                         </td>
                       );
                     })}
@@ -355,10 +451,10 @@ export default function DynamicTableView({
 
               <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                 {template.fields.map((f) => (
-                  <div key={f.key} className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-700/50">
+                  <div key={f.key} className="flex justify-between items-center py-1.5 border-b border-slate-50 dark:border-slate-700/50">
                     <span className="text-slate-500 font-medium">{f.label}:</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {String(selectedSubmission.data?.[f.key] ?? "-")}
+                      {formatCellValue(selectedSubmission.data?.[f.key], f.type, handleInspect, f.label)}
                     </span>
                   </div>
                 ))}
@@ -398,6 +494,89 @@ export default function DynamicTableView({
                 className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Media & Attachment Inspector Modal */}
+      {inspectMedia && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 max-w-2xl w-full rounded-2xl p-6 shadow-2xl space-y-4 border border-slate-200 dark:border-slate-700 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3 shrink-0">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">
+                👁️ Inspect: {inspectMedia.title}
+              </h3>
+              <button
+                onClick={() => setInspectMedia(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-y-auto grow p-2 space-y-4">
+              {inspectMedia.type === "image" && (
+                <div className="text-center space-y-3">
+                  <img
+                    src={inspectMedia.value}
+                    alt="Inspect Preview"
+                    className="max-h-[350px] mx-auto object-contain border border-slate-200 dark:border-slate-700 rounded-xl bg-white p-2 shadow-sm"
+                  />
+                  {typeof inspectMedia.value === "string" && inspectMedia.value.startsWith("http") && (
+                    <a
+                      href={inspectMedia.value}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs"
+                    >
+                      Open Full Screen Image
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {inspectMedia.type === "repeaterTable" && Array.isArray(inspectMedia.value) && (
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-slate-800 font-bold uppercase text-[11px] text-slate-600 dark:text-slate-300">
+                        <th className="p-2.5">#</th>
+                        {Object.keys(inspectMedia.value[0] || {}).map((k) => (
+                          <th key={k} className="p-2.5">{k}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {inspectMedia.value.map((row: any, rIdx: number) => (
+                        <tr key={rIdx}>
+                          <td className="p-2.5 font-bold text-slate-400">{rIdx + 1}</td>
+                          {Object.keys(inspectMedia.value[0] || {}).map((k) => (
+                            <td key={k} className="p-2.5 text-slate-800 dark:text-slate-200">
+                              {String(row[k] ?? "-")}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {inspectMedia.type === "json" && (
+                <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl text-xs overflow-x-auto font-mono">
+                  {JSON.stringify(inspectMedia.value, null, 2)}
+                </pre>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end shrink-0">
+              <button
+                onClick={() => setInspectMedia(null)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl"
+              >
+                Close Inspector
               </button>
             </div>
           </div>

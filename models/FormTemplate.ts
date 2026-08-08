@@ -12,12 +12,20 @@ export interface IFormField {
     | "textarea"
     | "checkbox"
     | "radio"
-    | "mappedTable";
+    | "mappedTable"
+    | "signature"
+    | "gps"
+    | "fileUpload"
+    | "formula"
+    | "repeaterTable"
+    | "rating";
   required: boolean;
   placeholder?: string;
-  options?: string[]; // For select or radio
+  options?: string[]; // For select, radio
   mappedTable?: string; // e.g. Customer, Product, User, MrDcr
   mappedField?: string; // e.g. partyName, productName
+  formulaExpression?: string; // e.g. "[pob_qty] * [unit_rate]"
+  subFields?: IFormField[]; // For repeaterTable sub-grid
   defaultValue?: any;
   order: number;
   section?: string;
@@ -47,16 +55,6 @@ const FormFieldSchema = new Schema({
   label: { type: String, required: true },
   type: {
     type: String,
-    enum: [
-      "text",
-      "number",
-      "date",
-      "select",
-      "textarea",
-      "checkbox",
-      "radio",
-      "mappedTable",
-    ],
     default: "text",
   },
   required: { type: Boolean, default: false },
@@ -64,6 +62,8 @@ const FormFieldSchema = new Schema({
   options: { type: [String], default: [] },
   mappedTable: { type: String, default: "" },
   mappedField: { type: String, default: "" },
+  formulaExpression: { type: String, default: "" },
+  subFields: { type: Schema.Types.Mixed, default: [] },
   defaultValue: { type: Schema.Types.Mixed, default: "" },
   order: { type: Number, default: 0 },
   section: { type: String, default: "General Details" },
@@ -138,6 +138,19 @@ const FormTemplateSchema = new Schema(
       targetModel: { type: String, default: "" }, // e.g. Customer, MrCallLog
     },
 
+    // Expiry & Limits
+    expirationConfig: {
+      expiresAt: { type: Date },
+      maxSubmissions: { type: Number, default: 0 },
+    },
+
+    // Thank You & Response Page
+    thankYouConfig: {
+      title: { type: String, default: "Thank You!" },
+      message: { type: String, default: "Your response has been successfully recorded." },
+      redirectUrl: { type: String, default: "" },
+    },
+
     // Custom Theme & Styling
     theme: {
       accentColor: { type: String, default: "#4f46e5" }, // Indigo default
@@ -155,4 +168,8 @@ const FormTemplateSchema = new Schema(
   }
 );
 
-export default models.FormTemplate || model("FormTemplate", FormTemplateSchema);
+if (mongoose.models.FormTemplate) {
+  delete mongoose.models.FormTemplate;
+}
+
+export default mongoose.model("FormTemplate", FormTemplateSchema);

@@ -26,9 +26,17 @@ import {
   FaPalette,
   FaShieldAlt,
   FaUserCheck,
+  FaSignature,
+  FaMapMarkerAlt,
+  FaCloudUploadAlt,
+  FaCalculator,
+  FaTable,
+  FaStar,
+  FaMagic,
 } from "react-icons/fa";
 import DynamicFormRenderer from "./DynamicFormRenderer";
 import ConditionalLogicEditor from "./ConditionalLogicEditor";
+import PharmaTemplatesModal from "./PharmaTemplatesModal";
 
 export interface FormFieldConfig {
   id: string;
@@ -42,15 +50,24 @@ export interface FormFieldConfig {
     | "textarea"
     | "checkbox"
     | "radio"
-    | "mappedTable";
+    | "mappedTable"
+    | "signature"
+    | "gps"
+    | "fileUpload"
+    | "formula"
+    | "repeaterTable"
+    | "rating";
   required: boolean;
   placeholder?: string;
   options?: string[];
   mappedTable?: string;
   mappedField?: string;
+  formulaExpression?: string;
+  subFields?: any[];
   defaultValue?: any;
   order: number;
   section?: string;
+  stepId?: string;
   helpText?: string;
 }
 
@@ -110,6 +127,7 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
   const [selectedSchemaTable, setSelectedSchemaTable] = useState("");
   const [tableFieldSearch, setTableFieldSearch] = useState("");
   const [selectedTableCategory, setSelectedTableCategory] = useState("All");
+  const [showPharmaModal, setShowPharmaModal] = useState(false);
 
   useEffect(() => {
     fetchSchemas();
@@ -337,6 +355,13 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
           </div>
 
           <button
+            onClick={() => setShowPharmaModal(true)}
+            className="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0"
+          >
+            <FaMagic /> 1-Click Pharma Presets
+          </button>
+
+          <button
             onClick={handleSaveForm}
             disabled={saving}
             className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 shrink-0"
@@ -345,6 +370,21 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
           </button>
         </div>
       </div>
+
+      {showPharmaModal && (
+        <PharmaTemplatesModal
+          onSelect={(preset) => {
+            setTitle(preset.title);
+            setCategory(preset.category);
+            setDescription(preset.description);
+            setFields(preset.fields);
+            if (preset.conditions) setConditions(preset.conditions);
+            setShowPharmaModal(false);
+            setSuccessMsg(`Loaded "${preset.title}" template successfully!`);
+          }}
+          onClose={() => setShowPharmaModal(false)}
+        />
+      )}
 
       {/* Alerts */}
       {errorMsg && (
@@ -366,7 +406,7 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
           onChange={(newConds) => setConditions(newConds)}
         />
       ) : activeTab === "settings" ? (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 w-full">
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
             <FaShieldAlt className="text-emerald-500" /> Enterprise Form Settings & Access Controls
           </h2>
@@ -480,7 +520,7 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
           </div>
         </div>
       ) : activeTab === "theme" ? (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 w-full">
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
             <FaPalette className="text-rose-500" /> Custom Branding & Theme Accent
           </h2>
@@ -510,7 +550,7 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
           </div>
         </div>
       ) : activeTab === "preview" ? (
-        <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 w-full">
           <div className="mb-6 pb-4 border-b border-slate-200 dark:border-slate-700">
             <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
               {title || "Untitled Form"}
@@ -607,7 +647,7 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
             {/* Toolbox 1: Add Custom Standard Fields */}
             <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
               <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base pb-2 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
-                <FaPlus className="text-emerald-500" /> Add Custom Field
+                <FaPlus className="text-emerald-500" /> Add Rich Field Type
               </h3>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <button
@@ -645,6 +685,42 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
                   className="p-2.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center gap-2 font-medium transition-all"
                 >
                   <FaCheckSquare className="text-emerald-500" /> Checkbox
+                </button>
+                <button
+                  onClick={() => addField("signature")}
+                  className="p-2.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center gap-2 font-medium transition-all"
+                >
+                  <FaSignature className="text-violet-600" /> E-Signature Pad
+                </button>
+                <button
+                  onClick={() => addField("gps")}
+                  className="p-2.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center gap-2 font-medium transition-all"
+                >
+                  <FaMapMarkerAlt className="text-rose-600" /> GPS Stamp
+                </button>
+                <button
+                  onClick={() => addField("fileUpload")}
+                  className="p-2.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center gap-2 font-medium transition-all"
+                >
+                  <FaCloudUploadAlt className="text-indigo-600" /> File / Photo
+                </button>
+                <button
+                  onClick={() => addField("formula")}
+                  className="p-2.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center gap-2 font-medium transition-all"
+                >
+                  <FaCalculator className="text-amber-600" /> Formula Calc
+                </button>
+                <button
+                  onClick={() => addField("repeaterTable")}
+                  className="p-2.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center gap-2 font-medium transition-all col-span-2"
+                >
+                  <FaTable className="text-cyan-600" /> Line Items Repeater Table
+                </button>
+                <button
+                  onClick={() => addField("rating")}
+                  className="p-2.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center gap-2 font-medium transition-all col-span-2"
+                >
+                  <FaStar className="text-amber-400" /> 5-Star Rating / NPS
                 </button>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import connectToDatabase from "@/lib/mongodb";
 import FormSubmission from "@/models/FormSubmission";
 import FormTemplate from "@/models/FormTemplate";
@@ -172,6 +173,42 @@ export async function POST(req: NextRequest) {
         ? [{ action: "Under Review", remarks: "Submission queued for manager review", at: new Date() }]
         : [],
     });
+
+    // Auto Master Sync Engine
+    if (template.autoMasterSync?.enabled && template.autoMasterSync?.targetModel) {
+      try {
+        const targetModel = template.autoMasterSync.targetModel;
+        const mappedDoc: Record<string, any> = {};
+        
+        template.fields.forEach((f: any) => {
+          if (f.mappedField && data[f.key] !== undefined) {
+            mappedDoc[f.mappedField] = data[f.key];
+          } else {
+            mappedDoc[f.key] = data[f.key];
+          }
+        });
+
+        mappedDoc.createdAt = new Date();
+        mappedDoc.updatedAt = new Date();
+        mappedDoc.sourceFormId = formId;
+
+        const db = mongoose.connection.db;
+        if (db) {
+          const colName = targetModel.endsWith("s") ? targetModel : `${targetModel}s`;
+          const syncRes = await db.collection(colName).insertOne(mappedDoc);
+          
+          submission.syncedToMaster = {
+            synced: true,
+            targetModel: colName,
+            syncedRecordId: String(syncRes.insertedId),
+            syncedAt: new Date(),
+          };
+          await submission.save();
+        }
+      } catch (syncErr) {
+        console.error("Error in AutoMasterSyncEngine:", syncErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

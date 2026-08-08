@@ -57,8 +57,8 @@ export default function StandalonePublicFormPage({
   const accentColor = template.theme?.accentColor || "#4f46e5";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-10 px-4">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-8 px-4 sm:px-8">
+      <div className="w-full space-y-6">
         {/* Top Header Banner */}
         <div
           className="p-8 rounded-3xl shadow-lg text-white space-y-2 relative overflow-hidden"
