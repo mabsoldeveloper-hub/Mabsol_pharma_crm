@@ -42,6 +42,7 @@ import {
   FaBalanceScale,
   FaMapMarkerAlt,
   FaBrain,
+  FaBook,
 } from "react-icons/fa";
 
 
@@ -607,6 +608,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           icon={<FaPlusCircle />}
                           label="Create New Form"
                           active={pathname === "/dashboard/custom-forms/builder"}
+                          color="violet"
+                        />
+                      </li>
+                      <li>
+                        <SubLink
+                          href="/dashboard/custom-forms/guide"
+                          icon={<FaBook />}
+                          label="Guide & Capabilities"
+                          active={pathname === "/dashboard/custom-forms/guide"}
                           color="violet"
                         />
                       </li>
