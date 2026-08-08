@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
       approvalWorkflow,
       autoMasterSync,
       theme,
+      expirationConfig,
+      thankYouConfig,
     } = body;
 
     if (!title || !title.trim()) {
@@ -111,6 +113,8 @@ export async function POST(req: NextRequest) {
       approvalWorkflow: approvalWorkflow || { enabled: false, approverRole: "Admin" },
       autoMasterSync: autoMasterSync || { enabled: false, targetModel: "" },
       theme: theme || { accentColor: "#4f46e5", logoUrl: "", headerBanner: "" },
+      expirationConfig: expirationConfig || { expiresAt: null, maxSubmissions: 0 },
+      thankYouConfig: thankYouConfig || { title: "Thank You!", message: "Your response has been successfully recorded." },
     });
 
     return NextResponse.json({

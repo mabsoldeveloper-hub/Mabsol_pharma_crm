@@ -25,7 +25,7 @@ interface DynamicFormRendererProps {
     fields: FormFieldConfig[];
     conditions?: IFormCondition[];
     accessMode?: string;
-    theme?: { accentColor?: string };
+    theme?: { accentColor?: string; submitButtonText?: string; fontFamily?: string };
   };
   readOnly?: boolean;
   isPublic?: boolean;
@@ -61,6 +61,7 @@ export default function DynamicFormRenderer({
   const [pendingDraft, setPendingDraft] = useState<Record<string, any> | null>(null);
 
   const accentColor = template.theme?.accentColor || "#4f46e5";
+  const submitButtonText = template.theme?.submitButtonText || "Submit Form Entry";
 
   // Check for unsaved local draft on mount
   useEffect(() => {
@@ -112,6 +113,26 @@ export default function DynamicFormRenderer({
       localStorage.removeItem(`form_draft_${template.formId}`);
     }
     setDraftFound(false);
+  };
+
+  const computeFormula = (expression?: string) => {
+    if (!expression) return "0.00";
+    try {
+      let expr = expression;
+      template.fields.forEach((f) => {
+        const val = Number(formData[f.key]) || 0;
+        expr = expr.replace(new RegExp(`\\[?${f.key}\\]?`, "g"), String(val));
+      });
+      const sanitized = expr.replace(/[^0-9+*/%(). -]/g, "");
+      if (!sanitized.trim()) return "0.00";
+      const res = Function(`"use strict"; return (${sanitized})`)();
+      if (typeof res === "number" && !isNaN(res) && isFinite(res)) {
+        return Number.isInteger(res) ? String(res) : res.toFixed(2);
+      }
+    } catch (err) {
+      return "0.00";
+    }
+    return "0.00";
   };
 
   const handleChange = (key: string, value: any) => {
@@ -178,11 +199,19 @@ export default function DynamicFormRenderer({
       return;
     }
 
+    // Prepare payload with evaluated formulas
+    const submissionData = { ...formData };
+    template.fields.forEach((f) => {
+      if (f.type === "formula") {
+        submissionData[f.key] = computeFormula(f.formulaExpression);
+      }
+    });
+
     // Validate visible required fields
     const missing: string[] = [];
     evaluatedFields.forEach((field) => {
       if (!field.isHidden && field.isRequired) {
-        const val = formData[field.key];
+        const val = submissionData[field.key];
         if (val === undefined || val === null || val === "") {
           missing.push(field.label || field.key);
         }
@@ -201,7 +230,7 @@ export default function DynamicFormRenderer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           formId: template.formId,
-          data: formData,
+          data: submissionData,
           pin,
           submittedBy: {
             userName: userName.trim() || (isPublic ? "Public Respondent" : "CRM User"),
@@ -333,7 +362,9 @@ export default function DynamicFormRenderer({
                 <div
                   key={field.id || field.key}
                   className={
-                    field.type === "textarea" ? "md:col-span-2" : "col-span-1"
+                    field.type === "textarea" || field.type === "repeaterTable" || field.type === "signature" || field.type === "gps" || field.type === "fileUpload"
+                      ? "md:col-span-2"
+                      : "col-span-1"
                   }
                 >
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -447,13 +478,11 @@ export default function DynamicFormRenderer({
                       onChange={(val) => handleChange(field.key, val)}
                     />
                   ) : field.type === "repeaterTable" ? (
-                    <div className="col-span-full">
-                      <RepeaterTableField
-                        value={value}
-                        readOnly={readOnly}
-                        onChange={(val) => handleChange(field.key, val)}
-                      />
-                    </div>
+                    <RepeaterTableField
+                      value={value}
+                      readOnly={readOnly}
+                      onChange={(val) => handleChange(field.key, val)}
+                    />
                   ) : field.type === "rating" ? (
                     <div className="flex items-center gap-2 pt-1">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -473,6 +502,13 @@ export default function DynamicFormRenderer({
                       ))}
                       <span className="text-xs font-bold text-slate-600 dark:text-slate-400 ml-2">
                         {value ? `${value} / 5 Stars` : "Select rating"}
+                      </span>
+                    </div>
+                  ) : field.type === "formula" ? (
+                    <div className="w-full px-3 py-2 text-sm border border-amber-300 dark:border-amber-700/70 rounded-xl bg-amber-50/60 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold font-mono flex items-center justify-between shadow-2xs">
+                      <span>{computeFormula(field.formulaExpression)}</span>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">
+                        fx: {field.formulaExpression || "Auto-calculated"}
                       </span>
                     </div>
                   ) : null}
@@ -535,7 +571,7 @@ export default function DynamicFormRenderer({
             style={{ backgroundColor: accentColor }}
             className="w-full md:w-auto px-8 py-3 text-white font-semibold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <FaPaperPlane /> {submitting ? "Submitting Entry..." : "Submit Form Entry"}
+            <FaPaperPlane /> {submitting ? "Submitting..." : submitButtonText}
           </button>
         </div>
       )}

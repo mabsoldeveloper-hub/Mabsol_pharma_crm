@@ -121,6 +121,7 @@ export default function CustomFormViewPage({
           submissions={submissions}
           total={total}
           loading={loading}
+          onRefresh={fetchSubmissions}
         />
       )}
     </div>

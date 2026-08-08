@@ -86,12 +86,15 @@ export default function DynamicFilterBar({
         </div>
 
         {/* Dynamically Generated Field Filters */}
-        {filterableFields.map((field) => {
+        {filterableFields.map((field, idx) => {
           const currentValue = filters[field.key] || "";
+          // Use composite key: id + key + index to guarantee uniqueness
+          // even when the same DB field key appears more than once in the form
+          const uniqueKey = `${field.id || field.key}_${idx}`;
 
           if (field.type === "select" || field.type === "radio") {
             return (
-              <div key={field.key}>
+              <div key={uniqueKey}>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 truncate">
                   Filter by {field.label}
                 </label>
@@ -101,8 +104,8 @@ export default function DynamicFilterBar({
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
                 >
                   <option value="">All {field.label}</option>
-                  {(field.options || []).map((opt) => (
-                    <option key={opt} value={opt}>
+                  {(field.options || []).map((opt, optIdx) => (
+                    <option key={`${uniqueKey}_opt_${optIdx}`} value={opt}>
                       {opt}
                     </option>
                   ))}
@@ -113,7 +116,7 @@ export default function DynamicFilterBar({
 
           if (field.type === "text" || field.type === "number") {
             return (
-              <div key={field.key}>
+              <div key={uniqueKey}>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 truncate">
                   Filter {field.label}
                 </label>

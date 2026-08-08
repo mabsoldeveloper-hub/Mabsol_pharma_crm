@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   FaPlus,
@@ -33,6 +33,18 @@ import {
   FaTable,
   FaStar,
   FaMagic,
+  FaCopy,
+  FaUndo,
+  FaRedo,
+  FaChevronUp,
+  FaGripVertical,
+  FaFont,
+  FaImage,
+  FaLink,
+  FaSync,
+  FaCalendarTimes,
+  FaSmile,
+  FaTextHeight,
 } from "react-icons/fa";
 import DynamicFormRenderer from "./DynamicFormRenderer";
 import ConditionalLogicEditor from "./ConditionalLogicEditor";
@@ -100,6 +112,24 @@ interface FormBuilderProps {
   isEditMode?: boolean;
 }
 
+// ── Field type metadata ──────────────────────────────────────────────────────
+const FIELD_TYPE_META: Record<string, { label: string; color: string; icon: string }> = {
+  text:          { label: "Text",          color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300",  icon: "Aa" },
+  number:        { label: "Number",        color: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",    icon: "#" },
+  date:          { label: "Date",          color: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300",        icon: "📅" },
+  select:        { label: "Dropdown",      color: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300",           icon: "▾" },
+  textarea:      { label: "Textarea",      color: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300", icon: "¶" },
+  checkbox:      { label: "Checkbox",      color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300", icon: "☑" },
+  radio:         { label: "Radio",         color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300",        icon: "◉" },
+  mappedTable:   { label: "DB Lookup",     color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300",        icon: "⇋" },
+  signature:     { label: "Signature",     color: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300", icon: "✍" },
+  gps:           { label: "GPS Stamp",     color: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300",        icon: "📍" },
+  fileUpload:    { label: "File/Photo",    color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300", icon: "📎" },
+  formula:       { label: "Formula",       color: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",    icon: "ƒ" },
+  repeaterTable: { label: "Repeater",      color: "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300",       icon: "⊞" },
+  rating:        { label: "Rating",        color: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",    icon: "★" },
+};
+
 export default function FormBuilder({ initialData, isEditMode = false }: FormBuilderProps) {
   const router = useRouter();
   const [title, setTitle] = useState(initialData?.title || "");
@@ -117,7 +147,17 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
   const [autoMasterSyncEnabled, setAutoMasterSyncEnabled] = useState(initialData?.autoMasterSync?.enabled || false);
   const [targetModel, setTargetModel] = useState(initialData?.autoMasterSync?.targetModel || "");
   const [accentColor, setAccentColor] = useState(initialData?.theme?.accentColor || "#4f46e5");
+  const [logoUrl, setLogoUrl] = useState((initialData?.theme as any)?.logoUrl || "");
+  const [headerBanner, setHeaderBanner] = useState((initialData?.theme as any)?.headerBanner || "");
+  const [fontFamily, setFontFamily] = useState((initialData?.theme as any)?.fontFamily || "Inter");
+  const [submitButtonText, setSubmitButtonText] = useState((initialData?.theme as any)?.submitButtonText || "Submit Form");
+  const [expiresAt, setExpiresAt] = useState((initialData as any)?.expirationConfig?.expiresAt ? new Date((initialData as any).expirationConfig.expiresAt).toISOString().split("T")[0] : "");
+  const [maxSubmissions, setMaxSubmissions] = useState((initialData as any)?.expirationConfig?.maxSubmissions || 0);
+  const [thankYouTitle, setThankYouTitle] = useState((initialData as any)?.thankYouConfig?.title || "Thank You!");
+  const [thankYouMessage, setThankYouMessage] = useState((initialData as any)?.thankYouConfig?.message || "Your response has been successfully recorded.");
 
+  // UX State
+  const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"builder" | "logic" | "settings" | "theme" | "preview">("builder");
   const [schemas, setSchemas] = useState<any[]>([]);
   const [loadingSchemas, setLoadingSchemas] = useState(false);
@@ -125,11 +165,70 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Undo / Redo History
+  const historyRef = useRef<FormFieldConfig[][]>([initialData?.fields || []]);
+  const historyIndexRef = useRef(0);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const pushHistory = useCallback((newFields: FormFieldConfig[]) => {
+    const hist = historyRef.current.slice(0, historyIndexRef.current + 1);
+    hist.push(JSON.parse(JSON.stringify(newFields)));
+    if (hist.length > 50) hist.shift();
+    historyRef.current = hist;
+    historyIndexRef.current = hist.length - 1;
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(false);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current -= 1;
+    const prev = historyRef.current[historyIndexRef.current];
+    setFields(JSON.parse(JSON.stringify(prev)));
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(true);
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current += 1;
+    const next = historyRef.current[historyIndexRef.current];
+    setFields(JSON.parse(JSON.stringify(next)));
+    setCanUndo(true);
+    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleUndo, handleRedo]);
+
   const [selectedSchemaTable, setSelectedSchemaTable] = useState("");
   const [tableFieldSearch, setTableFieldSearch] = useState("");
   const [selectedTableCategory, setSelectedTableCategory] = useState("All");
   const [showPharmaModal, setShowPharmaModal] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+
+  const toggleFieldExpand = (id: string) => {
+    setExpandedFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleApplyAiSchema = (schema: any) => {
     if (schema.title) setTitle(schema.title);
@@ -184,8 +283,30 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
       section: "General Details",
       helpText: "",
     };
+    const updated = [...fields, newField];
+    setFields(updated);
+    pushHistory(updated);
+    // Auto-expand newly added field
+    setExpandedFields((prev) => new Set([...prev, newField.id]));
+  };
 
-    setFields([...fields, newField]);
+  const duplicateField = (index: number) => {
+    const original = fields[index];
+    const copy: FormFieldConfig = {
+      ...JSON.parse(JSON.stringify(original)),
+      id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      key: `${original.key}_copy`,
+      label: `${original.label} (Copy)`,
+      order: fields.length,
+    };
+    const updated = [
+      ...fields.slice(0, index + 1),
+      copy,
+      ...fields.slice(index + 1),
+    ];
+    setFields(updated);
+    pushHistory(updated);
+    setExpandedFields((prev) => new Set([...prev, copy.id]));
   };
 
   const importAllFieldsFromTable = (tableName: string) => {
@@ -217,11 +338,13 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
     const updated = [...fields];
     updated[index] = { ...updated[index], ...updatedProperties };
     setFields(updated);
+    pushHistory(updated);
   };
 
   const removeField = (index: number) => {
     const updated = fields.filter((_, i) => i !== index);
     setFields(updated);
+    pushHistory(updated);
   };
 
   const moveField = (index: number, direction: "up" | "down") => {
@@ -237,6 +360,7 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
     updated[index] = updated[targetIndex];
     updated[targetIndex] = temp;
     setFields(updated);
+    pushHistory(updated);
   };
 
   const handleSaveForm = async () => {
@@ -266,7 +390,12 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
         accessPin,
         approvalWorkflow: { enabled: approvalEnabled, approverRole },
         autoMasterSync: { enabled: autoMasterSyncEnabled, targetModel },
-        theme: { accentColor },
+        theme: { accentColor, logoUrl, headerBanner, fontFamily, submitButtonText },
+        expirationConfig: {
+          expiresAt: expiresAt ? new Date(expiresAt) : null,
+          maxSubmissions: maxSubmissions || 0,
+        },
+        thankYouConfig: { title: thankYouTitle, message: thankYouMessage },
       };
 
       const url = isEditMode
@@ -316,79 +445,68 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Navigation Tabs */}
-          <div className="bg-slate-100 dark:bg-slate-700 p-1 rounded-xl flex items-center text-xs font-semibold overflow-x-auto">
+          <div className="bg-slate-100 dark:bg-slate-700 p-1 rounded-xl flex items-center text-xs font-semibold overflow-x-auto gap-0.5">
+            {([
+              { key: "builder",  icon: <FaSlidersH />,    label: "Designer",          color: "text-indigo-600 dark:text-indigo-400" },
+              { key: "logic",    icon: <FaExchangeAlt />, label: `Logic (${conditions.length})`, color: "text-violet-600 dark:text-violet-400" },
+              { key: "settings", icon: <FaCog />,         label: "Settings",          color: "text-emerald-600 dark:text-emerald-400" },
+              { key: "theme",    icon: <FaPalette />,     label: "Theme",             color: "text-rose-600 dark:text-rose-400" },
+              { key: "preview",  icon: <FaEye />,         label: "Preview",           color: "text-indigo-600 dark:text-indigo-400" },
+            ] as const).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? `bg-white dark:bg-slate-800 ${tab.color} shadow-sm`
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                }`}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Undo / Redo */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
             <button
-              onClick={() => setActiveTab("builder")}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === "builder"
-                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
-              }`}
+              onClick={handleUndo}
+              disabled={!canUndo}
+              title="Undo (Ctrl+Z)"
+              className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-600 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-30 transition-all"
             >
-              <FaSlidersH /> Designer
+              <FaUndo className="text-xs" />
             </button>
             <button
-              onClick={() => setActiveTab("logic")}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === "logic"
-                  ? "bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
-              }`}
+              onClick={handleRedo}
+              disabled={!canRedo}
+              title="Redo (Ctrl+Y)"
+              className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-600 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-30 transition-all"
             >
-              <FaExchangeAlt /> IF/THEN Logic ({conditions.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === "settings"
-                  ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
-              }`}
-            >
-              <FaCog /> Settings & Access
-            </button>
-            <button
-              onClick={() => setActiveTab("theme")}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === "theme"
-                  ? "bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
-              }`}
-            >
-              <FaPalette /> Theme
-            </button>
-            <button
-              onClick={() => setActiveTab("preview")}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === "preview"
-                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
-              }`}
-            >
-              <FaEye /> Live Preview
+              <FaRedo className="text-xs" />
             </button>
           </div>
 
           <button
             onClick={() => setShowAiModal(true)}
-            className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0"
+            className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0"
           >
-            <FaMagic className="text-amber-300" /> ✨ AI Prompt Studio
+            <FaMagic className="text-amber-300" /> AI Studio
           </button>
 
           <button
             onClick={() => setShowPharmaModal(true)}
-            className="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0"
+            className="px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0"
           >
-            <FaMagic /> 1-Click Presets
+            <FaMagic /> Presets
           </button>
 
           <button
             onClick={handleSaveForm}
             disabled={saving}
-            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 shrink-0"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50 shrink-0"
           >
             <FaSave /> {saving ? "Saving..." : "Save Form"}
           </button>
@@ -521,7 +639,7 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
                   <FaUserCheck className="text-indigo-500" /> Manager Approval Workflow
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Submissions require manager approval (`Approve` / `Reject`) before completion.
+                  Submissions require manager approval (Approve / Reject) before completion.
                 </p>
               </div>
               <input
@@ -549,35 +667,212 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
               </div>
             )}
           </div>
+
+          {/* Auto Master Sync */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-700 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                  <FaSync className="text-cyan-500" /> Auto Master DB Sync
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Auto-create a database record in a master collection when a form is submitted.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={autoMasterSyncEnabled}
+                onChange={(e) => setAutoMasterSyncEnabled(e.target.checked)}
+                className="w-5 h-5 text-cyan-600 rounded"
+              />
+            </div>
+            {autoMasterSyncEnabled && (
+              <div className="pt-2 max-w-xs text-xs">
+                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Target Master Collection (Model Name)
+                </label>
+                <input
+                  type="text"
+                  value={targetModel}
+                  onChange={(e) => setTargetModel(e.target.value)}
+                  placeholder="e.g. Customer, MrCallLog, StockEntry"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none font-mono"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Expiry & Limits */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-700 space-y-3">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+              <FaCalendarTimes className="text-rose-500" /> Form Expiry & Submission Limits
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Auto-Close Date (optional)
+                </label>
+                <input
+                  type="date"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
+                />
+                <p className="text-slate-400 mt-1">Form auto-closes on this date.</p>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Max Submissions (0 = unlimited)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={maxSubmissions}
+                  onChange={(e) => setMaxSubmissions(parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
+                />
+                <p className="text-slate-400 mt-1">Form stops accepting after this count.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Thank You Page Config */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-700 space-y-3">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+              <FaSmile className="text-amber-500" /> Thank You / Confirmation Page
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">Success Title</label>
+                <input
+                  type="text"
+                  value={thankYouTitle}
+                  onChange={(e) => setThankYouTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-600 dark:text-slate-300 mb-1">Success Message</label>
+                <input
+                  type="text"
+                  value={thankYouMessage}
+                  onChange={(e) => setThankYouMessage(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       ) : activeTab === "theme" ? (
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 w-full">
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
-            <FaPalette className="text-rose-500" /> Custom Branding & Theme Accent
+            <FaPalette className="text-rose-500" /> Custom Branding & Theme
           </h2>
 
-          <div className="space-y-4">
+          {/* Accent Color */}
+          <div className="space-y-3">
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-              Primary Theme Accent Color
+              Primary Accent Color
             </label>
-            <div className="flex items-center gap-4">
-              {["#4f46e5", "#059669", "#7c3aed", "#e11d48", "#d97706", "#0284c7"].map((hex) => (
+            <div className="flex items-center gap-3 flex-wrap">
+              {["#4f46e5", "#059669", "#7c3aed", "#e11d48", "#d97706", "#0284c7", "#0f172a", "#be185d"].map((hex) => (
                 <button
                   key={hex}
                   onClick={() => setAccentColor(hex)}
-                  className={`w-10 h-10 rounded-full border-2 transition-all ${
-                    accentColor === hex ? "scale-110 border-slate-900 dark:border-white shadow-md" : "border-transparent"
+                  className={`w-9 h-9 rounded-full border-2 transition-all ${
+                    accentColor === hex ? "scale-110 border-slate-900 dark:border-white shadow-lg ring-2 ring-offset-1 ring-slate-400" : "border-transparent hover:scale-105"
                   }`}
                   style={{ backgroundColor: hex }}
                 />
               ))}
-              <input
-                type="color"
-                value={accentColor}
-                onChange={(e) => setAccentColor(e.target.value)}
-                className="w-10 h-10 rounded-full cursor-pointer border-0"
-              />
+              <div className="relative">
+                <input
+                  type="color"
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  className="w-9 h-9 rounded-full cursor-pointer border-2 border-slate-300"
+                />
+              </div>
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-lg">{accentColor}</span>
             </div>
+            {/* Live preview bar */}
+            <div className="h-2 rounded-full transition-all" style={{ backgroundColor: accentColor }} />
+          </div>
+
+          {/* Font Family */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <FaFont className="text-indigo-500" /> Form Font Family
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {["Inter", "Roboto", "Poppins", "Outfit", "DM Sans", "Nunito", "Lato", "Montserrat"].map((font) => (
+                <button
+                  key={font}
+                  onClick={() => setFontFamily(font)}
+                  className={`px-3 py-2.5 text-xs font-semibold rounded-xl border transition-all ${
+                    fontFamily === font
+                      ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-sm"
+                      : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                  style={{ fontFamily: font }}
+                >
+                  {font}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Logo URL */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <FaImage className="text-violet-500" /> Brand Logo URL
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="url"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://your-domain.com/logo.png"
+                className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-violet-500"
+              />
+              {logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="Logo Preview" className="w-12 h-12 object-contain rounded-lg border border-slate-200 dark:border-slate-700 bg-white p-1" />
+              )}
+            </div>
+          </div>
+
+          {/* Header Banner */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <FaTextHeight className="text-rose-500" /> Header Banner Image URL
+            </label>
+            <input
+              type="url"
+              value={headerBanner}
+              onChange={(e) => setHeaderBanner(e.target.value)}
+              placeholder="https://your-domain.com/banner.jpg (recommended: 1200×300)"
+              className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-rose-500"
+            />
+            {headerBanner && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={headerBanner} alt="Banner Preview" className="w-full h-24 object-cover rounded-xl border border-slate-200 dark:border-slate-700" />
+            )}
+          </div>
+
+          {/* Submit Button Text */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <FaLink className="text-emerald-500" /> Submit Button Text
+            </label>
+            <input
+              type="text"
+              value={submitButtonText}
+              onChange={(e) => setSubmitButtonText(e.target.value)}
+              placeholder="e.g. Submit Form, Send Response, Book Now"
+              className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 max-w-sm"
+            />
+            <p className="text-xs text-slate-400">This text appears on the submit button of the public/filled form.</p>
           </div>
         </div>
       ) : activeTab === "preview" ? (
@@ -948,156 +1243,164 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {fields.map((field, idx) => (
+                <div className="space-y-3">
+                  {fields.map((field, idx) => {
+                    const isExpanded = expandedFields.has(field.id);
+                    const meta = FIELD_TYPE_META[field.type] || { label: field.type, color: "bg-slate-100 text-slate-600", icon: "?" };
+                    return (
                     <div
                       key={field.id}
-                      className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs space-y-3 relative group"
+                      className={`bg-white dark:bg-slate-900 border rounded-xl shadow-xs transition-all group ${
+                        isExpanded ? "border-indigo-300 dark:border-indigo-700 shadow-sm" : "border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800"
+                      }`}
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full flex items-center justify-center text-xs font-bold">
-                            {idx + 1}
-                          </span>
-                          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">
-                            {field.type}
-                          </span>
-                          {field.mappedTable && (
-                            <span className="text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300 px-2 py-0.5 rounded">
-                              {field.mappedTable}.{field.mappedField}
-                            </span>
-                          )}
-                        </div>
+                      {/* ── Collapsed Header (always visible) ── */}
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        {/* Drag handle */}
+                        <FaGripVertical className="text-slate-300 dark:text-slate-600 text-xs flex-shrink-0 cursor-grab" />
 
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => moveField(idx, "up")}
-                            disabled={idx === 0}
-                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"
-                            title="Move Up"
-                          >
-                            <FaArrowUp />
-                          </button>
-                          <button
-                            onClick={() => moveField(idx, "down")}
-                            disabled={idx === fields.length - 1}
-                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"
-                            title="Move Down"
-                          >
-                            <FaArrowDown />
-                          </button>
-                          <button
-                            onClick={() => removeField(idx)}
-                            className="p-1 text-rose-500 hover:text-rose-700 ml-2"
-                            title="Delete Field"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </div>
+                        {/* Index badge */}
+                        <span className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+                          {idx + 1}
+                        </span>
 
-                      {/* Field Configuration Inputs */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <div>
-                          <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">
-                            Field Label *
-                          </label>
-                          <input
-                            type="text"
-                            value={field.label}
-                            onChange={(e) =>
-                              updateField(idx, { label: e.target.value })
-                            }
-                            className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none"
-                          />
-                        </div>
+                        {/* Type pill */}
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${meta.color}`}>
+                          {meta.icon} {meta.label}
+                        </span>
 
-                        <div>
-                          <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">
-                            Field Key (Unique Identifier)
-                          </label>
-                          <input
-                            type="text"
-                            value={field.key}
-                            onChange={(e) =>
-                              updateField(idx, {
-                                key: e.target.value
-                                  .toLowerCase()
-                                  .replace(/[^a-z0-9_]/g, "_"),
-                              })
-                            }
-                            className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none font-mono"
-                          />
-                        </div>
+                        {/* Label preview */}
+                        <span className="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
+                          {field.label || <span className="text-slate-400 italic">Unlabeled field</span>}
+                        </span>
 
-                        <div>
-                          <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">
-                            Placeholder Text
-                          </label>
-                          <input
-                            type="text"
-                            value={field.placeholder || ""}
-                            onChange={(e) =>
-                              updateField(idx, { placeholder: e.target.value })
-                            }
-                            className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">
-                            Form Section Group
-                          </label>
-                          <input
-                            type="text"
-                            value={field.section || "General Details"}
-                            onChange={(e) =>
-                              updateField(idx, { section: e.target.value })
-                            }
-                            placeholder="e.g. Personal Info, Visit Details"
-                            className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none"
-                          />
-                        </div>
-
-                        {(field.type === "select" || field.type === "radio") && (
-                          <div className="md:col-span-2">
-                            <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">
-                              Options (Comma Separated)
-                            </label>
-                            <input
-                              type="text"
-                              value={(field.options || []).join(", ")}
-                              onChange={(e) =>
-                                updateField(idx, {
-                                  options: e.target.value
-                                    .split(",")
-                                    .map((s) => s.trim()),
-                                })
-                              }
-                              placeholder="e.g. High, Medium, Low"
-                              className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none"
-                            />
-                          </div>
+                        {/* Required badge */}
+                        {field.required && (
+                          <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 rounded-full flex-shrink-0">Required</span>
                         )}
 
-                        <div className="flex items-center gap-4 pt-2">
-                          <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={field.required}
-                              onChange={(e) =>
-                                updateField(idx, { required: e.target.checked })
-                              }
-                              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
-                              Required Field
-                            </span>
-                          </label>
+                        {/* Mapped table */}
+                        {field.mappedTable && (
+                          <span className="text-[10px] font-medium bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 px-2 py-0.5 rounded-full flex-shrink-0 truncate max-w-[100px]">
+                            {field.mappedTable}
+                          </span>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-0.5 flex-shrink-0">
+                          <button onClick={() => moveField(idx, "up")} disabled={idx === 0} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 transition-all" title="Move Up"><FaArrowUp className="text-[10px]" /></button>
+                          <button onClick={() => moveField(idx, "down")} disabled={idx === fields.length - 1} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 transition-all" title="Move Down"><FaArrowDown className="text-[10px]" /></button>
+                          <button onClick={() => duplicateField(idx)} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all" title="Duplicate Field"><FaCopy className="text-[10px]" /></button>
+                          <button onClick={() => removeField(idx)} className="p-1.5 text-rose-400 hover:text-rose-600 transition-all" title="Delete Field"><FaTrash className="text-[10px]" /></button>
+                          <button
+                            onClick={() => toggleFieldExpand(field.id)}
+                            className={`p-1.5 ml-1 rounded-lg transition-all text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 ${ isExpanded ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" : ""}`}
+                            title={isExpanded ? "Collapse" : "Expand & Edit"}
+                          >
+                            {isExpanded ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+                          </button>
                         </div>
                       </div>
+
+                      {/* ── Expanded Editor (conditionally shown) ── */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 border-t border-slate-100 dark:border-slate-800 pt-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div>
+                              <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">Field Label *</label>
+                              <input
+                                type="text"
+                                value={field.label}
+                                onChange={(e) => updateField(idx, { label: e.target.value })}
+                                className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">Field Key (Unique ID)</label>
+                              <input
+                                type="text"
+                                value={field.key}
+                                onChange={(e) => updateField(idx, { key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })}
+                                className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none font-mono focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">Placeholder Text</label>
+                              <input
+                                type="text"
+                                value={field.placeholder || ""}
+                                onChange={(e) => updateField(idx, { placeholder: e.target.value })}
+                                className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">Section Group</label>
+                              <input
+                                type="text"
+                                value={field.section || "General Details"}
+                                onChange={(e) => updateField(idx, { section: e.target.value })}
+                                placeholder="e.g. Personal Info, Visit Details"
+                                className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">Help Text (shows below field)</label>
+                              <input
+                                type="text"
+                                value={field.helpText || ""}
+                                onChange={(e) => updateField(idx, { helpText: e.target.value })}
+                                placeholder="e.g. Enter the doctor's full registered name"
+                                className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
+
+                            {(field.type === "select" || field.type === "radio") && (
+                              <div className="md:col-span-2">
+                                <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">Options (Comma Separated)</label>
+                                <input
+                                  type="text"
+                                  value={(field.options || []).join(", ")}
+                                  onChange={(e) => updateField(idx, { options: e.target.value.split(",").map((s) => s.trim()) })}
+                                  placeholder="e.g. High, Medium, Low"
+                                  className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </div>
+                            )}
+
+                            {field.type === "formula" && (
+                              <div className="md:col-span-2">
+                                <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">Formula Expression</label>
+                                <input
+                                  type="text"
+                                  value={field.formulaExpression || ""}
+                                  onChange={(e) => updateField(idx, { formulaExpression: e.target.value })}
+                                  placeholder="e.g. [qty] * [rate]"
+                                  className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none font-mono focus:ring-2 focus:ring-amber-500"
+                                />
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-4 pt-1">
+                              <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={field.required}
+                                  onChange={(e) => updateField(idx, { required: e.target.checked })}
+                                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">Required Field</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

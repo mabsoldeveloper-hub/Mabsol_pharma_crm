@@ -156,6 +156,8 @@ const FormTemplateSchema = new Schema(
       accentColor: { type: String, default: "#4f46e5" }, // Indigo default
       logoUrl: { type: String, default: "" },
       headerBanner: { type: String, default: "" },
+      fontFamily: { type: String, default: "Inter" },
+      submitButtonText: { type: String, default: "Submit Form" },
     },
 
     createdBy: {

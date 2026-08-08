@@ -66,6 +66,8 @@ export async function PUT(
     if (body.approvalWorkflow) template.approvalWorkflow = body.approvalWorkflow;
     if (body.autoMasterSync) template.autoMasterSync = body.autoMasterSync;
     if (body.theme) template.theme = body.theme;
+    if (body.expirationConfig !== undefined) template.expirationConfig = body.expirationConfig;
+    if (body.thankYouConfig !== undefined) template.thankYouConfig = body.thankYouConfig;
 
     if (body.fields && Array.isArray(body.fields)) {
       template.fields = body.fields.map((f: any, idx: number) => ({
