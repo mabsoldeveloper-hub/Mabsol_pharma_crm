@@ -43,6 +43,7 @@ import {
   FaMapMarkerAlt,
   FaBrain,
   FaBook,
+  FaPaperPlane,
 } from "react-icons/fa";
 
 
@@ -581,6 +582,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     label="Purchase & Sale Analytics"
                     active={pathname === "/dashboard/purchase-sales-analytics" || pathname.startsWith("/dashboard/purchase-sales-analytics")}
                     color="sky"
+                  />
+                </li>
+                <li>
+                  <NavLink
+                    href="/dashboard/email-campaign"
+                    icon={<FaPaperPlane />}
+                    label="Email Campaign"
+                    active={pathname === "/dashboard/email-campaign" || pathname.startsWith("/dashboard/email-campaign")}
+                    color="amber"
                   />
                 </li>
                 {/* Dynamic Custom Form Studio */}
