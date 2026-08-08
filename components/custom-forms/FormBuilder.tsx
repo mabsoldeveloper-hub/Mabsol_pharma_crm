@@ -37,6 +37,7 @@ import {
 import DynamicFormRenderer from "./DynamicFormRenderer";
 import ConditionalLogicEditor from "./ConditionalLogicEditor";
 import PharmaTemplatesModal from "./PharmaTemplatesModal";
+import AiFormStudioModal from "./AiFormStudioModal";
 
 export interface FormFieldConfig {
   id: string;
@@ -128,6 +129,22 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
   const [tableFieldSearch, setTableFieldSearch] = useState("");
   const [selectedTableCategory, setSelectedTableCategory] = useState("All");
   const [showPharmaModal, setShowPharmaModal] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+
+  const handleApplyAiSchema = (schema: any) => {
+    if (schema.title) setTitle(schema.title);
+    if (schema.description) setDescription(schema.description);
+    if (schema.category) setCategory(schema.category);
+    if (schema.accessMode) setAccessMode(schema.accessMode);
+    if (Array.isArray(schema.fields) && schema.fields.length > 0) {
+      setFields(schema.fields);
+    }
+    if (Array.isArray(schema.conditions)) {
+      setConditions(schema.conditions);
+    }
+    setSuccessMsg("✨ AI Form Schema successfully loaded into Builder!");
+    setTimeout(() => setSuccessMsg(""), 3000);
+  };
 
   useEffect(() => {
     fetchSchemas();
@@ -355,10 +372,17 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
           </div>
 
           <button
+            onClick={() => setShowAiModal(true)}
+            className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0"
+          >
+            <FaMagic className="text-amber-300" /> ✨ AI Prompt Studio
+          </button>
+
+          <button
             onClick={() => setShowPharmaModal(true)}
             className="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0"
           >
-            <FaMagic /> 1-Click Pharma Presets
+            <FaMagic /> 1-Click Presets
           </button>
 
           <button
@@ -385,6 +409,13 @@ export default function FormBuilder({ initialData, isEditMode = false }: FormBui
           onClose={() => setShowPharmaModal(false)}
         />
       )}
+
+      {/* AI Form Studio Assistant Modal */}
+      <AiFormStudioModal
+        isOpen={showAiModal}
+        onClose={() => setShowAiModal(false)}
+        onApplySchema={handleApplyAiSchema}
+      />
 
       {/* Alerts */}
       {errorMsg && (

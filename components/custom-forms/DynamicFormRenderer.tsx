@@ -1,7 +1,16 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { FaPaperPlane, FaCheck, FaExclamationTriangle, FaLock, FaStar } from "react-icons/fa";
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  FaPaperPlane,
+  FaCheck,
+  FaExclamationTriangle,
+  FaLock,
+  FaStar,
+  FaHistory,
+  FaUndo,
+  FaTrashAlt,
+} from "react-icons/fa";
 import { FormFieldConfig, IFormCondition } from "./FormBuilder";
 import SignaturePad from "./SignaturePad";
 import GpsLocationPicker from "./GpsLocationPicker";
@@ -46,7 +55,64 @@ export default function DynamicFormRenderer({
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Draft Auto-Save & Recovery State
+  const [draftFound, setDraftFound] = useState(false);
+  const [draftTime, setDraftTime] = useState("");
+  const [pendingDraft, setPendingDraft] = useState<Record<string, any> | null>(null);
+
   const accentColor = template.theme?.accentColor || "#4f46e5";
+
+  // Check for unsaved local draft on mount
+  useEffect(() => {
+    if (!template.formId || readOnly) return;
+    const draftKey = `form_draft_${template.formId}`;
+    const saved = localStorage.getItem(draftKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed?.formData && Object.keys(parsed.formData).length > 0) {
+          setDraftTime(parsed.savedAt || "previously");
+          setPendingDraft(parsed.formData);
+          setDraftFound(true);
+        }
+      } catch (err) {
+        console.error("Error reading form draft:", err);
+      }
+    }
+  }, [template.formId, readOnly]);
+
+  // Auto-save form progress to localStorage
+  useEffect(() => {
+    if (!template.formId || readOnly || draftFound) return;
+    const draftKey = `form_draft_${template.formId}`;
+    const hasAnyContent = Object.values(formData).some(
+      (v) => v !== "" && v !== undefined && v !== null && (Array.isArray(v) ? v.length > 0 : true)
+    );
+
+    if (hasAnyContent) {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          formData,
+          savedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        })
+      );
+    }
+  }, [formData, template.formId, readOnly, draftFound]);
+
+  const handleRestoreDraft = () => {
+    if (pendingDraft) {
+      setFormData(pendingDraft);
+    }
+    setDraftFound(false);
+  };
+
+  const handleDiscardDraft = () => {
+    if (template.formId) {
+      localStorage.removeItem(`form_draft_${template.formId}`);
+    }
+    setDraftFound(false);
+  };
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -150,6 +216,9 @@ export default function DynamicFormRenderer({
 
       if (result.success) {
         setSuccessMsg(result.message || "Form entry submitted successfully!");
+        if (template.formId) {
+          localStorage.removeItem(`form_draft_${template.formId}`);
+        }
         const reset: Record<string, any> = {};
         template.fields.forEach((f) => {
           reset[f.key] = f.defaultValue || "";
@@ -181,6 +250,41 @@ export default function DynamicFormRenderer({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Draft Auto-Restore Banner */}
+      {draftFound && !readOnly && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 rounded-xl">
+              <FaHistory className="text-lg" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                Unsaved Draft Found
+              </h4>
+              <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                We saved your unfinished responses from {draftTime}. Would you like to restore them?
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={handleRestoreDraft}
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+            >
+              <FaUndo className="text-[10px]" /> Restore Draft
+            </button>
+            <button
+              type="button"
+              onClick={handleDiscardDraft}
+              className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition-all flex items-center gap-1.5"
+            >
+              <FaTrashAlt className="text-[10px]" /> Discard
+            </button>
+          </div>
+        </div>
+      )}
+
       {errorMsg && (
         <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-medium flex items-center gap-2">
           <FaExclamationTriangle className="text-rose-500" /> {errorMsg}

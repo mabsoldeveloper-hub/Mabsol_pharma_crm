@@ -13,8 +13,10 @@ import {
   FaShareAlt,
   FaCheck,
   FaTimes,
+  FaPrint,
 } from "react-icons/fa";
 import { FormFieldConfig } from "./FormBuilder";
+import FormPdfPrintModal from "./FormPdfPrintModal";
 
 interface DynamicTableViewProps {
   template: {
@@ -144,6 +146,8 @@ export default function DynamicTableView({
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [selectedPrintSubmission, setSelectedPrintSubmission] = useState<any>(null);
   const [inspectMedia, setInspectMedia] = useState<{
     title: string;
     type: string;
@@ -363,8 +367,18 @@ export default function DynamicTableView({
                           </>
                         )}
                         <button
+                          onClick={() => {
+                            setSelectedPrintSubmission(sub);
+                            setPrintModalOpen(true);
+                          }}
+                          className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 rounded text-[11px] font-semibold flex items-center gap-1 transition-all"
+                          title="Print / Export PDF Report"
+                        >
+                          <FaPrint /> Print PDF
+                        </button>
+                        <button
                           onClick={() => setSelectedSubmission(sub)}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 font-semibold"
+                          className="text-xs text-slate-600 hover:text-slate-800 dark:text-slate-300 font-semibold px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded"
                         >
                           Details
                         </button>
@@ -582,6 +596,14 @@ export default function DynamicTableView({
           </div>
         </div>
       )}
+
+      {/* PDF Export & Printable Modal */}
+      <FormPdfPrintModal
+        isOpen={printModalOpen}
+        onClose={() => setPrintModalOpen(false)}
+        template={template}
+        submission={selectedPrintSubmission}
+      />
     </div>
   );
 }

@@ -173,6 +173,70 @@ export default function FormStudioGuidePage() {
       ],
     },
     {
+      id: "aiStudio",
+      category: "AI Automation",
+      icon: FaMagic,
+      title: "🤖 AI-Powered Prompt-to-Form Studio",
+      badge: "Prompt-to-Form",
+      accent: "from-purple-600 to-pink-600",
+      description:
+        "Type natural language prompts (e.g. 'Doctor feedback form with sample requests') to generate full form schemas in seconds.",
+      details: [
+        "Natural language AI prompt parser",
+        "Quick preset templates for DCR, Surveys, Expenses, and POBs",
+        "Smart field type inference & section layout",
+        "1-Click apply directly into Form Builder canvas",
+      ],
+    },
+    {
+      id: "whatsappShare",
+      category: "Distribution",
+      icon: FaQrcode,
+      title: "📱 WhatsApp, SMS & Dynamic QR Code Generator",
+      badge: "1-Click Share",
+      accent: "from-emerald-500 to-teal-600",
+      description:
+        "Instantly share public and PIN-protected forms with Doctors and Chemists via WhatsApp, SMS, or downloadable QR Codes.",
+      details: [
+        "1-Click WhatsApp Web & Business API deep-linking",
+        "SMS pre-filled message generator",
+        "High-res downloadable PNG QR Code for clinic standees",
+        "PIN protection & public access toggles",
+      ],
+    },
+    {
+      id: "offlineSync",
+      category: "Offline Resilience",
+      icon: FaSyncAlt,
+      title: "📶 Offline PWA Resilience & Auto-Drafting Engine",
+      badge: "Auto-Save Draft",
+      accent: "from-amber-500 to-orange-600",
+      description:
+        "Auto-saves form progress to local storage every 5 seconds, ensuring no data loss in remote hospital basements or low-network areas.",
+      details: [
+        "Local storage background auto-save every 5 seconds",
+        "Restore Unsaved Draft alert banner on page reload",
+        "Automatic draft cleanup upon successful submission",
+        "Offline-first field data resilience",
+      ],
+    },
+    {
+      id: "pdfExport",
+      category: "Reports & Printing",
+      icon: FaFileAlt,
+      title: "📄 Branded PDF Export & Print Engine",
+      badge: "Print & Export PDF",
+      accent: "from-indigo-600 to-blue-700",
+      description:
+        "Transform submitted form entries into branded PDF reports complete with company header, e-signatures, GPS maps, and QR stamps.",
+      details: [
+        "Official Mabsol Pharma CRM branded header & logo",
+        "Itemized sub-table grid printing for POB & Expense bills",
+        "E-Signature & GPS Verification stamp embedding",
+        "1-Click browser print & PDF download engine",
+      ],
+    },
+    {
       id: "analytics",
       category: "Analytics",
       icon: FaChartBar,
@@ -240,6 +304,10 @@ export default function FormStudioGuidePage() {
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {[
             { id: "all", label: "All Capabilities" },
+            { id: "aiStudio", label: "🤖 AI Assistant" },
+            { id: "whatsappShare", label: "📱 WhatsApp & QR" },
+            { id: "offlineSync", label: "📶 Offline Drafts" },
+            { id: "pdfExport", label: "📄 PDF Reports" },
             { id: "templates", label: "🪄 Pharma Presets" },
             { id: "signature", label: "✒️ E-Signatures" },
             { id: "gps", label: "📍 GPS Stamps" },

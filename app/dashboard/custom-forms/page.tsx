@@ -14,13 +14,18 @@ import {
   FaGlobe,
   FaFileAlt,
   FaLayerGroup,
+  FaShareAlt,
+  FaQrcode,
 } from "react-icons/fa";
+import FormShareModal from "@/components/custom-forms/FormShareModal";
 
 export default function CustomFormsHubPage() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareForm, setShareForm] = useState<any>(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -199,31 +204,41 @@ export default function CustomFormsHubPage() {
               </div>
 
               {/* Card Action Buttons */}
-              <div className="pt-2 grid grid-cols-3 gap-2 text-xs">
+              <div className="pt-2 grid grid-cols-4 gap-2 text-xs">
                 <Link
                   href={`/dashboard/custom-forms/entry/${template.formId}`}
-                  className="py-2 px-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-center shadow-sm flex items-center justify-center gap-1 transition-all"
+                  className="py-2 px-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-center shadow-sm flex items-center justify-center gap-1 transition-all"
                 >
-                  <FaPaperPlane className="text-[10px]" /> Fill Entry
+                  <FaPaperPlane className="text-[10px]" /> Fill
                 </Link>
+
+                <button
+                  onClick={() => {
+                    setShareForm(template);
+                    setShareModalOpen(true);
+                  }}
+                  className="py-2 px-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hover:bg-emerald-100 font-semibold rounded-xl text-center flex items-center justify-center gap-1 transition-all"
+                >
+                  <FaShareAlt className="text-[10px]" /> Share
+                </button>
 
                 <Link
                   href={`/dashboard/custom-forms/views/${template.formId}`}
-                  className="py-2 px-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-center flex items-center justify-center gap-1 transition-all"
+                  className="py-2 px-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-center flex items-center justify-center gap-1 transition-all"
                 >
-                  <FaTable className="text-[10px] text-indigo-500" /> Data Table
+                  <FaTable className="text-[10px] text-indigo-500" /> Data
                 </Link>
 
                 <Link
                   href={`/dashboard/custom-forms/analytics/${template.formId}`}
-                  className="py-2 px-2 bg-violet-50 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 font-semibold rounded-xl text-center flex items-center justify-center gap-1 transition-all"
+                  className="py-2 px-1.5 bg-violet-50 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 font-semibold rounded-xl text-center flex items-center justify-center gap-1 transition-all"
                 >
-                  <FaChartBar className="text-[10px]" /> Analytics
+                  <FaChartBar className="text-[10px]" /> Stats
                 </Link>
 
                 <Link
                   href={`/dashboard/custom-forms/builder/${template.formId}`}
-                  className="col-span-2 py-1.5 px-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 font-medium rounded-lg text-center flex items-center justify-center gap-1 transition-all"
+                  className="col-span-3 py-1.5 px-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 font-medium rounded-lg text-center flex items-center justify-center gap-1 transition-all"
                 >
                   <FaEdit className="text-xs" /> Edit Design & Logic
                 </Link>
@@ -239,6 +254,13 @@ export default function CustomFormsHubPage() {
           ))}
         </div>
       )}
+
+      {/* Share & QR Code Modal */}
+      <FormShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        formTemplate={shareForm}
+      />
     </div>
   );
 }
