@@ -44,6 +44,8 @@ import {
   FaBrain,
   FaBook,
   FaPaperPlane,
+  FaBullhorn,
+  FaFunnelDollar,
 } from "react-icons/fa";
 
 
@@ -591,6 +593,16 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     label="Email Campaign"
                     active={pathname === "/dashboard/email-campaign" || pathname.startsWith("/dashboard/email-campaign")}
                     color="amber"
+                  />
+                </li>
+                {/* ── Lead Management Hub ─────────────────── */}
+                <li>
+                  <NavLink
+                    href="/dashboard/leads"
+                    icon={<FaBullhorn />}
+                    label="Lead Management Hub"
+                    active={pathname === "/dashboard/leads" || pathname.startsWith("/dashboard/leads")}
+                    color="rose"
                   />
                 </li>
                 {/* Dynamic Custom Form Studio */}

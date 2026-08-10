@@ -69,8 +69,14 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
     }
   }
 
-  if (companyId && mongoose.Types.ObjectId.isValid(companyId)) {
-    vfpOrList.push({ companyId });
+  if (companyId) {
+    const compStr = String(companyId).trim();
+    if (mongoose.Types.ObjectId.isValid(compStr)) {
+      vfpOrList.push({ companyId: new mongoose.Types.ObjectId(compStr) });
+    }
+    vfpOrList.push({ companyId: compStr });
+    vfpOrList.push({ companyId: null });
+    vfpOrList.push({ companyId: { $exists: false } });
   }
 
   return vfpOrList.length > 0 ? { $or: vfpOrList } : {};
