@@ -173,8 +173,8 @@ export default function LeadTable({ leads, onEdit, onDelete, onOpenDetail, selec
                       : <span style={{ color: "#cbd5e1", fontSize: 13 }}>—</span>}
                   </td>
                   <td style={{ padding: "12px 16px" }}>
-                    <span style={{ fontSize: 12, color: "#475569", maxWidth: 100, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {lead.assignedTo?.name || "—"}
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#4338ca", background: "#eef2ff", padding: "3px 8px", borderRadius: 6, maxWidth: 120, display: "inline-block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      👤 {lead.assignedToName || lead.assignedTo?.name || "Unassigned"}
                     </span>
                   </td>
                   <td style={{ padding: "12px 16px" }}>

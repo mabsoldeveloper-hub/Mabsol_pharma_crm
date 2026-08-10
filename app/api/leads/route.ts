@@ -17,6 +17,17 @@ function toObjId(id: any) {
   return /^[0-9a-fA-F]{24}$/.test(str) ? new mongoose.Types.ObjectId(str) : str;
 }
 
+function checkIsAdmin(user: any) {
+  if (!user) return true;
+  const roleType = String(user.roleType || "").toUpperCase();
+  const roleName = String(user.roleId?.roleName || user.role || "").toUpperCase();
+
+  if (roleType === "MR" || roleType === "RSM" || roleType === "ZSM" || roleName === "EMPLOYEE" || roleName === "MR") {
+    return false;
+  }
+  return true;
+}
+
 // ─── GET: List all leads with filtering, pagination, search ──────────────────
 export async function GET(req: NextRequest) {
   try {
@@ -44,21 +55,70 @@ export async function GET(req: NextRequest) {
     const reqCompanyId = searchParams.get("companyId");
     const reqFyId = searchParams.get("fyId");
 
+    const isAdmin = checkIsAdmin(user);
     const andConditions: any[] = [];
 
-    // Company Scoping
-    const companyOr: any[] = [{ companyId: null }, { companyId: { $exists: false } }];
-    if (userCompanyId) companyOr.push({ companyId: toObjId(userCompanyId) });
-    if (reqCompanyId && String(reqCompanyId) !== String(userCompanyId)) {
-      companyOr.push({ companyId: toObjId(reqCompanyId) });
-    }
-    andConditions.push({ $or: companyOr });
-
-    // Financial Year Scoping
-    if (reqFyId && reqFyId !== "ALL") {
+    if (!isAdmin) {
+      // Non-Admin Users / MRs: ALWAYS SEE LEADS ASSIGNED TO THEM OR UNASSIGNED LEADS
       andConditions.push({
-        $or: [{ fyId: toObjId(reqFyId) }, { fyId: null }, { fyId: { $exists: false } }],
+        $or: [
+          { assignedTo: toObjId(user._id) },
+          { assignedTo: String(user._id) },
+          { assignedToName: user.name },
+          {
+            $and: [
+              {
+                $or: [
+                  { assignedTo: null },
+                  { assignedTo: { $exists: false } },
+                ],
+              },
+              ...(reqCompanyId && reqCompanyId !== "ALL"
+                ? [
+                    {
+                      $or: [
+                        { companyId: toObjId(reqCompanyId) },
+                        { companyId: String(reqCompanyId) },
+                        { companyId: null },
+                        { companyId: { $exists: false } },
+                      ],
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ],
       });
+    } else {
+      // Admin Scoping
+      if (reqCompanyId && reqCompanyId !== "ALL") {
+        andConditions.push({
+          $or: [
+            { companyId: toObjId(reqCompanyId) },
+            { companyId: String(reqCompanyId) },
+            { companyId: null },
+            { companyId: { $exists: false } },
+          ],
+        });
+      }
+      if (reqFyId && reqFyId !== "ALL") {
+        andConditions.push({
+          $or: [
+            { fyId: toObjId(reqFyId) },
+            { fyId: String(reqFyId) },
+            { fyId: null },
+            { fyId: { $exists: false } },
+          ],
+        });
+      }
+      if (assignedTo && assignedTo !== "All") {
+        andConditions.push({
+          $or: [
+            { assignedTo: toObjId(assignedTo) },
+            { assignedTo: String(assignedTo) },
+          ],
+        });
+      }
     }
 
     // Filters
@@ -66,7 +126,6 @@ export async function GET(req: NextRequest) {
     if (leadType && leadType !== "All" && leadType !== "All Types") andConditions.push({ leadType });
     if (priority && priority !== "All" && priority !== "All Priorities") andConditions.push({ priority });
     if (source && source !== "All" && source !== "All Sources") andConditions.push({ source });
-    if (assignedTo) andConditions.push({ assignedTo: toObjId(assignedTo) });
     if (isConverted !== null && isConverted !== undefined)
       andConditions.push({ isConverted: isConverted === "true" });
 
@@ -164,6 +223,17 @@ export async function POST(req: NextRequest) {
       console.warn("Lead number generation skipped:", counterErr);
     }
 
+    let assignedToObj = body.assignedTo ? toObjId(body.assignedTo) : user._id;
+    let assignedToName = body.assignedToName || user.name;
+
+    if (body.assignedTo && String(body.assignedTo) !== String(user._id)) {
+      const User = (await import("@/models/User")).default;
+      const targetUser = await User.findById(body.assignedTo).lean();
+      if (targetUser) {
+        assignedToName = targetUser.name;
+      }
+    }
+
     // Create the lead
     const lead = await Lead.create({
       ...body,
@@ -172,8 +242,8 @@ export async function POST(req: NextRequest) {
       fyId: body.fyId || null,
       fyCode: body.fyCode || "",
       tenantId: user.tenantId || "TENANT001",
-      assignedTo: body.assignedTo || user._id,
-      assignedToName: body.assignedToName || user.name,
+      assignedTo: assignedToObj,
+      assignedToName: assignedToName,
       assignedAt: new Date(),
     });
 

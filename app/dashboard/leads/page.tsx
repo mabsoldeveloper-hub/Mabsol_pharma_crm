@@ -6,6 +6,7 @@ import LeadFormModal from "@/components/leads/LeadFormModal";
 import LeadDetailDrawer from "@/components/leads/LeadDetailDrawer";
 import { useCompany } from "@/context/CompanyContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
+import { useUser } from "@/context/UserContext";
 
 const STAGE_OPTIONS   = ["All","New","Contacted","Qualified","Sample Delivered","Quotation Shared","Negotiation","Won","Lost","Dropped"];
 const LEAD_TYPE_OPT   = ["All","Doctor","Chemist/Retailer","Hospital/Nursing Home","Stockist/Distributor","Export/International","B2B Bulk Buyer","Direct/OTC Customer","Franchise Inquiry","Generic Store","Other"];
@@ -24,6 +25,14 @@ const KPI_CONFIG = [
 export default function LeadsPage() {
   const { selectedCompany } = useCompany();
   const { selectedFY } = useFinancialYear();
+  const { user: currentUser } = useUser();
+  const isAdmin = (() => {
+    if (!currentUser) return false;
+    const roleType = (currentUser.roleType || "").toUpperCase();
+    const roleName = (currentUser.roleId?.roleName || currentUser.role || "").toLowerCase();
+    if (roleType === "MR" || roleType === "RSM" || roleType === "ZSM" || roleName === "employee") return false;
+    return roleType === "ADMIN" || roleName.includes("admin") || roleName.includes("superadmin") || currentUser.isAdmin === true || currentUser.email === "admin@mabsol.com" || !currentUser.roleType;
+  })();
   const [view, setView]           = useState<"kanban"|"table">("kanban");
   const [leads, setLeads]         = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -33,11 +42,23 @@ export default function LeadsPage() {
   const [typeFilter, setTypeFilter]       = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [sourceFilter, setSourceFilter]   = useState("All");
+  const [assignedToFilter, setAssignedToFilter] = useState("All");
+  const [usersList, setUsersList]         = useState<any[]>([]);
   const [showFilters, setShowFilters]     = useState(false);
   const [showForm, setShowForm]           = useState(false);
   const [editingLead, setEditingLead]     = useState<any>(null);
   const [detailLead, setDetailLead]       = useState<any>(null);
   const [selectedIds, setSelectedIds]     = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/users")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setUsersList(data);
+        else if (data?.users) setUsersList(data.users);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -49,22 +70,24 @@ export default function LeadsPage() {
       if (typeFilter !== "All") p.set("leadType", typeFilter);
       if (priorityFilter !== "All") p.set("priority", priorityFilter);
       if (sourceFilter !== "All") p.set("source", sourceFilter);
+      if (assignedToFilter !== "All") p.set("assignedTo", assignedToFilter);
       if (search.trim()) p.set("search", search.trim());
       const res = await fetch(`/api/leads?${p}`, { cache: "no-store" });
       const data = await res.json();
       setLeads(data.leads || []);
     } catch {} finally { setLoading(false); }
-  }, [stageFilter, typeFilter, priorityFilter, sourceFilter, search, selectedCompany?._id, selectedFY?._id]);
+  }, [stageFilter, typeFilter, priorityFilter, sourceFilter, assignedToFilter, search, selectedCompany?._id, selectedFY?._id]);
 
   const fetchAnalytics = useCallback(async () => {
     try {
       const p = new URLSearchParams();
       if (selectedCompany?._id) p.set("companyId", selectedCompany._id);
       if (selectedFY?._id) p.set("fyId", selectedFY._id);
+      if (assignedToFilter !== "All") p.set("assignedTo", assignedToFilter);
       const res = await fetch(`/api/leads/analytics?${p}`, { cache: "no-store" });
       setAnalytics(await res.json());
     } catch {}
-  }, [selectedCompany?._id, selectedFY?._id]);
+  }, [selectedCompany?._id, selectedFY?._id, assignedToFilter]);
 
   useEffect(() => { fetchLeads(); fetchAnalytics(); }, [fetchLeads, fetchAnalytics]);
 
@@ -181,6 +204,15 @@ export default function LeadsPage() {
           <select style={selStyle} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
             {LEAD_TYPE_OPT.map(t => <option key={t} value={t}>{t === "All" ? "All Types" : t}</option>)}
           </select>
+
+          {usersList.length > 0 && (
+            <select style={selStyle} value={assignedToFilter} onChange={e => setAssignedToFilter(e.target.value)}>
+              <option value="All">All Owners (Users)</option>
+              {usersList.map((u: any) => (
+                <option key={u._id} value={u._id}>👤 {u.name} {u.roleType ? `(${u.roleType})` : ""}</option>
+              ))}
+            </select>
+          )}
 
           <button onClick={() => setShowFilters(!showFilters)} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "9px 16px",

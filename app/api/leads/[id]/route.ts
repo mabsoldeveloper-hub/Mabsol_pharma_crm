@@ -39,6 +39,25 @@ export async function GET(
   }
 }
 
+function checkIsAdmin(user: any) {
+  if (!user) return false;
+  const roleType = (user.roleType || "").toUpperCase();
+  const roleName = (user.roleId?.roleName || user.role || "").toLowerCase();
+
+  if (roleType === "MR" || roleType === "RSM" || roleType === "ZSM" || roleName === "employee") {
+    return false;
+  }
+
+  return (
+    roleType === "ADMIN" ||
+    roleName.includes("admin") ||
+    roleName.includes("superadmin") ||
+    user.isAdmin === true ||
+    user.email === "admin@mabsol.com" ||
+    !user.roleType
+  );
+}
+
 // ─── PATCH: Update lead (stage, priority, assignment, etc.) ──────────────────
 export async function PATCH(
   req: NextRequest,
@@ -53,6 +72,23 @@ export async function PATCH(
     const body = await req.json();
     const prevLead = await Lead.findById(id);
     if (!prevLead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+    // Handle assignment change before update
+    if (body.assignedTo && String(body.assignedTo) !== String(prevLead.assignedTo)) {
+      const User = (await import("@/models/User")).default;
+      const targetUser = await User.findById(body.assignedTo).lean();
+      if (targetUser) {
+        body.assignedToName = targetUser.name;
+        body.assignedAt = new Date();
+      }
+      await LeadActivity.create({
+        leadId: id,
+        userId: user._id,
+        userName: user.name,
+        type: "System",
+        summary: `🔄 Lead reassigned to ${targetUser?.name || body.assignedToName || "new rep"} by ${user.name}`,
+      });
+    }
 
     // Update the lead
     const updated = await Lead.findByIdAndUpdate(id, { $set: body }, { new: true })
@@ -69,17 +105,6 @@ export async function PATCH(
         fromStage: prevLead.stage,
         toStage: body.stage,
         summary: `Stage changed from "${prevLead.stage}" to "${body.stage}"`,
-      });
-    }
-
-    // Log assignment change
-    if (body.assignedTo && body.assignedTo !== String(prevLead.assignedTo)) {
-      await LeadActivity.create({
-        leadId: id,
-        userId: user._id,
-        userName: user.name,
-        type: "System",
-        summary: `Lead reassigned to ${body.assignedToName || "new rep"}`,
       });
     }
 

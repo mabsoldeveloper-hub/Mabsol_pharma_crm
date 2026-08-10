@@ -119,8 +119,10 @@ function LeadCard({ lead, onEdit, onDelete, onOpen, onDragStart }: any) {
         </div>
       )}
 
-      {lead.assignedTo?.name && (
-        <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8" }}>👤 {lead.assignedTo.name}</p>
+      {(lead.assignedToName || lead.assignedTo?.name) && (
+        <p style={{ margin: "0 0 10px", fontSize: 11, color: "#475569", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+          👤 {lead.assignedToName || lead.assignedTo?.name}
+        </p>
       )}
 
       {/* Action buttons */}

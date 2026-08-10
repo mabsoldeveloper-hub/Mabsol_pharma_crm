@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useUser } from "@/context/UserContext";
 
 const LEAD_TYPES = [
   "Doctor", "Chemist/Retailer", "Hospital/Nursing Home",
@@ -31,11 +32,31 @@ interface Props {
 }
 
 export default function LeadFormModal({ onClose, onSaved, initialData, activeCompanyId, activeFyId, activeFyCode }: Props) {
+  const { user: currentUser } = useUser();
+  const isAdmin = (() => {
+    if (!currentUser) return false;
+    const roleType = (currentUser.roleType || "").toUpperCase();
+    const roleName = (currentUser.roleId?.roleName || currentUser.role || "").toLowerCase();
+    if (roleType === "MR" || roleType === "RSM" || roleType === "ZSM" || roleName === "employee") return false;
+    return roleType === "ADMIN" || roleName.includes("admin") || roleName.includes("superadmin") || currentUser.isAdmin === true || currentUser.email === "admin@mabsol.com" || !currentUser.roleType;
+  })();
+
   const isEdit = !!initialData?._id;
   const [activeTab, setActiveTab] = useState<"basic"|"contact"|"business"|"pipeline">("basic");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tagInput, setTagInput] = useState("");
+  const [usersList, setUsersList] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/users")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setUsersList(data);
+        else if (data?.users) setUsersList(data.users);
+      })
+      .catch(() => {});
+  }, []);
 
   const [form, setForm] = useState({
     partyName: initialData?.partyName || "",
@@ -58,6 +79,8 @@ export default function LeadFormModal({ onClose, onSaved, initialData, activeCom
     priority: initialData?.priority || "Medium",
     source: initialData?.source || "Field Visit",
     referredBy: initialData?.referredBy || "",
+    assignedTo: initialData?.assignedTo?._id || initialData?.assignedTo || "",
+    assignedToName: initialData?.assignedToName || "",
     estimatedMonthlyValue: initialData?.estimatedMonthlyValue || 0,
     estimatedDealValue: initialData?.estimatedDealValue || 0,
     creditTermsRequested: initialData?.creditTermsRequested || "",
@@ -390,6 +413,24 @@ export default function LeadFormModal({ onClose, onSaved, initialData, activeCom
                 <label style={lbl}>Stage</label>
                 <select style={inp} value={form.stage} onChange={e => set("stage", e.target.value)}>
                   {STAGES.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>👤 Assign to Executive / User</label>
+                <select style={inp} value={form.assignedTo} onChange={e => {
+                  const u = usersList.find((x: any) => x._id === e.target.value);
+                  setForm(prev => ({
+                    ...prev,
+                    assignedTo: e.target.value,
+                    assignedToName: u ? u.name : "",
+                  }));
+                }}>
+                  <option value="">Default (Auto-assign to Me)</option>
+                  {usersList.map((u: any) => (
+                    <option key={u._id} value={u._id}>
+                      {u.name} {u.roleType ? `(${u.roleType})` : ""} {u.email ? `- ${u.email}` : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

@@ -17,6 +17,17 @@ function toObjId(id: any) {
   return /^[0-9a-fA-F]{24}$/.test(str) ? new mongoose.Types.ObjectId(str) : str;
 }
 
+function checkIsAdmin(user: any) {
+  if (!user) return true;
+  const roleType = String(user.roleType || "").toUpperCase();
+  const roleName = String(user.roleId?.roleName || user.role || "").toUpperCase();
+
+  if (roleType === "MR" || roleType === "RSM" || roleType === "ZSM" || roleName === "EMPLOYEE" || roleName === "MR") {
+    return false;
+  }
+  return true;
+}
+
 // ─── GET: Pipeline Analytics ──────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
@@ -28,20 +39,70 @@ export async function GET(req: NextRequest) {
     const userCompanyId = user.companyId?._id || user.companyId;
     const reqCompanyId = searchParams.get("companyId");
     const reqFyId = searchParams.get("fyId");
+    const reqAssignedTo = searchParams.get("assignedTo");
 
+    const isAdmin = checkIsAdmin(user);
     const andConditions: any[] = [];
 
-    const companyOr: any[] = [{ companyId: null }, { companyId: { $exists: false } }];
-    if (userCompanyId) companyOr.push({ companyId: toObjId(userCompanyId) });
-    if (reqCompanyId && String(reqCompanyId) !== String(userCompanyId)) {
-      companyOr.push({ companyId: toObjId(reqCompanyId) });
-    }
-    andConditions.push({ $or: companyOr });
-
-    if (reqFyId && reqFyId !== "ALL") {
+    if (!isAdmin) {
       andConditions.push({
-        $or: [{ fyId: toObjId(reqFyId) }, { fyId: null }, { fyId: { $exists: false } }],
+        $or: [
+          { assignedTo: toObjId(user._id) },
+          { assignedTo: String(user._id) },
+          { assignedToName: user.name },
+          {
+            $and: [
+              {
+                $or: [
+                  { assignedTo: null },
+                  { assignedTo: { $exists: false } },
+                ],
+              },
+              ...(reqCompanyId && reqCompanyId !== "ALL"
+                ? [
+                    {
+                      $or: [
+                        { companyId: toObjId(reqCompanyId) },
+                        { companyId: String(reqCompanyId) },
+                        { companyId: null },
+                        { companyId: { $exists: false } },
+                      ],
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ],
       });
+    } else {
+      if (reqCompanyId && reqCompanyId !== "ALL") {
+        andConditions.push({
+          $or: [
+            { companyId: toObjId(reqCompanyId) },
+            { companyId: String(reqCompanyId) },
+            { companyId: null },
+            { companyId: { $exists: false } },
+          ],
+        });
+      }
+      if (reqFyId && reqFyId !== "ALL") {
+        andConditions.push({
+          $or: [
+            { fyId: toObjId(reqFyId) },
+            { fyId: String(reqFyId) },
+            { fyId: null },
+            { fyId: { $exists: false } },
+          ],
+        });
+      }
+      if (reqAssignedTo && reqAssignedTo !== "All") {
+        andConditions.push({
+          $or: [
+            { assignedTo: toObjId(reqAssignedTo) },
+            { assignedTo: String(reqAssignedTo) },
+          ],
+        });
+      }
     }
 
     const filterMatch = { $and: andConditions };

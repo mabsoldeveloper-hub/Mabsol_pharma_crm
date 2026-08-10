@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useUser } from "@/context/UserContext";
 
 const ACTIVITY_ICONS: Record<string, string> = {
   "Call": "📞", "Field Visit": "🚶", "WhatsApp": "💬", "Email": "✉️",
@@ -30,6 +31,14 @@ interface Props {
 }
 
 export default function LeadDetailDrawer({ lead: initialLead, onClose, onEdit, onDeleted, onUpdated }: Props) {
+  const { user: currentUser } = useUser();
+  const isAdmin = (() => {
+    if (!currentUser) return false;
+    const roleType = (currentUser.roleType || "").toUpperCase();
+    const roleName = (currentUser.roleId?.roleName || currentUser.role || "").toLowerCase();
+    if (roleType === "MR" || roleType === "RSM" || roleType === "ZSM" || roleName === "employee") return false;
+    return roleType === "ADMIN" || roleName.includes("admin") || roleName.includes("superadmin") || currentUser.isAdmin === true || currentUser.email === "admin@mabsol.com" || !currentUser.roleType;
+  })();
   const [lead, setLead] = useState(initialLead);
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingAct, setLoadingAct] = useState(true);
@@ -39,8 +48,42 @@ export default function LeadDetailDrawer({ lead: initialLead, onClose, onEdit, o
   const [showActForm, setShowActForm] = useState(false);
   const [actForm, setActForm] = useState({ type: "Call", summary: "", outcome: "", nextActionDate: "", nextActionNote: "" });
   const [savingAct, setSavingAct] = useState(false);
+  const [usersList, setUsersList] = useState<any[]>([]);
 
   useEffect(() => { fetchActivities(); }, [lead._id]);
+
+  useEffect(() => {
+    fetch("/api/users")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setUsersList(data);
+        else if (data?.users) setUsersList(data.users);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleReassign = async (newUserId: string) => {
+    if (!newUserId) return;
+    const targetUser = usersList.find((u: any) => u._id === newUserId);
+    try {
+      const res = await fetch(`/api/leads/${lead._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assignedTo: newUserId,
+          assignedToName: targetUser ? targetUser.name : "",
+        }),
+      });
+      const data = await res.json();
+      if (data.lead) {
+        setLead(data.lead);
+        onUpdated(data.lead);
+        fetchActivities();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchActivities = async () => {
     setLoadingAct(true);
@@ -163,6 +206,23 @@ export default function LeadDetailDrawer({ lead: initialLead, onClose, onEdit, o
               textDecoration: "none", fontSize: 13, fontWeight: 600, flexShrink: 0,
             }}>✉️ Email</a>
           )}
+          {/* Reassign Owner Dropdown */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "#eef2ff", borderRadius: 10, border: "1px solid #c7d2fe", flexShrink: 0 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#4338ca" }}>
+              👤 {lead.assignedToName || lead.assignedTo?.name || "Unassigned"}
+            </span>
+            <select
+              value={lead.assignedTo?._id || lead.assignedTo || ""}
+              onChange={e => handleReassign(e.target.value)}
+              style={{ fontSize: 11, border: "none", background: "transparent", cursor: "pointer", outline: "none", fontWeight: 700, color: "#3730a3" }}
+            >
+              <option value="">Reassign Owner...</option>
+              {usersList.map((u: any) => (
+                <option key={u._id} value={u._id}>{u.name} {u.roleType ? `(${u.roleType})` : ""}</option>
+              ))}
+            </select>
+          </div>
+
           {!lead.isConverted && (
             <button onClick={handleConvert} disabled={converting} style={{
               display: "flex", alignItems: "center", gap: 6, padding: "7px 16px",
