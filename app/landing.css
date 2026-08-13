@@ -50,6 +50,98 @@
   z-index: 0;
 }
 
+/* OUTER BACKGROUND FLOATING TELEMETRY STICKERS (PEEK IN / FADE OUT) */
+.landing-page .bg-sticker {
+  position: absolute;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(238, 240, 248, 0.95);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 20px 45px -18px rgba(52, 56, 114, 0.22);
+  opacity: 0;
+  animation: peekInOut 12s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  pointer-events: auto;
+}
+
+.landing-page .bg-sticker-pie {
+  top: 14%;
+  left: 2%;
+  width: 170px;
+  animation-duration: 12s;
+  animation-delay: 0s;
+}
+
+.landing-page .bg-sticker-stock {
+  top: 36%;
+  right: 2%;
+  width: 180px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  animation-duration: 14s;
+  animation-delay: 2.8s;
+}
+
+.landing-page .bg-sticker-spark {
+  top: 60%;
+  left: 2%;
+  width: 165px;
+  animation-duration: 11s;
+  animation-delay: 5.5s;
+}
+
+.landing-page .bg-sticker-sync {
+  top: 74%;
+  right: 2.5%;
+  width: 190px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  animation-duration: 13s;
+  animation-delay: 1.2s;
+}
+
+.landing-page .bg-sticker-toast {
+  top: 86%;
+  left: 3%;
+  width: 195px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  animation-duration: 15s;
+  animation-delay: 4.2s;
+}
+
+.landing-page .sync-icon {
+  font-size: 16px;
+  background: rgba(251, 140, 0, 0.12);
+  color: var(--orange);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+@keyframes peekInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92);
+  }
+  16%, 45% {
+    opacity: 0.95;
+    transform: translateY(0px) scale(1);
+  }
+  60%, 100% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.92);
+  }
+}
+
 .landing-page .network-field {
   position: absolute;
   inset: 0;
@@ -72,6 +164,7 @@
   top: -12%;
   right: -10%;
   background: radial-gradient(circle at 35% 35%, var(--orange-light), var(--orange) 60%, transparent 75%);
+  opacity: 0.35;
   animation: orbDriftA 26s ease-in-out infinite;
 }
 
@@ -83,6 +176,15 @@
   background: radial-gradient(circle at 40% 40%, #4a4fa0, var(--navy) 60%, transparent 75%);
   opacity: 0.22;
   animation: orbDriftB 32s ease-in-out infinite;
+}
+
+@keyframes orbDriftC {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-8%, -10%) scale(1.12);
+  }
 }
 
 @keyframes orbDriftA {
@@ -414,10 +516,61 @@
   border-radius: 16px;
   border: 1px solid var(--border);
   background: #fff;
-  box-shadow: 0 40px 70px -30px rgba(52, 56, 114, 0.35);
+  box-shadow: 0 40px 80px -25px rgba(52, 56, 114, 0.4);
   overflow: hidden;
-  transition: transform 0.15s ease-out;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
   will-change: transform;
+}
+
+.landing-page .browser-frame:hover {
+  box-shadow: 0 50px 100px -20px rgba(251, 140, 0, 0.22), 0 30px 60px -25px rgba(52, 56, 114, 0.45);
+}
+
+.landing-page .hero-banner-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #fff;
+  display: block;
+}
+
+.landing-page .hero-banner-wrapper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  transform: skewX(-25deg);
+  animation: shimmerSweep 7s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes shimmerSweep {
+  0% {
+    left: -150%;
+  }
+  30%, 100% {
+    left: 200%;
+  }
+}
+
+.landing-page .hero-banner-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.landing-page .browser-frame:hover .hero-banner-image {
+  transform: scale(1.015);
 }
 
 .landing-page .browser-top {
@@ -659,8 +812,123 @@
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 22px 40px -18px rgba(6, 8, 30, 0.45);
+  box-shadow: 0 22px 40px -18px rgba(6, 8, 30, 0.35);
   animation: floatIdle 4.5s ease-in-out infinite;
+}
+
+/* FLOATING CHART WIDGETS */
+.landing-page .floating-chart {
+  position: absolute;
+  z-index: 4;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 25px 45px -18px rgba(52, 56, 114, 0.28);
+  animation: floatIdleChart 5s ease-in-out infinite;
+}
+
+.landing-page .float-chart-pie {
+  left: -9%;
+  top: 12%;
+  width: 175px;
+}
+
+.landing-page .float-chart-spark {
+  right: -8%;
+  bottom: -15px;
+  width: 170px;
+  animation-delay: 2.2s;
+}
+
+@keyframes floatIdleChart {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+.landing-page .chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.landing-page .chart-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.landing-page .chart-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--green);
+  background: #eef9f0;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.landing-page .pie-visual {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing-page .pie-svg {
+  width: 38px;
+  height: 38px;
+  transform: rotate(-90deg);
+  flex-shrink: 0;
+}
+
+.landing-page .pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.landing-page .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.landing-page .leg-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.landing-page .leg-orange {
+  background: var(--orange);
+}
+
+.landing-page .leg-navy {
+  background: var(--navy);
+}
+
+.landing-page .sparkline-svg {
+  width: 100%;
+  height: 35px;
+  display: block;
+}
+
+.landing-page .live-dot-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.6);
+  animation: pulse 1.8s infinite;
 }
 
 .landing-page .toast-a {
@@ -1012,7 +1280,10 @@
     top: -20px;
   }
 
-  .landing-page .particle {
+  .landing-page .particle,
+  .landing-page .ghost-panel,
+  .landing-page .floating-chart,
+  .landing-page .bg-sticker {
     display: none;
   }
 }

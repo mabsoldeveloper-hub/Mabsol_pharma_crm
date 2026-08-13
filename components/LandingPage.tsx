@@ -133,7 +133,7 @@ function NetworkField() {
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const NODE_COUNT = 70;
+    const NODE_COUNT = 60;
     const points = fibonacciSphere(NODE_COUNT, 1);
     const edges = nearestNeighborEdges(points, 2);
 
@@ -161,9 +161,10 @@ function NetworkField() {
 
     function draw(t: number) {
       if (!ctx) return;
-      const cx = width * 0.72;
-      const cy = height * 0.34;
-      const radius = Math.min(width, height) * 0.42;
+      const isMobile = width < 768;
+      const cx = isMobile ? width * 0.5 : width * 0.72;
+      const cy = isMobile ? height * 0.28 : height * 0.34;
+      const radius = Math.min(width, height) * (isMobile ? 0.38 : 0.42);
       const fov = radius * 2.6;
 
       if (!reduced) {
@@ -177,10 +178,8 @@ function NetworkField() {
       const sinX = Math.sin(angleX);
 
       const projected = points.map((p) => {
-        // rotate around Y
         const x1 = p.x * cosY - p.z * sinY;
         const z1 = p.x * sinY + p.z * cosY;
-        // rotate around X
         const y2 = p.y * cosX - z1 * sinX;
         const z2 = p.y * sinX + z1 * cosX;
 
@@ -199,7 +198,7 @@ function NetworkField() {
         const pa = projected[a];
         const pb = projected[b];
         const avgScale = (pa.scale + pb.scale) / 2;
-        const opacity = Math.max(0, Math.min(0.16, (avgScale - 0.7) * 0.4));
+        const opacity = Math.max(0, Math.min(0.15, (avgScale - 0.7) * 0.35));
         ctx.strokeStyle = `rgba(52, 56, 114, ${opacity})`;
         ctx.beginPath();
         ctx.moveTo(pa.x, pa.y);
@@ -208,9 +207,9 @@ function NetworkField() {
       });
 
       projected.forEach((p, i) => {
-        const size = Math.max(0.6, (p.scale - 0.6) * 3.2);
+        const size = Math.max(0.6, (p.scale - 0.6) * 3);
         const isOrange = i % 5 === 0;
-        const opacity = Math.max(0.08, Math.min(0.85, (p.scale - 0.55) * 1.6));
+        const opacity = Math.max(0.08, Math.min(0.75, (p.scale - 0.55) * 1.5));
         ctx.beginPath();
         ctx.fillStyle = isOrange
           ? `rgba(251, 140, 0, ${opacity})`
@@ -281,13 +280,6 @@ function Reveal({
 
 export default function LandingPage() {
   const bars = [30, 48, 40, 72, 54, 64, 46];
-  const linePoints = "0,52 18,42 36,46 54,26 72,32 90,12 108,18 126,24";
-
-  const notifs = [
-    { title: "New Invoice Synced", sub: "From ERP · just now", tone: "orange" },
-    { title: "Stock Report Ready", sub: "Updated 2 min ago", tone: "green" },
-    { title: "Account Reconciled", sub: "5 min ago", tone: "navy" },
-  ];
 
   const steps = [
     {
@@ -350,6 +342,84 @@ export default function LandingPage() {
       <div className="bg-ambient" aria-hidden="true">
         <span className="orb orb-orange" />
         <span className="orb orb-navy" />
+
+        {/* PEEKING & FADING BACKGROUND TELEMETRY STICKERS */}
+        <div className="bg-sticker bg-sticker-pie">
+          <div className="chart-head">
+            <span className="chart-label">Sales Mix</span>
+            <span className="chart-tag">+24%</span>
+          </div>
+          <div className="pie-visual">
+            <svg viewBox="0 0 36 36" className="pie-svg">
+              <circle cx="18" cy="18" r="14" fill="none" stroke="#EEF0F8" strokeWidth="5" />
+              <circle
+                cx="18"
+                cy="18"
+                r="14"
+                fill="none"
+                stroke="#FB8C00"
+                strokeWidth="5"
+                strokeDasharray="65 100"
+                strokeDashoffset="25"
+              />
+              <circle
+                cx="18"
+                cy="18"
+                r="14"
+                fill="none"
+                stroke="#343872"
+                strokeWidth="5"
+                strokeDasharray="35 100"
+                strokeDashoffset="90"
+              />
+            </svg>
+            <div className="pie-legend">
+              <span className="legend-item"><i className="leg-dot leg-orange" /> Pharma 65%</span>
+              <span className="legend-item"><i className="leg-dot leg-navy" /> OTC 35%</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-sticker bg-sticker-stock">
+          <span className="notif-dot dot-green" />
+          <div>
+            <p className="notif-title">Stock Synced</p>
+            <p className="notif-sub">2,22,190 Units</p>
+          </div>
+        </div>
+
+        <div className="bg-sticker bg-sticker-spark">
+          <div className="chart-head">
+            <span className="chart-label">Live Sales Trend</span>
+            <span className="live-dot-pulse" />
+          </div>
+          <svg viewBox="0 0 120 35" className="sparkline-svg">
+            <path
+              d="M0,28 Q20,12 40,22 T80,8 T120,18"
+              fill="none"
+              stroke="#22C55E"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+
+        <div className="bg-sticker bg-sticker-sync">
+          <span className="sync-icon">⚡</span>
+          <div>
+            <p className="notif-title">Real-Time ERP Sync</p>
+            <p className="notif-sub">Auto 60s Refresh</p>
+          </div>
+        </div>
+
+        <div className="bg-sticker bg-sticker-toast">
+          <span className="notif-dot dot-orange" />
+          <div>
+            <p className="notif-title">Invoice #INV-2291 synced</p>
+            <p className="notif-sub">2 seconds ago</p>
+          </div>
+        </div>
+
         <NetworkField />
       </div>
 
@@ -461,76 +531,12 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              <div className="bento">
-                <div className="bento-tile bento-sales">
-                  <p className="tile-label">Sales Report</p>
-                  <div className="mini-bars">
-                    {bars.map((h, i) => (
-                      <span key={i} style={{ height: `${h}%`, transitionDelay: `${i * 60}ms` }} />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bento-tile bento-stock">
-                  <p className="tile-label">Stock Trend</p>
-                  <svg viewBox="0 0 126 60" className="mini-line" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="fillGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--orange)" stopOpacity="0.35" />
-                        <stop offset="100%" stopColor="var(--orange)" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    <polygon points={`0,60 ${linePoints} 126,60`} fill="url(#fillGrad)" />
-                    <polyline
-                      points={linePoints}
-                      fill="none"
-                      stroke="var(--orange)"
-                      strokeWidth="2.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mini-line-path"
-                    />
-                  </svg>
-                  <span className="tile-tag">+18%</span>
-                </div>
-
-                <div className="bento-tile bento-sync">
-                  <p className="tile-label muted-on-dark">Sync Status</p>
-                  <p className="sync-value">60s</p>
-                  <p className="sync-caption">refresh from ERP</p>
-                  <span className="sync-ring" aria-hidden="true" />
-                </div>
-
-                <div className="bento-tile bento-notifs">
-                  <p className="tile-label">Notifications</p>
-                  <div className="notif-list">
-                    {notifs.map((n) => (
-                      <div className="notif-row" key={n.title}>
-                        <span className={`notif-dot dot-${n.tone}`} />
-                        <div>
-                          <p className="notif-title">{n.title}</p>
-                          <p className="notif-sub">{n.sub}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="floating-toast toast-a">
-              <span className="notif-dot dot-orange" />
-              <div>
-                <p className="notif-title">Invoice #INV-2291 synced</p>
-                <p className="notif-sub">2 seconds ago</p>
-              </div>
-            </div>
-
-            <div className="floating-toast toast-b">
-              <span className="notif-dot dot-green" />
-              <div>
-                <p className="notif-title">Stock report ready</p>
-                <p className="notif-sub">Just now</p>
+              <div className="hero-banner-wrapper">
+                <img
+                  src="/uploads/index-banner.png"
+                  alt="Mabsol Pharma CRM Dashboard"
+                  className="hero-banner-image"
+                />
               </div>
             </div>
           </div>
