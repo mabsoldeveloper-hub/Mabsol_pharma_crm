@@ -324,13 +324,6 @@ export default function LoginPage() {
                   {loading ? <span className="spinner" aria-hidden="true" /> : null}
                   {loading ? "Signing in…" : "Log in"}
                 </button>
-
-                <p className="switch-line">
-                  New to Mabsol CRM?{" "}
-                  <button type="button" className="link-strong" onClick={() => router.push("/register")}>
-                    Create an account
-                  </button>
-                </p>
               </form>
             </>
           ) : (
