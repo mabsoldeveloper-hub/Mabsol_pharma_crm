@@ -1181,7 +1181,47 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                           <SubLink
                             href="/dashboard/mabsolcrmsync"
                             icon={<FaSyncAlt />}
-                            label="Sync Console"
+                            label="Sync Busy ERP"
+                            active={pathname === "/dashboard/mabsolcrmsync"}
+                            color="rose"
+                          />
+                        </li>
+                      )} {can("vfp.view") && (
+                        <li>
+                          <SubLink
+                            href="/dashboard/mabsolcrmsync"
+                            icon={<FaSyncAlt />}
+                            label="Sync Tally ERP"
+                            active={pathname === "/dashboard/mabsolcrmsync"}
+                            color="rose"
+                          />
+                        </li>
+                      )}{can("vfp.view") && (
+                        <li>
+                          <SubLink
+                            href="/dashboard/mabsolcrmsync"
+                            icon={<FaSyncAlt />}
+                            label="Sync EasySol"
+                            active={pathname === "/dashboard/mabsolcrmsync"}
+                            color="rose"
+                          />
+                        </li>
+                      )}{can("vfp.view") && (
+                        <li>
+                          <SubLink
+                            href="/dashboard/mabsolcrmsync"
+                            icon={<FaSyncAlt />}
+                            label="Sync Logic ERP"
+                            active={pathname === "/dashboard/mabsolcrmsync"}
+                            color="rose"
+                          />
+                        </li>
+                      )} {can("vfp.view") && (
+                        <li>
+                          <SubLink
+                            href="/dashboard/mabsolcrmsync"
+                            icon={<FaSyncAlt />}
+                            label="Sync Marg ERP"
                             active={pathname === "/dashboard/mabsolcrmsync"}
                             color="rose"
                           />
