@@ -31,7 +31,7 @@ export default function Topbar({
   const [assistantName, setAssistantName] = useState("AI Assistant");
   const [autoVoiceStart, setAutoVoiceStart] = useState(false);
   const [initialVoiceQuery, setInitialVoiceQuery] = useState("");
-  const [wakewordEnabled, setWakewordEnabled] = useState(true);
+  const [wakewordEnabled, setWakewordEnabled] = useState(false);
   const [assistantToast, setAssistantToast] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -44,10 +44,17 @@ export default function Topbar({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.assistantName) setAssistantName(parsed.assistantName);
-        if (typeof parsed.wakewordEnabled === "boolean") setWakewordEnabled(parsed.wakewordEnabled);
+        if (typeof parsed.wakewordEnabled === "boolean") {
+          setWakewordEnabled(parsed.wakewordEnabled);
+        } else {
+          setWakewordEnabled(false);
+        }
+      } else {
+        setWakewordEnabled(false);
       }
     } catch (e) {
       console.error("Error loading voice settings:", e);
+      setWakewordEnabled(false);
     }
   };
 
