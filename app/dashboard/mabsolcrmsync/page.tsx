@@ -203,7 +203,7 @@ export default async function VfpDashboardPage({
               <div className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">CRM DBF Table</div>
               <div className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
                 {status.enabledFiles && status.enabledFiles.length > 0
-                  ? (status.enabledFiles.length === 1 ? status.enabledFiles[0] : `${status.enabledFiles.length} selected tables`)
+                  ? `${status.enabledFiles.length} table(s) selected`
                   : "Selected tables"}
               </div>
             </div>
@@ -222,6 +222,7 @@ export default async function VfpDashboardPage({
           workerStatus={status.workerStatus}
           lastSyncedAt={status.lastSyncedAt}
           pendingCommandCount={status.pendingCommandCount || 0}
+          userEmail={user.email}
         />
 
         {/* Sync Activity Logs Card */}

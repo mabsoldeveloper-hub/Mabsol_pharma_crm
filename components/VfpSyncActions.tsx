@@ -21,7 +21,14 @@ import {
   Terminal,
   Download,
   Copy,
-  HelpCircle
+  HelpCircle,
+  Lock,
+  Unlock,
+  Key,
+  Mail,
+  Eye,
+  EyeOff,
+  ShieldCheck
 } from "lucide-react";
 
 interface VfpSyncActionsProps {
@@ -34,6 +41,7 @@ interface VfpSyncActionsProps {
   workerStatus?: string;
   lastSyncedAt?: Date | string;
   pendingCommandCount?: number;
+  userEmail?: string;
 }
 
 function formatIntervalSummary(mins: number): string {
@@ -50,6 +58,19 @@ function formatIntervalSummary(mins: number): string {
   return `Every ${mins} minutes`;
 }
 
+function maskFileName(fileName: string): string {
+  if (!fileName) return "••••••••.DBF";
+  const parts = fileName.split(".");
+  const ext = parts.length > 1 ? `.${parts.pop()}` : ".DBF";
+  return "••••••••" + ext.toUpperCase();
+}
+
+function formatCountdown(totalSec: number): string {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}m ${s < 10 ? "0" : ""}${s}s`;
+}
+
 export default function VfpSyncActions({ 
   currentPath = "", 
   destinationPath = "",
@@ -59,7 +80,8 @@ export default function VfpSyncActions({
   workerOnline = false,
   workerStatus = "offline",
   lastSyncedAt,
-  pendingCommandCount = 0
+  pendingCommandCount = 0,
+  userEmail = ""
 }: VfpSyncActionsProps) {
   const router = useRouter();
 
@@ -102,6 +124,155 @@ export default function VfpSyncActions({
   });
 
   const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  // User email & File Name Protection state
+  const [isFilesUnlocked, setIsFilesUnlocked] = useState(false);
+  const [unlockedRemainingSec, setUnlockedRemainingSec] = useState(0);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpModalMsg, setOtpModalMsg] = useState<{ type: "success" | "error" | "info" | ""; text: string }>({ type: "", text: "" });
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Check sessionStorage on mount for active 5-min unlock period
+  useEffect(() => {
+    const storageKey = `vfp_files_unlocked_until_${userEmail || "user"}`;
+    const storedUntil = sessionStorage.getItem(storageKey);
+    if (storedUntil) {
+      const remainingMs = Number(storedUntil) - Date.now();
+      if (remainingMs > 0) {
+        setIsFilesUnlocked(true);
+        setUnlockedRemainingSec(Math.ceil(remainingMs / 1000));
+      } else {
+        sessionStorage.removeItem(storageKey);
+      }
+    }
+  }, [userEmail]);
+
+  // Live 1s Countdown timer for 5-minute auto-hide
+  useEffect(() => {
+    if (!isFilesUnlocked || unlockedRemainingSec <= 0) return;
+
+    const timer = setInterval(() => {
+      setUnlockedRemainingSec((prev) => {
+        if (prev <= 1) {
+          setIsFilesUnlocked(false);
+          const storageKey = `vfp_files_unlocked_until_${userEmail || "user"}`;
+          sessionStorage.removeItem(storageKey);
+          setMessage({
+            type: "info",
+            text: "🔒 5-minute view period expired. Table file names have automatically hidden.",
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isFilesUnlocked, unlockedRemainingSec, userEmail]);
+
+  // Resend OTP cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleOpenOtpModal = async () => {
+    setShowOtpModal(true);
+    setOtpValue("");
+    setOtpModalMsg({ type: "info", text: `Sending 6-digit verification code to ${userEmail || "your email"}...` });
+    setSendingOtp(true);
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/send-otp", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setOtpModalMsg({ type: "success", text: data.message || "OTP code sent successfully!" });
+        setResendCooldown(30);
+      } else {
+        setOtpModalMsg({ type: "error", text: data.message || "Failed to send verification code." });
+      }
+    } catch {
+      setOtpModalMsg({ type: "error", text: "Error sending verification email." });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || sendingOtp) return;
+    setSendingOtp(true);
+    setOtpModalMsg({ type: "info", text: "Resending verification code..." });
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/send-otp", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setOtpModalMsg({ type: "success", text: data.message || "New OTP code sent!" });
+        setResendCooldown(30);
+      } else {
+        setOtpModalMsg({ type: "error", text: data.message || "Failed to resend OTP." });
+      }
+    } catch {
+      setOtpModalMsg({ type: "error", text: "Error resending OTP." });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!otpValue || otpValue.trim().length === 0) {
+      setOtpModalMsg({ type: "error", text: "Please enter the 6-digit verification code." });
+      return;
+    }
+
+    setVerifyingOtp(true);
+    setOtpModalMsg({ type: "info", text: "Verifying code..." });
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: otpValue.trim() }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const unlockMs = 5 * 60 * 1000;
+        const expiresAt = Date.now() + unlockMs;
+        const storageKey = `vfp_files_unlocked_until_${userEmail || "user"}`;
+        sessionStorage.setItem(storageKey, String(expiresAt));
+
+        setIsFilesUnlocked(true);
+        setUnlockedRemainingSec(300);
+        setShowOtpModal(false);
+        setMessage({
+          type: "success",
+          text: "🔓 Email verified! DBF table file names unlocked for 5 minutes.",
+        });
+      } else {
+        setOtpModalMsg({ type: "error", text: data.message || "Invalid verification code." });
+      }
+    } catch {
+      setOtpModalMsg({ type: "error", text: "Verification request failed." });
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleLockNow = () => {
+    setIsFilesUnlocked(false);
+    setUnlockedRemainingSec(0);
+    const storageKey = `vfp_files_unlocked_until_${userEmail || "user"}`;
+    sessionStorage.removeItem(storageKey);
+    setMessage({ type: "info", text: "🔒 Table file names are now locked and hidden." });
+  };
 
   // Live sync progress state
   const [syncProgress, setSyncProgress] = useState<{
@@ -834,62 +1005,90 @@ export default function VfpSyncActions({
                       </div>
                     </div>
 
-                    {/* Auto-sync Locked Warning Banner */}
-                    {autoSync && (
-                      <div className="text-[11px] font-bold text-amber-800 bg-amber-50/90 border border-amber-200/80 px-3 py-1.5 rounded-xl flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                        <span>🔒 Table selection is locked while Auto-sync is enabled. Turn off Auto-sync below to select or deselect tables.</span>
-                      </div>
-                    )}
-
-                    {/* DBF Clips in place toggle active/deselect with tick mark */}
-                    {allClipsList.length > 0 ? (
-                      <div className="flex items-center gap-2 flex-wrap pt-1">
-                        {allClipsList.map((file) => {
-                          const isSelected = selectedFiles.includes(file);
-                          return (
-                            <button
-                              key={file}
-                              type="button"
-                              disabled={autoSync}
-                              onClick={() => {
-                                if (autoSync) {
-                                  setMessage({ type: "info", text: "Please turn off Auto-sync below to select or deselect tables." });
-                                  return;
-                                }
-                                lastUserEditTimeRef.current = Date.now();
-                                let updated: string[];
-                                if (isSelected) {
-                                  updated = selectedFiles.filter((f) => f !== file);
-                                } else {
-                                  updated = [...selectedFiles, file];
-                                }
-                                setSelectedFiles(updated);
-                                saveConfiguration(dataDir, "selected", updated, autoSync, autoSyncInterval, true);
-                              }}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold rounded-full border transition-all shadow-2xs btn-pill ${
-                                autoSync ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                              } ${
-                                isSelected
-                                  ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                                  : "bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                              }`}
-                              style={{ borderRadius: "9999px" }}
-                              title={autoSync ? "Turn off Auto-sync to modify table selection" : `Click to toggle ${file}`}
-                            >
-                              {isSelected ? (
-                                <Check size={13} className="text-emerald-400 shrink-0 stroke-[3]" />
-                              ) : (
-                                <span className="text-teal-600 font-bold text-xs shrink-0">+</span>
-                              )}
-                              <span>{file}</span>
-                            </button>
-                          );
-                        })}
+                    {/* Privacy & File Unlock Section */}
+                    {!isFilesUnlocked ? (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200/90 rounded-xl">
+                        <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
+                          <Lock size={15} className="text-slate-500 shrink-0" />
+                          <span>DBF table names hidden ({selectedFiles.length} active tables)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenOtpModal}
+                          className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-white border border-slate-200 text-slate-800 hover:bg-slate-100 transition-all shadow-2xs btn-pill shrink-0 cursor-pointer"
+                          style={{ borderRadius: "9999px" }}
+                        >
+                          <Key size={13} className="text-slate-600" />
+                          <span>Verify email to view</span>
+                        </button>
                       </div>
                     ) : (
-                      <div className="text-xs text-slate-500 font-mono italic">
-                        No DBF tables selected. Click "Add DBF table(s)" to select files.
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2.5 p-2.5 bg-emerald-50 border border-emerald-200/90 rounded-xl text-emerald-900 shadow-2xs">
+                          <div className="flex items-center gap-2 text-xs font-bold">
+                            <Unlock size={14} className="text-emerald-600 shrink-0" />
+                            <span>File names unlocked (Auto-hides in <strong className="font-mono text-emerald-700 font-extrabold">{formatCountdown(unlockedRemainingSec)}</strong>)</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleLockNow}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition-all rounded-full cursor-pointer whitespace-nowrap"
+                          >
+                            <Lock size={12} className="text-emerald-700" />
+                            <span>Hide now</span>
+                          </button>
+                        </div>
+
+                        {/* DBF Chips - Only visible when unlocked */}
+                        {allClipsList.length > 0 ? (
+                          <div className="flex items-center gap-2 flex-wrap pt-1">
+                            {allClipsList.map((file) => {
+                              const isSelected = selectedFiles.includes(file);
+                              return (
+                                <button
+                                  key={file}
+                                  type="button"
+                                  disabled={autoSync}
+                                  onClick={() => {
+                                    if (autoSync) {
+                                      setMessage({ type: "info", text: "Please turn off Auto-sync below to select or deselect tables." });
+                                      return;
+                                    }
+                                    lastUserEditTimeRef.current = Date.now();
+                                    let updated: string[];
+                                    if (isSelected) {
+                                      updated = selectedFiles.filter((f) => f !== file);
+                                    } else {
+                                      updated = [...selectedFiles, file];
+                                    }
+                                    setSelectedFiles(updated);
+                                    saveConfiguration(dataDir, "selected", updated, autoSync, autoSyncInterval, true);
+                                  }}
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold rounded-full border transition-all shadow-2xs btn-pill ${
+                                    autoSync ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                                  } ${
+                                    isSelected
+                                      ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                                  }`}
+                                  style={{ borderRadius: "9999px" }}
+                                  title={autoSync ? "Turn off Auto-sync to modify table selection" : `Click to toggle ${file}`}
+                                >
+                                  {isSelected ? (
+                                    <Check size={13} className="text-emerald-400 shrink-0 stroke-[3]" />
+                                  ) : (
+                                    <span className="text-teal-600 font-bold text-xs shrink-0">+</span>
+                                  )}
+                                  <span>{file}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-500 font-mono italic">
+                            No DBF tables selected. Click "Add DBF table(s)" to select files.
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1486,6 +1685,128 @@ export default function VfpSyncActions({
                 Close Guide
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EMAIL VERIFICATION OTP MODAL */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 shadow-2xl rounded-2xl max-w-md w-full p-6 space-y-5 relative overflow-hidden">
+            {/* Modal Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowOtpModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 border border-slate-200">
+                <Key size={18} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 leading-tight">Verify Email to View Files</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Enter verification code sent to your email</p>
+              </div>
+            </div>
+
+            {/* Email details note */}
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-600 space-y-1">
+              <div className="flex items-center gap-1.5 text-slate-800 font-semibold">
+                <Mail size={13} className="text-teal-600" />
+                <span>Verification code sent to logged-in user:</span>
+              </div>
+              <div className="font-mono font-bold text-slate-900 text-sm bg-white px-2.5 py-1 rounded border border-slate-200 inline-block">
+                {userEmail || "Your registered email"}
+              </div>
+              <p className="text-[11px] text-slate-500 pt-1 leading-relaxed">
+                Enter the 6-digit verification code below to temporarily unlock file names for 5 minutes.
+              </p>
+            </div>
+
+            {/* OTP Message banner */}
+            {otpModalMsg.text && (
+              <div
+                className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                  otpModalMsg.type === "error"
+                    ? "bg-red-50 text-red-700 border border-red-200"
+                    : otpModalMsg.type === "success"
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "bg-sky-50 text-sky-700 border border-sky-200"
+                }`}
+              >
+                {sendingOtp ? (
+                  <Loader2 size={14} className="animate-spin text-sky-600 shrink-0" />
+                ) : otpModalMsg.type === "error" ? (
+                  <AlertCircle size={14} className="text-red-600 shrink-0" />
+                ) : (
+                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                )}
+                <span className="break-words flex-1">{otpModalMsg.text}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                  6-Digit Verification Code (OTP)
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={otpValue}
+                  onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ""))}
+                  autoFocus
+                  className="w-full text-center text-2xl font-mono tracking-[0.5em] font-extrabold py-3 px-4 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-slate-900 focus:bg-white focus:ring-2 focus:ring-slate-900/10 transition-all text-slate-900 placeholder:text-slate-300 placeholder:tracking-[0.3em]"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <button
+                  type="button"
+                  disabled={resendCooldown > 0 || sendingOtp}
+                  onClick={handleResendOtp}
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend OTP"}
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowOtpModal(false)}
+                    className="px-4 py-2 text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all btn-pill cursor-pointer"
+                    style={{ borderRadius: "9999px" }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={verifyingOtp || otpValue.length < 6}
+                    className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold bg-slate-900 text-white hover:bg-black transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed btn-pill cursor-pointer"
+                    style={{ borderRadius: "9999px" }}
+                  >
+                    {verifyingOtp ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} className="text-emerald-400 stroke-[3]" />
+                        <span>Verify & Unlock</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
