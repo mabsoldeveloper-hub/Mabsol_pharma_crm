@@ -107,18 +107,24 @@ export default function LoginPage() {
         body: JSON.stringify({ email: trimmedEmail, password, rememberMe }),
       });
 
-      const data = await res.json();
-
-      if (data.success) {
-          setStep("otp");
-          setOtp(Array(OTP_LENGTH).fill(""));
-          setResendTimer(RESEND_SECONDS);
-          setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
-      } else {
-        setError(data.message || "Couldn't sign you in. Check your details and try again.");
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (_jsonErr) {
+        setError(`Server returned non-JSON response (Status: ${res.status}). Check app.log.`);
+        return;
       }
-    } catch {
-      setError("Couldn't reach the server. Check your connection and try again.");
+
+      if (data && data.success) {
+        setStep("otp");
+        setOtp(Array(OTP_LENGTH).fill(""));
+        setResendTimer(RESEND_SECONDS);
+        setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
+      } else {
+        setError(data?.message || "Couldn't sign you in. Check your details and try again.");
+      }
+    } catch (err: any) {
+      setError(err?.message ? `Request failed: ${err.message}` : "Couldn't reach the server. Check your connection and try again.");
     } finally {
       setLoading(false);
     }

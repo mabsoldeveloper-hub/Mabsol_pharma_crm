@@ -19,6 +19,21 @@
 
 # production
 /build
+/dist
+/dist-electron
+/release
+
+# electron build outputs
+*.builder-effective-config.yaml
+builder-debug.yml
+builder-effective-config.yaml
+*.exe
+*.dmg
+*.deb
+*.AppImage
+*.blockmap
+*.nsis.7z
+
 
 # misc
 .DS_Store

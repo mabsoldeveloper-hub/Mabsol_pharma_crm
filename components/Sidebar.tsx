@@ -41,6 +41,7 @@ import {
   FaCamera,
   FaBalanceScale,
   FaMapMarkerAlt,
+  FaDesktop,
 } from "react-icons/fa";
 
 
@@ -1142,6 +1143,16 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   />
                 </li>
 
+
+                <li>
+                  <NavLink
+                    href="/dashboard/desktop-setup"
+                    icon={<FaDesktop />}
+                    label="Setup Application (.exe)"
+                    active={pathname.startsWith("/dashboard/desktop-setup")}
+                    color="indigo"
+                  />
+                </li>
 
                 <li>
                   <NavLink

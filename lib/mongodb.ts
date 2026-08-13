@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-
-if (!MONGODB_URI) {
-  throw new Error("Please define MONGODB_URI in .env.local");
-}
+// NOTE: Do NOT throw at module load time — env vars may not be set yet
+// when Next.js first imports this module in production/Electron mode.
+// The check is done lazily inside dbConnect() instead.
 
 type MongooseCache = {
   conn: typeof mongoose | null;
@@ -23,6 +21,14 @@ const cached: MongooseCache =
   });
 
 async function dbConnect() {
+  const MONGODB_URI = process.env.MONGODB_URI;
+
+  if (!MONGODB_URI) {
+    throw new Error(
+      "MONGODB_URI is not defined. Please ensure .env is bundled correctly in the packaged app."
+    );
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -81,15 +87,35 @@ async function dbConnect() {
       const req = eval("require");
       const { spawn } = req("child_process");
       const path = req("path");
-      const workerScript = path.join(process.cwd(), "scripts", "vfp-sync", "worker.cjs");
+      const fs = req("fs");
       
-      console.log(`[server] Launching VFP background worker automatically: ${workerScript}`);
-      const child = spawn("node", [workerScript], {
-        detached: true,
-        stdio: "ignore",
-        cwd: process.cwd(),
-      });
-      child.unref();
+      // Determine app root in dev vs packaged mode
+      let appRoot = process.cwd();
+      if (process.resourcesPath && fs.existsSync(path.join(process.resourcesPath, "app.asar.unpacked"))) {
+        appRoot = path.join(process.resourcesPath, "app.asar.unpacked");
+      }
+
+      const workerScript = path.join(appRoot, "scripts", "mabsolcrm-sync", "worker.cjs");
+      
+      if (fs.existsSync(workerScript)) {
+        console.log(`[server] Launching VFP background worker automatically: ${workerScript}`);
+        const nodeExec = process.execPath || "node";
+        const child = spawn(nodeExec, [workerScript], {
+          detached: true,
+          stdio: "ignore",
+          cwd: appRoot,
+          env: {
+            ...process.env,
+            ELECTRON_RUN_AS_NODE: "1",
+          },
+        });
+        child.on("error", (spawnErr: any) => {
+          console.error("[server] VFP background worker spawn error:", spawnErr?.message || spawnErr);
+        });
+        child.unref();
+      } else {
+        console.log(`[server] VFP worker script not found at ${workerScript} (skipping auto-launch)`);
+      }
     } catch (workerErr) {
       console.error("[server] Failed to auto-launch VFP background worker:", workerErr);
     }

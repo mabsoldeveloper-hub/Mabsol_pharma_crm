@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mabsol Pharma CRM - Application Activation</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      -webkit-user-select: none;
+    }
+
+    .card {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(16px);
+      border-radius: 16px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-badge {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+    }
+
+    .logo-badge svg {
+      width: 34px;
+      height: 34px;
+      fill: #ffffff;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 14px 16px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      color: #f8fafc;
+      font-size: 14px;
+      font-family: monospace;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    .default-hint {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 6px;
+      text-align: left;
+    }
+
+    .default-hint code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #60a5fa;
+    }
+
+    button.btn-activate {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    button.btn-activate:hover {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+      transform: translateY(-1px);
+    }
+
+    button.btn-activate:active {
+      transform: translateY(0);
+    }
+
+    .status-msg {
+      margin-top: 18px;
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .status-msg.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+
+    .status-msg.success {
+      display: block;
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #86efac;
+    }
+
+    .footer-text {
+      margin-top: 24px;
+      font-size: 11px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-badge">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+      </svg>
+    </div>
+    <h1>Mabsol Pharma CRM</h1>
+    <p class="subtitle">Please enter your product key to activate and launch the application on this system.</p>
+
+    <div class="input-group">
+      <label for="licenseKey">Product Key</label>
+      <input type="text" id="licenseKey" placeholder="Enter product key (e.g. MABSOL-XXXX-XXXX-XXXX)" value="" autocomplete="off" />
+    </div>
+
+    <button id="activateBtn" class="btn-activate">Activate & Launch</button>
+
+    <div id="statusMsg" class="status-msg"></div>
+
+    <div class="footer-text">
+      &copy; 2026 Mabsol Pharma CRM. All rights reserved.
+    </div>
+  </div>
+
+  <script>
+    const keyInput = document.getElementById('licenseKey');
+    const activateBtn = document.getElementById('activateBtn');
+    const statusMsg = document.getElementById('statusMsg');
+
+    activateBtn.addEventListener('click', async () => {
+      const key = keyInput.value.trim();
+      if (!key) {
+        showStatus('Please enter a license key.', 'error');
+        return;
+      }
+
+      activateBtn.disabled = true;
+      activateBtn.innerText = 'Verifying key...';
+      statusMsg.className = 'status-msg';
+
+      try {
+        if (window.electronAPI && window.electronAPI.activateKey) {
+          const res = await window.electronAPI.activateKey(key);
+          if (res.success) {
+            showStatus(res.message || 'Key activated successfully! Launching...', 'success');
+            setTimeout(() => {
+              // Main process will close this window and launch main app window
+            }, 800);
+          } else {
+            showStatus(res.error || 'Invalid activation key. Please check and try again.', 'error');
+            activateBtn.disabled = false;
+            activateBtn.innerText = 'Activate & Launch';
+          }
+        } else {
+          showStatus('Electron IPC bridge unavailable.', 'error');
+          activateBtn.disabled = false;
+          activateBtn.innerText = 'Activate & Launch';
+        }
+      } catch (err) {
+        showStatus('Activation error: ' + err.message, 'error');
+        activateBtn.disabled = false;
+        activateBtn.innerText = 'Activate & Launch';
+      }
+    });
+
+    function showStatus(text, type) {
+      statusMsg.innerText = text;
+      statusMsg.className = `status-msg ${type}`;
+    }
+
+    keyInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        activateBtn.click();
+      }
+    });
+  </script>
+</body>
+</html>

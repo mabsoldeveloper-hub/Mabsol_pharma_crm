@@ -94,6 +94,7 @@ const APP_PAGES = [
   { title: "Sidebar Navigation Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/Sidebar.tsx", keywords: ["sidebar", "side bar", "sidebar links", "navigation bar", "menu", "nav", "file name", "filename"], icon: "compass" },
   { title: "Topbar Header Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/Topbar.tsx", keywords: ["topbar", "top bar", "header", "search bar", "global search", "file name", "filename"], icon: "compass" },
   { title: "Global Search Modal Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/GlobalSearchModal.tsx", keywords: ["global search", "search modal", "command palette", "file name", "filename"], icon: "search" },
+  { title: "Setup Application (.exe) / Desktop App", category: "Navigation", path: "/dashboard/desktop-setup", fileName: "app/dashboard/desktop-setup/page.tsx", keywords: ["setup application", "desktop app", "download exe", "windows application", "product key", "activation key", "electron", "installer", "exe setup"], icon: "laptop" },
 
   // Targets
   { title: "Targets & Achievements", category: "Navigation", path: "/dashboard/targets", fileName: "app/dashboard/targets/page.tsx", keywords: ["target", "actual", "achievement", "mr target", "kpi", "monthly target", "quarterly target", "quota", "targets"], icon: "target" },

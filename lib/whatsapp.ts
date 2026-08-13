@@ -59,8 +59,8 @@ export async function sendWhatsAppOTP(
       },
     };
 
-    console.log("========== WHATSAPP REQUEST ==========");
-    console.log(JSON.stringify(payload, null, 2));
+    // console.log("========== WHATSAPP REQUEST ==========");
+    // console.log(JSON.stringify(payload, null, 2));
 
     const response = await fetch(
       `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
@@ -78,8 +78,8 @@ export async function sendWhatsAppOTP(
 
     const data = await response.json();
 
-    console.log("========== WHATSAPP RESPONSE ==========");
-    console.log(JSON.stringify(data, null, 2));
+    // console.log("========== WHATSAPP RESPONSE ==========");
+    // console.log(JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       throw new Error(

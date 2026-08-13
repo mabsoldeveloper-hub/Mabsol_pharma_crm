@@ -48,9 +48,4 @@ const FinancialYearSchema = new mongoose.Schema(
   }
 );
 
-// Delete any cached Mongoose model to ensure updated schema with fyCode is compiled
-if (mongoose.models && mongoose.models.FinancialYear) {
-  delete (mongoose.models as any).FinancialYear;
-}
-
-export default mongoose.model("FinancialYear", FinancialYearSchema);
+export default mongoose.models.FinancialYear || mongoose.model("FinancialYear", FinancialYearSchema);

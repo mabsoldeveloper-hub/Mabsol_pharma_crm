@@ -1,0 +1,70 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.mabsol.pharmacrm",
+  "productName": "Mabsol Pharma CRM",
+  "executableName": "MabsolPharmaCRM",
+  "copyright": "Copyright © 2026 Mabsol Pharma CRM",
+  "protocols": [
+    {
+      "name": "Mabsol Pharma CRM Protocol",
+      "schemes": [
+        "mabsolcrm"
+      ]
+    }
+  ],
+  "directories": {
+    "output": "dist",
+    "buildResources": "public"
+  },
+  "files": [
+    "electron/**/*",
+    ".next/**/*",
+    "!.next/cache/**/*",
+    "!.next/dev/**/*",
+    "public/**/*",
+    "scripts/**/*",
+    "lib/**/*",
+    "models/**/*",
+    "node_modules/**/*",
+    "!node_modules/.cache/**/*",
+    "!node_modules/**/*.map",
+    "package.json",
+    "next.config.ts",
+    "next.config.js",
+    ".env"
+  ],
+  "asarUnpack": [
+    "node_modules/**/*",
+    ".next/**/*",
+    ".env"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "executableName": "MabsolPharmaCRM",
+    "icon": "public/mabsol_logo.ico",
+    "requestedExecutionLevel": "requireAdministrator"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Mabsol Pharma CRM",
+    "installerIcon": "public/mabsol_logo.ico",
+    "uninstallerIcon": "public/mabsol_logo.ico",
+    "deleteAppDataOnUninstall": false,
+    "allowElevation": true
+  },
+  "asar": true,
+  "extraResources": [
+    {
+      "from": "public",
+      "to": "public"
+    }
+  ]
+}

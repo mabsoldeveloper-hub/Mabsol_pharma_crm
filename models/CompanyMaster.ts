@@ -51,8 +51,8 @@ const CompanyMasterSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.models.Company ||
+export default mongoose.models.CompanyMaster ||
 mongoose.model(
-  "Company",
+  "CompanyMaster",
   CompanyMasterSchema
 );

@@ -7,15 +7,17 @@ import nodemailer from "nodemailer";
 // SMTP_PASS=your-smtp-password
 // EMAIL_FROM="Mabsol Pharma CRM <no-reply@yourdomain.com>"
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: Number(process.env.SMTP_PORT) === 465, // true for port 465, false for others
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+function getTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.hostinger.com",
+    port: Number(process.env.SMTP_PORT || 465),
+    secure: Number(process.env.SMTP_PORT || 465) === 465,
+    auth: {
+      user: process.env.SMTP_USER || "",
+      pass: process.env.SMTP_PASS || "",
+    },
+  });
+}
 
 // Brand colors — kept in sync with login.css (:root variables)
 const NAVY = "#343872";
@@ -29,7 +31,7 @@ const BORDER = "#ECEEF9";
 export async function sendOtpEmail(email: string, otp: string) {
   const digits = otp.split("");
 
-  await transporter.sendMail({
+  await getTransporter().sendMail({
     from: process.env.EMAIL_FROM,
     to: email,
     subject: "Your Mabsol CRM verification code",

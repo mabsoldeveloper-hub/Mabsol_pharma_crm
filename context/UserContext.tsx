@@ -17,6 +17,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const loadStarted = useRef(false);
 
+  const isDesktopApp = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean(
+      (window as any).electronAPI ||
+      navigator.userAgent.toLowerCase().includes("electron")
+    );
+  }, []);
+
   const logoutAndRedirect = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -24,14 +32,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       console.error("Logout failed:", e);
     }
     setUser(null);
-    if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
+
+    // In desktop EXE mode, NEVER redirect to web /login page
+    if (isDesktopApp()) {
+      console.log("Desktop app session ended. Reloading desktop session...");
+      try {
+        const autoRes = await fetch("/api/auth/desktop-login", { method: "POST" });
+        const autoData = await autoRes.json();
+        if (autoData.success && autoData.user) {
+          setUser(autoData.user);
+          return;
+        }
+      } catch (_) {}
+    } else if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
       window.location.href = "/login";
     }
-  }, []);
+  }, [isDesktopApp]);
 
   const loadUser = useCallback(async () => {
     try {
-      // Add timestamp and no-cache headers to prevent browser response caching
       const res = await fetch(`/api/auth/me?_t=${Date.now()}`, {
         cache: "no-store",
         headers: {
@@ -43,12 +62,31 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (res.ok && data.success && data.user) {
         setUser(data.user);
       } else {
+        // Retry desktop auto-login if running inside Electron
+        if (isDesktopApp()) {
+          const autoRes = await fetch("/api/auth/desktop-login", { method: "POST" });
+          const autoData = await autoRes.json();
+          if (autoData.success && autoData.user) {
+            setUser(autoData.user);
+            return;
+          }
+        }
         setUser(null);
         if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
           await logoutAndRedirect();
         }
       }
     } catch {
+      if (isDesktopApp()) {
+        try {
+          const autoRes = await fetch("/api/auth/desktop-login", { method: "POST" });
+          const autoData = await autoRes.json();
+          if (autoData.success && autoData.user) {
+            setUser(autoData.user);
+            return;
+          }
+        } catch (_) {}
+      }
       setUser(null);
       if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
         await logoutAndRedirect();
@@ -56,7 +94,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [logoutAndRedirect]);
+  }, [logoutAndRedirect, isDesktopApp]);
 
   useEffect(() => {
     if (loadStarted.current) return;
@@ -64,7 +102,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     loadUser();
   }, [loadUser]);
 
-  // Periodically check session (based on SESSION_CHECK_INTERVAL_MS) and when window gets focus
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {

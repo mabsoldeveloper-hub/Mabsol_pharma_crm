@@ -71,8 +71,4 @@ const NotificationSchema = new mongoose.Schema(
   }
 );
 
-if (mongoose.models.Notification) {
-  delete (mongoose.models as any).Notification;
-}
-
-export default mongoose.model("Notification", NotificationSchema);
+export default mongoose.models.Notification || mongoose.model("Notification", NotificationSchema);

@@ -81,7 +81,4 @@ const VfpConfigSchema = new mongoose.Schema(
   }
 );
 
-if (mongoose.models.VfpConfig) {
-  delete mongoose.models.VfpConfig;
-}
-export default mongoose.model("VfpConfig", VfpConfigSchema, "vfpconfigs");
+export default mongoose.models.VfpConfig || mongoose.model("VfpConfig", VfpConfigSchema, "vfpconfigs");

@@ -23,8 +23,4 @@ const DismissedAlertSchema = new mongoose.Schema(
 
 DismissedAlertSchema.index({ entityId: 1, userId: 1 }, { unique: true });
 
-if (mongoose.models.DismissedAlert) {
-  delete (mongoose.models as any).DismissedAlert;
-}
-
-export default mongoose.model("DismissedAlert", DismissedAlertSchema);
+export default mongoose.models.DismissedAlert || mongoose.model("DismissedAlert", DismissedAlertSchema);
