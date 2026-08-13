@@ -264,34 +264,48 @@ export async function POST(req: Request) {
     if (apiKey && base64Data) {
       let lastErrorMessage = "";
       try {
-        const promptText = `You are an expert pharmaceutical purchase bill data extractor for an Indian pharma wholesale/retail ERP system.
+        const promptText = `You are a world-class AI pharmaceutical invoice & Goods Receipt Note parser for Indian pharma wholesale & retail ERP systems.
 
-Your job is to extract data from purchase bills (GST Invoice / Tax Invoice).
+Your task is to parse ANY pharmaceutical bill image/PDF (Wholesale GST Invoice, Retail Bill, Delivery Challan, Goods Receipt Note, Cash/Credit Bill from Marg ERP, Tally, Busy, Vyapar, etc.) regardless of column ordering or layout.
 
-CRITICAL RULES FOR SUPPLIER / VENDOR DETAILS:
-1. VENDOR/SUPPLIER = Extract details from the "M/s" or "Party Name:" or "Customer / Purchaser" block (e.g., "M/s BALA JI MEDICOS").
-2. vendorName: Extract the party name listed next to "M/s" or "Party Name:" (e.g. "BALA JI MEDICOS"). Remove "M/s" prefix.
-3. vendorGst: Extract the GSTIN listed inside or next to the M/s section (e.g. "03BETPD2794E1ZH").
-4. vendorPhone: Extract the Phone number listed inside or next to the M/s section (e.g. "7973515913").
-5. vendorAddress: Extract the address listed inside the M/s section (e.g. "SHOP NO1#56A, NEAR SBI BANK GURU NANAK NAGAR PATIALA").
-6. vendorDlNo: Extract the Drug Licence No. listed under D.L NO. in that section (e.g. "20B-164343,21B-164344").
-7. Extract ALL line items (medicines) from the table -- every single row must be captured.
-8. For each item extract: productName, hsnCode, batchNo, expiry (convert any MM/YY or MM/YYYY to YYYY-MM format), MRP, qty (quantity ordered), freeQty (free/bonus qty labelled "FREE" or "F"), rate (purchase rate per unit), discountPercent (CD or Trade Disc %), gstPercent (5, 12, 18 or 28).
-9. Bill Date: look for "Date:", "Invoice Date:", "DATE :" fields. Format as YYYY-MM-DD (e.g. 2026-08-05).
-10. Invoice/Bill No: look for "Invoice No.", "Bill No.", "Challan No.", "GST-" etc. (e.g. "AR26-27/3991").
-11. Due Date: "Due Date:" or "Payment Due:" -- if not found, return billDate + 30 days.
-12. If a field is not present, return empty string "" or 0.
+CRITICAL EXTRACTION RULES:
+1. PARTY / VENDOR DETAILS:
+   - Extract vendorName from the "M/s" or "Party Name:" or "Customer / Purchaser / Sold To" block (e.g. "BALA JI MEDICOS"). Strip "M/s" prefix.
+   - If no "M/s" block exists, extract vendorName from the top company/distributor header (e.g. "ARORA MEDICOS", "BHASIN AGENCIES", "HETERO HEALTHCARE").
+   - Extract vendorGst: 15-char GSTIN listed under or near the party/vendor block (e.g. "03BETPD2794E1ZH").
+   - Extract vendorPhone: Phone/mobile number listed near the party/vendor block.
+   - Extract vendorAddress: Complete address from the party/vendor block.
+   - Extract vendorDlNo: Drug Licence number listed near D.L NO. (e.g. "20B-164343,21B-164344").
 
-Return ONLY valid JSON (no markdown, no explanation) matching this exact schema:
+2. INVOICE HEADER DETAILS:
+   - supplierInvoiceNo: Look for "Invoice No.", "Bill No.", "Challan No.", "GST Inv No." (e.g. "AR26-27/3991", "GST-22000", "MSG-4596").
+   - billDate: Look for "Date:", "Invoice Date:", "Bill Date:". Format strictly as YYYY-MM-DD.
+   - dueDate: Look for "Due Date:". If missing, set to 30 days after billDate.
+
+3. TABLE LINE ITEMS (EVERY SINGLE ROW MUST BE CAPTURED):
+   - Table columns vary by bill format. Carefully align headers to extract:
+     - productName: Full medicine / product name (e.g. "DR.ULTRA ISABGOL", "GLYCOMET TRIO.1", "ROZUCOR ASP 20 CAP").
+     - hsnCode: HSN Code (e.g. "3004", "30049099").
+     - batchNo: Batch number (e.g. "DRU25002", "CMR260305", "464799@").
+     - expDate: Expiry date. Convert MM/YY or MM/YYYY to YYYY-MM format (e.g. "02/27" -> "2027-02", "12/26" -> "2026-12", "03/2028" -> "2028-03").
+     - mrp: Maximum Retail Price per unit.
+     - qty: Quantity billed (integer/number).
+     - freeQty: Free / scheme / bonus quantity (often labelled "FREE", "F", "SCH.", "SCHEME"). Return 0 if none.
+     - unit: Pack size or unit (e.g. "1*100G", "1X10", "10*10", "60ML").
+     - rate: Purchase rate per unit before discount.
+     - discountPercent: Discount percentage (CD %, TD %, Trade Disc %, Cash Disc %, Disc %).
+     - gstPercent: GST percentage (5, 12, 18, 28).
+
+4. Return ONLY valid JSON matching this exact schema (no markdown, no wrap):
 {
   "supplierInvoiceNo": "string",
   "billDate": "YYYY-MM-DD",
   "dueDate": "YYYY-MM-DD",
-  "vendorName": "string (Party name from M/s section e.g. BALA JI MEDICOS)",
-  "vendorGst": "string (GSTIN from M/s section e.g. 03BETPD2794E1ZH)",
-  "vendorPhone": "string (Phone from M/s section e.g. 7973515913)",
-  "vendorAddress": "string (Address from M/s section)",
-  "vendorDlNo": "string (Drug Licence No from M/s section e.g. 20B-164343,21B-164344)",
+  "vendorName": "string",
+  "vendorGst": "string",
+  "vendorPhone": "string",
+  "vendorAddress": "string",
+  "vendorDlNo": "string",
   "items": [
     {
       "productName": "string",
@@ -301,7 +315,7 @@ Return ONLY valid JSON (no markdown, no explanation) matching this exact schema:
       "mrp": number,
       "qty": number,
       "freeQty": number,
-      "unit": "string (e.g. 1X10, 10*10, 1*100G)",
+      "unit": "string",
       "rate": number,
       "discountPercent": number,
       "gstPercent": number
@@ -313,7 +327,8 @@ Return ONLY valid JSON (no markdown, no explanation) matching this exact schema:
         const modelsToTry = [
           "gemini-2.5-flash",
           "gemini-2.5-pro",
-          "gemini-1.5-pro-latest",
+          "gemini-flash-latest",
+          "gemini-pro-latest",
         ];
 
         let geminiRes: Response | null = null;
@@ -354,8 +369,11 @@ Return ONLY valid JSON (no markdown, no explanation) matching this exact schema:
               break;
             } else {
               const errBody = await r.json().catch(() => ({}));
-              lastErrorMessage = errBody?.error?.message || `HTTP ${r.status}: ${r.statusText}`;
-              console.error(`Gemini model ${model} error:`, lastErrorMessage);
+              const msg = errBody?.error?.message || `HTTP ${r.status}: ${r.statusText}`;
+              if (!lastErrorMessage || r.status !== 404) {
+                lastErrorMessage = msg;
+              }
+              console.error(`Gemini model ${model} error:`, msg);
             }
           } catch (fetchErr: any) {
             clearTimeout(timer);
