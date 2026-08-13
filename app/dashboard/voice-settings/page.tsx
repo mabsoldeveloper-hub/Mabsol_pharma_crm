@@ -5,10 +5,11 @@ import { Mic, Volume2, Save, Sparkles, Check, Radio, RotateCcw, VolumeX, ShieldC
 
 export default function VoiceSettingsPage() {
   const [assistantName, setAssistantName] = useState("AI Assistant");
-  const [wakewordEnabled, setWakewordEnabled] = useState(true);
+  const [wakewordEnabled, setWakewordEnabled] = useState(false);
   const [greetingText, setGreetingText] = useState("Haan ji! Main aapki kya help kar sakta hu?");
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [testingVoice, setTestingVoice] = useState(false);
+  const [micStatusMsg, setMicStatusMsg] = useState<string | null>(null);
 
   // Load initial voice AI settings from localStorage
   useEffect(() => {
@@ -18,19 +19,53 @@ export default function VoiceSettingsPage() {
         const parsed = JSON.parse(saved);
         if (parsed.assistantName) setAssistantName(parsed.assistantName);
         if (typeof parsed.wakewordEnabled === "boolean") setWakewordEnabled(parsed.wakewordEnabled);
+        else setWakewordEnabled(false);
         if (parsed.greetingText) setGreetingText(parsed.greetingText);
+      } else {
+        setWakewordEnabled(false);
       }
     } catch (e) {
       console.error("Failed to load voice AI settings:", e);
+      setWakewordEnabled(false);
     }
   }, []);
 
+  // Helper to request Mic permission when enabled
+  const requestMicPermission = async () => {
+    if (typeof window === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+    try {
+      setMicStatusMsg("Requesting microphone permission...");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setMicStatusMsg("Microphone permission granted! Voice Assistant is ready.");
+      setTimeout(() => setMicStatusMsg(null), 4000);
+      return true;
+    } catch (err: any) {
+      console.warn("Mic permission denied:", err);
+      setMicStatusMsg("Microphone permission was denied by browser.");
+      setTimeout(() => setMicStatusMsg(null), 5000);
+      return false;
+    }
+  };
+
+  const handleToggleWakeword = async () => {
+    const nextVal = !wakewordEnabled;
+    setWakewordEnabled(nextVal);
+    if (nextVal) {
+      await requestMicPermission();
+    }
+  };
+
   // Save voice settings to localStorage & notify Topbar/GlobalSearchModal
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
     const nameToSave = assistantName.trim() || "AI Assistant";
     const greetingToSave = greetingText.trim() || "Haan ji! Main aapki kya help kar sakta hu?";
+
+    if (wakewordEnabled) {
+      await requestMicPermission();
+    }
 
     const settingsData = {
       assistantName: nameToSave,
@@ -53,7 +88,7 @@ export default function VoiceSettingsPage() {
   // Reset to default settings
   const handleReset = () => {
     setAssistantName("AI Assistant");
-    setWakewordEnabled(true);
+    setWakewordEnabled(false);
     setGreetingText("Haan ji! Main aapki kya help kar sakta hu?");
   };
 
@@ -220,7 +255,7 @@ export default function VoiceSettingsPage() {
             {/* Toggle Switch */}
             <button
               type="button"
-              onClick={() => setWakewordEnabled((prev) => !prev)}
+              onClick={handleToggleWakeword}
               className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
                 wakewordEnabled ? "bg-emerald-500" : "bg-slate-300"
               }`}
@@ -232,6 +267,13 @@ export default function VoiceSettingsPage() {
               />
             </button>
           </div>
+
+          {micStatusMsg && (
+            <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-900 flex items-center gap-2 animate-fadeIn">
+              <Mic className="w-4 h-4 text-indigo-600 animate-pulse" />
+              <span>{micStatusMsg}</span>
+            </div>
+          )}
 
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center justify-between">
             <span className="flex items-center gap-2">

@@ -137,6 +137,7 @@ export default function AiPurchaseBillEntry() {
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [showRawInspector, setShowRawInspector] = useState(false);
   const [rawExtractedData, setRawExtractedData] = useState<any>(null);
+  const [noApiKey, setNoApiKey] = useState(false);
 
   // Master Data
   const [suppliersList, setSuppliersList] = useState<SupplierMaster[]>([]);
@@ -304,7 +305,7 @@ export default function AiPurchaseBillEntry() {
     const cleanGst = (parsedGst || "").trim().toUpperCase();
     const cleanName = (parsedVendorName || "").trim().toUpperCase();
 
-    setExtractedVendorName(cleanName || "WHITE EAGLE LABORATORIES");
+    setExtractedVendorName(cleanName);
 
     let matched = currentSuppliers.find(
       (s) => cleanGst && s.gst && s.gst.toUpperCase() === cleanGst
@@ -335,17 +336,17 @@ export default function AiPurchaseBillEntry() {
       setMatchedDbVendorName(matched.name);
       setVendorName(cleanName || matched.name);
       setVendorGst(cleanGst || matched.gst || "");
-      setVendorPhone(matched.phone || "9814013352");
-      setVendorAddress(matched.address || "PLOT NO.D-280, INDUSTRIAL FOCAL POINT PATIALA-147001 (PUNJAB)");
+      setVendorPhone(matched.phone || "");
+      setVendorAddress(matched.address || "");
       setIsNewSupplier(false);
       setSupplierMatchScore(score);
     } else {
       setSelectedSupplierId("");
       setMatchedDbVendorName("");
-      setVendorName(cleanName || "WHITE EAGLE LABORATORIES");
-      setVendorGst(cleanGst || "03AABFW1731B1ZX");
-      setVendorPhone("9814013352");
-      setVendorAddress("PLOT NO.D-280, INDUSTRIAL FOCAL POINT PATIALA-147001 (PUNJAB)");
+      setVendorName(cleanName);
+      setVendorGst(cleanGst);
+      setVendorPhone("");
+      setVendorAddress("");
       setIsNewSupplier(true);
       setSupplierMatchScore(0);
     }
@@ -408,6 +409,8 @@ export default function AiPurchaseBillEntry() {
     });
   };
 
+  const [parseError, setParseError] = useState<string | null>(null);
+
   // Trigger Document Extraction
   const handleParseDocument = async () => {
     if (!selectedFile) {
@@ -416,6 +419,7 @@ export default function AiPurchaseBillEntry() {
     }
 
     setParsing(true);
+    setParseError(null);
     setParseProgress("Uploading document & running AI Multimodal extraction...");
 
     try {
@@ -429,37 +433,65 @@ export default function AiPurchaseBillEntry() {
 
       setParseProgress("Parsing header, items & auto-matching database records...");
 
-      if (res.ok) {
-        const json = await res.json();
+      const json = await res.json().catch(() => null);
+
+      if (res.ok && json) {
+        if (json.noApiKey) {
+          setNoApiKey(true);
+          setParseError("GEMINI_API_KEY is not configured in .env file.");
+          alert("GEMINI_API_KEY not configured. Please add it to your .env file.");
+          return;
+        }
+
         if (json.success && json.data) {
           const data = json.data;
           setRawExtractedData(data);
+          setNoApiKey(false);
 
           if (data.supplierInvoiceNo) setSupplierInvoiceNo(data.supplierInvoiceNo);
           if (data.billDate) setBillDate(data.billDate);
           if (data.dueDate) setDueDate(data.dueDate);
-          if (data.remarks) setRemarks(data.remarks);
           if (data.vendorDlNo) setVendorDlNo(data.vendorDlNo);
 
           // Supplier match
           matchSupplier(data.vendorName, data.vendorGst, suppliersList);
 
           // Items match
-          if (data.items && Array.isArray(data.items)) {
+          const hasItems = data.items && Array.isArray(data.items) && data.items.length > 0;
+          if (hasItems) {
             const mapped = matchProducts(data.items, productsList);
             setItems(mapped);
+          } else {
+            alert("⚠️ AI processed the bill, but no items could be detected. Please check if the document is clear.");
           }
 
-          setTaxType("Interstate");
+          // Auto-detect tax type based on vendor GSTIN state code
+          const vendorStateCode = (data.vendorGst || "").slice(0, 2);
+          const companyStateCode = (selectedCompany?.gstNo || "03").slice(0, 2);
+          if (vendorStateCode && companyStateCode && vendorStateCode === companyStateCode) {
+            setTaxType("Intrastate");
+          } else {
+            setTaxType("Interstate");
+          }
+
+          if (json.source) {
+            setRemarks(`Parsed via ${json.source}`);
+          }
         } else {
-          alert(json.message || "Failed to extract purchase bill data.");
+          const errMsg = json.message || "Failed to extract purchase bill data.";
+          setParseError(errMsg);
+          alert(`❌ Extraction Error: ${errMsg}`);
         }
       } else {
-        alert("Server error while extracting purchase bill document.");
+        const errMsg = json?.message || `Server Error ${res.status}: ${res.statusText}`;
+        setParseError(errMsg);
+        alert(`❌ Error from Server: ${errMsg}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Parse error:", err);
-      alert("Error occurred while extracting document.");
+      const errMsg = err?.message || "Error occurred while extracting document.";
+      setParseError(errMsg);
+      alert(`❌ Network/Processing Error: ${errMsg}`);
     } finally {
       setParsing(false);
       setParseProgress("");
@@ -789,6 +821,49 @@ export default function AiPurchaseBillEntry() {
           </div>
         )}
       </div>
+
+      {/* NO API KEY BANNER */}
+      {noApiKey && (
+        <div className="mb-6 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-2xl p-5 flex gap-4">
+          <div className="text-red-500 text-2xl mt-1">⚠️</div>
+          <div className="flex-1">
+            <h3 className="font-bold text-red-700 dark:text-red-400 text-sm mb-1">
+              Gemini AI Key Configure Nahi Hai — Bill Data Extract Nahi Ho Sakta
+            </h3>
+            <p className="text-xs text-red-600 dark:text-red-300 mb-3">
+              Image se data automatically pick karne ke liye <strong>GEMINI_API_KEY</strong> chahiye. Yeh bilkul free hai.
+            </p>
+            <div className="bg-white dark:bg-red-950/60 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-300 space-y-1 border border-red-100 dark:border-red-800">
+              <p className="font-bold text-red-700 dark:text-red-300 mb-2">📋 Steps to fix:</p>
+              <p>1️⃣ Open: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">https://aistudio.google.com/apikey</a></p>
+              <p>2️⃣ Google account se login karo → "Create API Key" click karo</p>
+              <p>3️⃣ Key copy karo (AIzaSy... jaisi dikhegi)</p>
+              <p>4️⃣ Project root mein <code className="bg-red-100 dark:bg-red-900 px-1 rounded">.env</code> file mein yeh line add karo:</p>
+              <pre className="bg-slate-100 dark:bg-slate-900 rounded-lg p-2 mt-1 text-green-700 dark:text-green-400 font-mono text-[11px]">GEMINI_API_KEY=AIzaSy_aapki_key_yahan</pre>
+              <p>5️⃣ Dev server restart karo: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">npm run dev</code></p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PARSE ERROR BANNER */}
+      {parseError && !noApiKey && (
+        <div className="mb-6 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-start justify-between gap-3 text-red-700 dark:text-red-300">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">❌</span>
+            <div>
+              <h4 className="font-bold text-sm">AI Bill Extraction Error</h4>
+              <p className="text-xs font-mono mt-1 text-red-600 dark:text-red-400">{parseError}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setParseError(null)}
+            className="text-xs font-bold px-2 py-1 bg-red-100 dark:bg-red-900 rounded-lg hover:bg-red-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Grid: Responsive 12 Columns Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
