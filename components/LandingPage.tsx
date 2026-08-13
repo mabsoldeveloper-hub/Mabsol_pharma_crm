@@ -452,7 +452,9 @@ export default function LandingPage() {
       {/* HERO */}
       <section className="hero" id="product">
         <Reveal className="hero-copy">
-          <span className="eyebrow">ERP Integration</span>
+          <span className="eyebrow">
+            <span className="live-dot-sm" /> ERP Integration
+          </span>
           <h1>
             Everything from ERP,
             <br />
@@ -556,9 +558,20 @@ export default function LandingPage() {
           </span>
           {steps.map((s, i) => (
             <Reveal as="div" className="timeline-step" key={s.n} delay={i * 120}>
-              <span className="timeline-node">{s.n}</span>
+              <div className="node-wrapper">
+                <span className="timeline-node">{s.n}</span>
+              </div>
               <h3>{s.title}</h3>
               <p>{s.body}</p>
+              <div className="step-hover-badge">
+                <span>
+                  {i === 0
+                    ? "⚡ VFP DBF Records Generated"
+                    : i === 1
+                    ? "🔄 Auto Cloud Sync Active"
+                    : "📊 Live Team Dashboard Updated"}
+                </span>
+              </div>
             </Reveal>
           ))}
         </div>
@@ -573,10 +586,13 @@ export default function LandingPage() {
 
         <div className="fb-grid">
           <Reveal as="div" className="fb-card fb-large">
-            <div className="fb-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M4 20V10M12 20V4M20 20v-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
-              </svg>
+            <div className="fb-card-header">
+              <div className="fb-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 20V10M12 20V4M20 20v-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              </div>
+              <span className="bar-hover-tag">₹2.03 Cr Sales Radar</span>
             </div>
             <h3>Report section</h3>
             <p>
@@ -587,14 +603,24 @@ export default function LandingPage() {
             <div className="fb-visual">
               <div className="mini-bars mini-bars-large">
                 {bars.map((h, i) => (
-                  <span key={i} style={{ height: `${h}%`, transitionDelay: `${i * 60}ms` }} />
+                  <span
+                    key={i}
+                    className={`eq-bar eq-bar-${i}`}
+                    style={
+                      {
+                        height: `${h}%`,
+                        "--bar-h": `${h}%`,
+                        "--bar-delay": `${i * 120}ms`,
+                      } as CSSProperties
+                    }
+                  />
                 ))}
               </div>
             </div>
           </Reveal>
 
-          <Reveal as="div" className="fb-card" delay={120}>
-            <div className="fb-icon">
+          <Reveal as="div" className="fb-card fb-card-notif" delay={120}>
+            <div className="fb-icon bell-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M12 3a5 5 0 0 0-5 5v3.5L5 15h14l-2-3.5V8a5 5 0 0 0-5-5Z" stroke="#fff" strokeWidth="2.2" strokeLinejoin="round" />
                 <path d="M10 18a2 2 0 0 0 4 0" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
@@ -602,10 +628,14 @@ export default function LandingPage() {
             </div>
             <h3>Notifications</h3>
             <p>Know the second something changes in ERP, without opening two apps.</p>
+            <div className="hover-notif-row">
+              <span className="notif-dot dot-orange" />
+              <span>Instant Alert: Stock Below Threshold</span>
+            </div>
           </Reveal>
 
-          <Reveal as="div" className="fb-card" delay={220}>
-            <div className="fb-icon">
+          <Reveal as="div" className="fb-card fb-card-sync" delay={220}>
+            <div className="fb-icon sync-spin-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M4 4v5h5M20 20v-5h-5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M4.6 15A8 8 0 0 0 19 15.5M19.4 9A8 8 0 0 0 5 8.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
@@ -613,18 +643,71 @@ export default function LandingPage() {
             </div>
             <h3>ERP sync</h3>
             <p>Works with the ERP setup you already have. No migration, no new habits.</p>
+            <div className="hover-sync-bar">
+              <div className="hover-sync-fill" />
+            </div>
           </Reveal>
         </div>
       </section>
 
-      {/* CTA BAND */}
+      {/* CTA BAND — LIGHT GLASS CARD WITH WATERMARK CHARTS & HOVER TELEMETRY */}
       <Reveal as="section" className="cta-band">
         <span className="cta-glow" aria-hidden="true" />
+        <span className="cta-border-glow" aria-hidden="true" />
+
+        {/* HOVER WATERMARK CHARTS IN CARD BACKGROUND */}
+        <svg className="cta-bg-donut" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+          <circle cx="50" cy="50" r="38" stroke="#EEF0F8" strokeWidth="12" />
+          <circle cx="50" cy="50" r="38" stroke="#FB8C00" strokeWidth="12" strokeDasharray="160 240" strokeDashoffset="40" />
+          <circle cx="50" cy="50" r="38" stroke="#6366F1" strokeWidth="12" strokeDasharray="80 240" strokeDashoffset="200" />
+        </svg>
+
+        <svg className="cta-bg-bars" viewBox="0 0 120 70" fill="none" aria-hidden="true">
+          <rect x="5" y="40" width="16" height="30" rx="3" fill="#FB8C00" />
+          <rect x="28" y="25" width="16" height="45" rx="3" fill="#6366F1" />
+          <rect x="51" y="10" width="16" height="60" rx="3" fill="#22C55E" />
+          <rect x="74" y="30" width="16" height="40" rx="3" fill="#FB8C00" />
+          <rect x="97" y="18" width="16" height="52" rx="3" fill="#343872" />
+        </svg>
+
+        <svg className="cta-bg-spark" viewBox="0 0 300 60" fill="none" aria-hidden="true">
+          <path
+            d="M0,45 Q50,15 100,35 T200,10 T300,30"
+            stroke="#22C55E"
+            strokeWidth="3"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </svg>
+
+        {/* HOVER TELEMETRY BADGES */}
+        <div className="cta-hover-badge badge-tl">
+          <span className="live-dot-sm" /> 100% Live ERP Bridge
+        </div>
+        <div className="cta-hover-badge badge-tr">
+          <span>📈 ₹2.03 Cr Tracked</span>
+        </div>
+        <div className="cta-hover-badge badge-bl">
+          <span>🛡️ Encrypted Backup</span>
+        </div>
+        <div className="cta-hover-badge badge-br">
+          <span>⚡ Auto 60s Refresh</span>
+        </div>
+
+        <span className="cta-eyebrow">
+          <span className="live-dot-sm" /> Instant Setup • Zero Downtime
+        </span>
         <h2>Stop switching between ERP and spreadsheets</h2>
         <p>Set up takes minutes. Your team keeps working the same way, just with everything in view.</p>
-        <a href="/login" className="btn btn-primary">
-          Get Started
-        </a>
+        
+        <div className="cta-action-wrap">
+          <a href="/login" className="btn btn-primary cta-btn-light">
+            <span>Get Started Free</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="cta-arrow">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </a>
+        </div>
       </Reveal>
 
       {/* FOOTER */}

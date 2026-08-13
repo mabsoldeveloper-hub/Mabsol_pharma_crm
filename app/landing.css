@@ -259,9 +259,10 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  /* background: rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(8px) saturate(140%);
-  border-bottom: 1px solid rgba(238, 240, 248, 0.5); */
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(160%);
+  border-bottom: 1px solid rgba(238, 240, 248, 0.85);
+  transition: all 0.3s ease;
 }
 
 .landing-page .nav-inner {
@@ -277,7 +278,8 @@
 .landing-page .brand {
   display: flex;
   align-items: center;
-  line-height: 0;
+  gap: 10px;
+  text-decoration: none;
 }
 
 .landing-page .brand-logo {
@@ -286,19 +288,45 @@
   object-fit: contain;
 }
 
+.landing-page .nav-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy);
+  background: #eef0f8;
+  padding: 3px 9px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.landing-page .live-dot-sm {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px 1px rgba(34, 197, 94, 0.6);
+  animation: pulse 1.8s infinite;
+}
+
 .landing-page .nav-links {
   display: flex;
   gap: 28px;
   margin-right: auto;
-  margin-left: 44px;
+  margin-left: 36px;
 }
 
 .landing-page .nav-links a {
+  position: relative;
   color: var(--muted);
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
   transition: color 0.2s ease;
+}
+
+.landing-page .nav-links a:hover {
+  color: var(--navy);
 }
 
 .landing-page .nav-links a:hover {
@@ -1030,9 +1058,16 @@
   }
 }
 
+.landing-page .node-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
 .landing-page .timeline-node {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1043,18 +1078,35 @@
   color: #fff;
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 18px;
+  box-shadow: 0 4px 12px rgba(52, 56, 114, 0.25);
+  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-page .timeline-step:hover .timeline-node {
+  transform: scale(1.22);
+  background: linear-gradient(135deg, #fb8c00, #ff5722);
+  box-shadow: 0 0 20px 4px rgba(251, 140, 0, 0.55);
 }
 
 .landing-page .timeline-step {
   position: relative;
   text-align: center;
   padding: 0 12px;
+  transition: transform 0.35s ease;
+}
+
+.landing-page .timeline-step:hover {
+  transform: translateY(-6px);
 }
 
 .landing-page .timeline-step h3 {
   margin: 0 0 8px;
   font-size: 17px;
+  transition: color 0.3s ease;
+}
+
+.landing-page .timeline-step:hover h3 {
+  color: var(--orange);
 }
 
 .landing-page .timeline-step p {
@@ -1063,6 +1115,32 @@
   font-size: 14px;
   line-height: 1.65;
   color: var(--muted);
+}
+
+.landing-page .step-hover-badge {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+.landing-page .step-hover-badge span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy);
+  background: #fff3e2;
+  border: 1px solid rgba(251, 140, 0, 0.3);
+  padding: 4px 12px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: all 0.35s ease;
+  box-shadow: 0 6px 14px -4px rgba(251, 140, 0, 0.25);
+}
+
+.landing-page .timeline-step:hover .step-hover-badge span {
+  opacity: 1;
+  transform: translateY(0);
+  color: var(--orange);
 }
 
 /* FEATURE BENTO */
@@ -1082,17 +1160,167 @@
 }
 
 .landing-page .fb-card {
+  position: relative;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 28px;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+  overflow: hidden;
+}
+
+.landing-page .fb-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), #6366f1);
+  opacity: 0;
+  transition: opacity 0.35s ease;
 }
 
 .landing-page .fb-card:hover {
   transform: translateY(-6px) rotateX(3deg) rotateY(-2deg);
-  border-color: var(--orange);
+  border-color: rgba(251, 140, 0, 0.5);
   box-shadow: 0 26px 48px -26px rgba(52, 56, 114, 0.35);
+}
+
+.landing-page .fb-card:hover::before {
+  opacity: 1;
+}
+
+.landing-page .fb-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.landing-page .bar-hover-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--orange);
+  background: #fff3e2;
+  padding: 3px 9px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: all 0.3s ease;
+}
+
+.landing-page .fb-large:hover .bar-hover-tag {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-page .fb-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--navy), var(--navy-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 20px -6px rgba(52, 56, 114, 0.4);
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.landing-page .fb-card:hover .fb-icon {
+  transform: scale(1.08);
+  background: linear-gradient(135deg, #fb8c00, #ff5722);
+}
+
+/* EQ DANCING BARS ON HOVER */
+.landing-page .fb-large:hover .mini-bars .eq-bar {
+  animation: barEQ 1.2s ease-in-out infinite alternate;
+  animation-delay: var(--bar-delay);
+}
+
+@keyframes barEQ {
+  0% {
+    height: 25%;
+  }
+  50% {
+    height: 90%;
+  }
+  100% {
+    height: 45%;
+  }
+}
+
+/* BELL RING ANIMATION ON HOVER */
+.landing-page .fb-card-notif:hover .bell-icon svg {
+  animation: bellRing 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes bellRing {
+  0% {
+    transform: rotate(-12deg);
+  }
+  100% {
+    transform: rotate(12deg);
+  }
+}
+
+.landing-page .hover-notif-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--navy);
+  background: #f6f6fc;
+  padding: 6px 10px;
+  border-radius: 8px;
+  opacity: 0.6;
+  transform: translateY(4px);
+  transition: all 0.3s ease;
+}
+
+.landing-page .fb-card-notif:hover .hover-notif-row {
+  opacity: 1;
+  transform: translateY(0);
+  background: #fff3e2;
+  color: var(--orange);
+}
+
+/* SYNC SPIN ANIMATION ON HOVER */
+.landing-page .fb-card-sync:hover .sync-spin-icon svg {
+  animation: spinIcon 1.4s linear infinite;
+}
+
+@keyframes spinIcon {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.landing-page .hover-sync-bar {
+  margin-top: 14px;
+  width: 100%;
+  height: 4px;
+  background: #eef0f8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.landing-page .hover-sync-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--navy), var(--orange));
+  border-radius: 999px;
+  transition: width 0.8s ease-out;
+}
+
+.landing-page .fb-card-sync:hover .hover-sync-fill {
+  width: 100%;
 }
 
 .landing-page .fb-large {
@@ -1142,6 +1370,7 @@
 
 /* CTA BAND — centered on every screen size, padding instead of fixed
    side margins so it stays properly responsive */
+/* CTA BAND — LIGHT & SOOTHING GLASS CARD */
 .landing-page .cta-band {
   position: relative;
   display: block;
@@ -1150,51 +1379,233 @@
   max-width: 1200px;
   margin: 0 auto 80px;
   padding: clamp(44px, 7vw, 64px) clamp(20px, 5vw, 40px);
-  border-radius: 20px;
-  background: linear-gradient(150deg, var(--navy-dark), var(--navy));
+  border-radius: 24px;
+  background: linear-gradient(135deg, #ffffff 0%, #f6f7fe 100%);
+  border: 1px solid var(--border);
   text-align: center;
   overflow: hidden;
+  box-shadow: 0 25px 50px -20px rgba(52, 56, 114, 0.15);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+.landing-page .cta-border-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #fb8c00 0%, #6366f1 50%, #22c55e 100%);
+  background-size: 200% auto;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.landing-page .cta-band:hover {
+  transform: translateY(-6px);
+  border-color: rgba(251, 140, 0, 0.4);
+  box-shadow: 0 35px 70px -20px rgba(251, 140, 0, 0.22), 0 20px 40px -15px rgba(52, 56, 114, 0.2);
+}
+
+.landing-page .cta-band:hover .cta-border-glow {
+  opacity: 1;
+  animation: borderShimmer 3s linear infinite;
+}
+
+@keyframes borderShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
 }
 
 .landing-page .cta-glow {
   position: absolute;
-  inset: -30% -10%;
-  background: radial-gradient(ellipse at 50% 0%, rgba(251, 140, 0, 0.28), transparent 60%);
-  animation: ctaGlowPulse 5s ease-in-out infinite;
+  inset: -40% -10%;
+  background: radial-gradient(ellipse at 50% 0%, rgba(251, 140, 0, 0.22), transparent 65%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
   pointer-events: none;
 }
 
-@keyframes ctaGlowPulse {
+.landing-page .cta-band:hover .cta-glow {
+  opacity: 1;
+}
 
-  0%,
-  100% {
-    opacity: 0.7;
-  }
+/* WATERMARK BACKGROUND CHARTS IN CTA CARD */
+.landing-page .cta-bg-donut {
+  position: absolute;
+  top: -10px;
+  left: -20px;
+  width: 145px;
+  height: 145px;
+  opacity: 0.04;
+  transition: transform 0.5s ease, opacity 0.5s ease;
+  pointer-events: none;
+  z-index: 1;
+}
 
-  50% {
-    opacity: 1;
-  }
+.landing-page .cta-bg-bars {
+  position: absolute;
+  bottom: -10px;
+  right: -15px;
+  width: 160px;
+  height: 95px;
+  opacity: 0.04;
+  transition: transform 0.5s ease, opacity 0.5s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.landing-page .cta-band:hover .cta-bg-donut {
+  opacity: 0.22;
+  transform: scale(1.18) rotate(15deg);
+}
+
+.landing-page .cta-band:hover .cta-bg-bars {
+  opacity: 0.22;
+  transform: scale(1.15) translateY(-6px);
+}
+
+.landing-page .cta-bg-spark {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 50px;
+  opacity: 0.05;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.landing-page .cta-band:hover .cta-bg-spark {
+  opacity: 0.35;
+  transform: translateX(-50%) scale(1.08);
+}
+
+/* HOVER TELEMETRY BADGES IN CTA CARD */
+.landing-page .cta-hover-badge {
+  position: absolute;
+  z-index: 3;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(238, 240, 248, 0.9);
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px -8px rgba(52, 56, 114, 0.2);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.landing-page .badge-tl {
+  top: 16px;
+  left: 20px;
+  transform: translateY(-8px);
+}
+
+.landing-page .badge-tr {
+  top: 16px;
+  right: 20px;
+  transform: translateY(-8px);
+}
+
+.landing-page .badge-bl {
+  bottom: 16px;
+  left: 20px;
+  transform: translateY(8px);
+}
+
+.landing-page .badge-br {
+  bottom: 16px;
+  right: 20px;
+  transform: translateY(8px);
+}
+
+.landing-page .cta-band:hover .cta-hover-badge {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-page .cta-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #fff3e2;
+  border: 1px solid rgba(251, 140, 0, 0.3);
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+  z-index: 2;
 }
 
 .landing-page .cta-band h2 {
   position: relative;
-  margin: 0 0 12px;
-  color: #fff;
-  font-size: clamp(22px, 3.6vw, 28px);
+  z-index: 2;
+  margin: 0 0 14px;
+  color: var(--navy);
+  font-size: clamp(24px, 3.8vw, 32px);
   font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .landing-page .cta-band p {
   position: relative;
-  margin: 0 auto 28px;
-  max-width: 440px;
-  color: #c3c4e6;
-  font-size: 15px;
-  line-height: 1.6;
+  z-index: 2;
+  margin: 0 auto 32px;
+  max-width: 480px;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.65;
 }
 
-.landing-page .cta-band .btn {
+.landing-page .cta-action-wrap {
   position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+}
+
+.landing-page .cta-btn-light {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 32px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--orange) 0%, #ff7300 100%);
+  box-shadow: 0 12px 28px -8px rgba(251, 140, 0, 0.55);
+  transition: all 0.35s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-page .cta-btn-light:hover {
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 18px 38px -8px rgba(251, 140, 0, 0.7);
+}
+
+.landing-page .cta-arrow {
+  transition: transform 0.3s ease;
+}
+
+.landing-page .cta-btn-light:hover .cta-arrow {
+  transform: translateX(6px);
 }
 
 /* FOOTER */
@@ -1283,7 +1694,8 @@
   .landing-page .particle,
   .landing-page .ghost-panel,
   .landing-page .floating-chart,
-  .landing-page .bg-sticker {
+  .landing-page .bg-sticker,
+  .landing-page .cta-hover-badge {
     display: none;
   }
 }
