@@ -4,6 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
 import BootstrapClient from "@/components/BootstrapClient";
+import { ToastProvider } from "@/context/ToastContext";
 
 export const metadata: Metadata = {
   title: "Mabsol Pharma CRM",
@@ -24,8 +25,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen">
-        <BootstrapClient />
-        {children}
+        <ToastProvider>
+          <BootstrapClient />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );
