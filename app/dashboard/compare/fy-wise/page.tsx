@@ -13,6 +13,7 @@ import {
     FaBoxes, FaBuilding, FaWallet, FaChartLine, FaUndo, FaShoppingBag,
     FaMapMarkerAlt, FaArrowRight, FaDownload, FaFilter, FaEye,
     FaTrophy, FaExclamationTriangle, FaMinus, FaInfoCircle,
+    FaUserTie, FaRoute, FaGlobeAsia, FaTimes,
 } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -49,6 +50,31 @@ type FYData = {
     companyBreakdown: CompanyRow[];
 };
 type MrInfo = { isMrRestricted: boolean; territories: any[]; allowedCompanyCodes: string[] };
+
+type OptionItem = {
+    name: string;
+    count: number;
+};
+
+type FilterOptions = {
+    states: OptionItem[];
+    areas: OptionItem[];
+    routes: OptionItem[];
+    dsms: OptionItem[];
+    asms: OptionItem[];
+    rsms: OptionItem[];
+};
+
+function ActiveFilterBadge({ label, value, onRemove }: { label: string; value: string; onRemove: () => void }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-700 border border-indigo-300/40">
+            <span className="text-indigo-400">{label}:</span> {value}
+            <button onClick={onRemove} className="ml-0.5 hover:text-red-500 transition-colors">
+                <FaTimes size={8} />
+            </button>
+        </span>
+    );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -385,6 +411,27 @@ export default function FYWiseComparisonPage() {
     const [mrInfo, setMrInfo] = useState<MrInfo | null>(null);
     const [hasLoaded, setHasLoaded] = useState(false);
 
+    // ── Territory filter states ──
+    const [filterOptions, setFilterOptions] = useState<FilterOptions>({ states: [], areas: [], routes: [], dsms: [], asms: [], rsms: [] });
+    const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
+
+    // Applied (live) filters
+    const [stateFilter, setStateFilter] = useState("");
+    const [areaFilter, setAreaFilter]   = useState("");
+    const [routeFilter, setRouteFilter] = useState("");
+    const [dsmFilter, setDsmFilter]     = useState("");
+    const [asmFilter, setAsmFilter]     = useState("");
+    const [rsmFilter, setRsmFilter]     = useState("");
+
+    // Staged (panel) filters — committed only on Apply
+    const [stageState, setStageState] = useState("");
+    const [stageArea, setStageArea]   = useState("");
+    const [stageRoute, setStageRoute] = useState("");
+    const [stageDsm, setStageDsm]     = useState("");
+    const [stageAsm, setStageAsm]     = useState("");
+    const [stageRsm, setStageRsm]     = useState("");
+
     // Available FYs (exclude "ALL")
     const availableFYs = useMemo(() =>
         fyList.filter((f) => !f.isAll && f._id !== "ALL"), [fyList]);
@@ -394,7 +441,66 @@ export default function FYWiseComparisonPage() {
         fetch("/api/mr-territory/my-territories").then(r => r.ok ? r.json() : null)
             .then(j => { if (j?.success) setMrInfo({ isMrRestricted: j.isMrRestricted, territories: j.territories || [], allowedCompanyCodes: j.allowedCompanyCodes || [] }); })
             .catch(() => {});
+        loadFilterOptions();
     }, []);
+
+    // Auto-select latest 2-3 FYs on initial load if none selected
+    useEffect(() => {
+        if (selectedFyIds.length === 0 && availableFYs.length > 0) {
+            const defaults = availableFYs.slice(-3).map((f) => f._id);
+            setSelectedFyIds(defaults);
+        }
+    }, [availableFYs, selectedFyIds.length]);
+
+    const loadFilterOptions = async () => {
+        setFilterOptionsLoading(true);
+        try {
+            const params = new URLSearchParams({ mode: "filter-options" });
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+            const res = await fetch(`/api/dashboard/compare/fy-wise?${params}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success) {
+                    const cleanList = (list: any[]): OptionItem[] => {
+                        if (!Array.isArray(list)) return [];
+                        return list
+                            .map((item: any) => {
+                                if (item && typeof item === "object" && item.name !== undefined) {
+                                    return {
+                                        name: String(item.name).trim(),
+                                        count: Number(item.count || 1),
+                                    };
+                                }
+                                return {
+                                    name: String(item || "").trim(),
+                                    count: 1,
+                                };
+                            })
+                            .filter(
+                                (x) =>
+                                    x.name &&
+                                    !["null", "undefined", "n/a", "none", "-"].includes(
+                                        x.name.toLowerCase()
+                                    )
+                            );
+                    };
+
+                    setFilterOptions({
+                        states: cleanList(json.states),
+                        areas:  cleanList(json.areas),
+                        routes: cleanList(json.routes),
+                        dsms:   cleanList(json.dsms),
+                        asms:   cleanList(json.asms),
+                        rsms:   cleanList(json.rsms),
+                    });
+                }
+            }
+        } catch {
+            // Silently ignore
+        } finally {
+            setFilterOptionsLoading(false);
+        }
+    };
 
     const toggleFY = useCallback((id: string) => {
         setSelectedFyIds(prev =>
@@ -402,14 +508,39 @@ export default function FYWiseComparisonPage() {
         );
     }, []);
 
-    const loadData = useCallback(async () => {
-        if (selectedFyIds.length === 0) return;
+    const loadData = useCallback(async (overrides?: {
+        state?: string;
+        area?: string;
+        route?: string;
+        dsm?: string;
+        asm?: string;
+        rsm?: string;
+        fyIds?: string[];
+    }) => {
+        const activeFys = overrides?.fyIds ?? selectedFyIds;
+        if (activeFys.length === 0) return;
         setLoading(true); setError(null);
         try {
             const params = new URLSearchParams();
-            const uniqueIds = Array.from(new Set(selectedFyIds));
+            const uniqueIds = Array.from(new Set(activeFys));
             params.set("fyIds", uniqueIds.join(","));
             if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
+            const effState = overrides?.state !== undefined ? overrides.state : stateFilter;
+            const effArea  = overrides?.area  !== undefined ? overrides.area  : areaFilter;
+            const effRoute = overrides?.route !== undefined ? overrides.route : routeFilter;
+            const effDsm   = overrides?.dsm   !== undefined ? overrides.dsm   : dsmFilter;
+            const effAsm   = overrides?.asm   !== undefined ? overrides.asm   : asmFilter;
+            const effRsm   = overrides?.rsm   !== undefined ? overrides.rsm   : rsmFilter;
+
+            // Territory filters
+            if (effState) params.set("state", effState);
+            if (effArea)  params.set("area",  effArea);
+            if (effRoute) params.set("route", effRoute);
+            if (effDsm)   params.set("dsm",   effDsm);
+            if (effAsm)   params.set("asm",   effAsm);
+            if (effRsm)   params.set("rsm",   effRsm);
+
             const res = await fetch(`/api/dashboard/compare/fy-wise?${params}`);
             const json = await res.json();
             if (!json.success) throw new Error(json.error || "Failed");
@@ -421,14 +552,61 @@ export default function FYWiseComparisonPage() {
             setHasLoaded(true);
         } catch (e: any) { setError(e.message); }
         finally { setLoading(false); }
-    }, [selectedFyIds, selectedCompany]);
+    }, [selectedFyIds, selectedCompany, stateFilter, areaFilter, routeFilter, dsmFilter, asmFilter, rsmFilter]);
+
+    // Initial load once FYs are available
+    useEffect(() => {
+        if (!hasLoaded && selectedFyIds.length > 0) {
+            loadData();
+        }
+    }, [selectedFyIds, hasLoaded, loadData]);
 
     // Re-fetch when company changes
     useEffect(() => {
-        const h = () => hasLoaded && loadData();
+        const h = () => {
+            if (hasLoaded) loadData();
+            loadFilterOptions();
+        };
         window.addEventListener("company-changed", h);
         return () => window.removeEventListener("company-changed", h);
     }, [loadData, hasLoaded]);
+
+    const applyTerritoryFilters = () => {
+        setStateFilter(stageState);
+        setAreaFilter(stageArea);
+        setRouteFilter(stageRoute);
+        setDsmFilter(stageDsm);
+        setAsmFilter(stageAsm);
+        setRsmFilter(stageRsm);
+        setShowFilterPanel(false);
+        loadData({
+            state: stageState,
+            area: stageArea,
+            route: stageRoute,
+            dsm: stageDsm,
+            asm: stageAsm,
+            rsm: stageRsm,
+        });
+    };
+
+    const resetTerritoryFilters = () => {
+        setStageState(""); setStageArea(""); setStageRoute(""); setStageDsm(""); setStageAsm(""); setStageRsm("");
+        setStateFilter(""); setAreaFilter(""); setRouteFilter(""); setDsmFilter(""); setAsmFilter(""); setRsmFilter("");
+        loadData({ state: "", area: "", route: "", dsm: "", asm: "", rsm: "" });
+    };
+
+    const openFilterPanel = () => {
+        setStageState(stateFilter);
+        setStageArea(areaFilter);
+        setStageRoute(routeFilter);
+        setStageDsm(dsmFilter);
+        setStageAsm(asmFilter);
+        setStageRsm(rsmFilter);
+        setShowFilterPanel(true);
+    };
+
+    const activeFilterCount = [stateFilter, areaFilter, routeFilter, dsmFilter, asmFilter, rsmFilter].filter(Boolean).length;
+    const selectClass = "w-full px-3 py-2 rounded-xl bg-white/70 border border-white/80 text-xs text-slate-800 font-semibold shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/50 backdrop-blur-md";
 
     // ── Derived chart data ─────────────────────────────────────────────────
     const monthlyChartData = useMemo(() => MONTH_LABELS.map((month, idx) => {
@@ -575,7 +753,7 @@ export default function FYWiseComparisonPage() {
                 </div>
             </GlassCard>
 
-            {/* ── FY Multi-Selector ──────────────────────────────────────── */}
+            {/* ── FY Multi-Selector & Territory Filters ─────────────────── */}
             <GlassCard>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5">
                     <div>
@@ -583,22 +761,197 @@ export default function FYWiseComparisonPage() {
                             <FaFilter size={12} className="text-indigo-500" />
                             Select Financial Years to Compare
                         </h3>
-                        <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 m-0">Tick the FYs you want to compare, then click Load</p>
+                        <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 m-0">Tick the FYs you want to compare, apply territory filters, then click Load</p>
                     </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+                    <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                        {/* Area Filters toggle button */}
+                        <button
+                            onClick={() => (showFilterPanel ? setShowFilterPanel(false) : openFilterPanel())}
+                            className={`flex items-center gap-1.5 text-xs font-black px-3.5 py-2 rounded-xl transition-all border ${
+                                activeFilterCount > 0 || showFilterPanel
+                                    ? "bg-indigo-600 text-white border-indigo-700 shadow-md shadow-indigo-200"
+                                    : "bg-white/80 text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                        >
+                            <FaMapMarkerAlt size={11} className={activeFilterCount > 0 ? "text-amber-300" : "text-indigo-500"} />
+                            <span>Area Filters</span>
+                            {activeFilterCount > 0 && (
+                                <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black flex items-center justify-center ml-0.5">
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                        </button>
+
                         {selectedFyIds.length > 0 && (
-                            <span className="text-[10px] sm:text-[11px] text-indigo-600 font-bold bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200">
-                                {selectedFyIds.length} Selected
+                            <span className="text-[10px] sm:text-[11px] text-indigo-600 font-bold bg-indigo-50 px-2.5 py-1.5 rounded-xl border border-indigo-200">
+                                {selectedFyIds.length} FYs
                             </span>
                         )}
-                        <button onClick={loadData} disabled={loading || selectedFyIds.length === 0}
-                            className="flex items-center justify-center gap-2 text-white text-xs font-black px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg w-full sm:w-auto"
+                        <button onClick={() => loadData()} disabled={loading || selectedFyIds.length === 0}
+                            className="flex items-center justify-center gap-2 text-white text-xs font-black px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg flex-1 sm:flex-initial"
                             style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)", boxShadow: "0 4px 16px rgba(99,102,241,0.35)" }}>
                             <FaSync size={11} className={loading ? "animate-spin" : ""} />
                             {loading ? "Loading…" : "Load Comparison"}
                         </button>
                     </div>
                 </div>
+
+                {/* Active Filter Badges */}
+                {activeFilterCount > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 mb-3.5 pt-2 pb-1 border-t border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Filters:</span>
+                        {stateFilter && <ActiveFilterBadge label="State" value={stateFilter} onRemove={() => { setStateFilter(""); setStageState(""); loadData({ state: "" }); }} />}
+                        {areaFilter  && <ActiveFilterBadge label="Area"  value={areaFilter}  onRemove={() => { setAreaFilter("");  setStageArea("");  loadData({ area: "" }); }} />}
+                        {routeFilter && <ActiveFilterBadge label="Route" value={routeFilter} onRemove={() => { setRouteFilter(""); setStageRoute(""); loadData({ route: "" }); }} />}
+                        {dsmFilter   && <ActiveFilterBadge label="DSM"   value={dsmFilter}   onRemove={() => { setDsmFilter("");   setStageDsm("");   loadData({ dsm: "" }); }} />}
+                        {asmFilter   && <ActiveFilterBadge label="ASM"   value={asmFilter}   onRemove={() => { setAsmFilter("");   setStageAsm("");   loadData({ asm: "" }); }} />}
+                        {rsmFilter   && <ActiveFilterBadge label="RSM"   value={rsmFilter}   onRemove={() => { setRsmFilter("");   setStageRsm("");   loadData({ rsm: "" }); }} />}
+                        <button
+                            onClick={resetTerritoryFilters}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-700 underline underline-offset-2 ml-1"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                )}
+
+                {/* Slide-down Filter Panel */}
+                {showFilterPanel && (
+                    <div className="mb-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                                <FaFilter size={11} className="text-indigo-600" /> Area-Wise Territory Filters
+                            </span>
+                            <button onClick={() => setShowFilterPanel(false)} className="text-slate-400 hover:text-slate-700 transition-colors">
+                                <FaTimes size={13} />
+                            </button>
+                        </div>
+
+                        {filterOptionsLoading ? (
+                            <div className="py-5 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                                <FaSync size={12} className="animate-spin text-indigo-500" />
+                                Loading filter options from database...
+                            </div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                                    {/* State */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaGlobeAsia size={9} className="text-blue-500" /> State
+                                        </label>
+                                        <select value={stageState} onChange={(e) => setStageState(e.target.value)} className={selectClass}>
+                                            <option value="">All States ({filterOptions.states?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.states?.map((st) => (
+                                                <option key={st.name} value={st.name}>
+                                                    {st.name} ({st.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Area / City */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaMapMarkerAlt size={9} className="text-indigo-500" /> Area / City
+                                        </label>
+                                        <select value={stageArea} onChange={(e) => setStageArea(e.target.value)} className={selectClass}>
+                                            <option value="">All Areas ({filterOptions.areas?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.areas?.map((a) => (
+                                                <option key={a.name} value={a.name}>
+                                                    {a.name} ({a.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Route */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaRoute size={9} className="text-indigo-500" /> Route
+                                        </label>
+                                        <select value={stageRoute} onChange={(e) => setStageRoute(e.target.value)} className={selectClass}>
+                                            <option value="">All Routes ({filterOptions.routes?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.routes?.map((r) => (
+                                                <option key={r.name} value={r.name}>
+                                                    {r.name} ({r.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* DSM */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaUserTie size={9} className="text-indigo-500" /> DSM (Salesman)
+                                        </label>
+                                        <select value={stageDsm} onChange={(e) => setStageDsm(e.target.value)} className={selectClass}>
+                                            <option value="">All DSM ({filterOptions.dsms?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.dsms?.map((d) => (
+                                                <option key={d.name} value={d.name}>
+                                                    {d.name} ({d.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* ASM */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaUserTie size={9} className="text-amber-500" /> ASM (Area Mgr)
+                                        </label>
+                                        <select value={stageAsm} onChange={(e) => setStageAsm(e.target.value)} className={selectClass}>
+                                            <option value="">All ASM ({filterOptions.asms?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.asms?.map((a) => (
+                                                <option key={a.name} value={a.name}>
+                                                    {a.name} ({a.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* RSM */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaUserTie size={9} className="text-teal-500" /> RSM (Regional Mgr)
+                                        </label>
+                                        <select value={stageRsm} onChange={(e) => setStageRsm(e.target.value)} className={selectClass}>
+                                            <option value="">All RSM ({filterOptions.rsms?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.rsms?.map((r) => (
+                                                <option key={r.name} value={r.name}>
+                                                    {r.name} ({r.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-indigo-100/60">
+                                    <button
+                                        onClick={() => { setStageState(""); setStageArea(""); setStageRoute(""); setStageDsm(""); setStageAsm(""); setStageRsm(""); }}
+                                        className="text-[11px] font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                                    >
+                                        Reset Form
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setShowFilterPanel(false)}
+                                            className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={applyTerritoryFilters}
+                                            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-md shadow-indigo-200 transition-all"
+                                        >
+                                            Apply Filters
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {availableFYs.length === 0 ? (
                     <div className="flex items-center gap-2 py-3 text-slate-400 text-xs">

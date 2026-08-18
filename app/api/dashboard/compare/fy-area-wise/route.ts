@@ -5,6 +5,8 @@ import SubDis from "@/models/SubDis";
 import PurchaseBill from "@/models/PurchaseBill";
 import PurchaseReturn from "@/models/PurchaseReturn";
 import GLedger from "@/models/GLedger";
+import Customer from "@/models/Customer";
+import { SalesDis, SalesMdis } from "@/models/dashboardModels";
 import {
     buildStateResolution,
     resolveState,
@@ -16,6 +18,10 @@ import {
 } from "@/lib/indiaMapStateResolver";
 import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
+
+function escapeRegex(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 const FY_PALETTE = ["#6366F1", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4"];
 
@@ -53,9 +59,187 @@ export async function GET(req: Request) {
         await connectDB();
 
         const { searchParams } = new URL(req.url);
+
+        // ── Filter-options mode: returns distinct State/Area/Route/DSM/ASM/RSM values with counts ──
+        if (searchParams.get("mode") === "filter-options") {
+            const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+            const restriction = await getMrTerritoryRestriction();
+
+            const baseMatch: any = combineFilters(
+                companyVfpMatch,
+                restriction.isMrRestricted && restriction.allowedCompanyCodes?.length
+                    ? { COMPANY: { $in: [...restriction.allowedCompanyCodes] } }
+                    : {}
+            );
+
+            const [
+                allCustomers,
+                mdisAreas, disAreas,
+                mdisRoutes, disRoutes,
+                mdisDsms, disDsms,
+                mdisAsms, disAsms,
+                mdisRsms, disRsms,
+            ] = await Promise.all([
+                Customer.find({}, { ORDNO: 1, PARNAM: 1, CITY: 1, AREA: 1, ROUT: 1, DSM: 1, ASM: 1, RSM: 1, STATE: 1, GSTNO: 1 }).lean().catch(() => []),
+                SalesMdis.distinct("AREA", combineFilters(baseMatch, { AREA: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesDis.distinct("AREA", combineFilters(baseMatch, { AREA: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesMdis.distinct("ROUT", combineFilters(baseMatch, { ROUT: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesDis.distinct("ROUT", combineFilters(baseMatch, { ROUT: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesMdis.distinct("DSM", combineFilters(baseMatch, { DSM: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesDis.distinct("DSM", combineFilters(baseMatch, { DSM: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesMdis.distinct("ASM", combineFilters(baseMatch, { ASM: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesDis.distinct("ASM", combineFilters(baseMatch, { ASM: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesMdis.distinct("RSM", combineFilters(baseMatch, { RSM: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+                SalesDis.distinct("RSM", combineFilters(baseMatch, { RSM: { $exists: true, $nin: [null, ""] } })).catch(() => []),
+            ]);
+
+            const isValid = (v: string) => {
+                if (!v) return false;
+                const lower = v.toLowerCase();
+                return (
+                    lower !== "null" &&
+                    lower !== "undefined" &&
+                    lower !== "n/a" &&
+                    lower !== "none" &&
+                    v !== "-"
+                );
+            };
+
+            const stateMap = new Map<string, number>();
+            const areaMap = new Map<string, number>();
+            const routeMap = new Map<string, number>();
+            const dsmMap = new Map<string, number>();
+            const asmMap = new Map<string, number>();
+            const rsmMap = new Map<string, number>();
+
+            (allCustomers as any[]).forEach((c: any) => {
+                const city = c.CITY ? String(c.CITY).trim() : "";
+                const explicitArea = c.AREA ? String(c.AREA).trim() : "";
+                const state = (c.STATE ? String(c.STATE).trim() : null) || stateFromGstno(c.GSTNO) || stateFromCity(city);
+                const route = c.ROUT ? String(c.ROUT).trim() : "";
+                const dsm = c.DSM ? String(c.DSM).trim() : "";
+                const asm = c.ASM ? String(c.ASM).trim() : "";
+                const rsm = c.RSM ? String(c.RSM).trim() : "";
+
+                if (state && isValid(state)) {
+                    stateMap.set(state, (stateMap.get(state) || 0) + 1);
+                }
+                const areaKey = explicitArea || city;
+                if (areaKey && isValid(areaKey)) {
+                    areaMap.set(areaKey, (areaMap.get(areaKey) || 0) + 1);
+                }
+                if (route && isValid(route)) {
+                    routeMap.set(route, (routeMap.get(route) || 0) + 1);
+                }
+                if (dsm && isValid(dsm)) {
+                    dsmMap.set(dsm, (dsmMap.get(dsm) || 0) + 1);
+                }
+                if (asm && isValid(asm)) {
+                    asmMap.set(asm, (asmMap.get(asm) || 0) + 1);
+                }
+                if (rsm && isValid(rsm)) {
+                    rsmMap.set(rsm, (rsmMap.get(rsm) || 0) + 1);
+                }
+            });
+
+            const addFromList = (list: any[], map: Map<string, number>) => {
+                (list || []).forEach((item: any) => {
+                    const str = String(item || "").trim();
+                    if (str && isValid(str) && !map.has(str)) {
+                        map.set(str, 1);
+                    }
+                });
+            };
+
+            addFromList(mdisAreas, areaMap);
+            addFromList(disAreas, areaMap);
+            addFromList(mdisRoutes, routeMap);
+            addFromList(disRoutes, routeMap);
+            addFromList(mdisDsms, dsmMap);
+            addFromList(disDsms, dsmMap);
+            addFromList(mdisAsms, asmMap);
+            addFromList(disAsms, asmMap);
+            addFromList(mdisRsms, rsmMap);
+            addFromList(disRsms, rsmMap);
+
+            const toSortedCountList = (map: Map<string, number>) => {
+                return Array.from(map.entries())
+                    .map(([name, count]) => ({ name, count }))
+                    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+            };
+
+            return NextResponse.json({
+                success: true,
+                states: toSortedCountList(stateMap),
+                areas: toSortedCountList(areaMap),
+                routes: toSortedCountList(routeMap),
+                dsms: toSortedCountList(dsmMap),
+                asms: toSortedCountList(asmMap),
+                rsms: toSortedCountList(rsmMap),
+            });
+        }
+
         const fyIdsParam = searchParams.get("fyIds") || "";
         const companyVfpMatch = await getCompanyVfpFilter(searchParams);
         const restriction = await getMrTerritoryRestriction();
+
+        // Territory filters
+        const stateFilter = (searchParams.get("state") || "").trim();
+        const areaFilter  = (searchParams.get("area")  || "").trim();
+        const routeFilter = (searchParams.get("route") || "").trim();
+        const dsmFilter   = (searchParams.get("dsm")   || "").trim();
+        const asmFilter   = (searchParams.get("asm")   || "").trim();
+        const rsmFilter   = (searchParams.get("rsm")   || "").trim();
+
+        const hasTerritoryFilter = Boolean(stateFilter || areaFilter || routeFilter || dsmFilter || asmFilter || rsmFilter);
+
+        let territoryCodeps: string[] | null = null;
+        let territoryVouchers: number[] | null = null;
+
+        if (hasTerritoryFilter) {
+            const allCustomers = await Customer.find(
+                {},
+                { ORDNO: 1, PARNAM: 1, CITY: 1, AREA: 1, ROUT: 1, DSM: 1, ASM: 1, RSM: 1, STATE: 1, GSTNO: 1 }
+            ).lean();
+
+            const codepSet = new Set<string>();
+
+            (allCustomers as any[]).forEach((c: any) => {
+                const city = (c.CITY || "").toString().trim();
+                const explicitArea = (c.AREA || "").toString().trim();
+                const state = (c.STATE || "").toString().trim() || stateFromGstno(c.GSTNO) || stateFromCity(city) || "";
+                const route = (c.ROUT || "").toString().trim();
+                const dsm = (c.DSM || "").toString().trim();
+                const asm = (c.ASM || "").toString().trim();
+                const rsm = (c.RSM || "").toString().trim();
+
+                if (stateFilter && !state.toLowerCase().includes(stateFilter.toLowerCase())) return;
+                if (areaFilter && !city.toLowerCase().includes(areaFilter.toLowerCase()) && !explicitArea.toLowerCase().includes(areaFilter.toLowerCase())) return;
+                if (routeFilter && !route.toLowerCase().includes(routeFilter.toLowerCase())) return;
+                if (dsmFilter && !dsm.toLowerCase().includes(dsmFilter.toLowerCase())) return;
+                if (asmFilter && !asm.toLowerCase().includes(asmFilter.toLowerCase())) return;
+                if (rsmFilter && !rsm.toLowerCase().includes(rsmFilter.toLowerCase())) return;
+
+                if (c.ORDNO) codepSet.add(String(c.ORDNO).trim());
+            });
+
+            // Check direct match on SalesDis
+            const disGeoMatch: any = {};
+            if (areaFilter)  disGeoMatch.AREA = { $regex: escapeRegex(areaFilter),  $options: "i" };
+            if (routeFilter) disGeoMatch.ROUT = { $regex: escapeRegex(routeFilter), $options: "i" };
+            if (dsmFilter)   disGeoMatch.DSM  = { $regex: escapeRegex(dsmFilter),   $options: "i" };
+            if (asmFilter)   disGeoMatch.ASM  = { $regex: escapeRegex(asmFilter),   $options: "i" };
+            if (rsmFilter)   disGeoMatch.RSM  = { $regex: escapeRegex(rsmFilter),   $options: "i" };
+
+            const matchedDisVouchers = Object.keys(disGeoMatch).length
+                ? await SalesDis.distinct("VOUCHER", disGeoMatch).catch(() => [])
+                : [];
+
+            territoryCodeps = Array.from(codepSet);
+            territoryVouchers = (matchedDisVouchers as number[]).filter(
+                (v) => v !== null && v !== undefined
+            );
+        }
 
         // 1. Fetch Financial Years
         let targetFys: any[] = [];
@@ -103,8 +287,31 @@ export async function GET(req: Request) {
             return null;
         };
 
+        const buildTerritoryCondition = () => {
+            if (!hasTerritoryFilter) return {};
+            const directGeo: any = {};
+            if (areaFilter)  directGeo.AREA = { $regex: escapeRegex(areaFilter),  $options: "i" };
+            if (routeFilter) directGeo.ROUT = { $regex: escapeRegex(routeFilter), $options: "i" };
+            if (dsmFilter)   directGeo.DSM  = { $regex: escapeRegex(dsmFilter),   $options: "i" };
+            if (asmFilter)   directGeo.ASM  = { $regex: escapeRegex(asmFilter),   $options: "i" };
+            if (rsmFilter)   directGeo.RSM  = { $regex: escapeRegex(rsmFilter),   $options: "i" };
+
+            const conditions: any[] = [];
+            if (Object.keys(directGeo).length > 0) conditions.push(directGeo);
+            if (territoryCodeps && territoryCodeps.length > 0) {
+                conditions.push({ CODEP: { $in: territoryCodeps } });
+            }
+            if (territoryVouchers && territoryVouchers.length > 0) {
+                conditions.push({ VOUCHER: { $in: territoryVouchers } });
+            }
+
+            if (conditions.length === 0) return { CODEP: "NO_TERRITORY_MATCH" };
+            return conditions.length === 1 ? conditions[0] : { $or: conditions };
+        };
+
         const codepFilter = combineFilters(
             companyVfpMatch,
+            buildTerritoryCondition(),
             restriction.isMrRestricted
                 ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
                     ? { CODEP: { $in: restriction.allowedOrdnos } }
@@ -148,6 +355,9 @@ export async function GET(req: Request) {
             const state = resolveState(resolution, r.CODEP, r.VOUCHER);
             if (!state) return;
 
+            // If stateFilter is explicitly specified, enforce exact state match
+            if (stateFilter && !state.toLowerCase().includes(stateFilter.toLowerCase())) return;
+
             const acc = getMetricAcc(state, fyRes.fyId);
             const amt = Number(r.FINAL || 0);
 
@@ -173,12 +383,13 @@ export async function GET(req: Request) {
 
         // ---- B. Process SubDis Rows for Product Breakdown ----
         try {
-            const subdisRows = await SubDis.find(combineFilters(companyVfpMatch)).lean();
+            const subdisRows = await SubDis.find(codepFilter).lean();
             subdisRows.forEach((d: any) => {
                 const fyRes = matchFy(d.DATE);
                 if (!fyRes) return;
                 const state = resolveState(resolution, d.CODEP, d.VOUCHER);
                 if (!state) return;
+                if (stateFilter && !state.toLowerCase().includes(stateFilter.toLowerCase())) return;
 
                 const acc = getMetricAcc(state, fyRes.fyId);
                 const pCode = String(d.PROCD || d.PRODUCT || "GENERIC");
@@ -195,46 +406,59 @@ export async function GET(req: Request) {
 
         // ---- C. Web Purchase Bills & Returns ----
         try {
-            const webBills = await PurchaseBill.find(combineFilters(companyVfpMatch)).lean();
-            webBills.forEach((b: any) => {
-                const fyRes = matchFy(b.billDate || b.createdAt);
-                if (!fyRes) return;
-                const state =
-                    b.state ||
-                    stateFromGstno(b.vendorGst) ||
-                    stateFromCity(b.city) ||
-                    resolveStateFromText(b.vendorName, b.city, b.state) ||
-                    "Haryana";
-                const acc = getMetricAcc(state, fyRes.fyId);
-                const amt = Number(b.netAmount || b.grandTotal || 0);
-                acc.purchase += amt;
-                if (b.vendorName) acc.suppliers.add(b.vendorName);
-            });
+            if (!hasTerritoryFilter || (stateFilter && stateFilter.toLowerCase().includes("haryana"))) {
+                const webBills = await PurchaseBill.find(combineFilters(companyVfpMatch)).lean();
+                webBills.forEach((b: any) => {
+                    const fyRes = matchFy(b.billDate || b.createdAt);
+                    if (!fyRes) return;
+                    const state =
+                        b.state ||
+                        stateFromGstno(b.vendorGst) ||
+                        stateFromCity(b.city) ||
+                        resolveStateFromText(b.vendorName, b.city, b.state) ||
+                        "Haryana";
+                    if (stateFilter && !state.toLowerCase().includes(stateFilter.toLowerCase())) return;
+                    const acc = getMetricAcc(state, fyRes.fyId);
+                    const amt = Number(b.netAmount || b.grandTotal || 0);
+                    acc.purchase += amt;
+                    if (b.vendorName) acc.suppliers.add(b.vendorName);
+                });
 
-            const webReturns = await PurchaseReturn.find(combineFilters(companyVfpMatch)).lean();
-            webReturns.forEach((r: any) => {
-                const fyRes = matchFy(r.returnDate || r.createdAt);
-                if (!fyRes) return;
-                const state =
-                    r.state ||
-                    stateFromGstno(r.vendorGst) ||
-                    stateFromCity(r.city) ||
-                    resolveStateFromText(r.vendorName, r.city, r.state) ||
-                    "Haryana";
-                const acc = getMetricAcc(state, fyRes.fyId);
-                const amt = Number(r.grandTotal || 0);
-                acc.purchase -= amt;
-            });
+                const webReturns = await PurchaseReturn.find(combineFilters(companyVfpMatch)).lean();
+                webReturns.forEach((r: any) => {
+                    const fyRes = matchFy(r.returnDate || r.createdAt);
+                    if (!fyRes) return;
+                    const state =
+                        r.state ||
+                        stateFromGstno(r.vendorGst) ||
+                        stateFromCity(r.city) ||
+                        resolveStateFromText(r.vendorName, r.city, r.state) ||
+                        "Haryana";
+                    if (stateFilter && !state.toLowerCase().includes(stateFilter.toLowerCase())) return;
+                    const acc = getMetricAcc(state, fyRes.fyId);
+                    const amt = Number(r.grandTotal || 0);
+                    acc.purchase -= amt;
+                });
+            }
         } catch {}
 
         // ---- D. GLEDGER Collections & Payments ----
         try {
-            const gledgerRows = await GLedger.find(combineFilters(companyVfpMatch)).lean();
+            const gledgerFilter = combineFilters(
+                companyVfpMatch,
+                hasTerritoryFilter && territoryCodeps && territoryCodeps.length > 0
+                    ? { $or: [{ CODE: { $in: territoryCodeps } }, { CODE1: { $in: territoryCodeps } }] }
+                    : hasTerritoryFilter
+                    ? { CODE: "NO_TERRITORY_MATCH" }
+                    : {}
+            );
+            const gledgerRows = await GLedger.find(gledgerFilter).lean();
             gledgerRows.forEach((g: any) => {
                 const fyRes = matchFy(g.DATE);
                 if (!fyRes) return;
-                const state = resolveState(resolution, g.CODEP, g.VOUCHER);
+                const state = resolveState(resolution, g.CODEP || g.CODE, g.VOUCHER);
                 if (!state) return;
+                if (stateFilter && !state.toLowerCase().includes(stateFilter.toLowerCase())) return;
                 const acc = getMetricAcc(state, fyRes.fyId);
 
                 const cr = Number(g.CREDIT || 0);
