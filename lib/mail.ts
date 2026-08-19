@@ -8,6 +8,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
 
 // Brand Colors
@@ -20,15 +23,14 @@ const BORDER = "#ECEEF9";
 
 export async function sendEmailOTP(email: string, otp: string) {
   try {
-    await transporter.verify();
-    console.log("SMTP Connected");
-
     const digits = otp.split("");
+    const senderEmail = process.env.SMTP_USER || "support@mabsolinfotech.com";
+    const from = `"Mabsol Pharma CRM" <${senderEmail}>`;
 
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+      from,
       to: email,
-      subject: "Mabsol Pharma CRM - Email Verification OTP",
+      subject: `${otp} is your Mabsol Pharma CRM verification code`,
 
       html: `
 <!DOCTYPE html>

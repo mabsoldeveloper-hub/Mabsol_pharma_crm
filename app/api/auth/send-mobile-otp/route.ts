@@ -40,24 +40,22 @@ export async function POST(req: Request) {
         type: "mobile",
       },
       {
-        otp,
-        verified: false,
-        expiresAt: new Date(
-          Date.now() + 5 * 60 * 1000
-        ),
+        $set: {
+          mobile,
+          type: "mobile",
+          otp,
+          verified: false,
+          attempts: 0,
+          expiresAt: new Date(
+            Date.now() + 5 * 60 * 1000
+          ),
+        },
       },
       {
         upsert: true,
+        new: true,
       }
     );
-
-
-    const saved = await Otp.findOne({
-      mobile,
-      type: "mobile",
-    });
-    
-    console.log("Saved OTP Record:", saved);
 
     sendWhatsAppOTP(
       mobile,

@@ -41,12 +41,14 @@ export async function POST(req: Request) {
         type: "email",
       },
       {
-        email,
-        type: "email",
-        otp,
-        verified: false,
-        attempts: 0,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        $set: {
+          email,
+          type: "email",
+          otp,
+          verified: false,
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        },
       },
       {
         upsert: true,
@@ -54,33 +56,8 @@ export async function POST(req: Request) {
       }
     );
 
-
-
-    const saved = await Otp.findOne({
-      email,
-      type: "email",
-    });
-    
-    console.log(saved);
-    // Otp.findOne(
-    //   {
-    //     email,
-    //     type: "email",
-    //   },
-    //   {
-    //     otp,
-    //     verified: false,
-    //     expiresAt: new Date(
-    //       Date.now() + 5 * 60 * 1000
-    //     ),
-    //   },
-    //   {
-    //     upsert: false,
-    //   }
-    // );
-
-    sendEmailOTP(email, otp).catch((err) => {
-      console.error("Email OTP failed in background:", err);
+    await sendEmailOTP(email, otp).catch((err) => {
+      console.error("Email OTP failed:", err);
     });
 
     return NextResponse.json({

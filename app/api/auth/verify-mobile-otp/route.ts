@@ -49,9 +49,21 @@ export async function POST(req: Request) {
 
     }
 
+    const MAX_ATTEMPTS = 5;
+
+    if (record.attempts >= MAX_ATTEMPTS) {
+      await Otp.deleteMany({ mobile, type: "mobile" });
+      return NextResponse.json({
+        success: false,
+        message: "Too many incorrect attempts. Please request a new code.",
+      });
+    }
+
     if (
       record.otp !== otp
     ) {
+      record.attempts += 1;
+      await record.save();
 
       return NextResponse.json({
 
