@@ -46,6 +46,7 @@ import {
   FaPaperPlane,
   FaBullhorn,
   FaFunnelDollar,
+  FaWhatsapp,
 } from "react-icons/fa";
 
 
@@ -593,6 +594,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     label="Email Campaign"
                     active={pathname === "/dashboard/email-campaign" || pathname.startsWith("/dashboard/email-campaign")}
                     color="amber"
+                  />
+                </li>
+                <li>
+                  <NavLink
+                    href="/dashboard/whatsapp-campaign"
+                    icon={<FaWhatsapp />}
+                    label="WhatsApp Campaign"
+                    active={pathname === "/dashboard/whatsapp-campaign" || pathname.startsWith("/dashboard/whatsapp-campaign")}
+                    color="emerald"
                   />
                 </li>
                 {/* ── Lead Management Hub ─────────────────── */}
