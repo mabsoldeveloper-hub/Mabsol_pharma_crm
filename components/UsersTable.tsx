@@ -136,13 +136,28 @@ export default function UsersTable({ users }: { users: any[] }) {
                                     className="border-b border-gray-100/70 last:border-0 hover:bg-white/50 transition-colors duration-200"
                                 >
                                     <td className="px-4 py-2.5">
-                                        <img
-                                            src={user.profilePhoto || "/avatar.png"}
-                                            width="38"
-                                            height="38"
-                                            alt=""
-                                            className="rounded-full object-cover ring-2 ring-indigo-400/40"
-                                        />
+                                        <div className="w-[36px] h-[36px] rounded-full overflow-hidden shrink-0 ring-2 ring-indigo-400/40 bg-indigo-50 flex items-center justify-center">
+                                            {user.profilePhoto ? (
+                                                <img
+                                                    src={user.profilePhoto}
+                                                    alt={user.name || ""}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        const target = e.currentTarget;
+                                                        target.style.display = "none";
+                                                        if (target.nextElementSibling) {
+                                                            (target.nextElementSibling as HTMLElement).style.display = "flex";
+                                                        }
+                                                    }}
+                                                />
+                                            ) : null}
+                                            <span
+                                                style={{ display: user.profilePhoto ? "none" : "flex" }}
+                                                className="w-full h-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white font-extrabold text-xs items-center justify-center select-none uppercase tracking-wider"
+                                            >
+                                                {user.name ? (user.name.trim().split(/\s+/).length >= 2 ? `${user.name.trim().split(/\s+/)[0][0]}${user.name.trim().split(/\s+/)[1][0]}` : user.name.slice(0, 1)).toUpperCase() : "U"}
+                                            </span>
+                                        </div>
                                     </td>
 
                                     <td className="px-4 py-2.5 text-gray-600">{user.employeeCode}</td>

@@ -26,6 +26,20 @@ export default function Topbar({
   const [profileOpen, setProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string>("");
+  const [profileImgError, setProfileImgError] = useState(false);
+
+  useEffect(() => {
+    setProfileImgError(false);
+  }, [user?.profilePhoto]);
+
+  const getUserInitials = (name?: string) => {
+    if (!name || !name.trim()) return "U";
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return parts[0].substring(0, 1).toUpperCase() || "U";
+  };
 
   // Dynamic Voice Assistant ("Hey [Name]") State & Listener
   const [assistantName, setAssistantName] = useState("AI Assistant");
@@ -67,7 +81,7 @@ export default function Topbar({
   useEffect(() => {
     if (typeof window === "undefined" || !wakewordEnabled || searchOpen) {
       if (bgRecognitionRef.current) {
-        try { bgRecognitionRef.current.abort(); } catch (e) {}
+        try { bgRecognitionRef.current.abort(); } catch (e) { }
       }
       return;
     }
@@ -84,7 +98,7 @@ export default function Topbar({
 
       try {
         if (bgRecognitionRef.current) {
-          try { bgRecognitionRef.current.abort(); } catch (e) {}
+          try { bgRecognitionRef.current.abort(); } catch (e) { }
         }
 
         const rec = new SpeechRecognition();
@@ -109,7 +123,7 @@ export default function Topbar({
 
           if (isTriggered) {
             console.log(`${assistantName} Wake-Word Triggered:`, transcript);
-            try { rec.abort(); } catch (e) {}
+            try { rec.abort(); } catch (e) { }
 
             setAssistantToast(true);
             setTimeout(() => setAssistantToast(false), 3500);
@@ -148,7 +162,7 @@ export default function Topbar({
     return () => {
       isMounted = false;
       if (bgRecognitionRef.current) {
-        try { bgRecognitionRef.current.abort(); } catch (e) {}
+        try { bgRecognitionRef.current.abort(); } catch (e) { }
       }
     };
   }, [wakewordEnabled, searchOpen, assistantName]);
@@ -338,8 +352,8 @@ export default function Topbar({
                     {fy.isAll
                       ? fy.fyName
                       : fy.fyCode
-                      ? `${fy.fyCode} - FY ${fy.fyName}`
-                      : `FY ${fy.fyName}`}
+                        ? `${fy.fyCode} - FY ${fy.fyName}`
+                        : `FY ${fy.fyName}`}
                   </option>
                 ))}
               </select>
@@ -387,8 +401,8 @@ export default function Topbar({
                     {fy.isAll
                       ? "All FYs"
                       : fy.fyCode
-                      ? `${fy.fyCode}`
-                      : `FY ${fy.fyName}`}
+                        ? `${fy.fyCode}`
+                        : `FY ${fy.fyName}`}
                   </option>
                 ))}
               </select>
@@ -414,11 +428,10 @@ export default function Topbar({
                 setAutoVoiceStart(true);
                 setSearchOpen(true);
               }}
-              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold border rounded-md shadow-2xs transition-colors cursor-pointer ${
-                wakewordEnabled
-                  ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100"
-                  : "text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200"
-              }`}
+              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold border rounded-md shadow-2xs transition-colors cursor-pointer ${wakewordEnabled
+                ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100"
+                : "text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200"
+                }`}
               title={wakewordEnabled ? `Click or say 'Hey ${assistantName}' to activate ${assistantName} AI` : `${assistantName} Wake-Word Disabled (Click to open Voice AI)`}
             >
               🎙️ {assistantName} AI {wakewordEnabled ? `("Hey ${assistantName}")` : "(Off)"}
@@ -504,11 +517,10 @@ export default function Topbar({
                   <button
                     key={cat.id}
                     onClick={() => setActiveCat(cat.id)}
-                    className={`px-3 py-1 rounded-lg whitespace-nowrap transition-all ${
-                      activeCat === cat.id
-                        ? "bg-indigo-600 text-white shadow-sm"
-                        : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60"
-                    }`}
+                    className={`px-3 py-1 rounded-lg whitespace-nowrap transition-all ${activeCat === cat.id
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60"
+                      }`}
                   >
                     {cat.label}
                   </button>
@@ -531,21 +543,19 @@ export default function Topbar({
                       <div
                         key={n._id || i}
                         onClick={() => handleNotifClick(n)}
-                        className={`group px-3.5 py-3 text-[13px] cursor-pointer transition-all duration-150 flex gap-2.5 items-start ${
-                          !n.isRead ? "bg-indigo-50/30 hover:bg-indigo-50/60 font-medium" : "hover:bg-slate-50"
-                        }`}
+                        className={`group px-3.5 py-3 text-[13px] cursor-pointer transition-all duration-150 flex gap-2.5 items-start ${!n.isRead ? "bg-indigo-50/30 hover:bg-indigo-50/60 font-medium" : "hover:bg-slate-50"
+                          }`}
                       >
                         {/* Status Icon */}
                         <div
-                          className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                            isErr
-                              ? "bg-rose-500 ring-4 ring-rose-100"
-                              : isWarn
+                          className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${isErr
+                            ? "bg-rose-500 ring-4 ring-rose-100"
+                            : isWarn
                               ? "bg-amber-500 ring-4 ring-amber-100"
                               : isSucc
-                              ? "bg-emerald-500 ring-4 ring-emerald-100"
-                              : "bg-indigo-500 ring-4 ring-indigo-100"
-                          }`}
+                                ? "bg-emerald-500 ring-4 ring-emerald-100"
+                                : "bg-indigo-500 ring-4 ring-indigo-100"
+                            }`}
                         />
 
                         <div className="flex-1 min-w-0">
@@ -590,12 +600,19 @@ export default function Topbar({
             }}
             className="flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 sm:pl-2 sm:pr-3 h-8 sm:h-10 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200"
           >
-            <span className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs shrink-0 bg-white">
-              <img
-                src={user?.profilePhoto || "/avatar.png"}
-                alt={user?.name || "User"}
-                className="w-full h-full object-cover"
-              />
+            <span className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden border border-gray-200/80 dark:border-slate-700 shadow-xs shrink-0 bg-indigo-50 dark:bg-slate-800">
+              {user?.profilePhoto && !profileImgError ? (
+                <img
+                  src={user.profilePhoto}
+                  alt={user?.name || "User"}
+                  className="w-full h-full object-cover"
+                  onError={() => setProfileImgError(true)}
+                />
+              ) : (
+                <span className="w-full h-full rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white font-extrabold text-[10px] sm:text-xs flex items-center justify-center select-none uppercase tracking-wider">
+                  {getUserInitials(user?.name)}
+                </span>
+              )}
             </span>
 
             {!mobile && (
@@ -611,24 +628,45 @@ export default function Topbar({
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white border border-gray-200 shadow-lg py-2 z-[1100]">
-              <a
-                href="/dashboard/profile"
-                className="block px-3 py-2 text-[13px] text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors duration-150"
-              >
-                My Profile
-              </a>
+            <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-xl py-1.5 z-[1100] divide-y divide-gray-100 dark:divide-slate-800">
+              <div className="px-3.5 py-2.5 flex items-center gap-2.5">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs shrink-0 bg-indigo-50 dark:bg-slate-800">
+                  {user?.profilePhoto && !profileImgError ? (
+                    <img
+                      src={user.profilePhoto}
+                      alt={user?.name || "User"}
+                      className="w-full h-full object-cover"
+                      onError={() => setProfileImgError(true)}
+                    />
+                  ) : (
+                    <span className="w-full h-full rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white font-extrabold text-[11px] flex items-center justify-center select-none uppercase tracking-wider">
+                      {getUserInitials(user?.name)}
+                    </span>
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{user?.name || "User"}</p>
+                  <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate">{user?.roleId?.roleName || user?.email || "Manager"}</p>
+                </div>
+              </div>
 
-              <a
-                href="/dashboard/settings"
-                className="block px-3 py-2 text-[13px] text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors duration-150"
-              >
-                Settings
-              </a>
+              <div className="py-1">
+                <a
+                  href="/dashboard/profile"
+                  className="block px-3.5 py-2 text-[13px] text-gray-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150 font-medium"
+                >
+                  My Profile
+                </a>
 
-              <div className="my-1 border-t border-gray-100" />
+                <a
+                  href="/dashboard/settings"
+                  className="block px-3.5 py-2 text-[13px] text-gray-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150 font-medium"
+                >
+                  Settings
+                </a>
+              </div>
 
-              <div className="px-3 py-1">
+              <div className="px-3 py-1.5">
                 <LogoutButton />
               </div>
             </div>
