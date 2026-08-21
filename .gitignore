@@ -40,5 +40,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# vfp temp uploads
-/data/vfp_uploads/
+# vfp temp uploads and raw data
+/data/
+/data/*
+*.cdx
+*.CDX
+*.dbf
+*.DBF
+*.dat
+*.DAT

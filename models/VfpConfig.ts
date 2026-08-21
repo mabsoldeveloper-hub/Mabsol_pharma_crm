@@ -75,6 +75,41 @@ const VfpConfigSchema = new mongoose.Schema(
       required: false,
       default: "",
     },
+    autoVfpExtract: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
+    autoVfpExtractInterval: {
+      type: Number,
+      required: false,
+      default: 10,
+    },
+    lastVfpExtractedAt: {
+      type: Date,
+      required: false,
+    },
+    uploadedSourceFilesCount: {
+      type: Number,
+      required: false,
+      default: 0,
+    },
+    lastSourceUploadedAt: {
+      type: Date,
+      required: false,
+    },
+    lastUploadedByUserId: {
+      type: String,
+      required: false,
+    },
+    lastUploadedByUserName: {
+      type: String,
+      required: false,
+    },
+    lastUploadedByUserEmail: {
+      type: String,
+      required: false,
+    },
   },
   {
     timestamps: true,
