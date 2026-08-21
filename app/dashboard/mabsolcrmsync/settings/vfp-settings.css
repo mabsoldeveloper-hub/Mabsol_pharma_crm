@@ -1,0 +1,146 @@
+/* Mabsol CRM VFP Settings & Data Migration Engine Styles */
+
+button:focus,
+button:focus-visible {
+  outline: none !important;
+}
+
+.btn-pill-primary {
+  background-color: #ffffff !important;
+  color: #0f766e !important;
+  border: 2px solid #0d9488 !important;
+  border-radius: 9999px !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-pill-primary:hover:not(:disabled) {
+  background-color: #0d9488 !important;
+  color: #ffffff !important;
+  border-color: #0d9488 !important;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35) !important;
+}
+
+.btn-pill-primary:disabled {
+  opacity: 0.5 !important;
+  background-color: #f8fafc !important;
+  color: #94a3b8 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+
+.btn-pill-secondary {
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 9999px !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-pill-secondary:hover:not(:disabled) {
+  background-color: #0d9488 !important;
+  color: #ffffff !important;
+  border-color: #0d9488 !important;
+  box-shadow: 0 3px 10px rgba(13, 148, 136, 0.25) !important;
+}
+
+.btn-pill-secondary:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+.btn-pill-cancel {
+  background-color: #ffffff !important;
+  color: #e11d48 !important;
+  border: 1.5px solid #f43f5e !important;
+  border-radius: 9999px !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-pill-cancel:hover:not(:disabled) {
+  background-color: #e11d48 !important;
+  color: #ffffff !important;
+  border-color: #e11d48 !important;
+  box-shadow: 0 3px 10px rgba(225, 29, 72, 0.25) !important;
+}
+
+
+.btn-chip-active {
+  background-color: #0d9488 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.3) !important;
+}
+
+.btn-chip-inactive {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-chip-inactive:hover {
+  background-color: #ccfbf1 !important;
+  color: #0f766e !important;
+}
+
+
+.btn-extracting {
+  background: linear-gradient(90deg, #0d9488 0%, #14b8a6 50%, #0d9488 100%) !important;
+  background-size: 200% 100% !important;
+  animation: extractingShimmer 1.5s infinite linear !important;
+  color: #ffffff !important;
+  border: 2px solid #0d9488 !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 0 16px rgba(13, 148, 136, 0.45) !important;
+}
+
+@keyframes extractingShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+
+.custom-toggle-track {
+  width: 46px;
+  height: 24px;
+  background-color: #e2e8f0;
+  border-radius: 9999px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.custom-toggle-track:hover {
+  background-color: #cbd5e1;
+}
+
+.custom-toggle-track.active {
+  background-color: #0d9488 !important;
+  border-color: #0d9488 !important;
+  box-shadow: 0 0 12px rgba(13, 148, 136, 0.4);
+}
+
+.custom-toggle-thumb {
+  width: 18px;
+  height: 18px;
+  background-color: #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(1px);
+}
+
+.custom-toggle-track.active .custom-toggle-thumb {
+  transform: translateX(22px);
+}
