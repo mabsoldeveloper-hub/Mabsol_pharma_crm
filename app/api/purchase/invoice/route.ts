@@ -282,6 +282,12 @@ export async function POST(req: Request) {
       paymentStatus = "Partial";
     }
 
+    // Calculate GST breakdown if not provided
+    const cgst = body.cgst !== undefined ? Number(body.cgst) : (body.taxType === "Intrastate" ? Math.round((totalTax / 2) * 100) / 100 : 0);
+    const sgst = body.sgst !== undefined ? Number(body.sgst) : (body.taxType === "Intrastate" ? Math.round((totalTax / 2) * 100) / 100 : 0);
+    const igst = body.igst !== undefined ? Number(body.igst) : (body.taxType === "Intrastate" ? 0 : Math.round(totalTax * 100) / 100);
+    const roundOff = body.roundOff !== undefined ? Number(body.roundOff) : Math.round((netAmount - (subtotal - totalDiscount + totalTax)) * 100) / 100;
+
     const bill = await PurchaseBill.create({
       billNumber: finalBillNumber,
       supplierInvoiceNo,
@@ -302,7 +308,11 @@ export async function POST(req: Request) {
       items: processedItems,
       subtotal: Math.round(subtotal * 100) / 100,
       totalDiscount: Math.round(totalDiscount * 100) / 100,
+      cgst,
+      sgst,
+      igst,
       totalTax: Math.round(totalTax * 100) / 100,
+      roundOff,
       netAmount,
       paidAmount: paid,
       balanceAmount,
