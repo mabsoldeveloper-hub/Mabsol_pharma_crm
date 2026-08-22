@@ -36,6 +36,7 @@ import {
     FaTruck,
     FaBrain,
     FaMagic,
+    FaClock,
 } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -55,9 +56,18 @@ export default function ExecutiveAIDashboardContent() {
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>("overview");
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
+    const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
     const { selectedCompany } = useCompany();
     const { selectedFY } = useFinancialYear();
+
+    useEffect(() => {
+        setCurrentTime(new Date());
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     const loadMrTerritoryInfo = async () => {
         try {
@@ -150,11 +160,29 @@ export default function ExecutiveAIDashboardContent() {
     }, [loadDashboard]);
 
     const getGreeting = () => {
-        const hour = new Date().getHours();
+        const hour = (currentTime || new Date()).getHours();
         if (hour < 12) return "Good Morning ☀️";
         if (hour < 17) return "Good Afternoon 🌤️";
         return "Good Evening 🌙";
     };
+
+    const formattedDate = currentTime
+        ? currentTime.toLocaleDateString("en-IN", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+          })
+        : "";
+
+    const formattedTime = currentTime
+        ? currentTime.toLocaleTimeString("en-IN", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+          })
+        : "";
 
     if (loading && !data) {
         return (
@@ -202,6 +230,19 @@ export default function ExecutiveAIDashboardContent() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2.5">
+                        {currentTime && (
+                            <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl border border-white/20 text-xs text-white shadow-inner transition-all">
+                                <div className="flex items-center gap-1.5 text-cyan-200">
+                                    <FaCalendarAlt size={11} className="text-cyan-300 flex-shrink-0" />
+                                    <span className="font-semibold text-[11px] whitespace-nowrap">{formattedDate}</span>
+                                </div>
+                                <div className="w-[1px] h-3.5 bg-white/20" />
+                                <div className="flex items-center gap-1.5 text-emerald-300 font-mono font-bold tracking-wider">
+                                    <FaClock size={11} className="text-emerald-400 animate-pulse flex-shrink-0" />
+                                    <span className="text-[11px] whitespace-nowrap">{formattedTime}</span>
+                                </div>
+                            </div>
+                        )}
                         {selectedFY && (
                             <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/15 text-xs text-white">
                                 <FaCalendarAlt size={12} className="text-cyan-300" />
