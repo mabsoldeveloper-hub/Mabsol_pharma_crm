@@ -26,10 +26,8 @@ import {
   FaUndo,
   FaCheck,
   FaSearch,
-  FaExchangeAlt,
   FaLayerGroup,
   FaLink,
-  FaExternalLinkAlt,
   FaExclamationTriangle,
   FaShieldAlt,
   FaTimes,
@@ -64,7 +62,6 @@ export default function MenuAdjustmentsPage() {
   } | null>(null);
 
   const [confirmResetModal, setConfirmResetModal] = useState(false);
-  const [previewModal, setPreviewModal] = useState(false);
 
   // Icon picker filter
   const [iconSearch, setIconSearch] = useState("");
@@ -319,9 +316,13 @@ export default function MenuAdjustmentsPage() {
     const lower = searchTerm.toLowerCase();
 
     return menuItems.filter((item) => {
-      const matchMain = item.label.toLowerCase().includes(lower) || (item.href && item.href.toLowerCase().includes(lower));
+      const matchMain =
+        item.label.toLowerCase().includes(lower) ||
+        (item.href && item.href.toLowerCase().includes(lower));
       const matchSub = item.subItems?.some(
-        (sub) => sub.label.toLowerCase().includes(lower) || sub.href.toLowerCase().includes(lower)
+        (sub) =>
+          sub.label.toLowerCase().includes(lower) ||
+          sub.href.toLowerCase().includes(lower)
       );
       return matchMain || matchSub;
     });
@@ -331,7 +332,11 @@ export default function MenuAdjustmentsPage() {
   const filteredIcons = useMemo(() => {
     if (!iconSearch.trim()) return ICON_CATALOG;
     const lower = iconSearch.toLowerCase();
-    return ICON_CATALOG.filter((i) => i.label.toLowerCase().includes(lower) || i.name.toLowerCase().includes(lower));
+    return ICON_CATALOG.filter(
+      (i) =>
+        i.label.toLowerCase().includes(lower) ||
+        i.name.toLowerCase().includes(lower)
+    );
   }, [iconSearch]);
 
   const toggleExpand = (id: string) => {
@@ -349,11 +354,11 @@ export default function MenuAdjustmentsPage() {
   };
 
   return (
-    <div className="space-y-6 pb-24 text-slate-800 dark:text-slate-100">
+    <div className="space-y-4 sm:space-y-6 pb-24 text-slate-800 dark:text-slate-100 max-w-full">
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl transition-all duration-300 text-white font-medium text-sm backdrop-blur-xl ${
+          className={`fixed top-4 right-4 left-4 sm:left-auto sm:right-6 sm:top-6 z-[9999] flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-2xl transition-all duration-300 text-white font-medium text-xs sm:text-sm backdrop-blur-xl max-w-md ${
             toast.type === "success"
               ? "bg-emerald-600/95 border border-emerald-400/40 shadow-emerald-500/20"
               : toast.type === "error"
@@ -361,32 +366,32 @@ export default function MenuAdjustmentsPage() {
               : "bg-blue-600/95 border border-blue-400/40 shadow-blue-500/20"
           }`}
         >
-          {toast.type === "success" ? <FaCheck /> : <FaExclamationTriangle />}
-          <span>{toast.message}</span>
+          {toast.type === "success" ? <FaCheck className="shrink-0" /> : <FaExclamationTriangle className="shrink-0" />}
+          <span className="break-words">{toast.message}</span>
         </div>
       )}
 
       {/* Top Banner & Company Context Bar */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white p-6 lg:p-8 shadow-xl shadow-indigo-900/10 border border-white/10">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-indigo-200 border border-white/10">
-              <FaSlidersH className="text-sky-300" />
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white p-4 sm:p-6 lg:p-8 shadow-xl shadow-indigo-900/10 border border-white/10">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-[11px] sm:text-xs font-semibold text-indigo-200 border border-white/10">
+              <FaSlidersH className="text-sky-300 shrink-0" />
               <span>Sidebar & Navigation Manager</span>
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
               Menu Adjustments Studio
             </h1>
-            <p className="text-indigo-200 text-sm max-w-2xl">
+            <p className="text-indigo-200 text-xs sm:text-sm leading-relaxed">
               Customize main menus and submenus, position them up/down, create new custom navigation categories, edit labels, assign icons, and configure visibility tailored for each Company & Financial Year.
             </p>
           </div>
 
           {/* Company & Financial Year Scoping Selectors */}
-          <div className="flex flex-wrap items-center gap-3 bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/15">
-            <div className="flex flex-col">
-              <span className="text-[11px] font-semibold text-indigo-200 flex items-center gap-1.5 uppercase tracking-wider">
-                <FaBuilding className="text-amber-300" /> Company Context
+          <div className="w-full lg:w-auto grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-center gap-2.5 sm:gap-3 bg-white/10 backdrop-blur-md p-3 sm:p-3.5 rounded-2xl border border-white/15">
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-200 flex items-center gap-1.5 uppercase tracking-wider">
+                <FaBuilding className="text-amber-300 shrink-0" /> Company Context
               </span>
               <select
                 value={selectedCompany?._id || ""}
@@ -394,7 +399,7 @@ export default function MenuAdjustmentsPage() {
                   const comp = companies.find((c) => c._id === e.target.value);
                   if (comp) setSelectedCompany(comp);
                 }}
-                className="bg-slate-900/80 text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/20 mt-1 focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer"
+                className="w-full bg-slate-900/80 text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/20 mt-1 focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer truncate"
               >
                 {companies.map((c) => (
                   <option key={c._id} value={c._id} className="bg-slate-900 text-white">
@@ -404,9 +409,9 @@ export default function MenuAdjustmentsPage() {
               </select>
             </div>
 
-            <div className="flex flex-col">
-              <span className="text-[11px] font-semibold text-indigo-200 flex items-center gap-1.5 uppercase tracking-wider">
-                <FaCalendarAlt className="text-emerald-300" /> Financial Year
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-200 flex items-center gap-1.5 uppercase tracking-wider">
+                <FaCalendarAlt className="text-emerald-300 shrink-0" /> Financial Year
               </span>
               <select
                 value={selectedFY?._id || "ALL"}
@@ -414,7 +419,7 @@ export default function MenuAdjustmentsPage() {
                   const fy = fyList.find((f) => f._id === e.target.value);
                   if (fy) setSelectedFY(fy);
                 }}
-                className="bg-slate-900/80 text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/20 mt-1 focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer"
+                className="w-full bg-slate-900/80 text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/20 mt-1 focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer truncate"
               >
                 {fyList.map((fy) => (
                   <option key={fy._id} value={fy._id} className="bg-slate-900 text-white">
@@ -428,17 +433,17 @@ export default function MenuAdjustmentsPage() {
       </div>
 
       {/* Action Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm">
-        {/* Search and filters */}
-        <div className="flex items-center gap-3 flex-1 max-w-md">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm">
+        {/* Search and Expand/Collapse */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-1 w-full md:max-w-md">
           <div className="relative w-full">
-            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm" />
             <input
               type="text"
               placeholder="Search menus or links..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-8 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
             {searchTerm && (
               <button
@@ -450,31 +455,33 @@ export default function MenuAdjustmentsPage() {
             )}
           </div>
 
-          <button
-            onClick={expandAll}
-            title="Expand all groups"
-            className="px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shrink-0 transition"
-          >
-            Expand
-          </button>
-          <button
-            onClick={collapseAll}
-            title="Collapse all groups"
-            className="px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shrink-0 transition"
-          >
-            Collapse
-          </button>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center shrink-0">
+            <button
+              onClick={expandAll}
+              title="Expand all groups"
+              className="px-3 py-2 text-xs font-semibold text-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 transition"
+            >
+              Expand All
+            </button>
+            <button
+              onClick={collapseAll}
+              title="Collapse all groups"
+              className="px-3 py-2 text-xs font-semibold text-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 transition"
+            >
+              Collapse All
+            </button>
+          </div>
         </div>
 
         {/* Studio Actions */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:flex md:flex-wrap items-center gap-2 w-full md:w-auto">
           <button
             onClick={() => setConfirmResetModal(true)}
             disabled={saving || resetting}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition flex items-center gap-2"
+            className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition flex items-center justify-center gap-2"
           >
-            <FaUndo size={12} />
-            <span>Reset to Default</span>
+            <FaUndo size={12} className="shrink-0" />
+            <span>Reset Default</span>
           </button>
 
           <button
@@ -494,21 +501,21 @@ export default function MenuAdjustmentsPage() {
                 isNew: true,
               })
             }
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition flex items-center gap-2"
+            className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition flex items-center justify-center gap-2"
           >
-            <FaPlus size={12} />
-            <span>+ Add Main Menu</span>
+            <FaPlus size={12} className="shrink-0" />
+            <span>+ Main Menu</span>
           </button>
 
           <button
             onClick={saveConfiguration}
             disabled={saving || loading}
-            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-md shadow-indigo-600/25 border border-indigo-400/30 transition-all transform active:scale-95 flex items-center gap-2"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-md shadow-indigo-600/25 border border-indigo-400/30 transition-all transform active:scale-95 flex items-center justify-center gap-2"
           >
             {saving ? (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
             ) : (
-              <FaSave size={13} />
+              <FaSave size={13} className="shrink-0" />
             )}
             <span>Save Configuration</span>
           </button>
@@ -517,13 +524,13 @@ export default function MenuAdjustmentsPage() {
 
       {/* Main Menus List */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 bg-white/60 dark:bg-slate-800/40 rounded-3xl border border-slate-200/80 dark:border-white/5 space-y-4">
+        <div className="flex flex-col items-center justify-center p-12 sm:p-16 bg-white/60 dark:bg-slate-800/40 rounded-3xl border border-slate-200/80 dark:border-white/5 space-y-4">
           <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium text-slate-500">Loading sidebar configuration...</p>
+          <p className="text-xs sm:text-sm font-medium text-slate-500">Loading sidebar configuration...</p>
         </div>
       ) : filteredMenuItems.length === 0 ? (
-        <div className="text-center p-12 bg-white/60 dark:bg-slate-800/40 rounded-3xl border border-slate-200/80 dark:border-white/5">
-          <p className="text-slate-500 text-sm font-medium">No menu items found matching "{searchTerm}"</p>
+        <div className="text-center p-8 sm:p-12 bg-white/60 dark:bg-slate-800/40 rounded-3xl border border-slate-200/80 dark:border-white/5">
+          <p className="text-slate-500 text-xs sm:text-sm font-medium">No menu items found matching "{searchTerm}"</p>
           <button
             onClick={() => setSearchTerm("")}
             className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold"
@@ -532,7 +539,7 @@ export default function MenuAdjustmentsPage() {
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {filteredMenuItems.map((mainItem, mainIndex) => {
             const isFirst = mainIndex === 0;
             const isLast = mainIndex === filteredMenuItems.length - 1;
@@ -542,17 +549,18 @@ export default function MenuAdjustmentsPage() {
             return (
               <div
                 key={mainItem.id}
-                className={`rounded-2xl transition-all duration-200 border ${
+                className={`rounded-2xl transition-all duration-200 border overflow-hidden ${
                   mainItem.isVisible !== false
                     ? "bg-white/90 dark:bg-slate-800/90 border-slate-200/90 dark:border-white/10 shadow-sm"
                     : "bg-slate-100/70 dark:bg-slate-900/60 border-dashed border-slate-300 dark:border-white/10 opacity-75"
                 }`}
               >
                 {/* Main Menu Header Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4">
+                  {/* Left info & icon */}
+                  <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                     {/* Position Reorder Up / Down */}
-                    <div className="flex items-center gap-1 shrink-0 bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-white/10">
+                    <div className="flex sm:flex-row items-center gap-0.5 sm:gap-1 shrink-0 bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-white/10">
                       <button
                         type="button"
                         onClick={() => moveMainMenu(mainIndex, "up")}
@@ -583,24 +591,25 @@ export default function MenuAdjustmentsPage() {
 
                     {/* Color & Icon Badge */}
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md ${colorOption.bg}`}
+                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md ${colorOption.bg}`}
                     >
-                      <span className="text-base">{renderMenuIcon(mainItem.icon)}</span>
+                      <span className="text-sm sm:text-base">{renderMenuIcon(mainItem.icon)}</span>
                     </div>
 
                     {/* Label & Meta info */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm tracking-tight truncate text-slate-900 dark:text-white">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <span className="font-bold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
                           {mainItem.label}
                         </span>
                         {mainItem.isGroup ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/40">
-                            Group ({mainItem.subItems?.length || 0} submenus)
+                            Group ({mainItem.subItems?.length || 0})
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 flex items-center gap-1">
-                            <FaLink size={9} /> Link: {mainItem.href}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 flex items-center gap-1 max-w-[160px] sm:max-w-[280px] truncate">
+                            <FaLink size={9} className="shrink-0" />
+                            <span className="truncate">{mainItem.href}</span>
                           </span>
                         )}
                         {!mainItem.isVisible && (
@@ -610,12 +619,12 @@ export default function MenuAdjustmentsPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                         <span>Position #{mainIndex + 1}</span>
                         {mainItem.permission && (
-                          <span className="flex items-center gap-1 text-slate-500 font-mono">
-                            <FaShieldAlt size={10} className="text-indigo-500" />
-                            {mainItem.permission}
+                          <span className="flex items-center gap-1 text-slate-500 font-mono truncate max-w-[140px] sm:max-w-none">
+                            <FaShieldAlt size={10} className="text-indigo-500 shrink-0" />
+                            <span className="truncate">{mainItem.permission}</span>
                           </span>
                         )}
                       </div>
@@ -623,7 +632,7 @@ export default function MenuAdjustmentsPage() {
                   </div>
 
                   {/* Actions right side */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-white/5 shrink-0">
                     {/* Add Submenu Button (only for groups) */}
                     {mainItem.isGroup && (
                       <button
@@ -643,66 +652,71 @@ export default function MenuAdjustmentsPage() {
                             isNew: true,
                           })
                         }
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 border border-indigo-200/60 dark:border-indigo-800/40 transition flex items-center gap-1.5"
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 border border-indigo-200/60 dark:border-indigo-800/40 transition flex items-center gap-1"
                       >
                         <FaPlus size={10} />
                         <span>+ Submenu</span>
                       </button>
                     )}
 
-                    {/* Edit button */}
-                    <button
-                      type="button"
-                      onClick={() => setEditingMainMenu({ item: { ...mainItem }, isNew: false })}
-                      className="p-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                      title="Edit Main Menu Info"
-                    >
-                      <FaEdit />
-                    </button>
-
-                    {/* Visibility toggle */}
-                    <button
-                      type="button"
-                      onClick={() => toggleMainMenuVisibility(mainItem.id)}
-                      className={`p-2 rounded-xl text-xs font-semibold transition ${
-                        mainItem.isVisible !== false
-                          ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                          : "text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800"
-                      }`}
-                      title={mainItem.isVisible !== false ? "Hide menu" : "Show menu"}
-                    >
-                      {mainItem.isVisible !== false ? <FaEye /> : <FaEyeSlash />}
-                    </button>
-
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={() => deleteMainMenu(mainItem.id)}
-                      className="p-2 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                      title="Delete menu"
-                    >
-                      <FaTrash />
-                    </button>
-
-                    {/* Accordion toggle if group */}
-                    {mainItem.isGroup && mainItem.subItems && mainItem.subItems.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      {/* Edit button */}
                       <button
                         type="button"
-                        onClick={() => toggleExpand(mainItem.id)}
-                        className="px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1"
+                        onClick={() => setEditingMainMenu({ item: { ...mainItem }, isNew: false })}
+                        className="p-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                        title="Edit Main Menu Info"
                       >
-                        <span>{isExpanded ? "Hide" : "Show"}</span>
-                        <FaArrowDown className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} size={10} />
+                        <FaEdit />
                       </button>
-                    )}
+
+                      {/* Visibility toggle */}
+                      <button
+                        type="button"
+                        onClick={() => toggleMainMenuVisibility(mainItem.id)}
+                        className={`p-2 rounded-xl text-xs font-semibold transition ${
+                          mainItem.isVisible !== false
+                            ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                            : "text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800"
+                        }`}
+                        title={mainItem.isVisible !== false ? "Hide menu" : "Show menu"}
+                      >
+                        {mainItem.isVisible !== false ? <FaEye /> : <FaEyeSlash />}
+                      </button>
+
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={() => deleteMainMenu(mainItem.id)}
+                        className="p-2 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                        title="Delete menu"
+                      >
+                        <FaTrash />
+                      </button>
+
+                      {/* Accordion toggle if group */}
+                      {mainItem.isGroup && mainItem.subItems && mainItem.subItems.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(mainItem.id)}
+                          className="px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1 ml-1"
+                        >
+                          <span className="hidden sm:inline">{isExpanded ? "Hide" : "Show"}</span>
+                          <FaArrowDown
+                            className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                            size={10}
+                          />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Submenus List (Nested Accordion) */}
                 {mainItem.isGroup && isExpanded && (
-                  <div className="border-t border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-slate-900/40 p-3 rounded-b-2xl">
-                    {(!mainItem.subItems || mainItem.subItems.length === 0) ? (
-                      <div className="text-center p-4 text-xs text-gray-400">
+                  <div className="border-t border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-slate-900/40 p-2.5 sm:p-3">
+                    {!mainItem.subItems || mainItem.subItems.length === 0 ? (
+                      <div className="text-center p-3 sm:p-4 text-xs text-gray-400">
                         No submenus in this group yet. Click "+ Submenu" to add one!
                       </div>
                     ) : (
@@ -714,13 +728,14 @@ export default function MenuAdjustmentsPage() {
                           return (
                             <div
                               key={sub.id || sub.href}
-                              className={`flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl border transition ${
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 sm:p-2.5 rounded-xl border transition ${
                                 sub.isVisible !== false
                                   ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-white/10 shadow-xs"
                                   : "bg-slate-100/60 dark:bg-slate-900/60 border-dashed border-slate-300 dark:border-white/10 opacity-70"
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              {/* Left: Reorder, icon, label, link */}
+                              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
                                 {/* Submenu Up / Down */}
                                 <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-white/10 shrink-0">
                                   <button
@@ -755,31 +770,31 @@ export default function MenuAdjustmentsPage() {
                                   {renderMenuIcon(sub.icon)}
                                 </span>
 
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                                       {sub.label}
                                     </span>
                                     {!sub.isVisible && (
-                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-100 text-amber-700">
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
                                         Hidden
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-[10px] font-mono text-gray-400 truncate">
+                                  <div className="text-[10px] font-mono text-gray-400 truncate max-w-[200px] sm:max-w-none">
                                     {sub.href}
                                   </div>
                                 </div>
                               </div>
 
                               {/* Submenu actions */}
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-white/5 shrink-0">
                                 {/* Transfer to another Group Dropdown */}
                                 <select
                                   value={mainItem.id}
                                   onChange={(e) => transferSubMenu(mainItem.id, sub.id, e.target.value)}
                                   title="Transfer submenu to another main group"
-                                  className="text-[11px] font-semibold bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 text-slate-600 dark:text-slate-300 focus:outline-none"
+                                  className="text-[11px] font-semibold bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 text-slate-600 dark:text-slate-300 focus:outline-none flex-1 sm:flex-none max-w-[130px] sm:max-w-[160px] truncate"
                                 >
                                   <option value={mainItem.id} disabled>
                                     Move to...
@@ -793,45 +808,47 @@ export default function MenuAdjustmentsPage() {
                                     ))}
                                 </select>
 
-                                {/* Edit Submenu */}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setEditingSubMenu({
-                                      parentGroupId: mainItem.id,
-                                      item: { ...sub },
-                                      isNew: false,
-                                    })
-                                  }
-                                  className="p-1.5 text-xs text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"
-                                  title="Edit submenu"
-                                >
-                                  <FaEdit />
-                                </button>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {/* Edit Submenu */}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingSubMenu({
+                                        parentGroupId: mainItem.id,
+                                        item: { ...sub },
+                                        isNew: false,
+                                      })
+                                    }
+                                    className="p-1.5 text-xs text-slate-600 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
+                                    title="Edit submenu"
+                                  >
+                                    <FaEdit />
+                                  </button>
 
-                                {/* Toggle visibility */}
-                                <button
-                                  type="button"
-                                  onClick={() => toggleSubMenuVisibility(mainItem.id, sub.id)}
-                                  className={`p-1.5 text-xs rounded-lg transition ${
-                                    sub.isVisible !== false
-                                      ? "text-emerald-600 hover:bg-emerald-50"
-                                      : "text-gray-400 hover:bg-gray-100"
-                                  }`}
-                                  title={sub.isVisible !== false ? "Hide submenu" : "Show submenu"}
-                                >
-                                  {sub.isVisible !== false ? <FaEye /> : <FaEyeSlash />}
-                                </button>
+                                  {/* Toggle visibility */}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSubMenuVisibility(mainItem.id, sub.id)}
+                                    className={`p-1.5 text-xs rounded-lg transition ${
+                                      sub.isVisible !== false
+                                        ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                                        : "text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
+                                    }`}
+                                    title={sub.isVisible !== false ? "Hide submenu" : "Show submenu"}
+                                  >
+                                    {sub.isVisible !== false ? <FaEye /> : <FaEyeSlash />}
+                                  </button>
 
-                                {/* Delete submenu */}
-                                <button
-                                  type="button"
-                                  onClick={() => deleteSubMenu(mainItem.id, sub.id)}
-                                  className="p-1.5 text-xs text-rose-500 hover:bg-rose-50 rounded-lg transition"
-                                  title="Delete submenu"
-                                >
-                                  <FaTrash />
-                                </button>
+                                  {/* Delete submenu */}
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteSubMenu(mainItem.id, sub.id)}
+                                    className="p-1.5 text-xs text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+                                    title="Delete submenu"
+                                  >
+                                    <FaTrash />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -850,24 +867,24 @@ export default function MenuAdjustmentsPage() {
       {/* MODAL: Edit / Create Main Menu                                 */}
       {/* ───────────────────────────────────────────────────────────── */}
       {editingMainMenu && (
-        <div className="fixed inset-0 z-[1060] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-white/10 max-h-[90vh] overflow-y-auto space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <FaSlidersH className="text-indigo-600" />
-                {editingMainMenu.isNew ? "Create New Main Menu" : "Edit Main Menu"}
+        <div className="fixed inset-0 z-[1060] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-white/10 max-h-[92vh] overflow-y-auto space-y-4 sm:space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-3 sm:pb-4">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FaSlidersH className="text-indigo-600 shrink-0" />
+                <span>{editingMainMenu.isNew ? "Create New Main Menu" : "Edit Main Menu"}</span>
               </h3>
               <button
                 onClick={() => setEditingMainMenu(null)}
-                className="text-gray-400 hover:text-gray-600 p-2 rounded-xl text-sm"
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl text-sm"
               >
                 <FaTimes />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                   Menu Label
                 </label>
                 <input
@@ -879,17 +896,17 @@ export default function MenuAdjustmentsPage() {
                       item: { ...editingMainMenu.item, label: e.target.value },
                     })
                   }
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   placeholder="e.g. Sales Hub, Inventory..."
                 />
               </div>
 
               {/* Type: Group with submenus or Single link */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                   Menu Type
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                   <button
                     type="button"
                     onClick={() =>
@@ -898,13 +915,13 @@ export default function MenuAdjustmentsPage() {
                         item: { ...editingMainMenu.item, isGroup: true, href: "" },
                       })
                     }
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                    className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2.5 ${
                       editingMainMenu.item.isGroup
                         ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold shadow-sm"
                         : "border-slate-200 dark:border-white/10 hover:bg-slate-50 text-slate-600"
                     }`}
                   >
-                    <FaLayerGroup />
+                    <FaLayerGroup className="shrink-0" />
                     <span className="text-xs">Group with Submenus</span>
                   </button>
 
@@ -916,13 +933,13 @@ export default function MenuAdjustmentsPage() {
                         item: { ...editingMainMenu.item, isGroup: false },
                       })
                     }
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                    className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border text-left transition flex items-center gap-2.5 ${
                       !editingMainMenu.item.isGroup
                         ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold shadow-sm"
                         : "border-slate-200 dark:border-white/10 hover:bg-slate-50 text-slate-600"
                     }`}
                   >
-                    <FaLink />
+                    <FaLink className="shrink-0" />
                     <span className="text-xs">Direct Link Only</span>
                   </button>
                 </div>
@@ -931,7 +948,7 @@ export default function MenuAdjustmentsPage() {
               {/* Destination URL if single link */}
               {!editingMainMenu.item.isGroup && (
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                     Destination URL (Route)
                   </label>
                   <input
@@ -943,7 +960,7 @@ export default function MenuAdjustmentsPage() {
                         item: { ...editingMainMenu.item, href: e.target.value },
                       })
                     }
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     placeholder="e.g. /dashboard/sales/invoice"
                   />
                 </div>
@@ -952,9 +969,9 @@ export default function MenuAdjustmentsPage() {
               {/* Color Scheme Picker */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                  <FaPalette className="text-indigo-500" /> Theme Color
+                  <FaPalette className="text-indigo-500 shrink-0" /> Theme Color
                 </label>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                   {COLOR_OPTIONS.map((c) => (
                     <button
                       key={c.key}
@@ -965,14 +982,14 @@ export default function MenuAdjustmentsPage() {
                           item: { ...editingMainMenu.item, color: c.key },
                         })
                       }
-                      className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition ${
+                      className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-xl border transition ${
                         editingMainMenu.item.color === c.key
                           ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 shadow-sm"
                           : "border-slate-200 dark:border-white/10 hover:bg-slate-50"
                       }`}
                     >
-                      <div className={`w-5 h-5 rounded-full ${c.bg}`} />
-                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                      <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full ${c.bg}`} />
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-slate-600 dark:text-slate-300 truncate w-full text-center">
                         {c.label}
                       </span>
                     </button>
@@ -1003,7 +1020,7 @@ export default function MenuAdjustmentsPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-white/10">
+                <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 sm:gap-2 max-h-36 sm:max-h-40 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-white/10">
                   {filteredIcons.map((ic) => (
                     <button
                       key={ic.name}
@@ -1015,7 +1032,7 @@ export default function MenuAdjustmentsPage() {
                         })
                       }
                       title={ic.label}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl transition text-base ${
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl transition text-sm sm:text-base ${
                         editingMainMenu.item.icon === ic.name
                           ? "bg-indigo-600 text-white shadow-md scale-105"
                           : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700"
@@ -1029,7 +1046,7 @@ export default function MenuAdjustmentsPage() {
 
               {/* Permission Key */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                   Permission Gate (Optional)
                 </label>
                 <input
@@ -1041,18 +1058,18 @@ export default function MenuAdjustmentsPage() {
                       item: { ...editingMainMenu.item, permission: e.target.value },
                     })
                   }
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   placeholder="e.g. sales.view, master.view (Leave blank if visible to all)"
                 />
               </div>
             </div>
 
             {/* Modal Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/10">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => setEditingMainMenu(null)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 text-center"
               >
                 Cancel
               </button>
@@ -1077,7 +1094,7 @@ export default function MenuAdjustmentsPage() {
                   }
                   setEditingMainMenu(null);
                 }}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 text-center"
               >
                 Save Menu Item
               </button>
@@ -1090,24 +1107,24 @@ export default function MenuAdjustmentsPage() {
       {/* MODAL: Edit / Create Submenu                                   */}
       {/* ───────────────────────────────────────────────────────────── */}
       {editingSubMenu && (
-        <div className="fixed inset-0 z-[1060] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-white/10 max-h-[90vh] overflow-y-auto space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <FaLink className="text-indigo-600" />
-                {editingSubMenu.isNew ? "Add New Submenu" : "Edit Submenu"}
+        <div className="fixed inset-0 z-[1060] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-white/10 max-h-[92vh] overflow-y-auto space-y-4 sm:space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-3 sm:pb-4">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FaLink className="text-indigo-600 shrink-0" />
+                <span>{editingSubMenu.isNew ? "Add New Submenu" : "Edit Submenu"}</span>
               </h3>
               <button
                 onClick={() => setEditingSubMenu(null)}
-                className="text-gray-400 hover:text-gray-600 p-2 rounded-xl text-sm"
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl text-sm"
               >
                 <FaTimes />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                   Submenu Label
                 </label>
                 <input
@@ -1119,13 +1136,13 @@ export default function MenuAdjustmentsPage() {
                       item: { ...editingSubMenu.item, label: e.target.value },
                     })
                   }
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   placeholder="e.g. Invoices List, Create Bill..."
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                   Destination URL (Route)
                 </label>
                 <input
@@ -1137,7 +1154,7 @@ export default function MenuAdjustmentsPage() {
                       item: { ...editingSubMenu.item, href: e.target.value },
                     })
                   }
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   placeholder="e.g. /dashboard/sales/invoice"
                 />
               </div>
@@ -1154,7 +1171,7 @@ export default function MenuAdjustmentsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-6 gap-2 max-h-36 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-white/10">
+                <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 sm:gap-2 max-h-36 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-white/10">
                   {ICON_CATALOG.map((ic) => (
                     <button
                       key={ic.name}
@@ -1166,9 +1183,9 @@ export default function MenuAdjustmentsPage() {
                         })
                       }
                       title={ic.label}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl transition text-sm ${
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl transition text-xs sm:text-sm ${
                         editingSubMenu.item.icon === ic.name
-                          ? "bg-indigo-600 text-white shadow-md"
+                          ? "bg-indigo-600 text-white shadow-md scale-105"
                           : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700"
                       }`}
                     >
@@ -1180,7 +1197,7 @@ export default function MenuAdjustmentsPage() {
 
               {/* Permission Key */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                   Permission Gate (Optional)
                 </label>
                 <input
@@ -1192,17 +1209,17 @@ export default function MenuAdjustmentsPage() {
                       item: { ...editingSubMenu.item, permission: e.target.value },
                     })
                   }
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   placeholder="e.g. sales.view (Leave blank if visible to all)"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/10">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => setEditingSubMenu(null)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 text-center"
               >
                 Cancel
               </button>
@@ -1235,7 +1252,7 @@ export default function MenuAdjustmentsPage() {
                   showToast(editingSubMenu.isNew ? "Submenu added!" : "Submenu updated!");
                   setEditingSubMenu(null);
                 }}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 text-center"
               >
                 Save Submenu
               </button>
@@ -1248,30 +1265,30 @@ export default function MenuAdjustmentsPage() {
       {/* MODAL: Confirm Reset to Default                               */}
       {/* ───────────────────────────────────────────────────────────── */}
       {confirmResetModal && (
-        <div className="fixed inset-0 z-[1060] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-200 dark:border-rose-900/40 text-center space-y-4">
-            <div className="w-14 h-14 bg-rose-100 dark:bg-rose-950/60 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+        <div className="fixed inset-0 z-[1060] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-rose-200 dark:border-rose-900/40 text-center space-y-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-rose-100 dark:bg-rose-950/60 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-xl sm:text-2xl shadow-inner">
               <FaExclamationTriangle />
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                 Reset to Default Template?
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
                 This will delete any custom order, renamed labels, and added links for{" "}
                 <strong className="text-slate-800 dark:text-slate-200">
-                  {selectedCompany?.companyName}
+                  {selectedCompany?.companyName || "selected company"}
                 </strong>{" "}
                 and restore the canonical CRM navigation layout.
               </p>
             </div>
 
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setConfirmResetModal(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 text-center"
               >
                 Cancel
               </button>
@@ -1279,7 +1296,7 @@ export default function MenuAdjustmentsPage() {
                 type="button"
                 onClick={resetToDefault}
                 disabled={resetting}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-600/25 flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-600/25 flex items-center justify-center gap-2 text-center"
               >
                 {resetting && (
                   <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
