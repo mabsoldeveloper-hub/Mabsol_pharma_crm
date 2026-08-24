@@ -21,6 +21,22 @@ import {
     FaChevronRight,
     FaBoxes,
     FaEye,
+    FaPhoneAlt,
+    FaCopy,
+    FaCheck,
+    FaSearch,
+    FaFilter,
+    FaStar,
+    FaExclamationTriangle,
+    FaAddressCard,
+    FaFileInvoiceDollar,
+    FaBuilding,
+    FaEnvelope,
+    FaUserTie,
+    FaThLarge,
+    FaListUl,
+    FaRoute,
+    FaCreditCard,
 } from "react-icons/fa";
 import {
     BarChart,
@@ -36,9 +52,9 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-type FYItem = { fyId: string; fyName: string; startDate: string; endDate: string; color: string };
+export type FYItem = { fyId: string; fyName: string; startDate: string; endDate: string; color: string };
 
-type StateFyData = {
+export type StateFyData = {
     sales: number;
     netSales: number;
     salesReturns: number;
@@ -52,7 +68,39 @@ type StateFyData = {
     monthlySales: number[];
 };
 
-type StateRow = {
+export type CustomerDetailItem = {
+    code: string;
+    name: string;
+    city: string;
+    district?: string;
+    area?: string;
+    route?: string;
+    state?: string;
+    pincode?: string;
+    gstno?: string;
+    phone?: string;
+    dlno?: string;
+    email?: string;
+    address?: string;
+    dsm?: string;
+    asm?: string;
+    rsm?: string;
+    totalSales: number;
+    totalNetSales: number;
+    totalReturns: number;
+    returnsRatioPercent: number;
+    invoicesCount: number;
+    balance: number;
+    creditLimit: number;
+    creditDays: number;
+    lastSaleDate?: string;
+    byFy: Record<string, { sales: number; netSales: number; returns: number; invoicesCount: number }>;
+    salesGrowthPct?: number | null;
+    category?: "Key Account" | "Growth Account" | "Standard" | "High Return Risk";
+    topProducts?: { name: string; qty: number; amount: number }[];
+};
+
+export type StateRow = {
     stateId: string;
     stateName: string;
     zoneName: string;
@@ -63,7 +111,19 @@ type StateRow = {
     healthScore: number;
     byFy: Record<string, StateFyData>;
     topProducts: { name: string; qty: number; amount: number }[];
-    topCustomers: { name: string; sales: number }[];
+    topCustomers: {
+        code?: string;
+        name: string;
+        city?: string;
+        area?: string;
+        sales: number;
+        netSales?: number;
+        gstno?: string;
+        phone?: string;
+        invoicesCount?: number;
+        byFy?: Record<string, any>;
+    }[];
+    customers?: CustomerDetailItem[];
 };
 
 interface FYAreaRadarDetailModalProps {
@@ -132,12 +192,12 @@ const METRIC_CONFIGS: {
     },
     {
         key: "customers",
-        label: "Active Accounts",
+        label: "Active Accounts & Customers",
         shortLabel: "Customers",
         color: "#8B5CF6",
         icon: <FaUserCheck size={12} />,
-        description: "Number of active billed customer accounts and chemist outlets",
-        getter: (s, fyId) => s.byFy[fyId]?.customersCount ?? 0,
+        description: "Comprehensive customer intelligence, territory accounts, turnover & compliance profile",
+        getter: (s, fyId) => s.byFy[fyId]?.customersCount ?? (s.customers?.length || 0),
     },
     {
         key: "health",
@@ -199,6 +259,15 @@ export default function FYAreaRadarDetailModal({
     const [activeStateIds, setActiveStateIds] = useState<string[]>([]);
     const [selectedFyId, setSelectedFyId] = useState<string>("");
 
+    // Customer directory filter states
+    const [customerStateFilter, setCustomerStateFilter] = useState<string>("ALL");
+    const [customerSearch, setCustomerSearch] = useState<string>("");
+    const [customerCategoryFilter, setCustomerCategoryFilter] = useState<string>("ALL");
+    const [customerSortBy, setCustomerSortBy] = useState<string>("sales-desc");
+    const [customerViewMode, setCustomerViewMode] = useState<"cards" | "table">("cards");
+    const [selectedCustomerDetail, setSelectedCustomerDetail] = useState<CustomerDetailItem | null>(null);
+    const [copiedText, setCopiedText] = useState<string | null>(null);
+
     // Initialize active states & selected FY
     useEffect(() => {
         if (isOpen) {
@@ -225,17 +294,26 @@ export default function FYAreaRadarDetailModal({
             } else {
                 setActiveTab("all");
             }
+            setCustomerStateFilter("ALL");
+            setCustomerSearch("");
+            setCustomerCategoryFilter("ALL");
         }
     }, [isOpen, selectedStateIds, stateData, fyList, initialMetric]);
 
     // Handle ESC key
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape" && isOpen) onClose();
+            if (e.key === "Escape") {
+                if (selectedCustomerDetail) {
+                    setSelectedCustomerDetail(null);
+                } else if (isOpen) {
+                    onClose();
+                }
+            }
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, onClose]);
+    }, [isOpen, onClose, selectedCustomerDetail]);
 
     // Body scroll lock
     useEffect(() => {
@@ -245,6 +323,13 @@ export default function FYAreaRadarDetailModal({
             document.body.style.overflow = "unset";
         };
     }, [isOpen]);
+
+    const handleCopy = (text: string, label: string) => {
+        if (!text) return;
+        navigator.clipboard?.writeText(text);
+        setCopiedText(label);
+        setTimeout(() => setCopiedText(null), 1800);
+    };
 
     // Compared states list with assigned colors
     const comparedStates = useMemo(() => {
@@ -347,64 +432,200 @@ export default function FYAreaRadarDetailModal({
         });
     }, [comparedStates, selectedFyId]);
 
-    // ── Export CSV ──
+    // ── All customers across compared states ──
+    const allComparedCustomers = useMemo(() => {
+        const list: (CustomerDetailItem & { stateName: string; stateColor: string; stateId: string })[] = [];
+        comparedStates.forEach((st) => {
+            const custs = st.customers || [];
+            custs.forEach((c) => {
+                list.push({
+                    ...c,
+                    stateName: st.stateName,
+                    stateColor: st.color,
+                    stateId: st.stateId,
+                });
+            });
+        });
+        return list;
+    }, [comparedStates]);
+
+    // ── Filtered & Sorted Customers for Active Tab ──
+    const filteredCustomers = useMemo(() => {
+        let result = allComparedCustomers;
+
+        if (customerStateFilter !== "ALL") {
+            result = result.filter((c) => c.stateId === customerStateFilter);
+        }
+
+        if (customerCategoryFilter !== "ALL") {
+            result = result.filter((c) => {
+                if (customerCategoryFilter === "KEY") return c.category === "Key Account";
+                if (customerCategoryFilter === "GROWTH") return c.category === "Growth Account" || (c.salesGrowthPct && c.salesGrowthPct > 20);
+                if (customerCategoryFilter === "RISK") return c.category === "High Return Risk" || c.returnsRatioPercent > 8;
+                if (customerCategoryFilter === "OUTSTANDING") return c.balance > 0;
+                return true;
+            });
+        }
+
+        if (customerSearch.trim()) {
+            const q = customerSearch.toLowerCase().trim();
+            result = result.filter(
+                (c) =>
+                    c.name?.toLowerCase().includes(q) ||
+                    c.code?.toLowerCase().includes(q) ||
+                    c.city?.toLowerCase().includes(q) ||
+                    c.area?.toLowerCase().includes(q) ||
+                    c.route?.toLowerCase().includes(q) ||
+                    c.gstno?.toLowerCase().includes(q) ||
+                    c.phone?.toLowerCase().includes(q) ||
+                    c.dlno?.toLowerCase().includes(q) ||
+                    c.dsm?.toLowerCase().includes(q) ||
+                    c.asm?.toLowerCase().includes(q) ||
+                    c.rsm?.toLowerCase().includes(q)
+            );
+        }
+
+        result = [...result].sort((a, b) => {
+            if (customerSortBy === "sales-desc") return b.totalSales - a.totalSales;
+            if (customerSortBy === "sales-asc") return a.totalSales - b.totalSales;
+            if (customerSortBy === "netsales-desc") return b.totalNetSales - a.totalNetSales;
+            if (customerSortBy === "growth-desc") return (b.salesGrowthPct ?? -999) - (a.salesGrowthPct ?? -999);
+            if (customerSortBy === "invoices-desc") return b.invoicesCount - a.invoicesCount;
+            if (customerSortBy === "balance-desc") return b.balance - a.balance;
+            if (customerSortBy === "returns-asc") return a.returnsRatioPercent - b.returnsRatioPercent;
+            if (customerSortBy === "name-asc") return a.name.localeCompare(b.name);
+            return b.totalSales - a.totalSales;
+        });
+
+        return result;
+    }, [allComparedCustomers, customerStateFilter, customerCategoryFilter, customerSearch, customerSortBy]);
+
+    // ── Customer KPI Totals ──
+    const customerKpis = useMemo(() => {
+        const totalCust = filteredCustomers.length;
+        const totalSales = filteredCustomers.reduce((sum, c) => sum + c.totalSales, 0);
+        const totalNetSales = filteredCustomers.reduce((sum, c) => sum + c.totalNetSales, 0);
+        const totalReturns = filteredCustomers.reduce((sum, c) => sum + c.totalReturns, 0);
+        const totalInvoices = filteredCustomers.reduce((sum, c) => sum + c.invoicesCount, 0);
+        const totalBalance = filteredCustomers.reduce((sum, c) => sum + (c.balance || 0), 0);
+        const avgSales = totalCust > 0 ? Math.round(totalSales / totalCust) : 0;
+
+        return {
+            totalCust,
+            totalSales,
+            totalNetSales,
+            totalReturns,
+            totalInvoices,
+            totalBalance,
+            avgSales,
+        };
+    }, [filteredCustomers]);
+
+    // ── Export Comprehensive CSV (Metrics + Customers) ──
     const handleExportCSV = () => {
         if (!comparedStates.length) return;
 
         const rows: string[] = [];
-        rows.push(["Mabsol Pharma CRM — State Radar Comparison Deep-Dive"].join(","));
+        rows.push(["Mabsol Pharma CRM — Territory Radar & Customer Deep-Dive Report"].join(","));
         rows.push([`Generated On: ${new Date().toLocaleString("en-IN")}`].join(","));
+        rows.push([`Compared States: ${comparedStates.map((s) => s.stateName).join(" vs ")}`].join(","));
         rows.push("");
 
-        rows.push(["Metric", ...comparedStates.map((s) => s.stateName), "Leader State"].join(","));
+        // Section 1: Business Dimensions
+        rows.push(["=== 1. TERRITORY DIMENSION COMPARISON ==="].join(","));
+        rows.push(["Dimension", ...comparedStates.map((s) => s.stateName), "Leader State"].join(","));
         metricAnalysisData.forEach((item) => {
             const leaderName = comparedStates.find((s) => s.stateId === item.bestStateId)?.stateName || "—";
             const vals = comparedStates.map((s) => {
                 const raw = item.getter(s, selectedFyId);
                 return item.isCurrency ? String(raw) : item.isScore ? `${raw}/100` : String(raw);
             });
-            rows.push([item.label, ...vals, leaderName].join(","));
+            rows.push([`"${item.label}"`, ...vals, `"${leaderName}"`].join(","));
         });
-
         rows.push("");
-        rows.push(["Normalized Scores (0–100 Scale)", ...comparedStates.map((s) => s.stateName)].join(","));
-        metricAnalysisData.forEach((item) => {
-            const scores = item.stateScores.map((s) => String(s.score));
-            rows.push([item.label, ...scores].join(","));
+
+        // Section 2: Detailed Customer Directory
+        rows.push(["=== 2. COMPREHENSIVE CUSTOMER DIRECTORY & TURNOVER ==="].join(","));
+        const fyHeaders = fyList.map((f) => `Sales ${f.fyName}`);
+        rows.push([
+            "State",
+            "Customer Name",
+            "Customer Code",
+            "Category",
+            "City",
+            "District",
+            "Area",
+            "Route",
+            "GSTIN",
+            "Drug Lic No",
+            "Phone",
+            "Email",
+            "Address",
+            "DSM",
+            "ASM",
+            "RSM",
+            "Gross Sales",
+            "Net Sales",
+            "Sales Returns",
+            "Return %",
+            "Invoices Count",
+            "Balance",
+            "Credit Limit",
+            "YoY Growth %",
+            ...fyHeaders,
+        ].join(","));
+
+        filteredCustomers.forEach((c) => {
+            const fyVals = fyList.map((f) => String(c.byFy?.[f.fyId]?.sales ?? 0));
+            rows.push([
+                `"${c.stateName}"`,
+                `"${c.name.replace(/"/g, '""')}"`,
+                `"${c.code}"`,
+                `"${c.category || "Standard"}"`,
+                `"${(c.city || "").replace(/"/g, '""')}"`,
+                `"${(c.district || "").replace(/"/g, '""')}"`,
+                `"${(c.area || "").replace(/"/g, '""')}"`,
+                `"${(c.route || "").replace(/"/g, '""')}"`,
+                `"${c.gstno || ""}"`,
+                `"${c.dlno || ""}"`,
+                `"${c.phone || ""}"`,
+                `"${c.email || ""}"`,
+                `"${(c.address || "").replace(/"/g, '""')}"`,
+                `"${c.dsm || ""}"`,
+                `"${c.asm || ""}"`,
+                `"${c.rsm || ""}"`,
+                String(c.totalSales),
+                String(c.totalNetSales),
+                String(c.totalReturns),
+                `${c.returnsRatioPercent}%`,
+                String(c.invoicesCount),
+                String(c.balance),
+                String(c.creditLimit),
+                c.salesGrowthPct !== null ? `${c.salesGrowthPct}%` : "N/A",
+                ...fyVals,
+            ].join(","));
         });
 
         const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `State_Radar_DeepDive_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.download = `Territory_Radar_Customer_Report_${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
         URL.revokeObjectURL(url);
-    };
-
-    const toggleState = (sId: string) => {
-        setActiveStateIds((prev) =>
-            prev.includes(sId)
-                ? prev.length > 2
-                    ? prev.filter((x) => x !== sId)
-                    : prev
-                : prev.length < 4
-                ? [...prev, sId]
-                : [prev[1], prev[2], sId]
-        );
     };
 
     if (!isOpen) return null;
 
     return (
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2 sm:p-4 md:p-6 overflow-hidden animate-[fadeIn_0.2s_ease-out]"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-2 sm:p-4 md:p-6 overflow-hidden animate-[fadeIn_0.2s_ease-out]"
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
         >
             {/* Modal Container */}
-            <div className="relative w-full max-w-6xl max-h-[92vh] flex flex-col bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden text-slate-800">
+            <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden text-slate-800">
                 {/* Top Accent */}
                 <div
                     className="h-1.5 w-full transition-colors duration-500"
@@ -417,7 +638,7 @@ export default function FYAreaRadarDetailModal({
                 />
 
                 {/* Modal Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-3.5 sm:px-6 py-3 sm:py-4 border-b border-slate-200/70 bg-slate-50/70 flex-shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-3.5 sm:px-6 py-3 sm:py-3.5 border-b border-slate-200/70 bg-slate-50/80 flex-shrink-0">
                     <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                         <div
                             className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-md flex-shrink-0"
@@ -439,8 +660,8 @@ export default function FYAreaRadarDetailModal({
                             <div className="flex items-center gap-2 flex-wrap">
                                 <h2 className="text-sm sm:text-lg md:text-xl font-black tracking-tight text-slate-900 truncate">
                                     {activeTab === "all"
-                                        ? "State Radar — Comparative Deep Dive"
-                                        : `${currentMetricConfig?.label} Comparison`}
+                                        ? "State Radar & Customer Intelligence"
+                                        : `${currentMetricConfig?.label} Deep-Dive`}
                                 </h2>
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
                                     Comparing {comparedStates.length} States
@@ -448,7 +669,7 @@ export default function FYAreaRadarDetailModal({
                             </div>
                             <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
                                 {activeTab === "all"
-                                    ? "Multi-dimensional performance matrix across Indian states"
+                                    ? "Multi-dimensional performance matrix, territory radar scores & key customer accounts"
                                     : currentMetricConfig?.description}
                             </p>
                         </div>
@@ -475,7 +696,7 @@ export default function FYAreaRadarDetailModal({
 
                         <button
                             onClick={handleExportCSV}
-                            title="Export Detailed Report to CSV"
+                            title="Export Full Territory & Customer Database to CSV"
                             className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all hover:scale-105 active:scale-95 shadow-xs"
                         >
                             <FaDownload size={10} />
@@ -491,7 +712,7 @@ export default function FYAreaRadarDetailModal({
                     </div>
                 </div>
 
-                {/* State Quick Toggle Bar */}
+                {/* State Quick Info Bar */}
                 <div className="px-3.5 sm:px-6 py-2 bg-indigo-50/40 border-b border-slate-200/60 flex items-center justify-between gap-2 overflow-x-auto scrollbar-hide flex-shrink-0">
                     <div className="flex items-center gap-1.5 min-w-max">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
@@ -509,13 +730,15 @@ export default function FYAreaRadarDetailModal({
                             >
                                 <span className="w-2 h-2 rounded-full" style={{ background: st.color }} />
                                 {st.stateName}
-                                <span className="text-[9px] opacity-75 font-normal">({st.zoneName})</span>
+                                <span className="text-[9px] opacity-75 font-normal">
+                                    ({st.customers?.length || st.byFy[selectedFyId]?.customersCount || 0} Accounts)
+                                </span>
                             </span>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400 whitespace-nowrap">
-                        <span>Max 4 states</span>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 whitespace-nowrap">
+                        <span>Total Customer Network: <strong className="text-slate-700">{allComparedCustomers.length}</strong></span>
                     </div>
                 </div>
 
@@ -668,7 +891,7 @@ export default function FYAreaRadarDetailModal({
 
                                                 <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100/80 text-[10px] text-slate-500 font-medium">
                                                     <span>Sales: {formatCr(st.totalSales)}</span>
-                                                    <span>Health: {st.healthScore}/100</span>
+                                                    <span>Accounts: {st.customers?.length || st.byFy[selectedFyId]?.customersCount || 0}</span>
                                                 </div>
                                             </div>
                                         );
@@ -684,7 +907,7 @@ export default function FYAreaRadarDetailModal({
                                             Multi-State Business Dimensions Matrix
                                         </h4>
                                         <p className="text-[10px] sm:text-[11px] text-slate-500 m-0">
-                                            Click any metric row to drill down into its multi-year breakdown
+                                            Click any metric row to drill down into its multi-year breakdown &amp; detailed accounts
                                         </p>
                                     </div>
                                     <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200/60 self-start xs:self-auto">
@@ -805,13 +1028,625 @@ export default function FYAreaRadarDetailModal({
                                     </table>
                                 </div>
                             </div>
+
+                            {/* Top Key Accounts Snapshot Widget across Compared States */}
+                            <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3.5 sm:p-5 shadow-sm">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <h4 className="text-xs sm:text-sm font-black text-slate-800 m-0 flex items-center gap-1.5">
+                                            <FaStar className="text-amber-500" />
+                                            Key Accounts &amp; Leading Customers Snapshot
+                                        </h4>
+                                        <p className="text-[10px] sm:text-[11px] text-slate-400 m-0">
+                                            Top customer accounts driving sales turnover across compared states
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setActiveTab("customers")}
+                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                                    >
+                                        View All Accounts Directory <FaChevronRight size={9} />
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {comparedStates.map((st) => {
+                                        const custs = st.customers?.slice(0, 3) || [];
+                                        return (
+                                            <div
+                                                key={st.stateId}
+                                                className="rounded-xl border border-slate-200/70 bg-slate-50/60 p-3 space-y-2"
+                                            >
+                                                <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span
+                                                            className="w-2.5 h-2.5 rounded-full"
+                                                            style={{ background: st.color }}
+                                                        />
+                                                        <span className="font-bold text-xs text-slate-800">
+                                                            {st.stateName}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[10px] font-semibold text-slate-400">
+                                                        {st.customers?.length || 0} Total
+                                                    </span>
+                                                </div>
+
+                                                {custs.length > 0 ? (
+                                                    <div className="space-y-1.5">
+                                                        {custs.map((c, ci) => (
+                                                            <div
+                                                                key={ci}
+                                                                onClick={() => setSelectedCustomerDetail(c)}
+                                                                className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-100 shadow-2xs hover:border-indigo-300 hover:bg-indigo-50/20 transition-all cursor-pointer text-[11px]"
+                                                            >
+                                                                <div className="min-w-0 pr-2">
+                                                                    <span className="font-bold text-slate-800 truncate block">
+                                                                        {c.name}
+                                                                    </span>
+                                                                    <span className="text-[9px] text-slate-400 block truncate">
+                                                                        {c.city || c.area || c.code}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="font-black text-indigo-600 shrink-0">
+                                                                    {formatCr(c.totalSales)}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[10px] text-slate-400 py-2 text-center">
+                                                        No customer records available
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     )}
 
                     {/* ═════════════════════════════════════════════════════════ */}
-                    {/* VIEW B: SPECIFIC METRIC DEEP-DIVE                         */}
+                    {/* VIEW B: CUSTOMER DIRECTORY & INTELLIGENCE TAB             */}
                     {/* ═════════════════════════════════════════════════════════ */}
-                    {activeTab !== "all" && currentMetricConfig && (
+                    {activeTab === "customers" && (
+                        <div className="space-y-4 sm:space-y-5">
+                            {/* Territory Customer KPI Summary */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
+                                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-indigo-600 block truncate">
+                                        Total Accounts
+                                    </span>
+                                    <span className="text-sm sm:text-base font-black text-slate-900 block mt-0.5">
+                                        {customerKpis.totalCust}
+                                    </span>
+                                </div>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-emerald-600 block truncate">
+                                        Total Billed Sales
+                                    </span>
+                                    <span className="text-sm sm:text-base font-black text-slate-900 block mt-0.5">
+                                        {formatCr(customerKpis.totalSales)}
+                                    </span>
+                                </div>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-teal-50/70 border border-teal-200/80">
+                                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-teal-600 block truncate">
+                                        Net Retained Sales
+                                    </span>
+                                    <span className="text-sm sm:text-base font-black text-slate-900 block mt-0.5">
+                                        {formatCr(customerKpis.totalNetSales)}
+                                    </span>
+                                </div>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-purple-50/70 border border-purple-200/80">
+                                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-purple-600 block truncate">
+                                        Avg Sale / Customer
+                                    </span>
+                                    <span className="text-sm sm:text-base font-black text-slate-900 block mt-0.5">
+                                        {formatCr(customerKpis.avgSales)}
+                                    </span>
+                                </div>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-cyan-50/70 border border-cyan-200/80">
+                                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-cyan-600 block truncate">
+                                        Total Invoices
+                                    </span>
+                                    <span className="text-sm sm:text-base font-black text-slate-900 block mt-0.5">
+                                        {customerKpis.totalInvoices}
+                                    </span>
+                                </div>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-amber-600 block truncate">
+                                        Outstanding Balance
+                                    </span>
+                                    <span className="text-sm sm:text-base font-black text-slate-900 block mt-0.5">
+                                        {formatCr(customerKpis.totalBalance)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Search, State Filter, Categories & View Controls Toolbar */}
+                            <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-3">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                                    {/* State Selector Tabs */}
+                                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+                                        <button
+                                            onClick={() => setCustomerStateFilter("ALL")}
+                                            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                                                customerStateFilter === "ALL"
+                                                    ? "bg-slate-900 text-white shadow-xs"
+                                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                            }`}
+                                        >
+                                            All States ({allComparedCustomers.length})
+                                        </button>
+
+                                        {comparedStates.map((st) => (
+                                            <button
+                                                key={st.stateId}
+                                                onClick={() => setCustomerStateFilter(st.stateId)}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+                                                    customerStateFilter === st.stateId
+                                                        ? "text-white shadow-sm"
+                                                        : "bg-white text-slate-700 hover:bg-slate-50"
+                                                }`}
+                                                style={
+                                                    customerStateFilter === st.stateId
+                                                        ? {
+                                                              background: st.color,
+                                                              borderColor: st.color,
+                                                          }
+                                                        : {
+                                                              borderColor: `${st.color}40`,
+                                                          }
+                                                }
+                                            >
+                                                <span
+                                                    className="w-2 h-2 rounded-full"
+                                                    style={{
+                                                        background:
+                                                            customerStateFilter === st.stateId ? "#fff" : st.color,
+                                                    }}
+                                                />
+                                                <span>{st.stateName}</span>
+                                                <span className="text-[10px] opacity-80">
+                                                    ({st.customers?.length || 0})
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* View Mode & Sort Dropdowns */}
+                                    <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
+                                        <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/80">
+                                            <button
+                                                onClick={() => setCustomerViewMode("cards")}
+                                                className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                    customerViewMode === "cards"
+                                                        ? "bg-white text-indigo-600 shadow-xs"
+                                                        : "text-slate-500 hover:text-slate-800"
+                                                }`}
+                                                title="Cards View"
+                                            >
+                                                <FaThLarge size={12} />
+                                            </button>
+                                            <button
+                                                onClick={() => setCustomerViewMode("table")}
+                                                className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                    customerViewMode === "table"
+                                                        ? "bg-white text-indigo-600 shadow-xs"
+                                                        : "text-slate-500 hover:text-slate-800"
+                                                }`}
+                                                title="Table View"
+                                            >
+                                                <FaListUl size={12} />
+                                            </button>
+                                        </div>
+
+                                        <select
+                                            value={customerSortBy}
+                                            onChange={(e) => setCustomerSortBy(e.target.value)}
+                                            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                                        >
+                                            <option value="sales-desc">Sort: Highest Sales</option>
+                                            <option value="netsales-desc">Sort: Highest Net Sales</option>
+                                            <option value="growth-desc">Sort: Highest YoY Growth %</option>
+                                            <option value="invoices-desc">Sort: Most Invoices</option>
+                                            <option value="balance-desc">Sort: Highest Outstanding</option>
+                                            <option value="returns-asc">Sort: Lowest Returns %</option>
+                                            <option value="name-asc">Sort: Name (A to Z)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Live Search and Quick Filter Badges */}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-slate-100">
+                                    <div className="relative flex-1">
+                                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+                                        <input
+                                            type="text"
+                                            value={customerSearch}
+                                            onChange={(e) => setCustomerSearch(e.target.value)}
+                                            placeholder="Search by customer name, code, city, area, route, GSTIN, phone, DSM/ASM..."
+                                            className="w-full pl-8 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                        />
+                                        {customerSearch && (
+                                            <button
+                                                onClick={() => setCustomerSearch("")}
+                                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                            >
+                                                <FaTimes size={10} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Category Filter Pills */}
+                                    <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide text-[11px]">
+                                        {[
+                                            { id: "ALL", label: "All Categories" },
+                                            { id: "KEY", label: "⭐ Key Accounts" },
+                                            { id: "GROWTH", label: "📈 High Growth" },
+                                            { id: "RISK", label: "⚠️ High Returns" },
+                                            { id: "OUTSTANDING", label: "💳 Outstanding" },
+                                        ].map((cat) => (
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => setCustomerCategoryFilter(cat.id)}
+                                                className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap transition-all ${
+                                                    customerCategoryFilter === cat.id
+                                                        ? "bg-indigo-600 text-white shadow-2xs"
+                                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                                }`}
+                                            >
+                                                {cat.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Customer Count / Match Status */}
+                            <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                                <span>
+                                    Showing <strong className="text-slate-800">{filteredCustomers.length}</strong> customer accounts
+                                    {customerSearch && ` matching "${customerSearch}"`}
+                                </span>
+                                {copiedText && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                        <FaCheck size={9} /> Copied {copiedText} to clipboard!
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* ── MODE 1: CUSTOMER CARDS VIEW ── */}
+                            {customerViewMode === "cards" && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-3.5">
+                                    {filteredCustomers.map((cust, idx) => (
+                                        <div
+                                            key={`${cust.stateId}-${cust.code}-${idx}`}
+                                            className="relative rounded-2xl p-3.5 sm:p-4 bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-indigo-300/80 transition-all duration-200 flex flex-col justify-between"
+                                        >
+                                            {/* Top Header Strip */}
+                                            <div>
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-black shrink-0">
+                                                                #{idx + 1}
+                                                            </span>
+                                                            <span
+                                                                className="px-2 py-0.5 rounded-md text-[10px] font-black border"
+                                                                style={{
+                                                                    background: `${cust.stateColor}15`,
+                                                                    color: cust.stateColor,
+                                                                    borderColor: `${cust.stateColor}35`,
+                                                                }}
+                                                            >
+                                                                {cust.stateName}
+                                                            </span>
+                                                            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-mono font-bold">
+                                                                {cust.code}
+                                                            </span>
+                                                            {cust.category === "Key Account" && (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                                                                    <FaStar size={8} /> KEY ACCOUNT
+                                                                </span>
+                                                            )}
+                                                            {cust.category === "Growth Account" && (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                                    <FaArrowUp size={8} /> GROWTH
+                                                                </span>
+                                                            )}
+                                                            {cust.category === "High Return Risk" && (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                                                    <FaExclamationTriangle size={8} /> RETURN RISK
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Real Customer Name */}
+                                                        <h4
+                                                            onClick={() => setSelectedCustomerDetail(cust)}
+                                                            className="text-sm sm:text-base font-black text-slate-900 hover:text-indigo-600 transition-colors cursor-pointer mt-1.5 truncate"
+                                                            title={cust.name}
+                                                        >
+                                                            {cust.name}
+                                                        </h4>
+                                                    </div>
+
+                                                    {/* Total Sales Badge */}
+                                                    <div className="text-right shrink-0">
+                                                        <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                                                            Total Gross Sales
+                                                        </span>
+                                                        <span className="text-sm sm:text-base font-black text-indigo-600 block">
+                                                            {formatCr(cust.totalSales)}
+                                                        </span>
+                                                        <span className="text-[9px] text-slate-400 block font-mono">
+                                                            Exact: {formatINR(cust.totalSales)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Geo & Contact Pills Strip */}
+                                                <div className="flex items-center gap-1.5 flex-wrap mt-2.5 pt-2 border-t border-slate-100 text-[11px]">
+                                                    {(cust.city || cust.area) && (
+                                                        <span className="inline-flex items-center gap-1 text-slate-600 bg-slate-100/80 px-2 py-0.5 rounded-md">
+                                                            <FaMapMarkerAlt size={9} className="text-slate-400" />
+                                                            {[cust.city, cust.area, cust.route].filter(Boolean).join(" · ")}
+                                                        </span>
+                                                    )}
+
+                                                    {cust.phone && (
+                                                        <a
+                                                            href={`tel:${cust.phone}`}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="inline-flex items-center gap-1 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md font-medium transition-colors"
+                                                            title="Click to Call"
+                                                        >
+                                                            <FaPhoneAlt size={8} /> {cust.phone}
+                                                        </a>
+                                                    )}
+
+                                                    {cust.gstno && (
+                                                        <button
+                                                            onClick={() => handleCopy(cust.gstno!, "GSTIN")}
+                                                            className="inline-flex items-center gap-1 text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md font-mono text-[10px] transition-colors"
+                                                            title="Click to copy GSTIN"
+                                                        >
+                                                            <FaBuilding size={8} className="text-slate-400" />
+                                                            GST: {cust.gstno}
+                                                            <FaCopy size={8} className="text-slate-400 ml-0.5" />
+                                                        </button>
+                                                    )}
+
+                                                    {cust.dlno && (
+                                                        <span className="inline-flex items-center gap-1 text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md text-[10px]">
+                                                            DL: {cust.dlno}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Financial Stats Matrix */}
+                                                <div className="grid grid-cols-4 gap-1.5 my-2.5 p-2 rounded-xl bg-slate-50/70 border border-slate-100 text-center">
+                                                    <div>
+                                                        <span className="text-[9px] text-slate-400 uppercase font-bold block">Net Sales</span>
+                                                        <span className="text-xs font-black text-emerald-700 block mt-0.5">
+                                                            {formatCr(cust.totalNetSales)}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[9px] text-slate-400 uppercase font-bold block">Returns</span>
+                                                        <span className={`text-xs font-black block mt-0.5 ${cust.returnsRatioPercent > 8 ? "text-rose-600" : "text-slate-700"}`}>
+                                                            {cust.returnsRatioPercent}% ({formatCr(cust.totalReturns)})
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[9px] text-slate-400 uppercase font-bold block">Invoices</span>
+                                                        <span className="text-xs font-black text-slate-800 block mt-0.5">
+                                                            {cust.invoicesCount} Bills
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[9px] text-slate-400 uppercase font-bold block">Balance</span>
+                                                        <span className={`text-xs font-black block mt-0.5 ${cust.balance > 0 ? "text-amber-600" : "text-slate-700"}`}>
+                                                            {formatCr(cust.balance)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Multi-FY Performance Pill Breakdown */}
+                                                {fyList.length > 0 && (
+                                                    <div className="space-y-1 my-2">
+                                                        <div className="flex items-center justify-between text-[10px]">
+                                                            <span className="text-slate-400 font-bold uppercase">Multi-FY Turnover:</span>
+                                                            {cust.salesGrowthPct !== null && cust.salesGrowthPct !== undefined && (
+                                                                <span className={`font-black ${cust.salesGrowthPct > 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                                                                    YoY Growth: {cust.salesGrowthPct > 0 ? "+" : ""}{cust.salesGrowthPct}%
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                                                            {fyList.map((fy) => {
+                                                                const fSales = cust.byFy?.[fy.fyId]?.sales ?? 0;
+                                                                return (
+                                                                    <div key={fy.fyId} className="flex items-center justify-between p-1.5 rounded-lg bg-white border border-slate-100 text-[10px]">
+                                                                        <span className="text-slate-500 font-semibold">{fy.fyName}:</span>
+                                                                        <span className="font-bold text-slate-800">{formatCr(fSales)}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Top Formulations Bought */}
+                                                {cust.topProducts && cust.topProducts.length > 0 && (
+                                                    <div className="mt-2 pt-2 border-t border-slate-100">
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">
+                                                            Top Purchased Formulations:
+                                                        </span>
+                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                            {cust.topProducts.slice(0, 3).map((p, pi) => (
+                                                                <span
+                                                                    key={pi}
+                                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50/60 border border-indigo-100 text-[10px] font-medium text-slate-700 max-w-[200px] truncate"
+                                                                    title={`${p.name} (${p.qty} units, ${formatCr(p.amount)})`}
+                                                                >
+                                                                    <FaBoxes size={8} className="text-indigo-400 shrink-0" />
+                                                                    <span className="truncate">{p.name}</span>
+                                                                    <strong className="text-indigo-600 shrink-0">({formatCr(p.amount)})</strong>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Card Footer Actions */}
+                                            <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100 text-[11px]">
+                                                <div className="flex items-center gap-1.5 text-slate-400">
+                                                    {(cust.dsm || cust.asm || cust.rsm) && (
+                                                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                            <FaUserTie size={8} /> Rep: {[cust.dsm, cust.asm, cust.rsm].filter(Boolean).join(" / ")}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <button
+                                                    onClick={() => setSelectedCustomerDetail(cust)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] transition-colors"
+                                                >
+                                                    <span>View 360° Profile</span>
+                                                    <FaChevronRight size={8} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {filteredCustomers.length === 0 && (
+                                        <div className="col-span-full py-12 text-center bg-slate-50/50 rounded-2xl border border-slate-200/60">
+                                            <FaUserCheck size={32} className="text-slate-300 mx-auto mb-2" />
+                                            <p className="text-sm font-bold text-slate-700">No matching customer accounts found</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">Try adjusting your search query or state filter</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ── MODE 2: CUSTOMER TABLE VIEW ── */}
+                            {customerViewMode === "table" && (
+                                <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-sm">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs min-w-[840px]">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[11px]">
+                                                    <th className="py-2.5 px-3 text-left w-12">#</th>
+                                                    <th className="py-2.5 px-3 text-left">Customer Name &amp; Code</th>
+                                                    <th className="py-2.5 px-3 text-left">Location</th>
+                                                    <th className="py-2.5 px-3 text-left">Compliance / Rep</th>
+                                                    <th className="py-2.5 px-3 text-right">Gross Sales</th>
+                                                    <th className="py-2.5 px-3 text-right">Net Sales</th>
+                                                    <th className="py-2.5 px-3 text-right">Returns %</th>
+                                                    <th className="py-2.5 px-3 text-right">Invoices</th>
+                                                    <th className="py-2.5 px-3 text-right">Balance</th>
+                                                    <th className="py-2.5 px-3 text-center w-16">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredCustomers.map((cust, idx) => (
+                                                    <tr
+                                                        key={`${cust.stateId}-${cust.code}-${idx}`}
+                                                        onClick={() => setSelectedCustomerDetail(cust)}
+                                                        className="border-b border-slate-100 hover:bg-indigo-50/40 transition-colors cursor-pointer"
+                                                    >
+                                                        <td className="py-2.5 px-3 text-slate-400 font-bold">
+                                                            #{idx + 1}
+                                                        </td>
+                                                        <td className="py-2.5 px-3">
+                                                            <div className="font-bold text-slate-800 truncate max-w-[200px]">
+                                                                {cust.name}
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                                <span
+                                                                    className="px-1.5 py-0.2 rounded text-[9px] font-black border"
+                                                                    style={{
+                                                                        background: `${cust.stateColor}15`,
+                                                                        color: cust.stateColor,
+                                                                        borderColor: `${cust.stateColor}35`,
+                                                                    }}
+                                                                >
+                                                                    {cust.stateName}
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-400 font-mono">
+                                                                    {cust.code}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-slate-600">
+                                                            <div className="font-medium truncate max-w-[130px]">
+                                                                {cust.city || "—"}
+                                                            </div>
+                                                            <span className="text-[10px] text-slate-400 truncate block">
+                                                                {[cust.area, cust.route].filter(Boolean).join(", ") || "—"}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2.5 px-3">
+                                                            {cust.gstno && (
+                                                                <div className="font-mono text-[10px] text-slate-600 truncate max-w-[120px]">
+                                                                    GST: {cust.gstno}
+                                                                </div>
+                                                            )}
+                                                            {(cust.dsm || cust.asm || cust.rsm) && (
+                                                                <span className="text-[9px] text-indigo-600 truncate block">
+                                                                    Rep: {[cust.dsm, cust.asm, cust.rsm].filter(Boolean).join("/")}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-right font-black text-slate-900">
+                                                            {formatCr(cust.totalSales)}
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-right font-black text-emerald-700">
+                                                            {formatCr(cust.totalNetSales)}
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-right">
+                                                            <span className={`font-bold ${cust.returnsRatioPercent > 8 ? "text-rose-600" : "text-slate-600"}`}>
+                                                                {cust.returnsRatioPercent}%
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-right font-bold text-slate-700">
+                                                            {cust.invoicesCount}
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-right">
+                                                            <span className={`font-bold ${cust.balance > 0 ? "text-amber-600" : "text-slate-600"}`}>
+                                                                {formatCr(cust.balance)}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2.5 px-3 text-center">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedCustomerDetail(cust);
+                                                                }}
+                                                                className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-100 transition-colors"
+                                                                title="View 360° Profile"
+                                                            >
+                                                                <FaEye size={12} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ═════════════════════════════════════════════════════════ */}
+                    {/* VIEW C: SPECIFIC METRIC DEEP-DIVE                         */}
+                    {/* ═════════════════════════════════════════════════════════ */}
+                    {activeTab !== "all" && activeTab !== "customers" && currentMetricConfig && (
                         <div className="space-y-4 sm:space-y-6">
                             {/* State Cards Strip */}
                             <div>
@@ -1008,7 +1843,7 @@ export default function FYAreaRadarDetailModal({
                                 </div>
                             )}
 
-                            {/* Top Products or Accounts in these States */}
+                            {/* Top Formulations in these States */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                 {comparedStates.map((st) => (
                                     <div
@@ -1027,7 +1862,7 @@ export default function FYAreaRadarDetailModal({
 
                                         {st.topProducts && st.topProducts.length > 0 ? (
                                             <div className="space-y-1.5">
-                                                {st.topProducts.slice(0, 4).map((p, pi) => (
+                                                {st.topProducts.slice(0, 5).map((p, pi) => (
                                                     <div
                                                         key={pi}
                                                         className="flex items-center justify-between p-2 rounded-xl bg-slate-50/80 text-[11px]"
@@ -1038,9 +1873,14 @@ export default function FYAreaRadarDetailModal({
                                                                 {p.name}
                                                             </span>
                                                         </div>
-                                                        <span className="font-black text-slate-900 shrink-0">
-                                                            {formatCr(p.amount)}
-                                                        </span>
+                                                        <div className="text-right shrink-0">
+                                                            <span className="font-black text-slate-900 block">
+                                                                {formatCr(p.amount)}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-400">
+                                                                {p.qty.toLocaleString("en-IN")} Qty
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1060,7 +1900,7 @@ export default function FYAreaRadarDetailModal({
                 <div className="px-4 sm:px-6 py-2.5 sm:py-3 border-t border-slate-200/70 bg-slate-50/80 flex items-center justify-between text-xs text-slate-500 flex-shrink-0">
                     <div className="flex items-center gap-1.5 text-[11px]">
                         <FaInfoCircle className="text-indigo-500 shrink-0" />
-                        <span>State radar normalized scores evaluate relative commercial strength across key territories.</span>
+                        <span>State radar normalized scores and customer directory evaluate real commercial performance across territories.</span>
                     </div>
 
                     <button
@@ -1071,6 +1911,198 @@ export default function FYAreaRadarDetailModal({
                     </button>
                 </div>
             </div>
+
+            {/* ═════════════════════════════════════════════════════════════ */}
+            {/* CUSTOMER 360° PROFILE MODAL                                  */}
+            {/* ═════════════════════════════════════════════════════════════ */}
+            {selectedCustomerDetail && (
+                <div
+                    className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-6 overflow-hidden animate-[fadeIn_0.15s_ease-out]"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setSelectedCustomerDetail(null);
+                    }}
+                >
+                    <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800">
+                        {/* 360 Top Accent */}
+                        <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+
+                        {/* 360 Header */}
+                        <div className="flex items-start justify-between gap-3 p-4 sm:p-5 border-b border-slate-100 bg-slate-50/80">
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-100 text-indigo-700">
+                                        {selectedCustomerDetail.state}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
+                                        {selectedCustomerDetail.code}
+                                    </span>
+                                    {selectedCustomerDetail.category && (
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                                            {selectedCustomerDetail.category}
+                                        </span>
+                                    )}
+                                </div>
+                                <h3 className="text-base sm:text-xl font-black text-slate-900 mt-1">
+                                    {selectedCustomerDetail.name}
+                                </h3>
+                                <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                    <FaMapMarkerAlt size={10} className="text-slate-400" />
+                                    {[selectedCustomerDetail.city, selectedCustomerDetail.district, selectedCustomerDetail.area].filter(Boolean).join(" · ")}
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => setSelectedCustomerDetail(null)}
+                                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        {/* 360 Body Content */}
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
+                            {/* Key Financial KPIs */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                <div className="p-3 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+                                    <span className="text-[10px] font-bold uppercase text-indigo-600 block">Total Gross Sales</span>
+                                    <span className="text-lg font-black text-slate-900 block mt-0.5">{formatCr(selectedCustomerDetail.totalSales)}</span>
+                                    <span className="text-[9px] text-slate-400 font-mono block">{formatINR(selectedCustomerDetail.totalSales)}</span>
+                                </div>
+                                <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+                                    <span className="text-[10px] font-bold uppercase text-emerald-600 block">Net Retained Sales</span>
+                                    <span className="text-lg font-black text-slate-900 block mt-0.5">{formatCr(selectedCustomerDetail.totalNetSales)}</span>
+                                    <span className="text-[9px] text-slate-400 font-mono block">{formatINR(selectedCustomerDetail.totalNetSales)}</span>
+                                </div>
+                                <div className="p-3 rounded-2xl bg-rose-50/70 border border-rose-200">
+                                    <span className="text-[10px] font-bold uppercase text-rose-600 block">Returns &amp; Ratio</span>
+                                    <span className="text-lg font-black text-slate-900 block mt-0.5">{selectedCustomerDetail.returnsRatioPercent}%</span>
+                                    <span className="text-[9px] text-slate-400 block">{formatCr(selectedCustomerDetail.totalReturns)} total</span>
+                                </div>
+                                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200">
+                                    <span className="text-[10px] font-bold uppercase text-amber-600 block">Current Balance</span>
+                                    <span className="text-lg font-black text-slate-900 block mt-0.5">{formatCr(selectedCustomerDetail.balance)}</span>
+                                    <span className="text-[9px] text-slate-400 block">{selectedCustomerDetail.invoicesCount} Invoices</span>
+                                </div>
+                            </div>
+
+                            {/* Contact & Compliance Card */}
+                            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+                                <h4 className="font-black text-slate-800 flex items-center gap-1.5 text-xs sm:text-[13px]">
+                                    <FaAddressCard className="text-indigo-600" />
+                                    Contact &amp; Compliance Details
+                                </h4>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                    <div className="p-2 rounded-xl bg-white border border-slate-200/60">
+                                        <span className="text-[10px] text-slate-400 font-bold block">Phone Number</span>
+                                        {selectedCustomerDetail.phone ? (
+                                            <a href={`tel:${selectedCustomerDetail.phone}`} className="font-bold text-indigo-600 flex items-center gap-1 mt-0.5">
+                                                <FaPhoneAlt size={10} /> {selectedCustomerDetail.phone}
+                                            </a>
+                                        ) : (
+                                            <span className="text-slate-400">—</span>
+                                        )}
+                                    </div>
+
+                                    <div className="p-2 rounded-xl bg-white border border-slate-200/60">
+                                        <span className="text-[10px] text-slate-400 font-bold block">GSTIN Number</span>
+                                        <span className="font-mono font-bold text-slate-800 block mt-0.5">
+                                            {selectedCustomerDetail.gstno || "Unregistered / N/A"}
+                                        </span>
+                                    </div>
+
+                                    <div className="p-2 rounded-xl bg-white border border-slate-200/60">
+                                        <span className="text-[10px] text-slate-400 font-bold block">Drug License No.</span>
+                                        <span className="font-bold text-slate-800 block mt-0.5">
+                                            {selectedCustomerDetail.dlno || "—"}
+                                        </span>
+                                    </div>
+
+                                    <div className="p-2 rounded-xl bg-white border border-slate-200/60">
+                                        <span className="text-[10px] text-slate-400 font-bold block">Territory &amp; Field Staff</span>
+                                        <span className="font-bold text-slate-800 block mt-0.5">
+                                            {[
+                                                selectedCustomerDetail.dsm && `DSM: ${selectedCustomerDetail.dsm}`,
+                                                selectedCustomerDetail.asm && `ASM: ${selectedCustomerDetail.asm}`,
+                                                selectedCustomerDetail.rsm && `RSM: ${selectedCustomerDetail.rsm}`,
+                                            ].filter(Boolean).join(" · ") || "General Territory"}
+                                        </span>
+                                    </div>
+
+                                    <div className="sm:col-span-2 p-2 rounded-xl bg-white border border-slate-200/60">
+                                        <span className="text-[10px] text-slate-400 font-bold block">Registered Address</span>
+                                        <span className="text-slate-700 block mt-0.5">
+                                            {[selectedCustomerDetail.address, selectedCustomerDetail.city, selectedCustomerDetail.district, selectedCustomerDetail.state, selectedCustomerDetail.pincode].filter(Boolean).join(", ") || "No address recorded"}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Multi-FY Breakdown */}
+                            <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80">
+                                <h4 className="font-black text-slate-800 mb-2 flex items-center gap-1.5">
+                                    <FaChartLine className="text-indigo-600" />
+                                    Financial Year Turnover History
+                                </h4>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {fyList.map((fy) => {
+                                        const fyStat = selectedCustomerDetail.byFy?.[fy.fyId];
+                                        return (
+                                            <div key={fy.fyId} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                                                <span className="text-[10px] text-slate-500 font-bold uppercase block">{fy.fyName}</span>
+                                                <span className="text-sm font-black text-slate-900 block mt-0.5">
+                                                    {formatCr(fyStat?.sales ?? 0)}
+                                                </span>
+                                                <span className="text-[9px] text-slate-400 block mt-0.5">
+                                                    {fyStat?.invoicesCount ?? 0} Invoices
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Top Purchased Products */}
+                            {selectedCustomerDetail.topProducts && selectedCustomerDetail.topProducts.length > 0 && (
+                                <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80">
+                                    <h4 className="font-black text-slate-800 mb-2 flex items-center gap-1.5">
+                                        <FaBoxes className="text-indigo-600" />
+                                        Formulations Purchased Breakdown
+                                    </h4>
+
+                                    <div className="space-y-1.5">
+                                        {selectedCustomerDetail.topProducts.map((p, pi) => (
+                                            <div key={pi} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 text-xs">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[10px] shrink-0">
+                                                        #{pi + 1}
+                                                    </span>
+                                                    <span className="font-bold text-slate-800 truncate">{p.name}</span>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <span className="font-black text-slate-900 block">{formatCr(p.amount)}</span>
+                                                    <span className="text-[9px] text-slate-400">{p.qty.toLocaleString("en-IN")} Qty</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 360 Footer */}
+                        <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end">
+                            <button
+                                onClick={() => setSelectedCustomerDetail(null)}
+                                className="px-4 py-1.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

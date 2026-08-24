@@ -12,7 +12,7 @@ import {
     FaArrowUp, FaArrowDown, FaBuilding, FaDownload, FaFilter,
     FaSearch, FaTimes, FaTrophy, FaBoxes, FaUserCheck, FaChartLine, FaShoppingBag,
     FaWallet, FaUndo, FaExclamationTriangle, FaEye, FaLayerGroup,
-    FaHeartbeat, FaGlobeAsia, FaExchangeAlt, FaUserTie, FaRoute
+    FaHeartbeat, FaGlobeAsia, FaExchangeAlt, FaUserTie, FaRoute, FaChevronRight
 } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -22,7 +22,7 @@ import {
     RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
-import FYAreaRadarDetailModal from "@/components/FYAreaRadarDetailModal";
+import FYAreaRadarDetailModal, { type CustomerDetailItem } from "@/components/FYAreaRadarDetailModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & CONSTANTS
@@ -54,7 +54,19 @@ type StateRow = {
     healthScore: number;
     byFy: Record<string, StateFyData>;
     topProducts: { name: string; qty: number; amount: number }[];
-    topCustomers: { name: string; sales: number }[];
+    topCustomers: {
+        code?: string;
+        name: string;
+        city?: string;
+        area?: string;
+        sales: number;
+        netSales?: number;
+        gstno?: string;
+        phone?: string;
+        invoicesCount?: number;
+        byFy?: Record<string, any>;
+    }[];
+    customers?: CustomerDetailItem[];
 };
 
 type ZonalRow = { zoneName: string; byFy: Record<string, number>; totalSales: number };
@@ -1285,20 +1297,67 @@ export default function FYAreaWiseComparisonPage() {
 
                         {/* Tab 3: Key Accounts */}
                         {drawerTab === "customers" && (
-                            <GlassCard title="Top Key Accounts &amp; Customers in State" subtitle="Ranked by sales volume in state">
-                                {selectedState.topCustomers.length === 0 ? (
-                                    <p className="text-xs text-slate-400 m-0 py-4">No individual party breakdown available</p>
+                            <GlassCard
+                                title={`Key Accounts & Customers in ${selectedState.stateName}`}
+                                subtitle={`${selectedState.customers?.length || selectedState.topCustomers.length} active customer accounts`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[11px] text-slate-500 font-medium">Ranked by turnover</span>
+                                    <button
+                                        onClick={() => {
+                                            if (!compareStateIds.includes(selectedState.stateId)) {
+                                                setCompareStateIds(prev => [...prev.slice(-3), selectedState.stateId]);
+                                            }
+                                            handleOpenRadarModal("customers");
+                                        }}
+                                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                                    >
+                                        Open Full Customer Radar <FaChevronRight size={8} />
+                                    </button>
+                                </div>
+
+                                {selectedState.topCustomers.length === 0 && (!selectedState.customers || selectedState.customers.length === 0) ? (
+                                    <p className="text-xs text-slate-400 m-0 py-4 text-center">No individual party breakdown available</p>
                                 ) : (
-                                    <div className="space-y-2 mt-2">
-                                        {selectedState.topCustomers.map((cust, ci) => (
-                                            <div key={ci} className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-white/70 border border-slate-200/50 text-[11px] sm:text-xs">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[9px] sm:text-[10px] shrink-0">
-                                                        #{ci + 1}
+                                    <div className="space-y-2 mt-2 max-h-[380px] overflow-y-auto pr-1">
+                                        {(selectedState.customers || selectedState.topCustomers).map((cust: any, ci: number) => (
+                                            <div
+                                                key={ci}
+                                                onClick={() => {
+                                                    if (!compareStateIds.includes(selectedState.stateId)) {
+                                                        setCompareStateIds(prev => [...prev.slice(-3), selectedState.stateId]);
+                                                    }
+                                                    handleOpenRadarModal("customers");
+                                                }}
+                                                className="p-2.5 sm:p-3 rounded-xl bg-white/80 border border-slate-200/60 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition-all cursor-pointer text-[11px] sm:text-xs"
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex items-start gap-2 min-w-0">
+                                                        <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[9px] sm:text-[10px] shrink-0 mt-0.5">
+                                                            #{ci + 1}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <span className="font-bold text-slate-900 truncate block">
+                                                                {cust.name}
+                                                            </span>
+                                                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
+                                                                {cust.code && <span className="font-mono bg-slate-100 px-1 rounded">{cust.code}</span>}
+                                                                {(cust.city || cust.area) && <span>{[cust.city, cust.area].filter(Boolean).join(" · ")}</span>}
+                                                                {cust.gstno && <span className="font-mono">GST: {cust.gstno}</span>}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <span className="font-bold text-slate-800 truncate">{cust.name}</span>
+                                                    <div className="text-right shrink-0">
+                                                        <span className="font-black text-indigo-600 block">
+                                                            {formatCr(cust.totalSales || cust.sales)}
+                                                        </span>
+                                                        {cust.invoicesCount && (
+                                                            <span className="text-[9px] text-slate-400">
+                                                                {cust.invoicesCount} Invoices
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <span className="font-black text-indigo-600 shrink-0">{formatCr(cust.sales)}</span>
                                             </div>
                                         ))}
                                     </div>
