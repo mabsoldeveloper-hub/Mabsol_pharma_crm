@@ -641,7 +641,7 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
       {
         id: "sales-dashboard",
         label: "Sales Dashboard",
-        href: "/dashboard/sales/dashboard/",
+        href: "/dashboard/sales/dashboard",
         icon: "FaTachometerAlt",
         permission: "sales.view",
         isVisible: true,

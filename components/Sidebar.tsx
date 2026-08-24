@@ -266,11 +266,18 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   }) => {
     const c = colorMap[color] || colorMap.indigo;
 
+    const handleNavClick = () => {
+      if (mobile && setCollapsed) {
+        setCollapsed(true);
+      }
+    };
+
     if (iconOnly) {
       return (
         <Link
           href={href}
           title={label}
+          onClick={handleNavClick}
           className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out group shrink-0 ${
             active
               ? "text-white scale-105 shadow-md"
@@ -301,6 +308,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     return (
       <Link
         href={href}
+        onClick={handleNavClick}
         className={`glass-nav-item relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] transition-all duration-300 ease-out group no-underline select-none ${
           active
             ? `glass-nav-item-active font-semibold ${c.activeText}`
@@ -354,10 +362,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     color: ColorKey;
   }) => {
     const c = colorMap[color] || colorMap.indigo;
+    const handleSubClick = () => {
+      if (mobile && setCollapsed) {
+        setCollapsed(true);
+      }
+    };
+
     return (
       <Link
         href={href}
         title={label}
+        onClick={handleSubClick}
         className={`group/sub flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[12.5px] transition-all duration-200 ease-out no-underline select-none ${
           active
             ? `bg-white/60 dark:bg-white/10 font-semibold ${c.activeText} shadow-sm`
