@@ -88,15 +88,7 @@ export async function GET(req: NextRequest) {
                 if (isNum) {
                     searchConds.push({ CODE: Number(search) });
                 }
-                if (batchFilter.$or) {
-                    batchFilter.$and = [
-                        { $or: batchFilter.$or },
-                        { $or: searchConds }
-                    ];
-                    delete batchFilter.$or;
-                } else {
-                    batchFilter.$or = searchConds;
-                }
+                batchFilter = combineFilters(batchFilter, { $or: searchConds });
             }
 
             if (filter === "in_stock") {
@@ -236,7 +228,7 @@ export async function GET(req: NextRequest) {
                 if (isNum) {
                     searchConds.push({ CODE: Number(search) });
                 }
-                productFilter.$or = searchConds;
+                productFilter = combineFilters(productFilter, { $or: searchConds });
             }
 
             if (filter === "in_stock") {

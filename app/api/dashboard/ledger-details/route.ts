@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
                 searchConds.push({ DEBIT: Number(search) });
             }
 
-            ledgerFilter.$or = searchConds;
+            ledgerFilter = combineFilters(ledgerFilter, { $or: searchConds });
         }
 
         const sortOption: any = {};
