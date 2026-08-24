@@ -349,8 +349,8 @@ export async function GET(req: Request) {
     sumField(SalesMdis, combineFilters(mdisBaseFilter, todayMatch), "FINAL"),
     sumField(SalesMdis, combineFilters(mdisBaseFilter, monthMatch), "FINAL"),
     sumField(SalesMdis, combineFilters(mdisBaseFilter, yearMatch), "FINAL"),
-    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, companyVfpMatch), "BALANCE"),
-    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, INVTYPE: "I", BALANCE: { $gt: 0 } }, dateMatchPEND, companyVfpMatch), "BALANCE"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, pendFilter), "BALANCE"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, INVTYPE: "I", BALANCE: { $gt: 0 } }, pendFilter), "BALANCE"),
     (async () => {
       const baseF: any = combineFilters({ ACGROUP: /^D/i, INVTYPE: "I", BALANCE: { $lt: 0 } }, dateMatchPEND, companyVfpMatch);
       if (restriction.isMrRestricted) {
@@ -366,7 +366,7 @@ export async function GET(req: Request) {
         0
       );
     })(),
-    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 }, DDATE: { $lt: today } }, companyVfpMatch), "BALANCE"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 }, DDATE: { $lt: today } }, pendFilter), "BALANCE"),
     sumField(GLedger, { ...GLEDGER_COLLECTION_FILTER }, "CREDIT"),
     Order.countDocuments(orderFilter),
     Product.countDocuments(productFilter),
@@ -407,7 +407,7 @@ export async function GET(req: Request) {
     ]),
 
     // Outstanding Aging — raw rows, bucketed in JS below (DUEDAYS varies per voucher)
-    Pendings.find(combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, companyVfpMatch), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
+    Pendings.find(combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, pendFilter), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
 
     // Top 10 Products — DIS joined to PRO by CODE
     SalesDis.aggregate([
@@ -495,7 +495,7 @@ export async function GET(req: Request) {
     ]),
 
     // Creditor Aging Raw
-    Pendings.find(combineFilters({ ACGROUP: /^D/i, BALANCE: { $ne: 0 } }, companyVfpMatch), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
+    Pendings.find(combineFilters({ ACGROUP: /^D/i, BALANCE: { $ne: 0 } }, pendFilter), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
 
     // Purchase Trend Raw
     SalesMdis.aggregate([
