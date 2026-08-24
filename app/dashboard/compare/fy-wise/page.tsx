@@ -23,6 +23,7 @@ import {
     RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import FYRadarDetailModal from "@/components/FYRadarDetailModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -411,6 +412,15 @@ export default function FYWiseComparisonPage() {
     const [mrInfo, setMrInfo] = useState<MrInfo | null>(null);
     const [hasLoaded, setHasLoaded] = useState(false);
 
+    // ── Radar Deep-Dive Modal state ──
+    const [isRadarModalOpen, setIsRadarModalOpen] = useState(false);
+    const [selectedRadarMetric, setSelectedRadarMetric] = useState<string | null>(null);
+
+    const handleOpenRadarModal = (metricKey?: string) => {
+        setSelectedRadarMetric(metricKey || null);
+        setIsRadarModalOpen(true);
+    };
+
     // ── Territory filter states ──
     const [filterOptions, setFilterOptions] = useState<FilterOptions>({ states: [], areas: [], routes: [], dsms: [], asms: [], rsms: [] });
     const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
@@ -668,7 +678,7 @@ export default function FYWiseComparisonPage() {
         return metrics.map(({ label, key }) => {
             const vals = fyData.map(f => f.summary[key]);
             const max = Math.max(...vals) || 1;
-            const row: any = { metric: label };
+            const row: any = { metric: label, metricKey: key };
             fyData.forEach(f => { row[f.fyName] = Math.round((f.summary[key] / max) * 100); });
             return row;
         });
@@ -1552,23 +1562,83 @@ export default function FYWiseComparisonPage() {
                                 </GlassCard>
                             ) : (
                                 <>
-                                    <GlassCard title="Multi-Dimensional Radar Comparison" subtitle="Normalized 0–100 scale — relative strength of each FY across 6 metrics">
-                                        <div className="mt-3 sm:mt-4"><ChartWrap height={chartHeightRadar}>
-                                            <RadarChart data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
-                                                <PolarGrid stroke="rgba(100,116,139,0.2)" />
-                                                <PolarAngleAxis dataKey="metric" tick={{ fill: "#64748b", fontSize: isMobile ? 10 : 12, fontWeight: 600 }} />
-                                                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: isMobile ? 8 : 10 }} />
-                                                {fyData.map(fy => (
-                                                    <Radar key={fy.fyId} name={fy.fyName} dataKey={fy.fyName}
-                                                        stroke={fy.color} fill={fy.color} fillOpacity={0.12}
-                                                        strokeWidth={2.5} dot={{ r: 3, fill: fy.color }} />
-                                                ))}
-                                                <Legend wrapperStyle={{ fontSize: isMobile ? 10 : 12, color: "#64748b" }} />
-                                                <Tooltip contentStyle={glassTooltip} formatter={(v: any) => `${v}/100`} />
-                                            </RadarChart>
-                                        </ChartWrap></div>
+                                    <GlassCard
+                                        title="Multi-Dimensional Radar Comparison"
+                                        subtitle="Normalized 0–100 scale — click radar points or axes to open deep-dive comparison popup"
+                                    >
+                                        <div className="flex items-center justify-between gap-2 -mt-1 mb-2">
+                                            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-indigo-600 bg-indigo-50/90 px-2.5 py-1 rounded-full border border-indigo-200">
+                                                <FaEye size={10} className="text-indigo-500" />
+                                                Click any vertex / metric point to inspect full details
+                                            </span>
+
+                                            <button
+                                                onClick={() => handleOpenRadarModal()}
+                                                className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold px-3 py-1 rounded-xl text-white shadow-md shadow-indigo-200 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                                                style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}
+                                            >
+                                                <FaBalanceScale size={10} /> Full Radar Deep-Dive
+                                            </button>
+                                        </div>
+
+                                        <div
+                                            className="mt-2 sm:mt-3 cursor-pointer group relative rounded-2xl p-1 transition-all hover:bg-indigo-50/20"
+                                            onClick={() => handleOpenRadarModal()}
+                                            title="Click to open deep dive popup"
+                                        >
+                                            <div className="absolute top-2 right-2 z-10 hidden sm:flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-indigo-700 border border-indigo-200 backdrop-blur-sm shadow-xs group-hover:bg-indigo-600 group-hover:text-white transition-all pointer-events-none">
+                                                <FaEye size={9} /> Click Radar for Popup
+                                            </div>
+
+                                            <ChartWrap height={chartHeightRadar}>
+                                                <RadarChart
+                                                    data={radarData}
+                                                    margin={{ top: 10, right: 20, bottom: 10, left: 20 }}
+                                                    onClick={(state: any) => {
+                                                        if (state && state.activePayload && state.activePayload.length > 0) {
+                                                            const payload = state.activePayload[0]?.payload;
+                                                            handleOpenRadarModal(payload?.metricKey || payload?.metric);
+                                                        } else {
+                                                            handleOpenRadarModal();
+                                                        }
+                                                    }}
+                                                >
+                                                    <PolarGrid stroke="rgba(100,116,139,0.2)" />
+                                                    <PolarAngleAxis
+                                                        dataKey="metric"
+                                                        tick={{ fill: "#64748b", fontSize: isMobile ? 10 : 12, fontWeight: 600, cursor: "pointer" }}
+                                                        onClick={(props: any) => {
+                                                            if (props && props.value) {
+                                                                const matched = radarData.find(r => r.metric === props.value);
+                                                                handleOpenRadarModal(matched?.metricKey || props.value);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: isMobile ? 8 : 10 }} />
+                                                    {fyData.map(fy => (
+                                                        <Radar
+                                                            key={fy.fyId}
+                                                            name={fy.fyName}
+                                                            dataKey={fy.fyName}
+                                                            stroke={fy.color}
+                                                            fill={fy.color}
+                                                            fillOpacity={0.15}
+                                                            strokeWidth={2.5}
+                                                            dot={{ r: 4, fill: fy.color, cursor: "pointer" }}
+                                                            activeDot={{ r: 7, stroke: fy.color, strokeWidth: 2, fill: "#fff", cursor: "pointer" }}
+                                                        />
+                                                    ))}
+                                                    <Legend wrapperStyle={{ fontSize: isMobile ? 10 : 12, color: "#64748b" }} />
+                                                    <Tooltip contentStyle={glassTooltip} formatter={(v: any) => `${v}/100 — (Click to view breakdown)`} />
+                                                </RadarChart>
+                                            </ChartWrap>
+                                        </div>
                                     </GlassCard>
-                                    <GlassCard title="Normalized Scores Table" subtitle="100 = best performing FY for that metric (relative scale)">
+
+                                    <GlassCard
+                                        title="Normalized Scores Table"
+                                        subtitle="100 = best performing FY for that metric (click any row to view in-depth details)"
+                                    >
                                         <div className="overflow-x-auto mt-3 sm:mt-4 rounded-xl border border-slate-200/40">
                                             <table className="w-full text-xs min-w-[500px]">
                                                 <thead>
@@ -1577,12 +1647,22 @@ export default function FYWiseComparisonPage() {
                                                         {fyData.map(fy => (
                                                             <th key={fy.fyId} className="text-right py-2.5 px-3 font-black" style={{ color: fy.color }}>{fy.fyName}</th>
                                                         ))}
+                                                        <th className="text-center py-2.5 px-2 text-slate-400 font-semibold w-16">Details</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {radarData.map(row => (
-                                                        <tr key={row.metric} className="border-b border-slate-100/60 hover:bg-white/40 transition-colors">
-                                                            <td className="py-2.5 px-3 text-slate-600 font-semibold">{row.metric}</td>
+                                                        <tr
+                                                            key={row.metric}
+                                                            onClick={() => handleOpenRadarModal(row.metricKey || row.metric)}
+                                                            className="border-b border-slate-100/60 hover:bg-indigo-50/40 transition-colors cursor-pointer group"
+                                                            title={`Click to view detailed ${row.metric} breakdown`}
+                                                        >
+                                                            <td className="py-2.5 px-3 font-semibold text-slate-700 group-hover:text-indigo-600 transition-colors">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span>{row.metric}</span>
+                                                                </div>
+                                                            </td>
                                                             {fyData.map(fy => {
                                                                 const val = row[fy.fyName] as number;
                                                                 return (
@@ -1597,6 +1677,11 @@ export default function FYWiseComparisonPage() {
                                                                     </td>
                                                                 );
                                                             })}
+                                                            <td className="py-2.5 px-2 text-center text-slate-300 group-hover:text-indigo-600 transition-colors text-[11px] font-bold">
+                                                                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    View
+                                                                </span>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -1631,6 +1716,14 @@ export default function FYWiseComparisonPage() {
                     </div>
                 </GlassCard>
             )}
+
+            {/* ── Radar Deep-Dive Details Popup Modal ── */}
+            <FYRadarDetailModal
+                isOpen={isRadarModalOpen}
+                onClose={() => setIsRadarModalOpen(false)}
+                fyData={fyData}
+                initialMetric={selectedRadarMetric}
+            />
         </div>
     );
 }

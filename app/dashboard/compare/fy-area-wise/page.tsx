@@ -22,6 +22,7 @@ import {
     RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
+import FYAreaRadarDetailModal from "@/components/FYAreaRadarDetailModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & CONSTANTS
@@ -282,6 +283,15 @@ export default function FYAreaWiseComparisonPage() {
     const [drawerTab, setDrawerTab] = useState<"overview" | "monthly" | "customers" | "products">("overview");
     const [hasLoaded, setHasLoaded] = useState(false);
 
+    // ── Area Radar Modal state ──
+    const [isRadarModalOpen, setIsRadarModalOpen] = useState(false);
+    const [selectedRadarMetric, setSelectedRadarMetric] = useState<string | null>(null);
+
+    const handleOpenRadarModal = (metricKey?: string) => {
+        setSelectedRadarMetric(metricKey || null);
+        setIsRadarModalOpen(true);
+    };
+
     // ── Territory filter states ──
     const [filterOptions, setFilterOptions] = useState<FilterOptions>({ states: [], areas: [], routes: [], dsms: [], asms: [], rsms: [] });
     const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
@@ -414,6 +424,9 @@ export default function FYAreaWiseComparisonPage() {
             setZonalBreakdown(json.zonalBreakdown || []);
             setLeaderboards(json.leaderboards || null);
             setNationalSummary(json.nationalSummary || null);
+            if (json.stateData && json.stateData.length > 0) {
+                setCompareStateIds(prev => prev.length >= 2 ? prev : json.stateData.slice(0, 3).map((s: StateRow) => s.stateId));
+            }
             setHasLoaded(true);
         } catch (e: any) { setError(e.message); }
         finally { setLoading(false); }
@@ -509,17 +522,17 @@ export default function FYAreaWiseComparisonPage() {
         const statesToCompare = stateData.filter(s => compareStateIds.includes(s.stateId));
 
         const metrics = [
-            { label: "Sales", getter: (s: StateRow) => s.byFy[lastFyId]?.sales ?? 0 },
-            { label: "Net Sales", getter: (s: StateRow) => s.byFy[lastFyId]?.netSales ?? 0 },
-            { label: "Collections", getter: (s: StateRow) => s.byFy[lastFyId]?.collections ?? 0 },
-            { label: "Purchases", getter: (s: StateRow) => s.byFy[lastFyId]?.purchase ?? 0 },
-            { label: "Customers", getter: (s: StateRow) => s.byFy[lastFyId]?.customersCount ?? 0 },
-            { label: "Health Score", getter: (s: StateRow) => s.healthScore },
+            { label: "Sales", key: "sales", getter: (s: StateRow) => s.byFy[lastFyId]?.sales ?? 0 },
+            { label: "Net Sales", key: "netSales", getter: (s: StateRow) => s.byFy[lastFyId]?.netSales ?? 0 },
+            { label: "Collections", key: "collections", getter: (s: StateRow) => s.byFy[lastFyId]?.collections ?? 0 },
+            { label: "Purchases", key: "purchase", getter: (s: StateRow) => s.byFy[lastFyId]?.purchase ?? 0 },
+            { label: "Customers", key: "customers", getter: (s: StateRow) => s.byFy[lastFyId]?.customersCount ?? 0 },
+            { label: "Health Score", key: "health", getter: (s: StateRow) => s.healthScore },
         ];
 
-        return metrics.map(({ label, getter }) => {
+        return metrics.map(({ label, key, getter }) => {
             const maxVal = Math.max(...statesToCompare.map(getter)) || 1;
-            const row: any = { metric: label };
+            const row: any = { metric: label, metricKey: key };
             statesToCompare.forEach(s => {
                 row[s.stateName] = Math.round((getter(s) / maxVal) * 100);
             });
@@ -1074,31 +1087,94 @@ export default function FYAreaWiseComparisonPage() {
 
                         {/* Multi-State Radar View */}
                         <div className="lg:col-span-7">
-                            <GlassCard title="Multi-State Side-by-Side Radar Comparison" subtitle={compareStateIds.length >= 2 ? `Comparing ${compareStateIds.length} states across 6 business dimensions` : "Tick 'VS' checkboxes in the table above to compare 2 or 3 states directly"}>
+                            <GlassCard
+                                title="Multi-State Side-by-Side Radar Comparison"
+                                subtitle={
+                                    compareStateIds.length >= 2
+                                        ? `Comparing ${compareStateIds.length} states across 6 business dimensions (click radar to open deep-dive popup)`
+                                        : "Tick 'VS' checkboxes in the table above to compare states directly"
+                                }
+                            >
+                                <div className="flex items-center justify-between gap-2 -mt-1 mb-2">
+                                    <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-indigo-600 bg-indigo-50/90 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                                        <FaEye size={10} className="text-indigo-500" />
+                                        Click radar points / axes for state drilldown
+                                    </span>
+
+                                    {compareRadarData.length > 0 && (
+                                        <button
+                                            onClick={() => handleOpenRadarModal()}
+                                            className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold px-3 py-1 rounded-xl text-white shadow-md shadow-indigo-200 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                                            style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}
+                                        >
+                                            <FaBalanceScale size={10} /> Full Radar Deep-Dive
+                                        </button>
+                                    )}
+                                </div>
+
                                 {compareRadarData.length === 0 ? (
                                     <div className="flex flex-col items-center gap-3 py-10 sm:py-12 text-center">
                                         <FaExchangeAlt size={28} className="text-indigo-400 opacity-40 sm:text-3xl" />
                                         <p className="text-slate-400 font-semibold text-xs sm:text-sm">Select at least 2 states using the 'VS' checkboxes to enable Radar Comparison</p>
                                     </div>
                                 ) : (
-                                    <div className="mt-2" style={{ height: chartHeightZonal }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <RadarChart data={compareRadarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
-                                                <PolarGrid stroke="rgba(100,116,139,0.2)" />
-                                                <PolarAngleAxis dataKey="metric" tick={{ fill: "#64748b", fontSize: isMobile ? 9 : 11, fontWeight: 600 }} />
-                                                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: isMobile ? 8 : 9 }} />
-                                                {compareStateIds.map((sId, idx) => {
-                                                    const sName = stateData.find(s => s.stateId === sId)?.stateName;
-                                                    const col = FY_PALETTE[idx % FY_PALETTE.length];
-                                                    return (
-                                                        <Radar key={sId} name={sName} dataKey={sName}
-                                                            stroke={col} fill={col} fillOpacity={0.15} strokeWidth={2.5} dot={{ r: 3, fill: col }} />
-                                                    );
-                                                })}
-                                                <Legend wrapperStyle={{ fontSize: isMobile ? 10 : 11, color: "#64748b" }} />
-                                                <Tooltip contentStyle={glassTooltipStyle} formatter={(v: any) => `${v}/100`} />
-                                            </RadarChart>
-                                        </ResponsiveContainer>
+                                    <div
+                                        className="mt-1 cursor-pointer group relative rounded-2xl p-1 transition-all hover:bg-indigo-50/20"
+                                        onClick={() => handleOpenRadarModal()}
+                                        title="Click to open state radar deep dive popup"
+                                    >
+                                        <div className="absolute top-2 right-2 z-10 hidden sm:flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-indigo-700 border border-indigo-200 backdrop-blur-sm shadow-xs group-hover:bg-indigo-600 group-hover:text-white transition-all pointer-events-none">
+                                            <FaEye size={9} /> Click Radar for Popup
+                                        </div>
+
+                                        <div style={{ height: chartHeightZonal }}>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <RadarChart
+                                                    data={compareRadarData}
+                                                    margin={{ top: 10, right: 20, bottom: 10, left: 20 }}
+                                                    onClick={(state: any) => {
+                                                        if (state && state.activePayload && state.activePayload.length > 0) {
+                                                            const payload = state.activePayload[0]?.payload;
+                                                            handleOpenRadarModal(payload?.metricKey || payload?.metric);
+                                                        } else {
+                                                            handleOpenRadarModal();
+                                                        }
+                                                    }}
+                                                >
+                                                    <PolarGrid stroke="rgba(100,116,139,0.2)" />
+                                                    <PolarAngleAxis
+                                                        dataKey="metric"
+                                                        tick={{ fill: "#64748b", fontSize: isMobile ? 9 : 11, fontWeight: 600, cursor: "pointer" }}
+                                                        onClick={(props: any) => {
+                                                            if (props && props.value) {
+                                                                const matched = compareRadarData.find(r => r.metric === props.value);
+                                                                handleOpenRadarModal(matched?.metricKey || props.value);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: isMobile ? 8 : 9 }} />
+                                                    {compareStateIds.map((sId, idx) => {
+                                                        const sName = stateData.find(s => s.stateId === sId)?.stateName;
+                                                        const col = FY_PALETTE[idx % FY_PALETTE.length];
+                                                        return (
+                                                            <Radar
+                                                                key={sId}
+                                                                name={sName}
+                                                                dataKey={sName}
+                                                                stroke={col}
+                                                                fill={col}
+                                                                fillOpacity={0.15}
+                                                                strokeWidth={2.5}
+                                                                dot={{ r: 4, fill: col, cursor: "pointer" }}
+                                                                activeDot={{ r: 6, stroke: col, strokeWidth: 2, fill: "#fff", cursor: "pointer" }}
+                                                            />
+                                                        );
+                                                    })}
+                                                    <Legend wrapperStyle={{ fontSize: isMobile ? 10 : 11, color: "#64748b" }} />
+                                                    <Tooltip contentStyle={glassTooltipStyle} formatter={(v: any) => `${v}/100 — (Click to view details)`} />
+                                                </RadarChart>
+                                            </ResponsiveContainer>
+                                        </div>
                                     </div>
                                 )}
                             </GlassCard>
@@ -1273,6 +1349,16 @@ export default function FYAreaWiseComparisonPage() {
                     </div>
                 </GlassCard>
             )}
+
+            {/* ── State Radar Deep-Dive Details Popup Modal ── */}
+            <FYAreaRadarDetailModal
+                isOpen={isRadarModalOpen}
+                onClose={() => setIsRadarModalOpen(false)}
+                stateData={stateData}
+                fyList={fyList}
+                selectedStateIds={compareStateIds}
+                initialMetric={selectedRadarMetric}
+            />
         </div>
     );
 }
