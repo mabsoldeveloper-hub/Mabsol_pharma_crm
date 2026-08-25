@@ -26,7 +26,7 @@ const monoFont = IBM_Plex_Mono({
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TILT_MAX_DEG = 8;
+const TILT_MAX_DEG = 7.5;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,6 +41,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [emailTouched, setEmailTouched] = useState(false);
 
+  // Typing reactivity for ECG Heartbeat chip
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [otpError, setOtpError] = useState<string | null>(null);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
@@ -48,13 +52,23 @@ export default function LoginPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const otpInputsRef = useRef<Array<HTMLInputElement | null>>([]);
 
-  // 3D tilt for the form card
+  // 3D tilt for the form card and sync card
   const formCardRef = useRef<HTMLDivElement | null>(null);
+  const syncCardRef = useRef<HTMLDivElement | null>(null);
+  const pageContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [previewPhase, setPreviewPhase] = useState<"auto" | "morning" | "afternoon" | "evening" | "night">("auto");
   const [detectedPhase, setDetectedPhase] = useState<"morning" | "afternoon" | "evening" | "night">("morning");
 
-  const bars = [32, 54, 42, 85, 62, 74];
+  // Rich Sales Velocity data with labels and revenue tooltip info
+  const barsData = [
+    { label: "Q1", height: 32, rev: "₹34.2L" },
+    { label: "Q2", height: 54, rev: "₹58.6L" },
+    { label: "Q3", height: 42, rev: "₹46.1L" },
+    { label: "Q4", height: 85, rev: "₹92.4L" },
+    { label: "Q5", height: 62, rev: "₹68.0L" },
+    { label: "Q6", height: 74, rev: "₹81.5L" },
+  ];
 
   const emailIsValid = EMAIL_RE.test(email.trim());
   const showEmailError = emailTouched && email.length > 0 && !emailIsValid;
@@ -120,6 +134,27 @@ export default function LoginPage() {
     return () => clearTimeout(t);
   }, [resendTimer]);
 
+  // Trigger typing pulse for ECG heartbeat
+  const triggerTypingPulse = () => {
+    setIsTyping(true);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 1200);
+  };
+
+  // Global mousemove for 3D parallax on corner badges
+  function handleGlobalMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!pageContainerRef.current) return;
+    const { clientX, clientY } = e;
+    const { innerWidth, innerHeight } = window;
+    const px = (clientX / innerWidth - 0.5) * -18;
+    const py = (clientY / innerHeight - 0.5) * -18;
+    pageContainerRef.current.style.setProperty("--badge-px", `${px.toFixed(2)}px`);
+    pageContainerRef.current.style.setProperty("--badge-py", `${py.toFixed(2)}px`);
+  }
+
+  // Specular reflection & 3D tilt on the form card
   function handleCardTiltMove(e: React.MouseEvent<HTMLDivElement>) {
     const card = formCardRef.current;
     if (!card) return;
@@ -136,6 +171,8 @@ export default function LoginPage() {
 
     card.style.setProperty("--rx", `${rotateX.toFixed(2)}deg`);
     card.style.setProperty("--ry", `${rotateY.toFixed(2)}deg`);
+    card.style.setProperty("--mouse-x", `${x.toFixed(1)}px`);
+    card.style.setProperty("--mouse-y", `${y.toFixed(1)}px`);
   }
 
   function handleCardTiltLeave() {
@@ -143,6 +180,26 @@ export default function LoginPage() {
     if (!card) return;
     card.style.setProperty("--rx", "0deg");
     card.style.setProperty("--ry", "0deg");
+    card.style.setProperty("--mouse-x", "50%");
+    card.style.setProperty("--mouse-y", "50%");
+  }
+
+  // Specular reflection on the right sync card
+  function handleSyncCardMove(e: React.MouseEvent<HTMLDivElement>) {
+    const card = syncCardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    card.style.setProperty("--mouse-x", `${x.toFixed(1)}px`);
+    card.style.setProperty("--mouse-y", `${y.toFixed(1)}px`);
+  }
+
+  function handleSyncCardLeave() {
+    const card = syncCardRef.current;
+    if (!card) return;
+    card.style.setProperty("--mouse-x", "50%");
+    card.style.setProperty("--mouse-y", "50%");
   }
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
@@ -173,7 +230,7 @@ export default function LoginPage() {
         setStep("otp");
         setOtp(Array(OTP_LENGTH).fill(""));
         setResendTimer(RESEND_SECONDS);
-        setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
+        setTimeout(() => otpInputsRef.current[0]?.focus(), 50);
       } else {
         setError(data.message || "Couldn't sign you in. Check your details and try again.");
       }
@@ -200,7 +257,7 @@ export default function LoginPage() {
       if (data.success) {
         setResendTimer(RESEND_SECONDS);
         setOtp(Array(OTP_LENGTH).fill(""));
-        setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
+        setTimeout(() => otpInputsRef.current[0]?.focus(), 50);
       } else {
         setOtpError(data.message || "Couldn't resend the code. Try again.");
       }
@@ -212,6 +269,7 @@ export default function LoginPage() {
   }
 
   function handleOtpChange(index: number, value: string) {
+    triggerTypingPulse();
     const digit = value.replace(/\D/g, "").slice(-1);
     const next = [...otp];
     next[index] = digit;
@@ -224,12 +282,14 @@ export default function LoginPage() {
   }
 
   function handleOtpKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    triggerTypingPulse();
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       otpInputsRef.current[index - 1]?.focus();
     }
   }
 
   function handleOtpPaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    triggerTypingPulse();
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
     if (!pasted) return;
     e.preventDefault();
@@ -274,7 +334,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={`login-page ${celestial.themeClass} ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
+    <div
+      ref={pageContainerRef}
+      onMouseMove={handleGlobalMouseMove}
+      className={`login-page ${celestial.themeClass} ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
+    >
       {/* High Performance Dynamic Celestial Custom Cursor Pointer */}
       <CelestialCursor theme={activePhase} />
 
@@ -316,7 +380,7 @@ export default function LoginPage() {
         <span className="orb orb-c" />
       </div>
 
-      {/* Floating Holographic Ambient Badges with High-Detail SVG Icons */}
+      {/* Floating Holographic Ambient Badges with 3D Mouse Parallax */}
       <div className="floating-badge badge-tl" aria-hidden="true">
         <div className="badge-icon-box">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -373,7 +437,7 @@ export default function LoginPage() {
       </div>
 
       <div className="stage">
-        {/* FORM CARD — 3D tilt follows the cursor */}
+        {/* FORM CARD — 3D tilt + VisionOS Dynamic Specular Light Sheen */}
         <div
           className="glass-card form-card"
           ref={formCardRef}
@@ -382,7 +446,7 @@ export default function LoginPage() {
         >
           <div className="brand-row">
             <span className="brand-mark">
-              <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
                 <defs>
                   <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#ffb347" />
@@ -441,7 +505,10 @@ export default function LoginPage() {
                       autoComplete="email"
                       placeholder="you@pharmacy.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        triggerTypingPulse();
+                      }}
                       onBlur={() => setEmailTouched(true)}
                       required
                       disabled={loading}
@@ -467,7 +534,10 @@ export default function LoginPage() {
                       autoComplete="current-password"
                       placeholder="Enter password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        triggerTypingPulse();
+                      }}
                       required
                       disabled={loading}
                     />
@@ -522,6 +592,7 @@ export default function LoginPage() {
                         ref={(el) => {
                           otpInputsRef.current[i] = el;
                         }}
+                        style={{ "--i": i } as React.CSSProperties}
                         inputMode="numeric"
                         maxLength={1}
                         className="otp-box"
@@ -569,20 +640,26 @@ export default function LoginPage() {
           )}
         </div>
 
-        {/* BEAM — glowing 3D sync capsule connecting the two panels */}
+        {/* BEAM — Glowing Quantum Conduit Pipe with Multi-Packet Laser Stream */}
         <div className="beam-wrap" aria-hidden="true">
           <div className="beam-labels">
             <span>ERP</span>
             <span>CRM</span>
           </div>
 
-          <div className="beam-capsule">
+          <div className={`beam-capsule ${isTyping ? "typing-active" : ""}`}>
             <span className="beam-track" />
-            <span className="beam-node" />
-            <span className="beam-particle" />
-            <span className="beam-node" />
+            <span className="beam-node node-left" />
+            
+            {/* Continuous Multi-Packet Fiber-Optic Laser Stream */}
+            <span className="beam-particle particle-1" />
+            <span className="beam-particle particle-2" />
+            <span className="beam-particle particle-3" />
+            
+            <span className="beam-node node-right" />
 
-            <span className="heartbeat-chip">
+            {/* Central Heartbeat ECG Chip with Typing Reactivity */}
+            <span className={`heartbeat-chip ${isTyping ? "typing-active" : ""}`}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <defs>
                   <linearGradient id="ecgGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -591,7 +668,7 @@ export default function LoginPage() {
                     <stop offset="100%" stopColor="#10b981" />
                   </linearGradient>
                   <filter id="ecgGlow" x="-30%" y="-30%" width="160%" height="160%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#ff7700" floodOpacity="0.9" />
+                    <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#ff7700" floodOpacity="0.95" />
                   </filter>
                 </defs>
                 <path
@@ -607,8 +684,14 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* SYNC CARD — Highly detailed SaaS ERP-CRM live sync metrics */}
-        <div className="glass-card sync-card" aria-hidden="true">
+        {/* SYNC CARD — Highly detailed SaaS ERP-CRM live sync metrics + Specular Light Sheen */}
+        <div
+          className="glass-card sync-card"
+          ref={syncCardRef}
+          onMouseMove={handleSyncCardMove}
+          onMouseLeave={handleSyncCardLeave}
+          aria-hidden="true"
+        >
           <div className="sync-top">
             <div className="sync-dots">
               <span className="dot-red" /><span className="dot-yellow" /><span className="dot-green" />
@@ -625,7 +708,7 @@ export default function LoginPage() {
           <h2>Synced instantly</h2>
 
           <div className="sync-tiles">
-            {/* Sales Velocity Tile */}
+            {/* Sales Velocity Tile with Organic Breathing Bars & Interactive Micro-Tooltips */}
             <div className="sync-tile">
               <div className="tile-header">
                 <p className="tile-label">Sales Velocity</p>
@@ -638,9 +721,12 @@ export default function LoginPage() {
               </div>
               <div className="mini-bars-wrapper">
                 <div className="mini-bars">
-                  {bars.map((h, i) => (
-                    <div key={i} className="bar-col">
-                      <span className="bar-fill" style={{ height: `${h}%`, animationDelay: `${i * 70}ms` }} />
+                  {barsData.map((bar, i) => (
+                    <div key={i} className="bar-col" data-tooltip={`${bar.label}: ${bar.rev}`}>
+                      <span
+                        className="bar-fill"
+                        style={{ height: `${bar.height}%`, animationDelay: `${i * 65}ms` }}
+                      />
                     </div>
                   ))}
                 </div>
@@ -653,7 +739,7 @@ export default function LoginPage() {
               <div className="tile-header">
                 <p className="tile-label">Refresh Cycle</p>
                 <span className="sync-status-icon">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="spin-sync">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="spin-sync">
                     <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="#ea580c" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
@@ -666,7 +752,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Real-time Activity Notification Card */}
+          {/* Real-time Activity Notification Card with Prismatic Highlight */}
           <div className="sync-toast">
             <div className="toast-icon-wrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">

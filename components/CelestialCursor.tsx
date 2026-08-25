@@ -14,6 +14,9 @@ interface Sparkle {
   size: number;
   alpha: number;
   color: string;
+  life: number;
+  decay: number;
+  shape: "circle" | "diamond";
 }
 
 export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps) {
@@ -24,6 +27,14 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
 
   const mousePos = useRef({ x: -100, y: -100 });
   const ringPos = useRef({ x: -100, y: -100 });
+  const targetSnap = useRef<{ x: number; y: number; width: number; height: number; snapped: boolean }>({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    snapped: false,
+  });
+
   const sparklesRef = useRef<Sparkle[]>([]);
 
   const dotRef = useRef<HTMLDivElement>(null);
@@ -48,31 +59,35 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
       case "morning":
         return {
           dot: "#f59e0b",
-          ringBorder: "rgba(245, 158, 11, 0.7)",
-          ringGlow: "rgba(251, 191, 36, 0.35)",
-          sparkles: ["#fbbf24", "#f59e0b", "#fde68a", "#ffffff"],
+          ringBorder: "rgba(245, 158, 11, 0.75)",
+          ringGlow: "rgba(251, 191, 36, 0.4)",
+          sparkles: ["#fbbf24", "#f59e0b", "#fde68a", "#ffffff", "#ea580c"],
+          particleShape: "circle" as const,
         };
       case "afternoon":
         return {
           dot: "#f97316",
-          ringBorder: "rgba(249, 115, 22, 0.75)",
-          ringGlow: "rgba(249, 115, 22, 0.4)",
-          sparkles: ["#f97316", "#fb923c", "#fed7aa", "#ffffff"],
+          ringBorder: "rgba(249, 115, 22, 0.8)",
+          ringGlow: "rgba(249, 115, 22, 0.45)",
+          sparkles: ["#f97316", "#fb923c", "#fed7aa", "#ffffff", "#0284c7"],
+          particleShape: "circle" as const,
         };
       case "evening":
         return {
           dot: "#f43f5e",
-          ringBorder: "rgba(244, 63, 94, 0.75)",
-          ringGlow: "rgba(244, 63, 94, 0.4)",
-          sparkles: ["#f43f5e", "#fb7185", "#fecdd3", "#ffffff"],
+          ringBorder: "rgba(244, 63, 94, 0.8)",
+          ringGlow: "rgba(244, 63, 94, 0.45)",
+          sparkles: ["#f43f5e", "#fb7185", "#fecdd3", "#ffffff", "#a855f7"],
+          particleShape: "diamond" as const,
         };
       case "night":
       default:
         return {
           dot: "#00f2fe",
-          ringBorder: "rgba(99, 102, 241, 0.8)",
-          ringGlow: "rgba(0, 242, 254, 0.45)",
-          sparkles: ["#00f2fe", "#6366f1", "#a5b4fc", "#ffffff"],
+          ringBorder: "rgba(99, 102, 241, 0.85)",
+          ringGlow: "rgba(0, 242, 254, 0.5)",
+          sparkles: ["#00f2fe", "#6366f1", "#a5b4fc", "#ffffff", "#38bdf8"],
+          particleShape: "diamond" as const,
         };
     }
   };
@@ -93,36 +108,55 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
       if (!isVisible) setIsVisible(true);
 
       // Spawn subtle celestial sparkles on move
-      if (Math.random() < 0.35) {
+      if (Math.random() < 0.4) {
         const pal = getThemePalette();
         const colors = pal.sparkles;
         sparklesRef.current.push({
-          x: e.clientX + (Math.random() - 0.5) * 12,
-          y: e.clientY + (Math.random() - 0.5) * 12,
-          vx: (Math.random() - 0.5) * 1.4,
-          vy: (Math.random() - 0.5) * 1.4 - 0.4,
-          size: Math.random() * 2.2 + 1.2,
-          alpha: 0.9,
+          x: e.clientX + (Math.random() - 0.5) * 14,
+          y: e.clientY + (Math.random() - 0.5) * 14,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5 - 0.45,
+          size: Math.random() * 2.4 + 1.4,
+          alpha: 0.95,
           color: colors[Math.floor(Math.random() * colors.length)],
+          life: 1.0,
+          decay: 0.024 + Math.random() * 0.015,
+          shape: pal.particleShape,
         });
       }
 
       // Check for hoverable elements
       const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.closest("button") ||
-          target.closest("a") ||
-          target.closest("input") ||
-          target.closest(".sync-tile") ||
-          target.closest(".floating-badge") ||
-          target.closest(".capsule-btn") ||
-          target.closest(".toggle-visibility") ||
-          window.getComputedStyle(target).cursor === "pointer")
-      ) {
+      const hoverTarget = target
+        ? (target.closest("button") ||
+            target.closest("a") ||
+            target.closest("input") ||
+            target.closest(".sync-tile") ||
+            target.closest(".floating-badge") ||
+            target.closest(".capsule-btn") ||
+            target.closest(".toggle-visibility") ||
+            target.closest(".brand-mark") ||
+            (window.getComputedStyle(target).cursor === "pointer" ? target : null))
+        : null;
+
+      if (hoverTarget) {
         setIsHovered(true);
+        const rect = (hoverTarget as HTMLElement).getBoundingClientRect();
+        // Magnet snapping for small interactive items
+        if (rect.width < 140 && rect.height < 60) {
+          targetSnap.current = {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+            width: rect.width,
+            height: rect.height,
+            snapped: true,
+          };
+        } else {
+          targetSnap.current.snapped = false;
+        }
       } else {
         setIsHovered(false);
+        targetSnap.current.snapped = false;
       }
     };
 
@@ -153,18 +187,25 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
     // 60FPS Fluid Render Loop
     const render = () => {
       // 1. Smooth Spring Interpolation (LERP) for Ring Follower
-      const lerpFactor = isHovered ? 0.22 : 0.16;
-      ringPos.current.x += (mousePos.current.x - ringPos.current.x) * lerpFactor;
-      ringPos.current.y += (mousePos.current.y - ringPos.current.y) * lerpFactor;
+      const targetX = targetSnap.current.snapped
+        ? targetSnap.current.x * 0.4 + mousePos.current.x * 0.6
+        : mousePos.current.x;
+      const targetY = targetSnap.current.snapped
+        ? targetSnap.current.y * 0.4 + mousePos.current.y * 0.6
+        : mousePos.current.y;
+
+      const lerpFactor = isHovered ? 0.24 : 0.18;
+      ringPos.current.x += (targetX - ringPos.current.x) * lerpFactor;
+      ringPos.current.y += (targetY - ringPos.current.y) * lerpFactor;
 
       // 2. Direct Pin for Dot
       if (dotRef.current) {
-        dotRef.current.style.transform = `translate3d(${mousePos.current.x}px, ${mousePos.current.y}px, 0) translate(-50%, -50%) scale(${isClicking ? 0.7 : 1})`;
+        dotRef.current.style.transform = `translate3d(${mousePos.current.x}px, ${mousePos.current.y}px, 0) translate(-50%, -50%) scale(${isClicking ? 0.65 : 1})`;
       }
 
       // 3. Transform Outer Ring
       if (ringRef.current) {
-        const ringScale = isClicking ? 0.85 : isHovered ? 1.45 : 1;
+        const ringScale = isClicking ? 0.82 : isHovered ? 1.48 : 1;
         ringRef.current.style.transform = `translate3d(${ringPos.current.x}px, ${ringPos.current.y}px, 0) translate(-50%, -50%) scale(${ringScale})`;
       }
 
@@ -178,7 +219,7 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
             const s = sparklesRef.current[i];
             s.x += s.vx;
             s.y += s.vy;
-            s.alpha -= 0.025;
+            s.alpha -= s.decay;
 
             if (s.alpha <= 0) {
               sparklesRef.current.splice(i, 1);
@@ -186,13 +227,26 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
             }
 
             ctx.save();
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
             ctx.fillStyle = s.color;
             ctx.globalAlpha = s.alpha;
             ctx.shadowColor = s.color;
-            ctx.shadowBlur = 6;
-            ctx.fill();
+            ctx.shadowBlur = 8;
+
+            if (s.shape === "diamond") {
+              ctx.translate(s.x, s.y);
+              ctx.beginPath();
+              ctx.moveTo(0, -s.size);
+              ctx.lineTo(s.size * 0.8, 0);
+              ctx.lineTo(0, s.size);
+              ctx.lineTo(-s.size * 0.8, 0);
+              ctx.closePath();
+              ctx.fill();
+            } else {
+              ctx.beginPath();
+              ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+              ctx.fill();
+            }
+
             ctx.restore();
           }
         }
@@ -236,7 +290,7 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
         className={`celestial-cursor-ring ${isHovered ? "hovered" : ""}`}
         style={{
           borderColor: palette.ringBorder,
-          boxShadow: `0 0 16px ${palette.ringGlow}, inset 0 0 8px ${palette.ringGlow}`,
+          boxShadow: `0 0 18px ${palette.ringGlow}, inset 0 0 8px ${palette.ringGlow}`,
         }}
       >
         {/* Dynamic Celestial Micro Crosshair Reticle Spikes */}

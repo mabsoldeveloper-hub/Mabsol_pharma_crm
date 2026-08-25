@@ -19,7 +19,7 @@
   --danger-bg: rgba(239, 68, 68, 0.08);
   --danger-border: rgba(239, 68, 68, 0.25);
 
-  --glass-pearl: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 248, 242, 0.84) 100%);
+  --glass-pearl: linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 248, 242, 0.86) 100%);
   --glass-pearl-border: rgba(255, 255, 255, 0.95);
 }
 
@@ -191,7 +191,7 @@ h2,
   100% { transform: translate(30px, 15px) scale(0.92); opacity: 0.4; }
 }
 
-/* ---------------- FLOATING FROSTED GLASS BADGES ---------------- */
+/* ---------------- FLOATING FROSTED GLASS BADGES (3D PARALLAX) ---------------- */
 
 .floating-badge {
   position: absolute;
@@ -201,16 +201,17 @@ h2,
   gap: 12px;
   padding: 10px 18px;
   background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1.5px solid rgba(251, 146, 60, 0.35);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid rgba(251, 146, 60, 0.38);
   border-radius: 999px;
   box-shadow: 
-    0 16px 36px -8px rgba(249, 115, 22, 0.14),
+    0 16px 36px -8px rgba(249, 115, 22, 0.16),
     0 4px 12px rgba(0, 0, 0, 0.03),
     inset 0 1px 0 #ffffff;
   pointer-events: none;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  will-change: transform;
 }
 
 .badge-icon-box {
@@ -221,7 +222,7 @@ h2,
   height: 34px;
   border-radius: 10px;
   flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .badge-tl .badge-icon-box { background: #e0f2fe; border: 1px solid #bae6fd; color: #0284c7; }
@@ -252,45 +253,49 @@ h2,
 .badge-tl {
   top: 8%;
   left: 6%;
+  transform: translate3d(var(--badge-px, 0px), var(--badge-py, 0px), 0);
   animation: float-badge-1 7s ease-in-out infinite;
 }
 
 .badge-tr {
   top: 10%;
   right: 6%;
+  transform: translate3d(calc(var(--badge-px, 0px) * -1), var(--badge-py, 0px), 0);
   animation: float-badge-2 8s ease-in-out infinite;
 }
 
 .badge-bl {
   bottom: 8%;
   left: 7%;
+  transform: translate3d(var(--badge-px, 0px), calc(var(--badge-py, 0px) * -1), 0);
   animation: float-badge-3 9s ease-in-out infinite;
 }
 
 .badge-br {
   bottom: 10%;
   right: 7%;
+  transform: translate3d(calc(var(--badge-px, 0px) * -1), calc(var(--badge-py, 0px) * -1), 0);
   animation: float-badge-4 7.5s ease-in-out infinite;
 }
 
 @keyframes float-badge-1 {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(1deg); }
+  0%, 100% { transform: translate3d(var(--badge-px, 0px), var(--badge-py, 0px), 0) translateY(0px) rotate(0deg); }
+  50% { transform: translate3d(var(--badge-px, 0px), var(--badge-py, 0px), 0) translateY(-12px) rotate(1deg); }
 }
 
 @keyframes float-badge-2 {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-14px) rotate(-1.5deg); }
+  0%, 100% { transform: translate3d(calc(var(--badge-px, 0px) * -1), var(--badge-py, 0px), 0) translateY(0px) rotate(0deg); }
+  50% { transform: translate3d(calc(var(--badge-px, 0px) * -1), var(--badge-py, 0px), 0) translateY(-14px) rotate(-1.5deg); }
 }
 
 @keyframes float-badge-3 {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(12px) rotate(-1deg); }
+  0%, 100% { transform: translate3d(var(--badge-px, 0px), calc(var(--badge-py, 0px) * -1), 0) translateY(0px) rotate(0deg); }
+  50% { transform: translate3d(var(--badge-px, 0px), calc(var(--badge-py, 0px) * -1), 0) translateY(12px) rotate(-1deg); }
 }
 
 @keyframes float-badge-4 {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(10px) rotate(1.2deg); }
+  0%, 100% { transform: translate3d(calc(var(--badge-px, 0px) * -1), calc(var(--badge-py, 0px) * -1), 0) translateY(0px) rotate(0deg); }
+  50% { transform: translate3d(calc(var(--badge-px, 0px) * -1), calc(var(--badge-py, 0px) * -1), 0) translateY(10px) rotate(1.2deg); }
 }
 
 /* ---------------- STAGE / FROSTED WARM PEARL GLASS CONTAINER ---------------- */
@@ -309,8 +314,8 @@ h2,
 .glass-card {
   position: relative;
   background: var(--glass-pearl);
-  backdrop-filter: blur(30px) saturate(190%);
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
   border: 1.5px solid rgba(251, 146, 60, 0.45);
   border-radius: 30px;
   box-shadow:
@@ -322,22 +327,30 @@ h2,
   overflow: hidden;
 }
 
-.glass-card::before {
+/* Apple VisionOS Dynamic Specular Spotlight Reflection */
+.glass-card::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.1) 45%, transparent 85%);
+  background: radial-gradient(
+    480px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0.08) 40%,
+    transparent 75%
+  );
   pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 1;
 }
 
-/* ---------------- FORM CARD (3D tilt & Warm Pearl Frosted Glass) ---------------- */
+/* ---------------- FORM CARD (3D tilt & Dynamic Glass) ---------------- */
 
 .form-card {
   padding: 44px 40px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 248, 242, 0.85) 100%);
-  backdrop-filter: blur(30px) saturate(190%);
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 248, 242, 0.88) 100%);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
   border: 1.5px solid rgba(251, 146, 60, 0.48);
   transform-style: preserve-3d;
   transform: perspective(1200px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
@@ -370,6 +383,8 @@ h1,
 .lede,
 form > * {
   animation: field-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  position: relative;
+  z-index: 2;
 }
 
 .brand-row { animation-delay: 0.05s; }
@@ -401,21 +416,47 @@ form > *:nth-child(6) { animation-delay: 0.45s; }
 }
 
 .brand-mark {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #fff3e8 0%, #fee2cc 100%);
   border: 1.5px solid #fdba74;
   box-shadow: 0 4px 14px rgba(249, 115, 22, 0.18), inset 0 1px 0 #ffffff;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
+/* Brand Logo Continuous Prismatic Sheen */
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: -100%;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.8) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  animation: logo-sheen 4s ease-in-out infinite;
+}
+
+@keyframes logo-sheen {
+  0%, 60% {
+    transform: translateX(-100%);
+  }
+  85%, 100% {
+    transform: translateX(100%);
+  }
+}
+
 .brand-mark:hover {
-  transform: scale(1.06) rotate(3deg);
-  box-shadow: 0 6px 18px rgba(249, 115, 22, 0.28);
+  transform: scale(1.08) rotate(4deg);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.35);
 }
 
 .brand-name {
@@ -475,7 +516,11 @@ h1 {
   display: flex;
   align-items: center;
   border-radius: 14px;
-  transition: border-color 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.input-row:focus-within {
+  transform: translateZ(8px);
 }
 
 .input-icon {
@@ -483,12 +528,13 @@ h1 {
   left: 14px;
   color: var(--text-soft);
   pointer-events: none;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease;
   z-index: 1;
 }
 
 .input-row:focus-within .input-icon {
   color: var(--primary-peach);
+  transform: scale(1.08);
 }
 
 .input-row input {
@@ -518,7 +564,10 @@ h1 {
   outline: none;
   border-color: var(--primary-peach);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.18), 0 4px 14px rgba(249, 115, 22, 0.1);
+  box-shadow:
+    0 0 0 4px rgba(249, 115, 22, 0.18),
+    0 4px 16px rgba(249, 115, 22, 0.15),
+    inset 0 1px 2px rgba(249, 115, 22, 0.05);
 }
 
 .input-row input:disabled {
@@ -549,11 +598,12 @@ h1 {
   cursor: pointer;
   border-radius: 8px;
   z-index: 1;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, transform 0.15s ease;
 }
 
 .toggle-visibility:hover {
   color: var(--navy-dark);
+  transform: scale(1.1);
 }
 
 .toggle-visibility:focus-visible {
@@ -576,6 +626,7 @@ h1 {
   color: var(--danger);
 }
 
+/* Liquid Metal / Solar Gold Continuous Button Shimmer */
 .btn-primary {
   position: relative;
   overflow: hidden;
@@ -602,22 +653,34 @@ h1 {
 .btn-primary::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.45) 40%, transparent 60%);
-  transform: translateX(-120%);
-  transition: transform 0.6s ease;
+  inset: -100%;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.45) 45%,
+    rgba(255, 255, 255, 0.7) 50%,
+    rgba(255, 255, 255, 0.45) 55%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: btn-periodic-shimmer 3.8s ease-in-out infinite;
 }
 
-.btn-primary:hover:not(:disabled)::before {
-  transform: translateX(120%);
+@keyframes btn-periodic-shimmer {
+  0%, 70% {
+    transform: translateX(-100%);
+  }
+  95%, 100% {
+    transform: translateX(100%);
+  }
 }
 
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.05);
-  transform: translateY(-2px);
+  filter: brightness(1.06);
+  transform: translateY(-2px) scale(1.008);
   box-shadow:
-    0 18px 36px -6px rgba(234, 88, 12, 0.5),
-    0 8px 18px rgba(234, 88, 12, 0.28),
+    0 20px 40px -6px rgba(234, 88, 12, 0.55),
+    0 8px 20px rgba(234, 88, 12, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
@@ -684,7 +747,7 @@ h1 {
   text-decoration: none;
 }
 
-/* ---------------- OTP ---------------- */
+/* ---------------- OTP STAGGERED SPRING CASCADE ---------------- */
 
 .otp-row {
   display: grid;
@@ -709,11 +772,25 @@ h1 {
   color: var(--navy-dark) !important;
   caret-color: var(--primary-peach);
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  animation: otp-drop-spring 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+@keyframes otp-drop-spring {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .otp-box:hover {
-  border-color: rgba(249, 115, 22, 0.55);
+  border-color: rgba(249, 115, 22, 0.6);
+  transform: translateY(-2px);
 }
 
 .otp-box::placeholder {
@@ -723,7 +800,10 @@ h1 {
 .otp-box:focus-visible {
   border-color: var(--primary-peach);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.18), 0 4px 12px rgba(249, 115, 22, 0.1);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow:
+    0 0 0 4px rgba(249, 115, 22, 0.2),
+    0 6px 16px rgba(249, 115, 22, 0.18);
 }
 
 .otp-box:disabled {
@@ -732,7 +812,7 @@ h1 {
   opacity: 0.7;
 }
 
-/* ---------------- BEAM (Glowing Quantum Conduit Pipe) ---------------- */
+/* ---------------- BEAM (MULTI-PACKET LASER CONDUIT) ---------------- */
 
 .beam-wrap {
   position: relative;
@@ -778,6 +858,15 @@ h1 {
     inset 0 2px 4px #ffffff,
     inset 0 -2px 6px rgba(251, 146, 60, 0.12);
   overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.beam-capsule.typing-active {
+  border-color: rgba(249, 115, 22, 0.85);
+  box-shadow:
+    0 20px 45px -8px rgba(249, 115, 22, 0.4),
+    0 0 20px rgba(249, 115, 22, 0.3),
+    inset 0 2px 4px #ffffff;
 }
 
 .beam-track {
@@ -785,9 +874,9 @@ h1 {
   left: 24px;
   right: 24px;
   top: 50%;
-  height: 2px;
+  height: 2.5px;
   background: linear-gradient(90deg, #38bdf8, #f97316, #10b981);
-  box-shadow: 0 0 8px rgba(249, 115, 22, 0.35);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.45);
 }
 
 .beam-node {
@@ -814,44 +903,57 @@ h1 {
   }
 }
 
+/* Continuous Multi-Packet Fiber-Optic Laser Stream */
 .beam-particle {
   position: absolute;
   top: 50%;
   left: 28px;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   z-index: 2;
   background: #ffffff;
   box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.95), 0 0 20px 6px rgba(249, 115, 22, 0.7);
   transform: translateY(-50%);
-  animation: particle-travel 2.4s ease-in-out infinite;
+}
+
+.particle-1 {
+  animation: particle-travel 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite 0s;
+}
+
+.particle-2 {
+  animation: particle-travel 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite 0.73s;
+}
+
+.particle-3 {
+  animation: particle-travel 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite 1.46s;
 }
 
 @keyframes particle-travel {
   0% {
     left: 28px;
     opacity: 0;
-    transform: translateY(-50%) scale(0.6);
+    transform: translateY(-50%) scale(0.5);
   }
-  8% {
+  10% {
     opacity: 1;
     transform: translateY(-50%) scale(1.1);
   }
   50% {
     left: calc(100% - 38px);
   }
-  92% {
+  90% {
     opacity: 1;
     transform: translateY(-50%) scale(1.1);
   }
   100% {
     left: calc(100% - 38px);
     opacity: 0;
-    transform: translateY(-50%) scale(0.6);
+    transform: translateY(-50%) scale(0.5);
   }
 }
 
+/* Central ECG Heartbeat Chip with Live Typing Reactivity */
 .heartbeat-chip {
   position: absolute;
   top: 50%;
@@ -871,6 +973,16 @@ h1 {
     0 4px 12px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 #ffffff;
   animation: heartbeat 1.9s ease-in-out infinite;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.heartbeat-chip.typing-active {
+  animation: heartbeat-fast 0.8s ease-in-out infinite !important;
+  border-color: #f97316;
+  box-shadow:
+    0 0 25px rgba(249, 115, 22, 0.55),
+    0 4px 16px rgba(0, 242, 254, 0.35),
+    inset 0 1px 0 #ffffff;
 }
 
 .heartbeat-chip svg {
@@ -885,13 +997,21 @@ h1 {
   60% { transform: translate(-50%, -50%) scale(1); }
 }
 
-/* ---------------- SYNC CARD (Frosted Warm Pearl Glass) ---------------- */
+@keyframes heartbeat-fast {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  20% { transform: translate(-50%, -50%) scale(1.25); }
+  40% { transform: translate(-50%, -50%) scale(0.95); }
+  60% { transform: translate(-50%, -50%) scale(1.18); }
+  80% { transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ---------------- SYNC CARD (FROSTED PEARL GLASS) ---------------- */
 
 .sync-card {
   padding: 30px 28px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 248, 242, 0.85) 100%);
-  backdrop-filter: blur(30px) saturate(190%);
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 248, 242, 0.88) 100%);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
   border: 1.5px solid rgba(251, 146, 60, 0.48);
   box-shadow:
     0 25px 60px -15px rgba(249, 115, 22, 0.16),
@@ -905,6 +1025,8 @@ h1 {
   align-items: center;
   gap: 8px;
   margin-bottom: 20px;
+  position: relative;
+  z-index: 2;
 }
 
 .sync-dots {
@@ -972,6 +1094,8 @@ h1 {
   gap: 8px;
   margin-bottom: 8px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 2;
 }
 
 .eyebrow {
@@ -987,27 +1111,14 @@ h1 {
   border-radius: 6px;
 }
 
-.erp-bridge-tag {
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #0284c7;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-family: var(--font-mono), monospace;
-}
-
 .sync-card h2 {
   margin: 0 0 18px;
   font-size: 22px;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
+  position: relative;
+  z-index: 2;
 }
 
 .sync-tiles {
@@ -1015,6 +1126,8 @@ h1 {
   grid-template-columns: 1.1fr 1fr;
   gap: 12px;
   margin-bottom: 14px;
+  position: relative;
+  z-index: 2;
 }
 
 .sync-tile {
@@ -1090,7 +1203,7 @@ h1 {
 
 .sync-tile:hover .spin-sync {
   animation: spin-fast 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  filter: drop-shadow(0 0 4px #ea580c);
+  filter: drop-shadow(0 0 6px #ea580c);
 }
 
 @keyframes spin-slow {
@@ -1101,6 +1214,7 @@ h1 {
   to { transform: rotate(360deg); }
 }
 
+/* Sales Velocity Mini Bars & Tooltips */
 .mini-bars-wrapper {
   display: flex;
   flex-direction: column;
@@ -1115,10 +1229,39 @@ h1 {
 }
 
 .bar-col {
+  position: relative;
   flex: 1;
   height: 100%;
   display: flex;
   align-items: flex-end;
+  cursor: pointer;
+}
+
+/* Floating Micro-Tooltip on Bar Hover */
+.bar-col::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, -6px) scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: var(--font-mono), monospace;
+  padding: 3px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+}
+
+.bar-col:hover::before {
+  opacity: 1;
+  transform: translate(-50%, -6px) scale(1);
 }
 
 .bar-fill {
@@ -1129,14 +1272,13 @@ h1 {
   transform: scaleY(0);
   transform-origin: bottom;
   animation: bar-grow 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transition: filter 0.2s ease;
+  transition: filter 0.2s ease, transform 0.2s ease;
 }
 
 @keyframes bar-grow {
   to { transform: scaleY(1); }
 }
 
-/* Running Wave Animation on Bars during Tile Hover */
 .sync-tile:hover .bar-col:nth-child(1) .bar-fill { animation: bar-wave 0.9s ease-in-out infinite alternate 0.0s; }
 .sync-tile:hover .bar-col:nth-child(2) .bar-fill { animation: bar-wave 0.9s ease-in-out infinite alternate 0.15s; }
 .sync-tile:hover .bar-col:nth-child(3) .bar-fill { animation: bar-wave 0.9s ease-in-out infinite alternate 0.30s; }
@@ -1213,20 +1355,22 @@ h1 {
     inset 0 1px 0 #ffffff;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
   cursor: pointer;
+  z-index: 2;
 }
 
 .sync-toast::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.65) 45%, transparent 65%);
-  transform: translateX(-120%);
-  transition: transform 0.6s ease;
+  inset: -100%;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: toast-shimmer 4s ease-in-out infinite 1.5s;
   pointer-events: none;
 }
 
-.sync-toast:hover::after {
-  transform: translateX(120%);
+@keyframes toast-shimmer {
+  0%, 70% { transform: translateX(-100%); }
+  95%, 100% { transform: translateX(100%); }
 }
 
 .sync-toast:hover {
@@ -1562,6 +1706,15 @@ h1 {
   color: #ffffff !important;
 }
 
+.login-page.login-theme-night .glass-card::after {
+  background: radial-gradient(
+    480px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(99, 102, 241, 0.25) 0%,
+    rgba(56, 189, 248, 0.08) 40%,
+    transparent 75%
+  ) !important;
+}
+
 .login-page.login-theme-night .form-card {
   background: linear-gradient(145deg, rgba(15, 23, 42, 0.94) 0%, rgba(30, 41, 59, 0.88) 100%) !important;
   border-color: rgba(99, 102, 241, 0.45) !important;
@@ -1591,7 +1744,7 @@ h1 {
   color: #94a3b8 !important;
 }
 
-/* Night Mode Dark Inputs & Autofill Fix */
+/* Night Mode Dark Inputs */
 .login-page.login-theme-night .input-row input {
   background: rgba(15, 23, 42, 0.85) !important;
   border: 1.5px solid rgba(99, 102, 241, 0.4) !important;
@@ -1641,7 +1794,6 @@ h1 {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35) !important;
 }
 
-/* Night Mode Signature Orange Primary Button (Maintained Warm Orange) */
 .login-page.login-theme-night .btn-primary {
   background: linear-gradient(135deg, #fb923c 0%, #f97316 50%, #ea580c 100%) !important;
   color: #ffffff !important;
@@ -1659,7 +1811,6 @@ h1 {
   filter: brightness(1.06);
 }
 
-/* Night Mode Beam & Tiles (Keeps Signature Warm Orange Beam Conduit) */
 .login-page.login-theme-night .beam-labels {
   color: #ea580c !important;
 }
@@ -1823,8 +1974,8 @@ h1 {
 }
 
 @keyframes ring-pulse {
-  0% { transform: scale(1.45) rotate(0deg); }
-  100% { transform: scale(1.58) rotate(90deg); }
+  0% { transform: scale(1.48) rotate(0deg); }
+  100% { transform: scale(1.62) rotate(90deg); }
 }
 
 .reticle-notch {
