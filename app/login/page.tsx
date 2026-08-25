@@ -515,7 +515,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* SYNC CARD */}
+        {/* SYNC CARD — Highly detailed SaaS ERP-CRM live sync metrics */}
         <div className="glass-card sync-card" aria-hidden="true">
           <div className="sync-top">
             <div className="sync-dots">
@@ -523,36 +523,69 @@ export default function LoginPage() {
             </div>
             <span className="live-pill">
               <span className="live-dot" />
-              Live
+              Live Sync
             </span>
           </div>
 
-          <span className="eyebrow">Live from ERP</span>
+          <div className="sync-eyebrow-row">
+            <span className="eyebrow">LIVE FROM ERP</span>
+          </div>
           <h2>Synced instantly</h2>
 
           <div className="sync-tiles">
+            {/* Sales Velocity Tile */}
             <div className="sync-tile">
-              <p className="tile-label">Sales</p>
-              <div className="mini-bars">
-                {bars.map((h, i) => (
-                  <span key={i} style={{ height: `${h}%`, animationDelay: `${i * 70}ms` }} />
-                ))}
+              <div className="tile-header">
+                <p className="tile-label">Sales Velocity</p>
+                <span className="growth-pill">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                    <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  +24.8%
+                </span>
+              </div>
+              <div className="mini-bars-wrapper">
+                <div className="mini-bars">
+                  {bars.map((h, i) => (
+                    <div key={i} className="bar-col">
+                      <span className="bar-fill" style={{ height: `${h}%`, animationDelay: `${i * 70}ms` }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="bars-baseline" />
               </div>
             </div>
 
+            {/* Auto-Refresh Tile */}
             <div className="sync-tile">
-              <p className="tile-label">Refresh</p>
-              <p className="sync-value">60s</p>
-              <p className="sync-caption">from ERP</p>
+              <div className="tile-header">
+                <p className="tile-label">Refresh Cycle</p>
+                <span className="sync-status-icon">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="spin-sync">
+                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="#ea580c" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </div>
+              <div className="metric-row">
+                <p className="sync-value">60s</p>
+                <span className="latency-badge">&lt; 40ms</span>
+              </div>
+              <p className="sync-caption">Active Zero-Loss Stream</p>
             </div>
           </div>
 
+          {/* Real-time Activity Notification Card */}
           <div className="sync-toast">
-            <span className="notif-dot" />
-            <div>
-              <p className="notif-title">Invoice #INV-2291 synced</p>
-              <p className="notif-sub">2 seconds ago</p>
+            <div className="toast-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
+            <div className="toast-content">
+              <p className="notif-title">Invoice #INV-2291 synced</p>
+              <p className="notif-sub">Batch #8491-X • 2s ago</p>
+            </div>
+            <span className="amount-badge">+₹1,84,500</span>
           </div>
         </div>
       </div>

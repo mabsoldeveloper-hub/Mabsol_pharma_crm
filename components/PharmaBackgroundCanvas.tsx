@@ -5,14 +5,18 @@ import React, { useEffect, useRef } from "react";
 interface Node {
   x: number;
   y: number;
+  baseX: number;
+  baseY: number;
   vx: number;
   vy: number;
   baseRadius: number;
   radius: number;
+  layer: number; // 0: far, 1: mid, 2: near
   color: string;
   glowColor: string;
   pulsePhase: number;
   pulseSpeed: number;
+  driftPhase: number;
 }
 
 interface BenzeneStructure {
@@ -27,6 +31,7 @@ interface BenzeneStructure {
   glowColor: string;
   opacity: number;
   orbitAngle: number;
+  orbitSpeed: number;
 }
 
 interface PulsePacket {
@@ -47,15 +52,15 @@ interface Shockwave {
   color: string;
 }
 
-// Breathtaking Pharma & Cyber-Science Color Palette
+// Warm Sunset Peach, Coral Flame, Golden Apricot, Sky Azure & Violet Palette
 const PALETTE = [
-  { main: "#ff9f43", glow: "rgba(255, 159, 67, 0.75)" },  // Radiant Amber
-  { main: "#ff6b00", glow: "rgba(255, 107, 0, 0.75)" },   // Neon Flame
-  { main: "#00f2fe", glow: "rgba(0, 242, 254, 0.8)" },    // Bio Electric Cyan
-  { main: "#818cf8", glow: "rgba(129, 140, 248, 0.7)" },  // Royal Indigo
-  { main: "#10b981", glow: "rgba(16, 185, 129, 0.75)" },  // Sync Emerald
-  { main: "#f43f5e", glow: "rgba(244, 63, 94, 0.75)" },   // Biotech Rose
-  { main: "#ffffff", glow: "rgba(255, 255, 255, 0.9)" },   // Pure Core Light
+  { main: "#f97316", glow: "rgba(249, 115, 22, 0.5)" },   // Vibrant Warm Peach
+  { main: "#fb923c", glow: "rgba(251, 146, 60, 0.45)" },  // Soft Apricot
+  { main: "#ea580c", glow: "rgba(234, 88, 12, 0.5)" },   // Deep Sunset Peach
+  { main: "#e11d48", glow: "rgba(225, 29, 72, 0.4)" },    // Coral Rose
+  { main: "#0284c7", glow: "rgba(2, 132, 199, 0.45)" },   // Sky Azure
+  { main: "#6366f1", glow: "rgba(99, 102, 241, 0.4)" },   // Soft Indigo
+  { main: "#10b981", glow: "rgba(16, 185, 129, 0.45)" },  // Bio Emerald
 ];
 
 export default function PharmaBackgroundCanvas() {
@@ -94,24 +99,32 @@ export default function PharmaBackgroundCanvas() {
     function initElements() {
       const isMobile = width < 640;
       const isTablet = width >= 640 && width < 1024;
-      const nodeCount = isMobile ? 38 : isTablet ? 65 : 100;
-      const ringCount = isMobile ? 4 : isTablet ? 7 : 10;
+      const nodeCount = isMobile ? 38 : isTablet ? 65 : 95;
+      const ringCount = isMobile ? 4 : isTablet ? 7 : 9;
 
       nodes = [];
       for (let i = 0; i < nodeCount; i++) {
         const item = PALETTE[Math.floor(Math.random() * PALETTE.length)];
-        const r = Math.random() * 2.8 + (isMobile ? 1.8 : 2.5);
+        const layer = Math.random() < 0.35 ? 0 : Math.random() < 0.75 ? 1 : 2; // 0: Far, 1: Mid, 2: Near
+        const baseR = layer === 0 ? 1.4 : layer === 1 ? 2.2 : 3.0;
+        const r = baseR + Math.random() * 0.8;
+        const speedScale = layer === 0 ? 0.25 : layer === 1 ? 0.45 : 0.65;
+
         nodes.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * (isMobile ? 0.38 : 0.55),
-          vy: (Math.random() - 0.5) * (isMobile ? 0.38 : 0.55),
+          baseX: 0,
+          baseY: 0,
+          vx: (Math.random() - 0.5) * speedScale,
+          vy: (Math.random() - 0.5) * speedScale,
           baseRadius: r,
           radius: r,
+          layer,
           color: item.main,
           glowColor: item.glow,
           pulsePhase: Math.random() * Math.PI * 2,
-          pulseSpeed: 0.025 + Math.random() * 0.035,
+          pulseSpeed: 0.02 + Math.random() * 0.03,
+          driftPhase: Math.random() * Math.PI * 2,
         });
       }
 
@@ -121,15 +134,16 @@ export default function PharmaBackgroundCanvas() {
         benzeneRings.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.28,
-          vy: (Math.random() - 0.5) * 0.28,
+          vx: (Math.random() - 0.5) * 0.24,
+          vy: (Math.random() - 0.5) * 0.24,
           size: Math.random() * 34 + (isMobile ? 24 : 36),
           angle: Math.random() * Math.PI * 2,
           vAngle: (Math.random() - 0.5) * 0.007,
           color: item.main,
           glowColor: item.glow,
-          opacity: Math.random() * 0.35 + 0.25,
+          opacity: Math.random() * 0.22 + 0.22,
           orbitAngle: Math.random() * Math.PI * 2,
+          orbitSpeed: 0.022 + Math.random() * 0.015,
         });
       }
 
@@ -190,29 +204,33 @@ export default function PharmaBackgroundCanvas() {
       shockwaves.push({
         x: clickX,
         y: clickY,
-        radius: 6,
-        maxRadius: Math.min(width, height) * 0.55,
-        opacity: 0.95,
-        speed: 5,
-        color: "#ff7700",
+        radius: 8,
+        maxRadius: Math.min(width, height) * 0.52,
+        opacity: 0.85,
+        speed: 5.2,
+        color: "#f97316",
       });
 
       shockwaves.push({
         x: clickX,
         y: clickY,
         radius: 2,
-        maxRadius: Math.min(width, height) * 0.45,
-        opacity: 0.8,
+        maxRadius: Math.min(width, height) * 0.42,
+        opacity: 0.75,
         speed: 3.8,
-        color: "#00f2fe",
+        color: "#0284c7",
       });
 
-      // Scatter rapid photons across nearby bonds
+      // Scatter kinetic energy & rapid photon pulse cascades
       for (let i = 0; i < nodes.length; i++) {
         const dx = nodes[i].x - clickX;
         const dy = nodes[i].y - clickY;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 260) {
+        if (dist < 260 && dist > 0) {
+          const push = (1 - dist / 260) * 8;
+          nodes[i].vx += (dx / dist) * push;
+          nodes[i].vy += (dy / dist) * push;
+
           for (let j = 0; j < nodes.length; j++) {
             if (i !== j) {
               const ndx = nodes[i].x - nodes[j].x;
@@ -266,17 +284,17 @@ export default function PharmaBackgroundCanvas() {
 
       ctx!.clearRect(0, 0, width, height);
 
-      const maxDist = width < 640 ? 125 : 175;
+      const maxDist = width < 640 ? 120 : 170;
       const maxDistSq = maxDist * maxDist;
 
-      // 1. Draw 3D Benzene Ring Compounds
+      // 1. Draw 3D Benzene Ring Compounds with Conjugated Double Bonds
       for (let i = 0; i < benzeneRings.length; i++) {
         const b = benzeneRings[i];
         if (!reducedMotion) {
           b.x += b.vx;
           b.y += b.vy;
           b.angle += b.vAngle;
-          b.orbitAngle += 0.02;
+          b.orbitAngle += b.orbitSpeed;
 
           if (b.x < -b.size * 2) b.x = width + b.size * 2;
           if (b.x > width + b.size * 2) b.x = -b.size * 2;
@@ -287,29 +305,46 @@ export default function PharmaBackgroundCanvas() {
         ctx!.save();
         ctx!.strokeStyle = b.color;
         ctx!.shadowColor = b.glowColor;
-        ctx!.shadowBlur = 14;
+        ctx!.shadowBlur = 10;
         ctx!.globalAlpha = b.opacity;
-        ctx!.lineWidth = 1.8;
-        ctx!.setLineDash([6, 6]);
+        ctx!.lineWidth = 1.6;
+        ctx!.setLineDash([6, 5]);
 
         drawHexagon(ctx!, b.x, b.y, b.size, b.angle);
         ctx!.stroke();
 
-        // Inner conjugated orbital ring
+        // Inner conjugated aromatic ring
         ctx!.beginPath();
-        ctx!.arc(b.x, b.y, b.size * 0.44, 0, Math.PI * 2);
+        ctx!.arc(b.x, b.y, b.size * 0.46, 0, Math.PI * 2);
         ctx!.setLineDash([]);
-        ctx!.lineWidth = 1.4;
+        ctx!.lineWidth = 1.2;
         ctx!.stroke();
 
-        // Orbiting satellite electron photon
-        const ox = b.x + b.size * 0.44 * Math.cos(b.orbitAngle);
-        const oy = b.y + b.size * 0.44 * Math.sin(b.orbitAngle);
+        // Alternating double bonds (Chemical representation)
+        ctx!.setLineDash([]);
+        for (let k = 0; k < 6; k += 2) {
+          const a1 = b.angle + (k * Math.PI) / 3;
+          const a2 = b.angle + ((k + 1) * Math.PI) / 3;
+          const x1 = b.x + (b.size * 0.82) * Math.cos(a1);
+          const y1 = b.y + (b.size * 0.82) * Math.sin(a1);
+          const x2 = b.x + (b.size * 0.82) * Math.cos(a2);
+          const y2 = b.y + (b.size * 0.82) * Math.sin(a2);
+          ctx!.beginPath();
+          ctx!.moveTo(x1, y1);
+          ctx!.lineTo(x2, y2);
+          ctx!.lineWidth = 1.1;
+          ctx!.stroke();
+        }
+
+        // Orbiting electron photon with trailing light glow
+        const ox = b.x + b.size * 0.46 * Math.cos(b.orbitAngle);
+        const oy = b.y + b.size * 0.46 * Math.sin(b.orbitAngle);
+
         ctx!.beginPath();
         ctx!.arc(ox, oy, 2.5, 0, Math.PI * 2);
         ctx!.fillStyle = "#ffffff";
-        ctx!.shadowColor = "#ffffff";
-        ctx!.shadowBlur = 10;
+        ctx!.shadowColor = b.color;
+        ctx!.shadowBlur = 8;
         ctx!.fill();
 
         // Vertex Carbon/Nitrogen Atoms
@@ -319,10 +354,15 @@ export default function PharmaBackgroundCanvas() {
           const cy = b.y + b.size * Math.sin(a);
 
           ctx!.beginPath();
-          ctx!.arc(cx, cy, 3.2, 0, Math.PI * 2);
+          ctx!.arc(cx, cy, 2.8, 0, Math.PI * 2);
           ctx!.fillStyle = b.color;
           ctx!.shadowColor = b.glowColor;
-          ctx!.shadowBlur = 8;
+          ctx!.shadowBlur = 6;
+          ctx!.fill();
+
+          ctx!.beginPath();
+          ctx!.arc(cx - 0.7, cy - 0.7, 0.9, 0, Math.PI * 2);
+          ctx!.fillStyle = "#ffffff";
           ctx!.fill();
         }
 
@@ -344,39 +384,48 @@ export default function PharmaBackgroundCanvas() {
         ctx!.beginPath();
         ctx!.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
         ctx!.strokeStyle = rip.color;
-        ctx!.globalAlpha = rip.opacity;
-        ctx!.lineWidth = 3.2;
+        ctx!.globalAlpha = rip.opacity * 0.8;
+        ctx!.lineWidth = 2.8;
         ctx!.shadowColor = rip.color;
-        ctx!.shadowBlur = 18;
+        ctx!.shadowBlur = 12;
         ctx!.stroke();
         ctx!.restore();
       }
 
-      // 3. Update Nodes & Physics
+      // 3. Update Nodes & Fluid Brownian Motion
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
 
         if (!reducedMotion) {
-          node.x += node.vx;
-          node.y += node.vy;
+          node.driftPhase += 0.015;
+          node.x += node.vx + Math.sin(node.driftPhase) * 0.15;
+          node.y += node.vy + Math.cos(node.driftPhase) * 0.15;
+
+          // Friction to dampen push
+          node.vx *= 0.985;
+          node.vy *= 0.985;
+
+          if (Math.abs(node.vx) < 0.1) node.vx = (Math.random() - 0.5) * 0.4;
+          if (Math.abs(node.vy) < 0.1) node.vy = (Math.random() - 0.5) * 0.4;
 
           if (node.x <= 0 || node.x >= width) node.vx *= -1;
           if (node.y <= 0 || node.y >= height) node.vy *= -1;
 
           node.pulsePhase += node.pulseSpeed;
-          node.radius = node.baseRadius + Math.sin(node.pulsePhase) * 0.9;
+          node.radius = node.baseRadius + Math.sin(node.pulsePhase) * 0.6;
         }
 
-        // Magnetic Force Field
+        // Smooth Magnetic Cursor Field
         if (mouse.isHovered) {
           const dx = mouse.x - node.x;
           const dy = mouse.y - node.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < mouse.radius && dist > 0) {
-            const force = (1 - dist / mouse.radius) * 2.5;
-            node.x -= (dx / dist) * force * 2.2;
-            node.y -= (dy / dist) * force * 2.2;
+            const layerMultiplier = node.layer === 2 ? 1.3 : node.layer === 1 ? 1.0 : 0.6;
+            const force = (1 - dist / mouse.radius) * 2.2 * layerMultiplier;
+            node.x -= (dx / dist) * force * 1.6;
+            node.y -= (dy / dist) * force * 1.6;
           }
         }
       }
@@ -392,7 +441,7 @@ export default function PharmaBackgroundCanvas() {
 
           if (distSq < maxDistSq) {
             const dist = Math.sqrt(distSq);
-            const alpha = Math.pow(1 - dist / maxDist, 1.25) * 0.65;
+            const alpha = Math.pow(1 - dist / maxDist, 1.25) * 0.5;
 
             let mouseBoost = 0;
             if (mouse.isHovered) {
@@ -402,11 +451,11 @@ export default function PharmaBackgroundCanvas() {
               const mdy = mouse.y - midY;
               const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
               if (mDist < 140) {
-                mouseBoost = (1 - mDist / 140) * 0.5;
+                mouseBoost = (1 - mDist / 140) * 0.45;
               }
             }
 
-            const finalAlpha = Math.min(alpha + mouseBoost, 0.98);
+            const finalAlpha = Math.min(alpha + mouseBoost, 0.9);
 
             ctx!.beginPath();
             ctx!.moveTo(n1.x, n1.y);
@@ -418,16 +467,16 @@ export default function PharmaBackgroundCanvas() {
 
             ctx!.strokeStyle = grad;
             ctx!.globalAlpha = finalAlpha;
-            ctx!.lineWidth = mouseBoost > 0.1 ? 2.2 : 1.3;
+            ctx!.lineWidth = mouseBoost > 0.1 ? 2.0 : n1.layer === 2 ? 1.5 : 1.1;
             ctx!.stroke();
 
             // Spawn data pulses
-            if (!reducedMotion && pulses.length < 20 && Math.random() < 0.0008) {
+            if (!reducedMotion && pulses.length < 18 && Math.random() < 0.0008) {
               pulses.push({
                 fromNode: i,
                 toNode: j,
                 progress: 0,
-                speed: 0.022 + Math.random() * 0.03,
+                speed: 0.024 + Math.random() * 0.028,
                 color: n1.color,
               });
             }
@@ -435,7 +484,7 @@ export default function PharmaBackgroundCanvas() {
         }
       }
 
-      // 5. Energy Photon Pulses
+      // 5. Energy Photon Pulses with Trail
       for (let i = pulses.length - 1; i >= 0; i--) {
         const p = pulses[i];
         p.progress += p.speed;
@@ -456,49 +505,54 @@ export default function PharmaBackgroundCanvas() {
         const py = from.y + (to.y - from.y) * p.progress;
 
         ctx!.save();
+        // Photon core
         ctx!.beginPath();
-        ctx!.arc(px, py, 4, 0, Math.PI * 2);
+        ctx!.arc(px, py, 3.4, 0, Math.PI * 2);
         ctx!.fillStyle = p.color;
         ctx!.shadowColor = p.color;
-        ctx!.shadowBlur = 14;
-        ctx!.globalAlpha = 1;
+        ctx!.shadowBlur = 10;
+        ctx!.globalAlpha = 0.95;
         ctx!.fill();
 
+        // White specular center
         ctx!.beginPath();
-        ctx!.arc(px, py, 1.8, 0, Math.PI * 2);
+        ctx!.arc(px, py, 1.4, 0, Math.PI * 2);
         ctx!.fillStyle = "#ffffff";
         ctx!.fill();
+
         ctx!.restore();
       }
 
-      // 6. Draw 3D Atom Nodes
+      // 6. Draw 3D Layered Atom Nodes
       for (let i = 0; i < nodes.length; i++) {
         const n = nodes[i];
 
         ctx!.save();
         ctx!.beginPath();
-        ctx!.arc(n.x, n.y, Math.max(n.radius, 1.8), 0, Math.PI * 2);
+        ctx!.arc(n.x, n.y, Math.max(n.radius, 1.6), 0, Math.PI * 2);
 
         // Core atom
         ctx!.fillStyle = n.color;
         ctx!.shadowColor = n.glowColor;
-        ctx!.shadowBlur = 14;
-        ctx!.globalAlpha = 1;
+        ctx!.shadowBlur = n.layer === 2 ? 10 : 6;
+        ctx!.globalAlpha = n.layer === 0 ? 0.65 : 0.95;
         ctx!.fill();
 
-        // Glowing outer corona
+        // Glowing corona
         ctx!.beginPath();
-        ctx!.arc(n.x, n.y, n.radius * 2.6, 0, Math.PI * 2);
+        ctx!.arc(n.x, n.y, n.radius * (n.layer === 2 ? 2.4 : 1.9), 0, Math.PI * 2);
         ctx!.fillStyle = n.glowColor;
-        ctx!.globalAlpha = 0.32;
+        ctx!.globalAlpha = n.layer === 2 ? 0.28 : 0.16;
         ctx!.fill();
 
-        // 3D Specular Highlight glint
-        ctx!.beginPath();
-        ctx!.arc(n.x - n.radius * 0.32, n.y - n.radius * 0.32, n.radius * 0.4, 0, Math.PI * 2);
-        ctx!.fillStyle = "#ffffff";
-        ctx!.globalAlpha = 0.85;
-        ctx!.fill();
+        // 3D Specular Highlight Glint for Mid/Near layers
+        if (n.layer >= 1) {
+          ctx!.beginPath();
+          ctx!.arc(n.x - n.radius * 0.32, n.y - n.radius * 0.32, n.radius * 0.38, 0, Math.PI * 2);
+          ctx!.fillStyle = "#ffffff";
+          ctx!.globalAlpha = 0.85;
+          ctx!.fill();
+        }
 
         ctx!.restore();
       }
