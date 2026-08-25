@@ -26,6 +26,7 @@ import {
 } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
+import { SIDEBAR_PRESET_THEMES, SidebarThemeId } from "@/components/Sidebar";
 
 type MrTerritoryInfo = {
     isMrRestricted: boolean;
@@ -314,6 +315,9 @@ export default function DashboardContent() {
     const [bannerTheme, setBannerTheme] = useState<BannerThemeId>("auto");
     const [customBannerColor, setCustomBannerColor] = useState<string>("#3b82f6");
     const [showColorPicker, setShowColorPicker] = useState<boolean>(false);
+    const [customizerTab, setCustomizerTab] = useState<"banner" | "sidebar">("banner");
+    const [sidebarTheme, setSidebarTheme] = useState<SidebarThemeId>("default");
+    const [sidebarCustomHex, setSidebarCustomHex] = useState<string>("#001f54");
     const colorPickerRef = useRef<HTMLDivElement>(null);
 
     const { selectedCompany } = useCompany();
@@ -333,7 +337,29 @@ export default function DashboardContent() {
             if (savedCustomColor) {
                 setCustomBannerColor(savedCustomColor);
             }
+            const savedSidebarTheme = localStorage.getItem("sidebar_theme");
+            if (savedSidebarTheme) {
+                setSidebarTheme(savedSidebarTheme as SidebarThemeId);
+            }
+            const savedSidebarCustom = localStorage.getItem("sidebar_custom_hex");
+            if (savedSidebarCustom) {
+                setSidebarCustomHex(savedSidebarCustom);
+            }
         }
+    }, []);
+
+    // Sync with sidebar changes from other components
+    useEffect(() => {
+        const handleSidebarChanged = () => {
+            if (typeof window !== "undefined") {
+                const savedTheme = localStorage.getItem("sidebar_theme");
+                if (savedTheme) setSidebarTheme(savedTheme as SidebarThemeId);
+                const savedCustom = localStorage.getItem("sidebar_custom_hex");
+                if (savedCustom) setSidebarCustomHex(savedCustom);
+            }
+        };
+        window.addEventListener("sidebar-theme-changed", handleSidebarChanged);
+        return () => window.removeEventListener("sidebar-theme-changed", handleSidebarChanged);
     }, []);
 
     // Outside click listener to close color picker popover
@@ -364,6 +390,24 @@ export default function DashboardContent() {
         if (typeof window !== "undefined") {
             localStorage.setItem("dashboard_banner_theme", "custom");
             localStorage.setItem("dashboard_banner_custom_hex", hex);
+        }
+    };
+
+    const handleSelectSidebarTheme = (themeId: SidebarThemeId) => {
+        setSidebarTheme(themeId);
+        if (typeof window !== "undefined") {
+            localStorage.setItem("sidebar_theme", themeId);
+            window.dispatchEvent(new Event("sidebar-theme-changed"));
+        }
+    };
+
+    const handleSidebarCustomColorChange = (hex: string) => {
+        setSidebarCustomHex(hex);
+        setSidebarTheme("custom");
+        if (typeof window !== "undefined") {
+            localStorage.setItem("sidebar_theme", "custom");
+            localStorage.setItem("sidebar_custom_hex", hex);
+            window.dispatchEvent(new Event("sidebar-theme-changed"));
         }
     };
 
@@ -853,150 +897,313 @@ export default function DashboardContent() {
 
                             {/* Elegant Glassmorphic Color Palette Popover */}
                             {showColorPicker && (
-                                <div className="absolute right-0 top-full mt-2.5 w-80 sm:w-96 max-h-[85vh] overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.25)] p-3.5 sm:p-4 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100">
-                                    {/* Header */}
-                                    <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/70 dark:border-slate-800">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                                                <FaPalette size={12} />
-                                            </div>
-                                            <div>
-                                                <div className="text-xs font-bold text-slate-900 dark:text-white leading-none">Banner Color Theme</div>
-                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Customize top header look</div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSelectTheme("auto")}
-                                            className="text-[10.5px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline flex items-center gap-1 cursor-pointer px-2 py-1 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-                                            title="Reset to automatic day/time theme"
-                                        >
-                                            <FaUndoAlt size={9} /> Reset
-                                        </button>
-                                    </div>
-
-                                    {/* Blue Shaders Collection */}
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
-                                            🌊 Blue Shades & Combinations
-                                        </span>
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
-                                            8 Shades
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-3.5">
-                                        {PRESET_THEMES.filter((t) => t.category === "blue").map((theme) => {
-                                            const isSelected = bannerTheme === theme.id;
-                                            return (
-                                                <button
-                                                    key={theme.id}
-                                                    type="button"
-                                                    onClick={() => handleSelectTheme(theme.id)}
-                                                    className={`flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-150 cursor-pointer group ${
-                                                        isSelected
-                                                            ? "border-sky-600 bg-sky-50/70 dark:bg-sky-950/50 shadow-xs ring-2 ring-sky-500/40 scale-102"
-                                                            : "border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-sky-50/50 hover:border-sky-300 dark:hover:bg-slate-800/80"
-                                                    }`}
-                                                    title={theme.name}
-                                                >
-                                                    <div
-                                                        className="w-5 h-5 rounded-full shadow-xs border border-white/80 mb-1 flex items-center justify-center transition-transform group-hover:scale-110"
-                                                        style={{ background: theme.color }}
-                                                    >
-                                                        {isSelected && <FaCheck size={8} className="text-white drop-shadow-sm" />}
-                                                    </div>
-                                                    <span className="text-[9.5px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-full text-center">
-                                                        {theme.name}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Other Executive Palettes */}
-                                    <div className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                                        ✨ Other Executive Palettes
-                                    </div>
-                                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3.5">
-                                        {PRESET_THEMES.filter((t) => t.category === "other").map((theme) => {
-                                            const isSelected = bannerTheme === theme.id;
-                                            return (
-                                                <button
-                                                    key={theme.id}
-                                                    type="button"
-                                                    onClick={() => handleSelectTheme(theme.id)}
-                                                    className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all duration-150 cursor-pointer group ${
-                                                        isSelected
-                                                            ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 shadow-xs ring-2 ring-indigo-500/30 scale-102"
-                                                            : "border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:border-slate-300"
-                                                    }`}
-                                                    title={theme.name}
-                                                >
-                                                    <div
-                                                        className="w-4.5 h-4.5 rounded-full shadow-xs border border-white/80 mb-1 flex items-center justify-center transition-transform group-hover:scale-110"
-                                                        style={{ background: theme.color }}
-                                                    >
-                                                        {isSelected && <FaCheck size={7.5} className="text-white drop-shadow-sm" />}
-                                                    </div>
-                                                    <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-full text-center">
-                                                        {theme.name.replace(" (Time)", "")}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Custom Color Section */}
-                                    <div className="pt-2.5 border-t border-slate-200/70 dark:border-slate-800">
-                                        <div className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                                            <span>🎨 Custom Color Picker</span>
-                                            {bannerTheme === "custom" && (
-                                                <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold">Active</span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2 p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/60">
-                                            {/* Color Input Wheel */}
-                                            <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 shadow-xs flex-shrink-0 cursor-pointer group">
-                                                <input
-                                                    type="color"
-                                                    value={customBannerColor}
-                                                    onChange={(e) => handleCustomColorChange(e.target.value)}
-                                                    className="absolute -top-3 -left-3 w-16 h-16 cursor-pointer border-0 bg-transparent"
-                                                    title="Click to choose custom color"
-                                                />
-                                            </div>
-                                            {/* Hex input box */}
-                                            <div className="flex-1 flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
-                                                <span className="text-slate-400 text-xs font-mono select-none">#</span>
-                                                <input
-                                                    type="text"
-                                                    value={customBannerColor.replace("#", "")}
-                                                    onChange={(e) => {
-                                                        const raw = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
-                                                        if (raw.length === 6) {
-                                                            handleCustomColorChange("#" + raw);
-                                                        } else {
-                                                            setCustomBannerColor("#" + raw);
-                                                        }
-                                                    }}
-                                                    placeholder="3B82F6"
-                                                    className="w-full text-xs font-mono font-bold text-slate-800 dark:text-white bg-transparent border-0 outline-hidden pl-1 uppercase"
-                                                    maxLength={6}
-                                                />
+                                <div className="absolute right-0 top-full mt-2.5 w-84 sm:w-96 max-h-[85vh] overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.25)] p-3.5 sm:p-4 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100">
+                                    {/* Header & Section Tab Switcher */}
+                                    <div className="pb-2.5 mb-3 border-b border-slate-200/70 dark:border-slate-800">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                                    <FaPalette size={12} />
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-bold text-slate-900 dark:text-white leading-none">Theme Customizer</div>
+                                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Customize Banner & Sidebar</div>
+                                                </div>
                                             </div>
                                             <button
                                                 type="button"
-                                                onClick={() => handleCustomColorChange(customBannerColor)}
-                                                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                                                    bannerTheme === "custom"
-                                                        ? "bg-indigo-600 text-white shadow-xs"
-                                                        : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
+                                                onClick={() => {
+                                                    if (customizerTab === "banner") {
+                                                        handleSelectTheme("auto");
+                                                    } else {
+                                                        handleSelectSidebarTheme("default");
+                                                    }
+                                                }}
+                                                className="text-[10.5px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer px-2 py-1 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                                                title="Reset current section to default theme"
+                                            >
+                                                <FaUndoAlt size={9} /> Reset
+                                            </button>
+                                        </div>
+
+                                        {/* 2-Tab Navigation Switcher */}
+                                        <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60">
+                                            <button
+                                                type="button"
+                                                onClick={() => setCustomizerTab("banner")}
+                                                className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                                    customizerTab === "banner"
+                                                        ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                                                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                                                 }`}
                                             >
-                                                {bannerTheme === "custom" ? "Applied" : "Apply"}
+                                                <span>📊 Header Banner</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCustomizerTab("sidebar")}
+                                                className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                                    customizerTab === "sidebar"
+                                                        ? "bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs"
+                                                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                                                }`}
+                                            >
+                                                <span>📑 Sidebar Menu</span>
                                             </button>
                                         </div>
                                     </div>
+
+                                    {/* TAB 1: HEADER BANNER CUSTOMIZER */}
+                                    {customizerTab === "banner" && (
+                                        <div>
+                                            {/* Blue Shaders Collection */}
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
+                                                    🌊 Banner Blue Shades
+                                                </span>
+                                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
+                                                    8 Shades
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-3.5">
+                                                {PRESET_THEMES.filter((t) => t.category === "blue").map((theme) => {
+                                                    const isSelected = bannerTheme === theme.id;
+                                                    return (
+                                                        <button
+                                                            key={theme.id}
+                                                            type="button"
+                                                            onClick={() => handleSelectTheme(theme.id)}
+                                                            className={`flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-150 cursor-pointer group ${
+                                                                isSelected
+                                                                    ? "border-sky-600 bg-sky-50/70 dark:bg-sky-950/50 shadow-xs ring-2 ring-sky-500/40 scale-102"
+                                                                    : "border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-sky-50/50 hover:border-sky-300 dark:hover:bg-slate-800/80"
+                                                            }`}
+                                                            title={theme.name}
+                                                        >
+                                                            <div
+                                                                className="w-5 h-5 rounded-full shadow-xs border border-white/80 mb-1 flex items-center justify-center transition-transform group-hover:scale-110"
+                                                                style={{ background: theme.color }}
+                                                            >
+                                                                {isSelected && <FaCheck size={8} className="text-white drop-shadow-sm" />}
+                                                            </div>
+                                                            <span className="text-[9.5px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-full text-center">
+                                                                {theme.name}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Other Executive Palettes */}
+                                            <div className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                                                ✨ Other Executive Palettes
+                                            </div>
+                                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3.5">
+                                                {PRESET_THEMES.filter((t) => t.category === "other").map((theme) => {
+                                                    const isSelected = bannerTheme === theme.id;
+                                                    return (
+                                                        <button
+                                                            key={theme.id}
+                                                            type="button"
+                                                            onClick={() => handleSelectTheme(theme.id)}
+                                                            className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all duration-150 cursor-pointer group ${
+                                                                isSelected
+                                                                    ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 shadow-xs ring-2 ring-indigo-500/30 scale-102"
+                                                                    : "border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:border-slate-300"
+                                                            }`}
+                                                            title={theme.name}
+                                                        >
+                                                            <div
+                                                                className="w-4.5 h-4.5 rounded-full shadow-xs border border-white/80 mb-1 flex items-center justify-center transition-transform group-hover:scale-110"
+                                                                style={{ background: theme.color }}
+                                                            >
+                                                                {isSelected && <FaCheck size={7.5} className="text-white drop-shadow-sm" />}
+                                                            </div>
+                                                            <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-full text-center">
+                                                                {theme.name.replace(" (Time)", "")}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Custom Color Section */}
+                                            <div className="pt-2.5 border-t border-slate-200/70 dark:border-slate-800">
+                                                <div className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                                    <span>🎨 Custom Banner Color</span>
+                                                    {bannerTheme === "custom" && (
+                                                        <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold">Active</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/60">
+                                                    <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 shadow-xs flex-shrink-0 cursor-pointer group">
+                                                        <input
+                                                            type="color"
+                                                            value={customBannerColor}
+                                                            onChange={(e) => handleCustomColorChange(e.target.value)}
+                                                            className="absolute -top-3 -left-3 w-16 h-16 cursor-pointer border-0 bg-transparent"
+                                                            title="Click to choose custom banner color"
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+                                                        <span className="text-slate-400 text-xs font-mono select-none">#</span>
+                                                        <input
+                                                            type="text"
+                                                            value={customBannerColor.replace("#", "")}
+                                                            onChange={(e) => {
+                                                                const raw = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+                                                                if (raw.length === 6) {
+                                                                    handleCustomColorChange("#" + raw);
+                                                                } else {
+                                                                    setCustomBannerColor("#" + raw);
+                                                                }
+                                                            }}
+                                                            placeholder="3B82F6"
+                                                            className="w-full text-xs font-mono font-bold text-slate-800 dark:text-white bg-transparent border-0 outline-hidden pl-1 uppercase"
+                                                            maxLength={6}
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCustomColorChange(customBannerColor)}
+                                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                                            bannerTheme === "custom"
+                                                                ? "bg-indigo-600 text-white shadow-xs"
+                                                                : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
+                                                        }`}
+                                                    >
+                                                        {bannerTheme === "custom" ? "Applied" : "Apply"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TAB 2: SIDEBAR MENU CUSTOMIZER */}
+                                    {customizerTab === "sidebar" && (
+                                        <div>
+                                            {/* Blue Shaders Collection */}
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-[10px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
+                                                    🌊 Sidebar Blue Shades
+                                                </span>
+                                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
+                                                    7 Shades
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-3.5">
+                                                {SIDEBAR_PRESET_THEMES.filter((t) => t.category === "blue").map((theme) => {
+                                                    const isSelected = sidebarTheme === theme.id;
+                                                    return (
+                                                        <button
+                                                            key={theme.id}
+                                                            type="button"
+                                                            onClick={() => handleSelectSidebarTheme(theme.id)}
+                                                            className={`flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl border transition-all duration-150 cursor-pointer group ${
+                                                                isSelected
+                                                                    ? "border-sky-600 bg-sky-50/70 dark:bg-sky-950/50 shadow-xs ring-2 ring-sky-500/40 scale-102"
+                                                                    : "border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-sky-50/50 hover:border-sky-300 dark:hover:bg-slate-800/80"
+                                                            }`}
+                                                            title={theme.name}
+                                                        >
+                                                            <div
+                                                                className="w-5 h-5 rounded-full shadow-xs border border-white/80 mb-1 flex items-center justify-center transition-transform group-hover:scale-110"
+                                                                style={{ background: theme.color }}
+                                                            >
+                                                                {isSelected && <FaCheck size={8} className="text-white drop-shadow-sm" />}
+                                                            </div>
+                                                            <span className="text-[9.5px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-full text-center">
+                                                                {theme.name}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Other Sidebar Palettes */}
+                                            <div className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                                                ✨ Other Sidebar Palettes
+                                            </div>
+                                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3.5">
+                                                {SIDEBAR_PRESET_THEMES.filter((t) => t.category === "other").map((theme) => {
+                                                    const isSelected = sidebarTheme === theme.id;
+                                                    return (
+                                                        <button
+                                                            key={theme.id}
+                                                            type="button"
+                                                            onClick={() => handleSelectSidebarTheme(theme.id)}
+                                                            className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all duration-150 cursor-pointer group ${
+                                                                isSelected
+                                                                    ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 shadow-xs ring-2 ring-indigo-500/30 scale-102"
+                                                                    : "border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100/90 dark:hover:bg-slate-800/80 hover:border-slate-300"
+                                                            }`}
+                                                            title={theme.name}
+                                                        >
+                                                            <div
+                                                                className="w-4.5 h-4.5 rounded-full shadow-xs border border-white/80 mb-1 flex items-center justify-center transition-transform group-hover:scale-110"
+                                                                style={{ background: theme.color }}
+                                                            >
+                                                                {isSelected && <FaCheck size={7.5} className="text-white drop-shadow-sm" />}
+                                                            </div>
+                                                            <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-full text-center">
+                                                                {theme.name}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Custom Sidebar Color Section */}
+                                            <div className="pt-2.5 border-t border-slate-200/70 dark:border-slate-800">
+                                                <div className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                                    <span>🎨 Custom Sidebar Color</span>
+                                                    {sidebarTheme === "custom" && (
+                                                        <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold">Active</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/60">
+                                                    <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 shadow-xs flex-shrink-0 cursor-pointer group">
+                                                        <input
+                                                            type="color"
+                                                            value={sidebarCustomHex}
+                                                            onChange={(e) => handleSidebarCustomColorChange(e.target.value)}
+                                                            className="absolute -top-3 -left-3 w-16 h-16 cursor-pointer border-0 bg-transparent"
+                                                            title="Click to choose custom sidebar color"
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+                                                        <span className="text-slate-400 text-xs font-mono select-none">#</span>
+                                                        <input
+                                                            type="text"
+                                                            value={sidebarCustomHex.replace("#", "")}
+                                                            onChange={(e) => {
+                                                                const raw = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+                                                                if (raw.length === 6) {
+                                                                    handleSidebarCustomColorChange("#" + raw);
+                                                                } else {
+                                                                    setSidebarCustomHex("#" + raw);
+                                                                }
+                                                            }}
+                                                            placeholder="001F54"
+                                                            className="w-full text-xs font-mono font-bold text-slate-800 dark:text-white bg-transparent border-0 outline-hidden pl-1 uppercase"
+                                                            maxLength={6}
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSidebarCustomColorChange(sidebarCustomHex)}
+                                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                                            sidebarTheme === "custom"
+                                                                ? "bg-sky-600 text-white shadow-xs"
+                                                                : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
+                                                        }`}
+                                                    >
+                                                        {sidebarTheme === "custom" ? "Applied" : "Apply"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
