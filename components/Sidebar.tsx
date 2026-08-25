@@ -560,7 +560,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   };
 
   const logoUrl =
-    selectedCompany?.logo || companySettings?.logo || "/m-logo.jpg";
+    selectedCompany?.logo || companySettings?.logo || "/mabsol_logo.ico";
 
   return (
     <>
@@ -600,12 +600,18 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               <img
                 src={logoUrl}
                 alt="logo"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = "/mabsol_logo.ico";
+                }}
                 className="w-11 h-11 rounded-full object-cover shadow-sm mx-auto transition-transform hover:scale-105"
               />
             ) : (
               <img
                 src={logoUrl}
                 alt="logo"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = "/mabsol_logo.ico";
+                }}
                 className="max-h-16 w-auto object-contain"
               />
             )}

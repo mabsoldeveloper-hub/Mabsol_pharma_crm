@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, List, PersonCircle, Trash, CalendarEvent, Search, Building } from "react-bootstrap-icons";
+import { Bell, List, PersonCircle, Trash, CalendarEvent, Search, Building, Command, ArrowsFullscreen, FullscreenExit } from "react-bootstrap-icons";
 
 import { useUser } from "@/context/UserContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -27,6 +27,63 @@ export default function Topbar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string>("");
   const [profileImgError, setProfileImgError] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isFull);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    const doc = document as any;
+    const docEl = document.documentElement as any;
+
+    if (
+      !doc.fullscreenElement &&
+      !doc.webkitFullscreenElement &&
+      !doc.mozFullScreenElement &&
+      !doc.msFullscreenElement
+    ) {
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen().catch((err: any) => console.warn("Fullscreen request error:", err));
+      } else if (docEl.webkitRequestFullscreen) {
+        docEl.webkitRequestFullscreen();
+      } else if (docEl.mozRequestFullScreen) {
+        docEl.mozRequestFullScreen();
+      } else if (docEl.msRequestFullscreen) {
+        docEl.msRequestFullscreen();
+      }
+    } else {
+      if (doc.exitFullscreen) {
+        doc.exitFullscreen().catch((err: any) => console.warn("Fullscreen exit error:", err));
+      } else if (doc.webkitExitFullscreen) {
+        doc.webkitExitFullscreen();
+      } else if (doc.mozCancelFullScreen) {
+        doc.mozCancelFullScreen();
+      } else if (doc.msExitFullscreen) {
+        doc.msExitFullscreen();
+      }
+    }
+  };
 
   useEffect(() => {
     setProfileImgError(false);
@@ -428,22 +485,23 @@ export default function Topbar({
                 setAutoVoiceStart(true);
                 setSearchOpen(true);
               }}
-              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold border rounded-md shadow-2xs transition-colors cursor-pointer ${wakewordEnabled
-                ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100"
-                : "text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200"
+              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold border rounded-md shadow-2xs transition-colors cursor-pointer ${wakewordEnabled
+                ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
+                : "text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/80 border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
               title={wakewordEnabled ? `Click or say 'Hey ${assistantName}' to activate ${assistantName} AI` : `${assistantName} Wake-Word Disabled (Click to open Voice AI)`}
             >
               🎙️ {assistantName} AI {wakewordEnabled ? `("Hey ${assistantName}")` : "(Off)"}
             </span>
-            <kbd className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-extrabold text-slate-400 bg-white border border-slate-200 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors">
-              <span className="text-[9px]">Ctrl</span> K
-            </kbd>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-300 dark:group-hover:text-indigo-300 transition-colors select-none">
+              <Command size={10} className="shrink-0 text-slate-500 dark:text-slate-400 group-hover:text-indigo-600" />
+              <span>Ctrl K</span>
+            </span>
           </div>
         </button>
       </div>
 
-      {/* RIGHT: Search Icon, Notifications & Profile */}
+      {/* RIGHT: Search Icon, Notifications, Fullscreen & Profile */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* MOBILE GLOBAL SEARCH ICON BUTTON */}
         <button
@@ -453,6 +511,23 @@ export default function Topbar({
           title="Search Anything (Products, Customers, Invoices, MRs...)"
         >
           <Search size={15} />
+        </button>
+
+        {/* FULLSCREEN TOGGLE (Hidden on Mobile) */}
+        <button
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          title={isFullscreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen (F11)"}
+          className={`hidden sm:flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border transition-all duration-200 shrink-0 cursor-pointer shadow-xs ${isFullscreen
+              ? "border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900"
+              : "border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:bg-indigo-50/60 dark:hover:bg-slate-700"
+            }`}
+        >
+          {isFullscreen ? (
+            <FullscreenExit size={16} className="transition-transform hover:scale-110" />
+          ) : (
+            <ArrowsFullscreen size={15} className="transition-transform hover:scale-110" />
+          )}
         </button>
 
         {/* NOTIFICATIONS */}

@@ -18,6 +18,16 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Reset Bootstrap kbd styles so they inherit colors nicely with Tailwind */
+kbd {
+  color: inherit;
+  background-color: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+  box-shadow: none;
+}
+
 /* DARK MODE */
 
 .dark-mode {
