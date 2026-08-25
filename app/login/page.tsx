@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Space_Grotesk, Inter, IBM_Plex_Mono } from "next/font/google";
+import PharmaBackgroundCanvas from "@/components/PharmaBackgroundCanvas";
+import "./login.css";
 
 const displayFont = Space_Grotesk({
   subsets: ["latin"],
@@ -11,7 +13,7 @@ const displayFont = Space_Grotesk({
 });
 const bodyFont = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-body",
 });
 const monoFont = IBM_Plex_Mono({
@@ -19,12 +21,11 @@ const monoFont = IBM_Plex_Mono({
   weight: ["500", "600"],
   variable: "--font-mono",
 });
-import "./login.css";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TILT_MAX_DEG = 7;
+const TILT_MAX_DEG = 8;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function LoginPage() {
   // 3D tilt for the form card
   const formCardRef = useRef<HTMLDivElement | null>(null);
 
-  const bars = [30, 48, 40, 72, 54, 64];
+  const bars = [32, 54, 42, 85, 62, 74];
 
   const emailIsValid = EMAIL_RE.test(email.trim());
   const showEmailError = emailTouched && email.length > 0 && !emailIsValid;
@@ -110,10 +111,10 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (data.success) {
-          setStep("otp");
-          setOtp(Array(OTP_LENGTH).fill(""));
-          setResendTimer(RESEND_SECONDS);
-          setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
+        setStep("otp");
+        setOtp(Array(OTP_LENGTH).fill(""));
+        setResendTimer(RESEND_SECONDS);
+        setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
       } else {
         setError(data.message || "Couldn't sign you in. Check your details and try again.");
       }
@@ -215,10 +216,70 @@ export default function LoginPage() {
 
   return (
     <div className={`login-page ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
+      {/* High Performance Interactive Molecular Background Canvas */}
+      <PharmaBackgroundCanvas />
+
+      {/* Aurora Gradient Mesh Orbs */}
       <div className="mesh" aria-hidden="true">
         <span className="orb orb-a" />
         <span className="orb orb-b" />
         <span className="orb orb-c" />
+      </div>
+
+      {/* Floating Holographic Ambient Badges with High-Detail SVG Icons */}
+      <div className="floating-badge badge-tl" aria-hidden="true">
+        <div className="badge-icon-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M4 3c6 4 10 4 16 0M4 21c6-4 10-4 16 0" stroke="#00f2fe" strokeWidth="2" strokeLinecap="round" />
+            <path d="M7 6v12M12 4v16M17 6v12" stroke="#00f2fe" strokeWidth="1.8" strokeDasharray="2 3" strokeLinecap="round" />
+            <circle cx="7" cy="6" r="2" fill="#00f2fe" />
+            <circle cx="17" cy="18" r="2" fill="#00f2fe" />
+          </svg>
+        </div>
+        <div className="badge-content">
+          <span className="badge-title">Biotech Pipeline</span>
+          <span className="badge-value">Active &amp; Encrypted</span>
+        </div>
+      </div>
+
+      <div className="floating-badge badge-tr" aria-hidden="true">
+        <div className="badge-icon-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6l-8-4z" stroke="#10b981" strokeWidth="1.8" fill="rgba(16, 185, 129, 0.15)" />
+            <path d="M9 12l2 2 4-4" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div className="badge-content">
+          <span className="badge-title">Pharma Compliance</span>
+          <span className="badge-value">21 CFR Part 11</span>
+        </div>
+      </div>
+
+      <div className="floating-badge badge-bl" aria-hidden="true">
+        <div className="badge-icon-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="#ff7700" strokeWidth="2" strokeLinejoin="round" fill="rgba(255, 119, 0, 0.25)" />
+          </svg>
+        </div>
+        <div className="badge-content">
+          <span className="badge-title">Sync Latency</span>
+          <span className="badge-value">&lt; 80ms Real-Time</span>
+        </div>
+      </div>
+
+      <div className="floating-badge badge-br" aria-hidden="true">
+        <div className="badge-icon-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="12" width="4" height="9" rx="1.5" fill="#818cf8" />
+            <rect x="10" y="7" width="4" height="14" rx="1.5" fill="#a78bfa" />
+            <rect x="17" y="3" width="4" height="18" rx="1.5" fill="#c084fc" />
+            <path d="M4 10l7-5 6-2" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </div>
+        <div className="badge-content">
+          <span className="badge-title">Batch Intelligence</span>
+          <span className="badge-value">Live ERP Stream</span>
+        </div>
       </div>
 
       <div className="stage">
@@ -231,11 +292,33 @@ export default function LoginPage() {
         >
           <div className="brand-row">
             <span className="brand-mark">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+                <defs>
+                  <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#ffb347" />
+                    <stop offset="50%" stopColor="#ff7700" />
+                    <stop offset="100%" stopColor="#ea580c" />
+                  </linearGradient>
+                  <filter id="brandGlow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#ff7700" floodOpacity="0.8" />
+                  </filter>
+                </defs>
+                {/* 3D Hexagon Emblem */}
                 <path
-                  d="M12 3l2.4 5.1L20 9l-4 4.2L17 19l-5-2.7L7 19l1-5.8L4 9l5.6-.9L12 3Z"
-                  fill="var(--orange-light)"
+                  d="M16 2.5 L28 9.5 L28 22.5 L16 29.5 L4 22.5 L4 9.5 Z"
+                  stroke="url(#brandGrad)"
+                  strokeWidth="2.2"
+                  fill="rgba(255, 119, 0, 0.2)"
+                  filter="url(#brandGlow)"
                 />
+                {/* Interlocking Medical Cross */}
+                <path
+                  d="M13.5 8 H18.5 V13.5 H24 V18.5 H18.5 V24 H13.5 V18.5 H8 V13.5 H13.5 Z"
+                  fill="url(#brandGrad)"
+                />
+                {/* Specular Glint Center */}
+                <circle cx="16" cy="16" r="2.8" fill="#ffffff" />
+                <circle cx="14.8" cy="14.8" r="1" fill="#ffffff" />
               </svg>
             </span>
             <span className="brand-name">Mabsol Pharma CRM</span>
@@ -256,13 +339,9 @@ export default function LoginPage() {
                 <div className="field">
                   <label htmlFor="email">Email</label>
                   <div className={`input-row ${showEmailError ? "input-row-error" : ""}`}>
-                    <svg className="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-11Z"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                      />
-                      <path d="M4 7l8 6 8-6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg className="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <rect x="2" y="5" width="20" height="14" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                      <path d="M3 7l9 6 9-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <input
                       id="email"
@@ -285,9 +364,10 @@ export default function LoginPage() {
                 <div className="field">
                   <label htmlFor="password">Password</label>
                   <div className="input-row">
-                    <svg className="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <rect x="5" y="10.5" width="14" height="9.5" rx="2" stroke="currentColor" strokeWidth="1.7" />
-                      <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                    <svg className="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <rect x="4" y="10" width="16" height="11" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                      <path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      <circle cx="12" cy="15.5" r="1.5" fill="currentColor" />
                     </svg>
                     <input
                       id="password"
@@ -411,13 +491,24 @@ export default function LoginPage() {
             <span className="beam-node" />
 
             <span className="heartbeat-chip">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <defs>
+                  <linearGradient id="ecgGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#00f2fe" />
+                    <stop offset="50%" stopColor="#ff9f43" />
+                    <stop offset="100%" stopColor="#10b981" />
+                  </linearGradient>
+                  <filter id="ecgGlow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#ff7700" floodOpacity="0.9" />
+                  </filter>
+                </defs>
                 <path
                   d="M2 12h4l2-7 4 14 3-9 2 4h5"
-                  stroke="var(--orange-light)"
-                  strokeWidth="1.8"
+                  stroke="url(#ecgGrad)"
+                  strokeWidth="2.2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  filter="url(#ecgGlow)"
                 />
               </svg>
             </span>
@@ -428,7 +519,7 @@ export default function LoginPage() {
         <div className="glass-card sync-card" aria-hidden="true">
           <div className="sync-top">
             <div className="sync-dots">
-              <span /><span /><span />
+              <span className="dot-red" /><span className="dot-yellow" /><span className="dot-green" />
             </div>
             <span className="live-pill">
               <span className="live-dot" />
