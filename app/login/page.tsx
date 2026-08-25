@@ -50,10 +50,68 @@ export default function LoginPage() {
   // 3D tilt for the form card
   const formCardRef = useRef<HTMLDivElement | null>(null);
 
+  const [previewPhase, setPreviewPhase] = useState<"auto" | "morning" | "afternoon" | "evening" | "night">("auto");
+  const [detectedPhase, setDetectedPhase] = useState<"morning" | "afternoon" | "evening" | "night">("morning");
+
   const bars = [32, 54, 42, 85, 62, 74];
 
   const emailIsValid = EMAIL_RE.test(email.trim());
   const showEmailError = emailTouched && email.length > 0 && !emailIsValid;
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) {
+      setDetectedPhase("morning");
+    } else if (hour >= 12 && hour < 17) {
+      setDetectedPhase("afternoon");
+    } else if (hour >= 17 && hour < 20) {
+      setDetectedPhase("evening");
+    } else {
+      setDetectedPhase("night");
+    }
+  }, []);
+
+  const activePhase = previewPhase === "auto" ? detectedPhase : previewPhase;
+
+  const getCelestialData = () => {
+    switch (activePhase) {
+      case "morning":
+        return {
+          greeting: "Good Morning",
+          icon: "🌅",
+          tag: "Dawn Shift Active",
+          subtitle: "Sign in to access dawn pipeline, territory dispatch & real-time inventory.",
+          themeClass: "login-theme-morning",
+        };
+      case "afternoon":
+        return {
+          greeting: "Good Afternoon",
+          icon: "☀️",
+          tag: "Midday Surge",
+          subtitle: "Peak-hour throughput active. Real-time billing & ERP sync running.",
+          themeClass: "login-theme-afternoon",
+        };
+      case "evening":
+        return {
+          greeting: "Good Evening",
+          icon: "🌇",
+          tag: "Twilight Settlement",
+          subtitle: "End-of-day sales reconciliation, territory summaries & warehouse ledger ready.",
+          themeClass: "login-theme-evening",
+        };
+      case "night":
+      default:
+        return {
+          greeting: "Good Night",
+          icon: "🌙",
+          tag: "Night Operations",
+          subtitle: "Overnight automated batch sync & encrypted ledger backups active.",
+          themeClass: "login-theme-night",
+        };
+    }
+  };
+
+  const celestial = getCelestialData();
 
   useEffect(() => {
     if (resendTimer <= 0) return;
@@ -215,9 +273,37 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={`login-page ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
+    <div className={`login-page ${celestial.themeClass} ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
       {/* High Performance Interactive Molecular Background Canvas */}
       <PharmaBackgroundCanvas />
+
+      {/* Floating Interactive Celestial Time Live Preview Capsule */}
+      <div className="celestial-preview-capsule">
+        <div className="capsule-label">
+          <span className="live-dot" />
+          <span>Live Theme</span>
+        </div>
+        <div className="capsule-buttons">
+          {[
+            { id: "auto", label: "Auto", icon: "⏱️" },
+            { id: "morning", label: "Morning", icon: "🌅" },
+            { id: "afternoon", label: "Afternoon", icon: "☀️" },
+            { id: "evening", label: "Evening", icon: "🌇" },
+            { id: "night", label: "Night", icon: "🌙" },
+          ].map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setPreviewPhase(m.id as any)}
+              className={`capsule-btn ${previewPhase === m.id ? "active" : ""}`}
+              title={`Preview ${m.label} theme`}
+            >
+              <span>{m.icon}</span>
+              <span className="btn-text">{m.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Aurora Gradient Mesh Orbs */}
       <div className="mesh" aria-hidden="true">
@@ -326,8 +412,10 @@ export default function LoginPage() {
 
           {step === "credentials" ? (
             <>
-              <h1>Welcome back</h1>
-              <p className="lede">Sign in to pick up right where ERP left off.</p>
+              <h1>
+                {celestial.greeting} <span className="greeting-icon">{celestial.icon}</span>
+              </h1>
+              <p className="lede">{celestial.subtitle}</p>
 
               <form onSubmit={handleLogin} noValidate>
                 {error && (

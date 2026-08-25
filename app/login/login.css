@@ -49,10 +49,10 @@ h2,
   padding: 40px 20px;
   overflow: hidden;
   background:
-    radial-gradient(ellipse at 15% 15%, rgba(251, 146, 60, 0.22), transparent 50%),
-    radial-gradient(ellipse at 85% 85%, rgba(199, 210, 254, 0.25), transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(254, 205, 211, 0.15), transparent 60%),
-    linear-gradient(135deg, #fffbf7 0%, #fbf5ef 50%, #f6f0fb 100%);
+    radial-gradient(ellipse at 15% 15%, rgba(251, 146, 60, 0.32), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(249, 115, 22, 0.22), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(254, 215, 170, 0.28), transparent 60%),
+    linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #fef3c7 100%);
   color: var(--navy-dark);
   font-family: var(--font-body);
   color-scheme: light;
@@ -1441,5 +1441,321 @@ h1 {
   .btn-primary {
     padding: 12px;
     font-size: 14.5px;
+  }
+}
+
+/* ==================== FLOATING CELESTIAL THEME PREVIEW CAPSULE ==================== */
+
+.celestial-preview-capsule {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid rgba(251, 146, 60, 0.35);
+  box-shadow: 0 10px 30px -5px rgba(249, 115, 22, 0.18), 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.login-theme-night .celestial-preview-capsule {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border-color: rgba(99, 102, 241, 0.45) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 24px rgba(99, 102, 241, 0.3) !important;
+}
+
+.capsule-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #c2410c;
+  padding-left: 4px;
+}
+
+.login-theme-night .capsule-label {
+  color: #a5b4fc !important;
+}
+
+.capsule-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.capsule-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.login-theme-night .capsule-btn {
+  color: #cbd5e1 !important;
+}
+
+.capsule-btn:hover {
+  background: rgba(255, 237, 213, 0.7);
+  color: #ea580c;
+  transform: translateY(-1px);
+}
+
+.login-theme-night .capsule-btn:hover {
+  background: rgba(30, 41, 59, 0.8) !important;
+  color: #ffffff !important;
+}
+
+.capsule-btn.active {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+  transform: scale(1.04);
+}
+
+.login-theme-night .capsule-btn.active {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.5) !important;
+}
+
+/* ==================== CELESTIAL THEME COLOR MODES ==================== */
+
+/* 1. ULTRA LUXURY COSMIC OBSIDIAN NIGHT THEME */
+.login-page.login-theme-night {
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(99, 102, 241, 0.35), transparent 50%),
+    radial-gradient(ellipse at 80% 85%, rgba(56, 189, 248, 0.25), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(30, 27, 75, 0.45), transparent 60%),
+    linear-gradient(135deg, #030712 0%, #0b0f19 40%, #0f172a 100%) !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+.login-page.login-theme-night::before {
+  background:
+    radial-gradient(ellipse at 25% 20%, rgba(99, 102, 241, 0.25) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 80%, rgba(56, 189, 248, 0.2) 0%, transparent 55%),
+    linear-gradient(135deg, rgba(30, 27, 75, 0.5) 0%, rgba(15, 23, 42, 0.4) 100%) !important;
+  opacity: 0.6 !important;
+}
+
+.login-page.login-theme-night .glass-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 41, 59, 0.85) 100%) !important;
+  border: 1.5px solid rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.8), 0 0 35px rgba(99, 102, 241, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-night .form-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.94) 0%, rgba(30, 41, 59, 0.88) 100%) !important;
+  border-color: rgba(99, 102, 241, 0.45) !important;
+  box-shadow: 0 30px 70px -10px rgba(0, 0, 0, 0.85), 0 0 40px rgba(99, 102, 241, 0.3) !important;
+}
+
+.login-page.login-theme-night .brand-mark {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+  border-color: rgba(99, 102, 241, 0.5) !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.login-page.login-theme-night h1,
+.login-page.login-theme-night h2,
+.login-page.login-theme-night .brand-name,
+.login-page.login-theme-night label,
+.login-page.login-theme-night .tile-label,
+.login-page.login-theme-night .sync-value,
+.login-page.login-theme-night .notif-title {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-night .lede,
+.login-page.login-theme-night .sync-caption,
+.login-page.login-theme-night .notif-sub,
+.login-page.login-theme-night .field-error {
+  color: #94a3b8 !important;
+}
+
+/* Night Mode Dark Inputs & Autofill Fix */
+.login-page.login-theme-night .input-row input {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border: 1.5px solid rgba(99, 102, 241, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+.login-page.login-theme-night .input-row input:-webkit-autofill,
+.login-page.login-theme-night .input-row input:-webkit-autofill:hover, 
+.login-page.login-theme-night .input-row input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #0f172a inset !important;
+  border: 1.5px solid rgba(99, 102, 241, 0.5) !important;
+  caret-color: #f97316 !important;
+}
+
+.login-page.login-theme-night .input-row input::placeholder {
+  color: #64748b !important;
+}
+
+.login-page.login-theme-night .input-row input:focus {
+  background: rgba(15, 23, 42, 0.98) !important;
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35), 0 0 20px rgba(99, 102, 241, 0.25) !important;
+}
+
+.login-page.login-theme-night .input-icon {
+  color: #818cf8 !important;
+}
+
+.login-page.login-theme-night .toggle-visibility {
+  color: #94a3b8 !important;
+}
+
+.login-page.login-theme-night .toggle-visibility:hover {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-night .otp-box {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-night .otp-box:focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35) !important;
+}
+
+/* Night Mode Signature Orange Primary Button (Maintained Warm Orange) */
+.login-page.login-theme-night .btn-primary {
+  background: linear-gradient(135deg, #fb923c 0%, #f97316 50%, #ea580c 100%) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 14px 28px -6px rgba(234, 88, 12, 0.5),
+    0 6px 14px rgba(234, 88, 12, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+.login-page.login-theme-night .btn-primary:hover:not(:disabled) {
+  box-shadow:
+    0 18px 36px -6px rgba(234, 88, 12, 0.65),
+    0 8px 18px rgba(234, 88, 12, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  filter: brightness(1.06);
+}
+
+/* Night Mode Beam & Tiles (Keeps Signature Warm Orange Beam Conduit) */
+.login-page.login-theme-night .beam-labels {
+  color: #ea580c !important;
+}
+
+.login-page.login-theme-night .eyebrow {
+  color: #a5b4fc !important;
+}
+
+.login-page.login-theme-night .sync-tile {
+  background: rgba(15, 23, 42, 0.65) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.login-page.login-theme-night .sync-toast {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+.login-page.login-theme-night .floating-badge {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.2) !important;
+}
+
+.login-page.login-theme-night .canvas-vignette {
+  background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(3, 7, 18, 0.85) 100%) !important;
+}
+
+.login-page.login-theme-night .cyber-grid {
+  background-image: 
+    linear-gradient(to right, rgba(99, 102, 241, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(99, 102, 241, 0.08) 1px, transparent 1px) !important;
+}
+
+.login-page.login-theme-night .orb-a {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.5) 0%, rgba(30, 27, 75, 0.3) 50%, transparent 70%) !important;
+}
+
+.login-page.login-theme-night .orb-b {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(30, 41, 59, 0.3) 50%, transparent 70%) !important;
+}
+
+.login-page.login-theme-night .orb-c {
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.35) 0%, rgba(15, 23, 42, 0.3) 50%, transparent 70%) !important;
+}
+
+.login-page.login-theme-night .badge-title {
+  color: #94a3b8 !important;
+}
+
+.login-page.login-theme-night .badge-value {
+  color: #ffffff !important;
+}
+
+/* 2. MORNING THEME */
+.login-page.login-theme-morning {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(251, 191, 36, 0.35), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(249, 115, 22, 0.2), transparent 50%),
+    linear-gradient(135deg, #fffdfa 0%, #fff7ed 50%, #fef3c7 100%) !important;
+}
+
+/* 3. AFTERNOON THEME */
+.login-page.login-theme-afternoon {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(249, 115, 22, 0.3), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(251, 146, 60, 0.25), transparent 50%),
+    linear-gradient(135deg, #ffffff 0%, #fff5eb 50%, #fed7aa 100%) !important;
+}
+
+/* 4. EVENING THEME */
+.login-page.login-theme-evening {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(244, 63, 94, 0.28), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(99, 102, 241, 0.22), transparent 50%),
+    linear-gradient(135deg, #fffaf5 0%, #fef2f2 50%, #ffedd5 100%) !important;
+}
+
+@media (max-width: 640px) {
+  .celestial-preview-capsule {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    justify-content: space-between;
+    padding: 5px 8px;
+  }
+  .capsule-label span:not(.live-dot) {
+    display: none;
+  }
+  .capsule-btn .btn-text {
+    display: none;
+  }
+  .capsule-btn {
+    padding: 4px 8px;
+    font-size: 13px;
   }
 }

@@ -5,13 +5,11 @@ import React, { useEffect, useRef } from "react";
 interface Node {
   x: number;
   y: number;
-  baseX: number;
-  baseY: number;
   vx: number;
   vy: number;
   baseRadius: number;
   radius: number;
-  layer: number; // 0: far, 1: mid, 2: near
+  layer: number;
   color: string;
   glowColor: string;
   pulsePhase: number;
@@ -34,6 +32,46 @@ interface BenzeneStructure {
   orbitSpeed: number;
 }
 
+interface RadarScope {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  angle: number;
+  sweepSpeed: number;
+  color: string;
+  opacity: number;
+  blips: { angle: number; dist: number; opacity: number }[];
+}
+
+interface DonutChart {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  angle: number;
+  rotSpeed: number;
+  segments: { percent: number; color: string }[];
+  opacity: number;
+  label: string;
+}
+
+interface TrendWave {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  width: number;
+  height: number;
+  phase: number;
+  phaseSpeed: number;
+  color: string;
+  opacity: number;
+  label: string;
+}
+
 interface PulsePacket {
   fromNode: number;
   toNode: number;
@@ -52,15 +90,15 @@ interface Shockwave {
   color: string;
 }
 
-// Warm Sunset Peach, Coral Flame, Golden Apricot, Sky Azure & Violet Palette
+// Saturated, Rich Warm Peach, Coral Flame, Golden Amber & Sky Cyan Palette
 const PALETTE = [
-  { main: "#f97316", glow: "rgba(249, 115, 22, 0.5)" },   // Vibrant Warm Peach
-  { main: "#fb923c", glow: "rgba(251, 146, 60, 0.45)" },  // Soft Apricot
-  { main: "#ea580c", glow: "rgba(234, 88, 12, 0.5)" },   // Deep Sunset Peach
-  { main: "#e11d48", glow: "rgba(225, 29, 72, 0.4)" },    // Coral Rose
-  { main: "#0284c7", glow: "rgba(2, 132, 199, 0.45)" },   // Sky Azure
-  { main: "#6366f1", glow: "rgba(99, 102, 241, 0.4)" },   // Soft Indigo
-  { main: "#10b981", glow: "rgba(16, 185, 129, 0.45)" },  // Bio Emerald
+  { main: "#f97316", glow: "rgba(249, 115, 22, 0.6)" },   // Vibrant Warm Peach
+  { main: "#fb923c", glow: "rgba(251, 146, 60, 0.55)" },  // Soft Apricot
+  { main: "#ea580c", glow: "rgba(234, 88, 12, 0.65)" },   // Deep Sunset Peach
+  { main: "#e11d48", glow: "rgba(225, 29, 72, 0.5)" },    // Coral Rose
+  { main: "#0284c7", glow: "rgba(2, 132, 199, 0.55)" },   // Sky Azure
+  { main: "#6366f1", glow: "rgba(99, 102, 241, 0.5)" },   // Soft Indigo
+  { main: "#10b981", glow: "rgba(16, 185, 129, 0.55)" },  // Bio Emerald
 ];
 
 export default function PharmaBackgroundCanvas() {
@@ -85,12 +123,16 @@ export default function PharmaBackgroundCanvas() {
       y: -1000,
       targetX: -1000,
       targetY: -1000,
-      radius: 220,
+      radius: 240,
       isHovered: false,
+      reticleAngle: 0,
     };
 
     let nodes: Node[] = [];
     let benzeneRings: BenzeneStructure[] = [];
+    let radars: RadarScope[] = [];
+    let donutCharts: DonutChart[] = [];
+    let trendWaves: TrendWave[] = [];
     let pulses: PulsePacket[] = [];
     let shockwaves: Shockwave[] = [];
     let animationFrameId: number;
@@ -99,22 +141,24 @@ export default function PharmaBackgroundCanvas() {
     function initElements() {
       const isMobile = width < 640;
       const isTablet = width >= 640 && width < 1024;
-      const nodeCount = isMobile ? 38 : isTablet ? 65 : 95;
-      const ringCount = isMobile ? 4 : isTablet ? 7 : 9;
+      const nodeCount = isMobile ? 32 : isTablet ? 55 : 80;
+      const ringCount = isMobile ? 3 : isTablet ? 5 : 7;
+      const radarCount = isMobile ? 1 : 2;
+      const donutCount = isMobile ? 1 : 3;
+      const waveCount = isMobile ? 1 : 2;
 
+      // 1. Molecular Nodes
       nodes = [];
       for (let i = 0; i < nodeCount; i++) {
         const item = PALETTE[Math.floor(Math.random() * PALETTE.length)];
-        const layer = Math.random() < 0.35 ? 0 : Math.random() < 0.75 ? 1 : 2; // 0: Far, 1: Mid, 2: Near
-        const baseR = layer === 0 ? 1.4 : layer === 1 ? 2.2 : 3.0;
+        const layer = Math.random() < 0.35 ? 0 : Math.random() < 0.75 ? 1 : 2;
+        const baseR = layer === 0 ? 1.6 : layer === 1 ? 2.4 : 3.2;
         const r = baseR + Math.random() * 0.8;
         const speedScale = layer === 0 ? 0.25 : layer === 1 ? 0.45 : 0.65;
 
         nodes.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          baseX: 0,
-          baseY: 0,
           vx: (Math.random() - 0.5) * speedScale,
           vy: (Math.random() - 0.5) * speedScale,
           baseRadius: r,
@@ -128,22 +172,89 @@ export default function PharmaBackgroundCanvas() {
         });
       }
 
+      // 2. Benzene Rings
       benzeneRings = [];
       for (let i = 0; i < ringCount; i++) {
         const item = PALETTE[i % (PALETTE.length - 1)];
         benzeneRings.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.24,
-          vy: (Math.random() - 0.5) * 0.24,
-          size: Math.random() * 34 + (isMobile ? 24 : 36),
+          vx: (Math.random() - 0.5) * 0.22,
+          vy: (Math.random() - 0.5) * 0.22,
+          size: Math.random() * 32 + (isMobile ? 24 : 34),
           angle: Math.random() * Math.PI * 2,
           vAngle: (Math.random() - 0.5) * 0.007,
           color: item.main,
           glowColor: item.glow,
-          opacity: Math.random() * 0.22 + 0.22,
+          opacity: 0.28,
           orbitAngle: Math.random() * Math.PI * 2,
           orbitSpeed: 0.022 + Math.random() * 0.015,
+        });
+      }
+
+      // 3. Holographic Radar Scopes
+      radars = [];
+      for (let i = 0; i < radarCount; i++) {
+        const posX = i === 0 ? width * 0.18 : width * 0.82;
+        const posY = i === 0 ? height * 0.72 : height * 0.25;
+        const blips = [
+          { angle: Math.random() * Math.PI * 2, dist: 0.4, opacity: 0.8 },
+          { angle: Math.random() * Math.PI * 2, dist: 0.75, opacity: 0.9 },
+        ];
+        radars.push({
+          x: posX,
+          y: posY,
+          vx: (Math.random() - 0.5) * 0.15,
+          vy: (Math.random() - 0.5) * 0.15,
+          radius: isMobile ? 48 : 65,
+          angle: 0,
+          sweepSpeed: 0.024,
+          color: i === 0 ? "#f97316" : "#0284c7",
+          opacity: 0.35,
+          blips,
+        });
+      }
+
+      // 4. Floating Holographic Donut/Pie Charts
+      donutCharts = [];
+      const donutData = [
+        { label: "BATCH 94%", segments: [{ percent: 0.74, color: "#f97316" }, { percent: 0.26, color: "#fed7aa" }], x: width * 0.12, y: height * 0.25 },
+        { label: "ERP SYNC", segments: [{ percent: 0.88, color: "#10b981" }, { percent: 0.12, color: "#a7f3d0" }], x: width * 0.88, y: height * 0.75 },
+        { label: "STOCK", segments: [{ percent: 0.65, color: "#0284c7" }, { percent: 0.35, color: "#bae6fd" }], x: width * 0.5, y: height * 0.88 },
+      ];
+      for (let i = 0; i < donutCount; i++) {
+        const d = donutData[i % donutData.length];
+        donutCharts.push({
+          x: d.x,
+          y: d.y,
+          vx: (Math.random() - 0.5) * 0.18,
+          vy: (Math.random() - 0.5) * 0.18,
+          radius: isMobile ? 32 : 44,
+          angle: 0,
+          rotSpeed: 0.008,
+          segments: d.segments,
+          opacity: 0.38,
+          label: d.label,
+        });
+      }
+
+      // 5. Holographic Trend Graph Waveforms
+      trendWaves = [];
+      for (let i = 0; i < waveCount; i++) {
+        const posX = i === 0 ? width * 0.22 : width * 0.76;
+        const posY = i === 0 ? height * 0.42 : height * 0.58;
+        trendWaves.push({
+          x: posX,
+          y: posY,
+          vx: (Math.random() - 0.5) * 0.16,
+          vy: (Math.random() - 0.5) * 0.16,
+          width: isMobile ? 90 : 130,
+          height: 36,
+          phase: 0,
+          phaseSpeed: 0.035,
+          color: i === 0 ? "#ea580c" : "#0284c7",
+          opacity: 0.4,
+          label: i === 0 ? "SALES VELOCITY ▲" : "ERP PULSE 60fps",
         });
       }
 
@@ -221,7 +332,6 @@ export default function PharmaBackgroundCanvas() {
         color: "#0284c7",
       });
 
-      // Scatter kinetic energy & rapid photon pulse cascades
       for (let i = 0; i < nodes.length; i++) {
         const dx = nodes[i].x - clickX;
         const dy = nodes[i].y - clickY;
@@ -281,13 +391,198 @@ export default function PharmaBackgroundCanvas() {
 
       mouse.x += (mouse.targetX - mouse.x) * 0.14;
       mouse.y += (mouse.targetY - mouse.y) * 0.14;
+      mouse.reticleAngle += 0.02;
 
       ctx!.clearRect(0, 0, width, height);
 
       const maxDist = width < 640 ? 120 : 170;
       const maxDistSq = maxDist * maxDist;
 
-      // 1. Draw 3D Benzene Ring Compounds with Conjugated Double Bonds
+      // ---------------- 1. DRAW HOLOGRAPHIC RADAR SCOPES ----------------
+      for (let i = 0; i < radars.length; i++) {
+        const r = radars[i];
+        if (!reducedMotion) {
+          r.x += r.vx;
+          r.y += r.vy;
+          r.angle += r.sweepSpeed;
+          if (r.x < -r.radius * 2) r.x = width + r.radius * 2;
+          if (r.x > width + r.radius * 2) r.x = -r.radius * 2;
+          if (r.y < -r.radius * 2) r.y = height + r.radius * 2;
+          if (r.y > height + r.radius * 2) r.y = -r.radius * 2;
+        }
+
+        // Proximity hover boost
+        let hoverBoost = 0;
+        if (mouse.isHovered) {
+          const dx = mouse.x - r.x;
+          const dy = mouse.y - r.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 220) hoverBoost = (1 - dist / 220) * 0.55;
+        }
+
+        const activeOpacity = Math.min(r.opacity + hoverBoost, 0.95);
+
+        ctx!.save();
+        ctx!.translate(r.x, r.y);
+        ctx!.globalAlpha = activeOpacity;
+        ctx!.strokeStyle = r.color;
+        ctx!.lineWidth = 1.2;
+
+        // Concentric Rings
+        ctx!.beginPath();
+        ctx!.arc(0, 0, r.radius, 0, Math.PI * 2);
+        ctx!.stroke();
+
+        ctx!.beginPath();
+        ctx!.arc(0, 0, r.radius * 0.65, 0, Math.PI * 2);
+        ctx!.setLineDash([4, 4]);
+        ctx!.stroke();
+
+        ctx!.beginPath();
+        ctx!.arc(0, 0, r.radius * 0.32, 0, Math.PI * 2);
+        ctx!.setLineDash([]);
+        ctx!.stroke();
+
+        // Crosshairs
+        ctx!.beginPath();
+        ctx!.moveTo(-r.radius * 1.1, 0);
+        ctx!.lineTo(r.radius * 1.1, 0);
+        ctx!.moveTo(0, -r.radius * 1.1);
+        ctx!.lineTo(0, r.radius * 1.1);
+        ctx!.stroke();
+
+        // Sweep Cone Beam
+        ctx!.beginPath();
+        ctx!.moveTo(0, 0);
+        ctx!.arc(0, 0, r.radius, r.angle, r.angle + 0.6);
+        ctx!.closePath();
+        const sweepGrad = ctx!.createRadialGradient(0, 0, 0, 0, 0, r.radius);
+        sweepGrad.addColorStop(0, "transparent");
+        sweepGrad.addColorStop(1, r.color);
+        ctx!.fillStyle = sweepGrad;
+        ctx!.globalAlpha = activeOpacity * 0.45;
+        ctx!.fill();
+
+        // Blips
+        for (let b of r.blips) {
+          const bx = Math.cos(b.angle) * (r.radius * b.dist);
+          const by = Math.sin(b.angle) * (r.radius * b.dist);
+          ctx!.beginPath();
+          ctx!.arc(bx, by, 3, 0, Math.PI * 2);
+          ctx!.fillStyle = r.color;
+          ctx!.globalAlpha = activeOpacity * b.opacity;
+          ctx!.fill();
+        }
+
+        ctx!.restore();
+      }
+
+      // ---------------- 2. DRAW HOLOGRAPHIC DONUT / PIE CHARTS ----------------
+      for (let i = 0; i < donutCharts.length; i++) {
+        const d = donutCharts[i];
+        if (!reducedMotion) {
+          d.x += d.vx;
+          d.y += d.vy;
+          d.angle += d.rotSpeed;
+          if (d.x < -d.radius * 2) d.x = width + d.radius * 2;
+          if (d.x > width + d.radius * 2) d.x = -d.radius * 2;
+          if (d.y < -d.radius * 2) d.y = height + d.radius * 2;
+          if (d.y > height + d.radius * 2) d.y = -d.radius * 2;
+        }
+
+        let hoverBoost = 0;
+        if (mouse.isHovered) {
+          const dx = mouse.x - d.x;
+          const dy = mouse.y - d.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 200) hoverBoost = (1 - dist / 200) * 0.55;
+        }
+
+        const activeOpacity = Math.min(d.opacity + hoverBoost, 0.95);
+
+        ctx!.save();
+        ctx!.translate(d.x, d.y);
+        ctx!.globalAlpha = activeOpacity;
+
+        let startAngle = d.angle;
+        for (let seg of d.segments) {
+          const segAngle = seg.percent * Math.PI * 2;
+          ctx!.beginPath();
+          ctx!.arc(0, 0, d.radius, startAngle, startAngle + segAngle - 0.08);
+          ctx!.strokeStyle = seg.color;
+          ctx!.lineWidth = 5.5;
+          ctx!.stroke();
+          startAngle += segAngle;
+        }
+
+        // Center micro label
+        ctx!.fillStyle = "#ea580c";
+        ctx!.font = "bold 9px monospace";
+        ctx!.textAlign = "center";
+        ctx!.textBaseline = "middle";
+        ctx!.fillText(d.label, 0, 0);
+
+        ctx!.restore();
+      }
+
+      // ---------------- 3. DRAW HOLOGRAPHIC TREND GRAPH WAVES ----------------
+      for (let i = 0; i < trendWaves.length; i++) {
+        const w = trendWaves[i];
+        if (!reducedMotion) {
+          w.x += w.vx;
+          w.y += w.vy;
+          w.phase += w.phaseSpeed;
+          if (w.x < -w.width) w.x = width + w.width;
+          if (w.x > width + w.width) w.x = -w.width;
+          if (w.y < -w.height * 2) w.y = height + w.height * 2;
+          if (w.y > height + w.height * 2) w.y = -w.height * 2;
+        }
+
+        let hoverBoost = 0;
+        if (mouse.isHovered) {
+          const dx = mouse.x - (w.x + w.width / 2);
+          const dy = mouse.y - w.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 220) hoverBoost = (1 - dist / 220) * 0.55;
+        }
+
+        const activeOpacity = Math.min(w.opacity + hoverBoost, 0.95);
+
+        ctx!.save();
+        ctx!.translate(w.x, w.y);
+        ctx!.globalAlpha = activeOpacity;
+
+        // Bounding baseline & grid
+        ctx!.strokeStyle = w.color;
+        ctx!.lineWidth = 1;
+        ctx!.setLineDash([3, 3]);
+        ctx!.strokeRect(0, -w.height / 2, w.width, w.height);
+        ctx!.setLineDash([]);
+
+        // Spline Waveform
+        ctx!.beginPath();
+        for (let x = 0; x <= w.width; x += 6) {
+          const normX = x / w.width;
+          const y = Math.sin(normX * Math.PI * 3 + w.phase) * (w.height * 0.38);
+          if (x === 0) ctx!.moveTo(x, y);
+          else ctx!.lineTo(x, y);
+        }
+        ctx!.strokeStyle = w.color;
+        ctx!.lineWidth = 2.2;
+        ctx!.shadowColor = w.color;
+        ctx!.shadowBlur = 8;
+        ctx!.stroke();
+
+        // Top tag label
+        ctx!.fillStyle = w.color;
+        ctx!.font = "bold 8.5px monospace";
+        ctx!.textAlign = "left";
+        ctx!.fillText(w.label, 4, -w.height / 2 - 4);
+
+        ctx!.restore();
+      }
+
+      // ---------------- 4. BENZENE RINGS ----------------
       for (let i = 0; i < benzeneRings.length; i++) {
         const b = benzeneRings[i];
         if (!reducedMotion) {
@@ -320,8 +615,7 @@ export default function PharmaBackgroundCanvas() {
         ctx!.lineWidth = 1.2;
         ctx!.stroke();
 
-        // Alternating double bonds (Chemical representation)
-        ctx!.setLineDash([]);
+        // Alternating double bonds
         for (let k = 0; k < 6; k += 2) {
           const a1 = b.angle + (k * Math.PI) / 3;
           const a2 = b.angle + ((k + 1) * Math.PI) / 3;
@@ -336,18 +630,18 @@ export default function PharmaBackgroundCanvas() {
           ctx!.stroke();
         }
 
-        // Orbiting electron photon with trailing light glow
+        // Orbiting electron photon
         const ox = b.x + b.size * 0.46 * Math.cos(b.orbitAngle);
         const oy = b.y + b.size * 0.46 * Math.sin(b.orbitAngle);
 
         ctx!.beginPath();
-        ctx!.arc(ox, oy, 2.5, 0, Math.PI * 2);
+        ctx!.arc(ox, oy, 2.6, 0, Math.PI * 2);
         ctx!.fillStyle = "#ffffff";
         ctx!.shadowColor = b.color;
         ctx!.shadowBlur = 8;
         ctx!.fill();
 
-        // Vertex Carbon/Nitrogen Atoms
+        // Vertex Atoms
         for (let j = 0; j < 6; j++) {
           const a = b.angle + (j * Math.PI) / 3;
           const cx = b.x + b.size * Math.cos(a);
@@ -369,7 +663,7 @@ export default function PharmaBackgroundCanvas() {
         ctx!.restore();
       }
 
-      // 2. Shockwave Resonances
+      // ---------------- 5. SHOCKWAVE RESONANCES ----------------
       for (let i = shockwaves.length - 1; i >= 0; i--) {
         const rip = shockwaves[i];
         rip.radius += rip.speed;
@@ -392,7 +686,7 @@ export default function PharmaBackgroundCanvas() {
         ctx!.restore();
       }
 
-      // 3. Update Nodes & Fluid Brownian Motion
+      // ---------------- 6. UPDATE NODES & PHYSICS ----------------
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
 
@@ -401,7 +695,6 @@ export default function PharmaBackgroundCanvas() {
           node.x += node.vx + Math.sin(node.driftPhase) * 0.15;
           node.y += node.vy + Math.cos(node.driftPhase) * 0.15;
 
-          // Friction to dampen push
           node.vx *= 0.985;
           node.vy *= 0.985;
 
@@ -415,7 +708,6 @@ export default function PharmaBackgroundCanvas() {
           node.radius = node.baseRadius + Math.sin(node.pulsePhase) * 0.6;
         }
 
-        // Smooth Magnetic Cursor Field
         if (mouse.isHovered) {
           const dx = mouse.x - node.x;
           const dy = mouse.y - node.y;
@@ -430,7 +722,7 @@ export default function PharmaBackgroundCanvas() {
         }
       }
 
-      // 4. Molecular Connector Bonds
+      // ---------------- 7. CONNECTOR BONDS ----------------
       for (let i = 0; i < nodes.length; i++) {
         const n1 = nodes[i];
         for (let j = i + 1; j < nodes.length; j++) {
@@ -441,7 +733,7 @@ export default function PharmaBackgroundCanvas() {
 
           if (distSq < maxDistSq) {
             const dist = Math.sqrt(distSq);
-            const alpha = Math.pow(1 - dist / maxDist, 1.25) * 0.5;
+            const alpha = Math.pow(1 - dist / maxDist, 1.25) * 0.55;
 
             let mouseBoost = 0;
             if (mouse.isHovered) {
@@ -470,7 +762,6 @@ export default function PharmaBackgroundCanvas() {
             ctx!.lineWidth = mouseBoost > 0.1 ? 2.0 : n1.layer === 2 ? 1.5 : 1.1;
             ctx!.stroke();
 
-            // Spawn data pulses
             if (!reducedMotion && pulses.length < 18 && Math.random() < 0.0008) {
               pulses.push({
                 fromNode: i,
@@ -484,7 +775,7 @@ export default function PharmaBackgroundCanvas() {
         }
       }
 
-      // 5. Energy Photon Pulses with Trail
+      // ---------------- 8. ENERGY PHOTON PULSES ----------------
       for (let i = pulses.length - 1; i >= 0; i--) {
         const p = pulses[i];
         p.progress += p.speed;
@@ -505,7 +796,6 @@ export default function PharmaBackgroundCanvas() {
         const py = from.y + (to.y - from.y) * p.progress;
 
         ctx!.save();
-        // Photon core
         ctx!.beginPath();
         ctx!.arc(px, py, 3.4, 0, Math.PI * 2);
         ctx!.fillStyle = p.color;
@@ -514,16 +804,14 @@ export default function PharmaBackgroundCanvas() {
         ctx!.globalAlpha = 0.95;
         ctx!.fill();
 
-        // White specular center
         ctx!.beginPath();
         ctx!.arc(px, py, 1.4, 0, Math.PI * 2);
         ctx!.fillStyle = "#ffffff";
         ctx!.fill();
-
         ctx!.restore();
       }
 
-      // 6. Draw 3D Layered Atom Nodes
+      // ---------------- 9. DRAW ATOM NODES ----------------
       for (let i = 0; i < nodes.length; i++) {
         const n = nodes[i];
 
@@ -531,21 +819,18 @@ export default function PharmaBackgroundCanvas() {
         ctx!.beginPath();
         ctx!.arc(n.x, n.y, Math.max(n.radius, 1.6), 0, Math.PI * 2);
 
-        // Core atom
         ctx!.fillStyle = n.color;
         ctx!.shadowColor = n.glowColor;
         ctx!.shadowBlur = n.layer === 2 ? 10 : 6;
         ctx!.globalAlpha = n.layer === 0 ? 0.65 : 0.95;
         ctx!.fill();
 
-        // Glowing corona
         ctx!.beginPath();
         ctx!.arc(n.x, n.y, n.radius * (n.layer === 2 ? 2.4 : 1.9), 0, Math.PI * 2);
         ctx!.fillStyle = n.glowColor;
         ctx!.globalAlpha = n.layer === 2 ? 0.28 : 0.16;
         ctx!.fill();
 
-        // 3D Specular Highlight Glint for Mid/Near layers
         if (n.layer >= 1) {
           ctx!.beginPath();
           ctx!.arc(n.x - n.radius * 0.32, n.y - n.radius * 0.32, n.radius * 0.38, 0, Math.PI * 2);
@@ -553,6 +838,34 @@ export default function PharmaBackgroundCanvas() {
           ctx!.globalAlpha = 0.85;
           ctx!.fill();
         }
+
+        ctx!.restore();
+      }
+
+      // ---------------- 10. MOUSE HOLOGRAPHIC RETICLE / HUD TARGET ----------------
+      if (mouse.isHovered && mouse.x > 0 && mouse.y > 0) {
+        ctx!.save();
+        ctx!.translate(mouse.x, mouse.y);
+        ctx!.strokeStyle = "#f97316";
+        ctx!.globalAlpha = 0.4;
+        ctx!.lineWidth = 1.2;
+
+        // Rotating HUD Reticle Outer Ring
+        ctx!.beginPath();
+        ctx!.arc(0, 0, 32, mouse.reticleAngle, mouse.reticleAngle + Math.PI * 1.5);
+        ctx!.stroke();
+
+        ctx!.beginPath();
+        ctx!.arc(0, 0, 22, -mouse.reticleAngle, -mouse.reticleAngle + Math.PI);
+        ctx!.setLineDash([3, 3]);
+        ctx!.stroke();
+        ctx!.setLineDash([]);
+
+        // Center crosshair micro dot
+        ctx!.beginPath();
+        ctx!.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx!.fillStyle = "#ea580c";
+        ctx!.fill();
 
         ctx!.restore();
       }
