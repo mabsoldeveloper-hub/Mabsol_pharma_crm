@@ -252,15 +252,21 @@ export default function DashboardContent() {
         };
     }, [loadDashboard]);
 
-    // Dynamic Celestial Time Info according to local hour (Pure Automatic Mode)
+    const [previewPhase, setPreviewPhase] = useState<"auto" | "morning" | "afternoon" | "evening" | "night">("auto");
+
+    // Dynamic Celestial Time Info according to local hour or manual preview
     const getCelestialTimeInfo = () => {
-        const hour = currentTime ? currentTime.getHours() : new Date().getHours();
         let activePhase: "morning" | "afternoon" | "evening" | "night";
 
-        if (hour >= 5 && hour < 12) activePhase = "morning";
-        else if (hour >= 12 && hour < 17) activePhase = "afternoon";
-        else if (hour >= 17 && hour < 20) activePhase = "evening";
-        else activePhase = "night";
+        if (previewPhase !== "auto") {
+            activePhase = previewPhase;
+        } else {
+            const hour = currentTime ? currentTime.getHours() : new Date().getHours();
+            if (hour >= 5 && hour < 12) activePhase = "morning";
+            else if (hour >= 12 && hour < 17) activePhase = "afternoon";
+            else if (hour >= 17 && hour < 20) activePhase = "evening";
+            else activePhase = "night";
+        }
 
         if (activePhase === "morning") {
             return {
@@ -418,6 +424,34 @@ export default function DashboardContent() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                        {/* Theme Preview Switcher Capsule */}
+                        <div className={`flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[10.5px] sm:text-[11px] shadow-xs ${celestial.phase === 'night' ? 'bg-white/10 border-white/20' : 'bg-white/90 border-slate-200/80'}`}>
+                            {[
+                                { id: "auto", label: "Auto", icon: "⏱️" },
+                                { id: "morning", label: "Morning", icon: "🌅" },
+                                { id: "afternoon", label: "Afternoon", icon: "☀️" },
+                                { id: "evening", label: "Evening", icon: "🌇" },
+                                { id: "night", label: "Night", icon: "🌙" },
+                            ].map((m) => (
+                                <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => setPreviewPhase(m.id as any)}
+                                    className={`flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-lg sm:rounded-xl font-bold transition-all duration-200 cursor-pointer ${
+                                        previewPhase === m.id
+                                            ? "bg-slate-900 text-white shadow-xs scale-102"
+                                            : celestial.phase === 'night'
+                                            ? "text-indigo-200 hover:text-white hover:bg-white/10"
+                                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                                    }`}
+                                    title={`Preview ${m.label} theme`}
+                                >
+                                    <span>{m.icon}</span>
+                                    <span className="hidden md:inline">{m.label}</span>
+                                </button>
+                            ))}
+                        </div>
+
                         {/* Auto-Voice Greeting ON / OFF Toggle Button */}
                         <button
                             type="button"

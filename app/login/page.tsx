@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Space_Grotesk, Inter, IBM_Plex_Mono } from "next/font/google";
 import PharmaBackgroundCanvas from "@/components/PharmaBackgroundCanvas";
+import CelestialCursor from "@/components/CelestialCursor";
 import "./login.css";
 
 const displayFont = Space_Grotesk({
@@ -274,6 +275,9 @@ export default function LoginPage() {
 
   return (
     <div className={`login-page ${celestial.themeClass} ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
+      {/* High Performance Dynamic Celestial Custom Cursor Pointer */}
+      <CelestialCursor theme={activePhase} />
+
       {/* High Performance Interactive Molecular Background Canvas */}
       <PharmaBackgroundCanvas />
 
