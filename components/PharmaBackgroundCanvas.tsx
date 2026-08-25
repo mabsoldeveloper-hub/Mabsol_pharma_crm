@@ -108,7 +108,11 @@ const PALETTE = [
   { main: "#10b981", glow: "rgba(16, 185, 129, 0.6)" },   // Bio Emerald
 ];
 
-export default function PharmaBackgroundCanvas() {
+interface PharmaBackgroundCanvasProps {
+  accentColor?: string;
+}
+
+export default function PharmaBackgroundCanvas({ accentColor }: PharmaBackgroundCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -154,10 +158,14 @@ export default function PharmaBackgroundCanvas() {
       const donutCount = isMobile ? 1 : 3;
       const waveCount = isMobile ? 1 : 2;
 
+      const activePalette = accentColor
+        ? [{ main: accentColor, glow: `${accentColor}99` }, ...PALETTE.slice(1)]
+        : PALETTE;
+
       // 1. Molecular Nodes with 3D Depth-of-Field
       nodes = [];
       for (let i = 0; i < nodeCount; i++) {
-        const item = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+        const item = activePalette[Math.floor(Math.random() * activePalette.length)];
         const layer = Math.random() < 0.35 ? 0 : Math.random() < 0.75 ? 1 : 2;
         const depthZ = layer === 0 ? 0.45 : layer === 1 ? 0.75 : 1.0;
         const baseR = (layer === 0 ? 1.6 : layer === 1 ? 2.4 : 3.4) * depthZ;
@@ -783,11 +791,7 @@ export default function PharmaBackgroundCanvas() {
             ctx!.moveTo(n1.x, n1.y);
             ctx!.lineTo(n2.x, n2.y);
 
-            const grad = ctx!.createLinearGradient(n1.x, n1.y, n2.x, n2.y);
-            grad.addColorStop(0, n1.color);
-            grad.addColorStop(1, n2.color);
-
-            ctx!.strokeStyle = grad;
+            ctx!.strokeStyle = n1.color;
             ctx!.globalAlpha = finalAlpha;
             ctx!.lineWidth = mouseBoost > 0.1 ? 2.2 : n1.layer === 2 ? 1.6 : 1.1;
             ctx!.stroke();

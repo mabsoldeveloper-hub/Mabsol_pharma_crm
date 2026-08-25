@@ -3,7 +3,29 @@
 import React, { useEffect, useRef, useState } from "react";
 
 interface CelestialCursorProps {
-  theme?: "morning" | "afternoon" | "evening" | "night" | "auto";
+  theme?:
+    | "morning"
+    | "afternoon"
+    | "evening"
+    | "night"
+    | "auto"
+    | "peach"
+    | "oceanDeep"
+    | "sapphire"
+    | "cobalt"
+    | "midnight"
+    | "glacier"
+    | "emerald"
+    | "velvet"
+    | "ember"
+    | "mabsolSpecial"
+    | "solidObsidian"
+    | "solidNavy"
+    | "solidZinc"
+    | "solidSnow"
+    | "solidSky"
+    | "custom";
+  accentColor?: string;
 }
 
 interface Sparkle {
@@ -19,7 +41,7 @@ interface Sparkle {
   shape: "circle" | "diamond";
 }
 
-export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps) {
+export default function CelestialCursor({ theme = "auto", accentColor }: CelestialCursorProps) {
   const [mounted, setMounted] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
@@ -55,44 +77,127 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
 
   // Get theme-specific visual palette
   const getThemePalette = () => {
+    if (accentColor) {
+      return {
+        dot: accentColor,
+        ringBorder: accentColor,
+        ringGlow: `${accentColor}80`,
+        sparkles: [accentColor, "#ffffff", "#38bdf8", "#fb923c"],
+        particleShape: "circle" as const,
+      };
+    }
     switch (activeTheme) {
+      case "peach":
       case "morning":
-        return {
-          dot: "#f59e0b",
-          ringBorder: "rgba(245, 158, 11, 0.75)",
-          ringGlow: "rgba(251, 191, 36, 0.4)",
-          sparkles: ["#fbbf24", "#f59e0b", "#fde68a", "#ffffff", "#ea580c"],
-          particleShape: "circle" as const,
-        };
-      case "afternoon":
         return {
           dot: "#f97316",
           ringBorder: "rgba(249, 115, 22, 0.8)",
-          ringGlow: "rgba(249, 115, 22, 0.45)",
-          sparkles: ["#f97316", "#fb923c", "#fed7aa", "#ffffff", "#0284c7"],
+          ringGlow: "rgba(251, 146, 60, 0.45)",
+          sparkles: ["#fb923c", "#f97316", "#fed7aa", "#ffffff", "#ea580c"],
           particleShape: "circle" as const,
         };
-      case "evening":
+      case "oceanDeep":
         return {
-          dot: "#f43f5e",
-          ringBorder: "rgba(244, 63, 94, 0.8)",
-          ringGlow: "rgba(244, 63, 94, 0.45)",
-          sparkles: ["#f43f5e", "#fb7185", "#fecdd3", "#ffffff", "#a855f7"],
+          dot: "#00f2fe",
+          ringBorder: "rgba(0, 242, 254, 0.85)",
+          ringGlow: "rgba(0, 242, 254, 0.5)",
+          sparkles: ["#00f2fe", "#0284c7", "#38bdf8", "#ffffff"],
           particleShape: "diamond" as const,
         };
+      case "sapphire":
+      case "afternoon":
+        return {
+          dot: "#0284c7",
+          ringBorder: "rgba(2, 132, 199, 0.8)",
+          ringGlow: "rgba(2, 132, 199, 0.45)",
+          sparkles: ["#38bdf8", "#0284c7", "#bae6fd", "#ffffff"],
+          particleShape: "circle" as const,
+        };
+      case "cobalt":
+        return {
+          dot: "#3b82f6",
+          ringBorder: "rgba(59, 130, 246, 0.85)",
+          ringGlow: "rgba(59, 130, 246, 0.5)",
+          sparkles: ["#60a5fa", "#3b82f6", "#1d4ed8", "#ffffff"],
+          particleShape: "diamond" as const,
+        };
+      case "midnight":
       case "night":
+        return {
+          dot: "#818cf8",
+          ringBorder: "rgba(129, 140, 248, 0.85)",
+          ringGlow: "rgba(99, 102, 241, 0.5)",
+          sparkles: ["#a5b4fc", "#818cf8", "#6366f1", "#ffffff"],
+          particleShape: "diamond" as const,
+        };
+      case "glacier":
+        return {
+          dot: "#06b6d4",
+          ringBorder: "rgba(6, 182, 212, 0.8)",
+          ringGlow: "rgba(6, 182, 212, 0.45)",
+          sparkles: ["#22d3ee", "#06b6d4", "#99f6e4", "#ffffff"],
+          particleShape: "circle" as const,
+        };
+      case "emerald":
+      case "evening":
+        return {
+          dot: "#10b981",
+          ringBorder: "rgba(16, 185, 129, 0.8)",
+          ringGlow: "rgba(16, 185, 129, 0.45)",
+          sparkles: ["#34d399", "#10b981", "#a7f3d0", "#ffffff"],
+          particleShape: "diamond" as const,
+        };
+      case "velvet":
+        return {
+          dot: "#a855f7",
+          ringBorder: "rgba(168, 85, 247, 0.85)",
+          ringGlow: "rgba(168, 85, 247, 0.5)",
+          sparkles: ["#c084fc", "#a855f7", "#e9d5ff", "#ffffff"],
+          particleShape: "diamond" as const,
+        };
+      case "mabsolSpecial":
+        return {
+          dot: "#fb8c00",
+          ringBorder: "rgba(251, 140, 0, 0.85)",
+          ringGlow: "rgba(52, 56, 114, 0.5)",
+          sparkles: ["#fb8c00", "#343872", "#ffb74d", "#ffffff"],
+          particleShape: "diamond" as const,
+        };
+      case "ember":
+        return {
+          dot: "#f43f5e",
+          ringBorder: "rgba(244, 63, 94, 0.85)",
+          ringGlow: "rgba(244, 63, 94, 0.5)",
+          sparkles: ["#fb7185", "#f43f5e", "#fecdd3", "#ffffff"],
+          particleShape: "diamond" as const,
+        };
       default:
         return {
           dot: "#00f2fe",
           ringBorder: "rgba(99, 102, 241, 0.85)",
           ringGlow: "rgba(0, 242, 254, 0.5)",
-          sparkles: ["#00f2fe", "#6366f1", "#a5b4fc", "#ffffff", "#38bdf8"],
+          sparkles: ["#00f2fe", "#6366f1", "#a5b4fc", "#ffffff"],
           particleShape: "diamond" as const,
         };
     }
   };
 
-  const palette = getThemePalette();
+  const isHoveredRef = useRef(false);
+  const isClickingRef = useRef(false);
+  const isVisibleRef = useRef(false);
+
+  // Sync state for rendering while using refs for 60fps loop
+  useEffect(() => {
+    isHoveredRef.current = isHovered;
+  }, [isHovered]);
+
+  useEffect(() => {
+    isClickingRef.current = isClicking;
+  }, [isClicking]);
+
+  useEffect(() => {
+    isVisibleRef.current = isVisible;
+  }, [isVisible]);
 
   useEffect(() => {
     // Disable on touch devices
@@ -105,42 +210,37 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
 
     const handleMouseMove = (e: MouseEvent) => {
       mousePos.current = { x: e.clientX, y: e.clientY };
-      if (!isVisible) setIsVisible(true);
+      if (!isVisibleRef.current) {
+        setIsVisible(true);
+        isVisibleRef.current = true;
+      }
 
       // Spawn subtle celestial sparkles on move
-      if (Math.random() < 0.4) {
+      if (Math.random() < 0.35) {
         const pal = getThemePalette();
         const colors = pal.sparkles;
         sparklesRef.current.push({
           x: e.clientX + (Math.random() - 0.5) * 14,
           y: e.clientY + (Math.random() - 0.5) * 14,
-          vx: (Math.random() - 0.5) * 1.5,
-          vy: (Math.random() - 0.5) * 1.5 - 0.45,
-          size: Math.random() * 2.4 + 1.4,
-          alpha: 0.95,
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: (Math.random() - 0.5) * 1.2 - 0.35,
+          size: Math.random() * 2.2 + 1.2,
+          alpha: 0.9,
           color: colors[Math.floor(Math.random() * colors.length)],
           life: 1.0,
-          decay: 0.024 + Math.random() * 0.015,
+          decay: 0.03 + Math.random() * 0.02,
           shape: pal.particleShape,
         });
       }
 
-      // Check for hoverable elements
+      // Fast hoverable element check WITHOUT calling getComputedStyle (no layout reflow)
       const target = e.target as HTMLElement | null;
       const hoverTarget = target
-        ? (target.closest("button") ||
-            target.closest("a") ||
-            target.closest("input") ||
-            target.closest(".sync-tile") ||
-            target.closest(".floating-badge") ||
-            target.closest(".capsule-btn") ||
-            target.closest(".toggle-visibility") ||
-            target.closest(".brand-mark") ||
-            (window.getComputedStyle(target).cursor === "pointer" ? target : null))
+        ? (target.closest("button, a, input, select, textarea, [role='button'], .sync-tile, .floating-badge, .capsule-btn, .toggle-visibility, .brand-mark, .link-strong") || null)
         : null;
 
       if (hoverTarget) {
-        setIsHovered(true);
+        if (!isHoveredRef.current) setIsHovered(true);
         const rect = (hoverTarget as HTMLElement).getBoundingClientRect();
         // Magnet snapping for small interactive items
         if (rect.width < 140 && rect.height < 60) {
@@ -155,7 +255,7 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
           targetSnap.current.snapped = false;
         }
       } else {
-        setIsHovered(false);
+        if (isHoveredRef.current) setIsHovered(false);
         targetSnap.current.snapped = false;
       }
     };
@@ -164,10 +264,10 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
     const handleMouseUp = () => setIsClicking(false);
     const handleMouseLeave = () => setIsVisible(false);
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mousedown", handleMouseDown);
-    window.addEventListener("mouseup", handleMouseUp);
-    document.addEventListener("mouseleave", handleMouseLeave);
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    window.addEventListener("mousedown", handleMouseDown, { passive: true });
+    window.addEventListener("mouseup", handleMouseUp, { passive: true });
+    document.addEventListener("mouseleave", handleMouseLeave, { passive: true });
 
     // Canvas setup for particle sparkles
     const canvas = canvasRef.current;
@@ -182,10 +282,13 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
         canvasRef.current.height = window.innerHeight;
       }
     };
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handleResize, { passive: true });
 
     // 60FPS Fluid Render Loop
     const render = () => {
+      const currentHovered = isHoveredRef.current;
+      const currentClicking = isClickingRef.current;
+
       // 1. Smooth Spring Interpolation (LERP) for Ring Follower
       const targetX = targetSnap.current.snapped
         ? targetSnap.current.x * 0.4 + mousePos.current.x * 0.6
@@ -194,23 +297,23 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
         ? targetSnap.current.y * 0.4 + mousePos.current.y * 0.6
         : mousePos.current.y;
 
-      const lerpFactor = isHovered ? 0.24 : 0.18;
+      const lerpFactor = currentHovered ? 0.28 : 0.22;
       ringPos.current.x += (targetX - ringPos.current.x) * lerpFactor;
       ringPos.current.y += (targetY - ringPos.current.y) * lerpFactor;
 
       // 2. Direct Pin for Dot
       if (dotRef.current) {
-        dotRef.current.style.transform = `translate3d(${mousePos.current.x}px, ${mousePos.current.y}px, 0) translate(-50%, -50%) scale(${isClicking ? 0.65 : 1})`;
+        dotRef.current.style.transform = `translate3d(${mousePos.current.x}px, ${mousePos.current.y}px, 0) translate(-50%, -50%) scale(${currentClicking ? 0.65 : 1})`;
       }
 
       // 3. Transform Outer Ring
       if (ringRef.current) {
-        const ringScale = isClicking ? 0.82 : isHovered ? 1.48 : 1;
+        const ringScale = currentClicking ? 0.82 : currentHovered ? 1.48 : 1;
         ringRef.current.style.transform = `translate3d(${ringPos.current.x}px, ${ringPos.current.y}px, 0) translate(-50%, -50%) scale(${ringScale})`;
       }
 
       // 4. Render Canvas Stardust Sparkles
-      if (canvasRef.current) {
+      if (canvasRef.current && sparklesRef.current.length > 0) {
         const ctx = canvasRef.current.getContext("2d");
         if (ctx) {
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -229,8 +332,6 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
             ctx.save();
             ctx.fillStyle = s.color;
             ctx.globalAlpha = s.alpha;
-            ctx.shadowColor = s.color;
-            ctx.shadowBlur = 8;
 
             if (s.shape === "diamond") {
               ctx.translate(s.x, s.y);
@@ -265,7 +366,9 @@ export default function CelestialCursor({ theme = "auto" }: CelestialCursorProps
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [isHovered, isClicking, isVisible, activeTheme]);
+  }, [theme]);
+
+  const palette = getThemePalette();
 
   if (!mounted) return null;
 

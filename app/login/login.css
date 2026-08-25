@@ -1897,39 +1897,1082 @@ h1 {
     linear-gradient(135deg, #fffdfa 0%, #fff7ed 50%, #fef3c7 100%) !important;
 }
 
-/* 3. AFTERNOON THEME */
-.login-page.login-theme-afternoon {
+/* ==================== 10 PREMIUM CURATED THEME COMBOS ==================== */
+
+/* 1. SUNSET PEACH (DEFAULT) */
+.login-page.login-theme-peach {
   background:
-    radial-gradient(ellipse at 15% 15%, rgba(249, 115, 22, 0.3), transparent 50%),
-    radial-gradient(ellipse at 85% 85%, rgba(251, 146, 60, 0.25), transparent 50%),
-    linear-gradient(135deg, #ffffff 0%, #fff5eb 50%, #fed7aa 100%) !important;
+    radial-gradient(ellipse at 15% 15%, rgba(251, 146, 60, 0.32), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(249, 115, 22, 0.22), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(254, 215, 170, 0.28), transparent 60%),
+    linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #fef3c7 100%) !important;
+  color: #0f172a;
 }
 
-/* 4. EVENING THEME */
-.login-page.login-theme-evening {
+/* 2. OCEAN DEEP NAVY (DARK BLUE & NEON CYAN) */
+.login-page.login-theme-oceanDeep {
   background:
-    radial-gradient(ellipse at 15% 15%, rgba(244, 63, 94, 0.28), transparent 50%),
-    radial-gradient(ellipse at 85% 85%, rgba(99, 102, 241, 0.22), transparent 50%),
-    linear-gradient(135deg, #fffaf5 0%, #fef2f2 50%, #ffedd5 100%) !important;
+    radial-gradient(ellipse at 20% 15%, rgba(0, 242, 254, 0.35), transparent 50%),
+    radial-gradient(ellipse at 80% 85%, rgba(2, 132, 199, 0.3), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(11, 25, 60, 0.6), transparent 60%),
+    linear-gradient(135deg, #030712 0%, #071330 40%, #0b1d45 100%) !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
 }
+
+.login-page.login-theme-oceanDeep .glass-card {
+  background: linear-gradient(145deg, rgba(7, 19, 48, 0.94) 0%, rgba(11, 29, 69, 0.88) 100%) !important;
+  border: 1.5px solid rgba(0, 242, 254, 0.45) !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.85), 0 0 35px rgba(0, 242, 254, 0.25) !important;
+}
+
+.login-page.login-theme-oceanDeep .btn-primary {
+  background: linear-gradient(135deg, #00f2fe 0%, #0284c7 50%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(0, 242, 254, 0.5) !important;
+}
+
+.login-page.login-theme-oceanDeep h1,
+.login-page.login-theme-oceanDeep h2,
+.login-page.login-theme-oceanDeep .brand-name,
+.login-page.login-theme-oceanDeep label,
+.login-page.login-theme-oceanDeep .tile-label,
+.login-page.login-theme-oceanDeep .sync-value,
+.login-page.login-theme-oceanDeep .notif-title,
+.login-page.login-theme-oceanDeep .badge-value {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-oceanDeep .lede,
+.login-page.login-theme-oceanDeep .sync-caption,
+.login-page.login-theme-oceanDeep .notif-sub {
+  color: #94a3b8 !important;
+}
+
+.login-page.login-theme-oceanDeep .input-row input {
+  background: rgba(7, 19, 48, 0.85) !important;
+  border-color: rgba(0, 242, 254, 0.4) !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-oceanDeep .floating-badge,
+.login-page.login-theme-oceanDeep .sync-tile,
+.login-page.login-theme-oceanDeep .sync-toast {
+  background: rgba(7, 19, 48, 0.88) !important;
+  border-color: rgba(0, 242, 254, 0.35) !important;
+  color: #ffffff !important;
+}
+
+/* 3. SAPPHIRE CYBER (LIGHT ICE BLUE) */
+.login-page.login-theme-sapphire {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(56, 189, 248, 0.38), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(2, 132, 199, 0.25), transparent 50%),
+    linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #bae6fd 100%) !important;
+  color: #0f172a;
+}
+
+.login-page.login-theme-sapphire .glass-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 249, 255, 0.88) 100%) !important;
+  border-color: rgba(56, 189, 248, 0.48) !important;
+}
+
+.login-page.login-theme-sapphire .btn-primary {
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 50%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(2, 132, 199, 0.45) !important;
+}
+
+/* 4. COBALT ULTRA (ROYAL BLUE) */
+.login-page.login-theme-cobalt {
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(59, 130, 246, 0.4), transparent 50%),
+    radial-gradient(ellipse at 80% 85%, rgba(29, 78, 216, 0.35), transparent 50%),
+    linear-gradient(135deg, #090d2a 0%, #101b4d 50%, #172a78 100%) !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+.login-page.login-theme-cobalt .glass-card {
+  background: linear-gradient(145deg, rgba(16, 27, 77, 0.94) 0%, rgba(23, 42, 120, 0.88) 100%) !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.85), 0 0 35px rgba(59, 130, 246, 0.3) !important;
+}
+
+.login-page.login-theme-cobalt .btn-primary {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(59, 130, 246, 0.5) !important;
+}
+
+.login-page.login-theme-cobalt h1,
+.login-page.login-theme-cobalt h2,
+.login-page.login-theme-cobalt .brand-name,
+.login-page.login-theme-cobalt label,
+.login-page.login-theme-cobalt .tile-label,
+.login-page.login-theme-cobalt .sync-value,
+.login-page.login-theme-cobalt .notif-title,
+.login-page.login-theme-cobalt .badge-value {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-cobalt .lede,
+.login-page.login-theme-cobalt .sync-caption,
+.login-page.login-theme-cobalt .notif-sub {
+  color: #a5b4fc !important;
+}
+
+.login-page.login-theme-cobalt .input-row input {
+  background: rgba(16, 27, 77, 0.85) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-cobalt .floating-badge,
+.login-page.login-theme-cobalt .sync-tile,
+.login-page.login-theme-cobalt .sync-toast {
+  background: rgba(16, 27, 77, 0.88) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #ffffff !important;
+}
+
+/* 5. COSMIC MIDNIGHT (INDIGO VIOLET) */
+.login-page.login-theme-midnight {
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(129, 140, 248, 0.38), transparent 50%),
+    radial-gradient(ellipse at 80% 85%, rgba(99, 102, 241, 0.3), transparent 50%),
+    linear-gradient(135deg, #0f0c29 0%, #1a1642 50%, #24243e 100%) !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+.login-page.login-theme-midnight .glass-card {
+  background: linear-gradient(145deg, rgba(26, 22, 66, 0.94) 0%, rgba(36, 36, 62, 0.88) 100%) !important;
+  border: 1.5px solid rgba(129, 140, 248, 0.48) !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.85), 0 0 35px rgba(129, 140, 248, 0.3) !important;
+}
+
+.login-page.login-theme-midnight .btn-primary {
+  background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 50%, #6366f1 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(129, 140, 248, 0.5) !important;
+}
+
+.login-page.login-theme-midnight h1,
+.login-page.login-theme-midnight h2,
+.login-page.login-theme-midnight .brand-name,
+.login-page.login-theme-midnight label,
+.login-page.login-theme-midnight .tile-label,
+.login-page.login-theme-midnight .sync-value,
+.login-page.login-theme-midnight .notif-title,
+.login-page.login-theme-midnight .badge-value {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-midnight .lede,
+.login-page.login-theme-midnight .sync-caption,
+.login-page.login-theme-midnight .notif-sub {
+  color: #c7d2fe !important;
+}
+
+.login-page.login-theme-midnight .input-row input {
+  background: rgba(26, 22, 66, 0.85) !important;
+  border-color: rgba(129, 140, 248, 0.4) !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-midnight .floating-badge,
+.login-page.login-theme-midnight .sync-tile,
+.login-page.login-theme-midnight .sync-toast {
+  background: rgba(26, 22, 66, 0.88) !important;
+  border-color: rgba(129, 140, 248, 0.4) !important;
+  color: #ffffff !important;
+}
+
+/* 6. GLACIER AQUAMARINE (COOL SKY CYAN) */
+.login-page.login-theme-glacier {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(6, 182, 212, 0.32), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(20, 184, 166, 0.22), transparent 50%),
+    linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 50%, #99f6e4 100%) !important;
+  color: #134e4a;
+}
+
+.login-page.login-theme-glacier .glass-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(240, 253, 250, 0.88) 100%) !important;
+  border-color: rgba(6, 182, 212, 0.48) !important;
+}
+
+.login-page.login-theme-glacier .btn-primary {
+  background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 50%, #0891b2 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(6, 182, 212, 0.45) !important;
+}
+
+/* 7. BIO EMERALD (MINT GREEN) */
+.login-page.login-theme-emerald {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(52, 211, 153, 0.32), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(16, 185, 129, 0.22), transparent 50%),
+    linear-gradient(135deg, #ecfdf5 0%, #d1fae5 50%, #a7f3d0 100%) !important;
+  color: #064e3b;
+}
+
+.login-page.login-theme-emerald .glass-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(236, 253, 245, 0.88) 100%) !important;
+  border-color: rgba(16, 185, 129, 0.48) !important;
+}
+
+.login-page.login-theme-emerald .btn-primary {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(16, 185, 129, 0.45) !important;
+}
+
+/* 8. NEON VELVET (CYBER PLUM) */
+.login-page.login-theme-velvet {
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(168, 85, 247, 0.38), transparent 50%),
+    radial-gradient(ellipse at 80% 85%, rgba(236, 72, 153, 0.28), transparent 50%),
+    linear-gradient(135deg, #180b2c 0%, #261042 50%, #351459 100%) !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+.login-page.login-theme-velvet .glass-card {
+  background: linear-gradient(145deg, rgba(38, 16, 66, 0.94) 0%, rgba(53, 20, 89, 0.88) 100%) !important;
+  border: 1.5px solid rgba(168, 85, 247, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.85), 0 0 35px rgba(168, 85, 247, 0.3) !important;
+}
+
+.login-page.login-theme-velvet .btn-primary {
+  background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #9333ea 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(168, 85, 247, 0.5) !important;
+}
+
+.login-page.login-theme-velvet h1,
+.login-page.login-theme-velvet h2,
+.login-page.login-theme-velvet .brand-name,
+.login-page.login-theme-velvet label,
+.login-page.login-theme-velvet .tile-label,
+.login-page.login-theme-velvet .sync-value,
+.login-page.login-theme-velvet .notif-title,
+.login-page.login-theme-velvet .badge-value {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-velvet .lede,
+.login-page.login-theme-velvet .sync-caption,
+.login-page.login-theme-velvet .notif-sub {
+  color: #e9d5ff !important;
+}
+
+.login-page.login-theme-velvet .input-row input {
+  background: rgba(38, 16, 66, 0.85) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-velvet .floating-badge,
+.login-page.login-theme-velvet .sync-tile,
+.login-page.login-theme-velvet .sync-toast {
+  background: rgba(38, 16, 66, 0.88) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  color: #ffffff !important;
+}
+
+/* 9. CRIMSON EMBER (ROSE FLAME) */
+.login-page.login-theme-ember {
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(244, 63, 94, 0.38), transparent 50%),
+    radial-gradient(ellipse at 80% 85%, rgba(225, 29, 72, 0.28), transparent 50%),
+    linear-gradient(135deg, #1c0a0e 0%, #2d1017 50%, #3e1520 100%) !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+.login-page.login-theme-ember .glass-card {
+  background: linear-gradient(145deg, rgba(45, 16, 23, 0.94) 0%, rgba(62, 21, 32, 0.88) 100%) !important;
+  border: 1.5px solid rgba(244, 63, 94, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.85), 0 0 35px rgba(244, 63, 94, 0.3) !important;
+}
+
+.login-page.login-theme-ember .btn-primary {
+  background: linear-gradient(135deg, #fb7185 0%, #f43f5e 50%, #e11d48 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(244, 63, 94, 0.5) !important;
+}
+
+.login-page.login-theme-ember h1,
+.login-page.login-theme-ember h2,
+.login-page.login-theme-ember .brand-name,
+.login-page.login-theme-ember label,
+.login-page.login-theme-ember .tile-label,
+.login-page.login-theme-ember .sync-value,
+.login-page.login-theme-ember .notif-title,
+.login-page.login-theme-ember .badge-value {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-ember .lede,
+.login-page.login-theme-ember .sync-caption,
+.login-page.login-theme-ember .notif-sub {
+  color: #fecdd3 !important;
+}
+
+/* MABSOL SPECIAL SIGNATURE THEME (#343872, #fb8c00, #e4e7f6) */
+.login-page.login-theme-mabsolSpecial {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(251, 140, 0, 0.28), transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(52, 56, 114, 0.25), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(228, 231, 246, 0.5), transparent 60%),
+    linear-gradient(135deg, #e4e7f6 0%, #d8dceb 50%, #f0f2fb 100%) !important;
+  color: #343872 !important;
+}
+
+.login-page.login-theme-mabsolSpecial .glass-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(228, 231, 246, 0.92) 100%) !important;
+  border: 1.5px solid rgba(251, 140, 0, 0.45) !important;
+  color: #343872 !important;
+  box-shadow: 0 25px 60px -10px rgba(52, 56, 114, 0.25), 0 0 35px rgba(251, 140, 0, 0.3) !important;
+}
+
+/* MABSOL SPECIAL VIP EXCLUSIVE BADGE & HOLOGRAPHIC BORDER */
+.mabsol-vip-crown-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, rgba(251, 140, 0, 0.15) 0%, rgba(52, 56, 114, 0.2) 100%);
+  border: 1.5px solid #fb8c00;
+  border-radius: 999px;
+  box-shadow: 0 0 18px rgba(251, 140, 0, 0.35);
+  animation: vip-pulse-glow 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes vip-pulse-glow {
+  0% { box-shadow: 0 0 12px rgba(251, 140, 0, 0.3); border-color: #fb8c00; }
+  100% { box-shadow: 0 0 24px rgba(251, 140, 0, 0.65); border-color: #f57c00; }
+}
+
+.crown-sparkle {
+  font-size: 14px;
+  animation: crown-bounce 1.5s infinite alternate;
+}
+
+@keyframes crown-bounce {
+  from { transform: translateY(0) scale(1); }
+  to { transform: translateY(-2px) scale(1.12); }
+}
+
+.crown-text {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #343872;
+  text-transform: uppercase;
+}
+
+.verified-dot {
+  width: 16px;
+  height: 16px;
+  background: #fb8c00;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-page.login-theme-mabsolSpecial h1,
+.login-page.login-theme-mabsolSpecial h2,
+.login-page.login-theme-mabsolSpecial .brand-name,
+.login-page.login-theme-mabsolSpecial label,
+.login-page.login-theme-mabsolSpecial .tile-label,
+.login-page.login-theme-mabsolSpecial .sync-value,
+.login-page.login-theme-mabsolSpecial .notif-title,
+.login-page.login-theme-mabsolSpecial .badge-value {
+  color: #343872 !important;
+}
+
+.login-page.login-theme-mabsolSpecial .lede,
+.login-page.login-theme-mabsolSpecial .sync-caption,
+.login-page.login-theme-mabsolSpecial .notif-sub {
+  color: #5c62a4 !important;
+}
+
+.login-page.login-theme-mabsolSpecial .input-row input {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(52, 56, 114, 0.3) !important;
+  color: #343872 !important;
+}
+
+.login-page.login-theme-mabsolSpecial .btn-primary {
+  background: linear-gradient(135deg, #fb8c00 0%, #f57c00 50%, #e65100 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px rgba(251, 140, 0, 0.5) !important;
+}
+
+.login-page.login-theme-mabsolSpecial .floating-badge,
+.login-page.login-theme-mabsolSpecial .sync-tile,
+.login-page.login-theme-mabsolSpecial .sync-toast {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(52, 56, 114, 0.25) !important;
+  color: #343872 !important;
+}
+
+/* 11. SOLID OBSIDIAN (PURE SOLID DARK NO GRADIENT) */
+.login-page.login-theme-solidObsidian {
+  background: #09090b !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+.login-page.login-theme-solidObsidian .glass-card {
+  background: #121215 !important;
+  border: 1.5px solid #27272a !important;
+  color: #ffffff !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9) !important;
+}
+
+.login-page.login-theme-solidObsidian .btn-primary {
+  background: #27272a !important;
+  border: 1px solid #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidObsidian h1,
+.login-page.login-theme-solidObsidian h2,
+.login-page.login-theme-solidObsidian .brand-name,
+.login-page.login-theme-solidObsidian label,
+.login-page.login-theme-solidObsidian .tile-label,
+.login-page.login-theme-solidObsidian .sync-value,
+.login-page.login-theme-solidObsidian .notif-title,
+.login-page.login-theme-solidObsidian .badge-value {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidObsidian .input-row input {
+  background: #18181b !important;
+  border-color: #27272a !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidObsidian .floating-badge,
+.login-page.login-theme-solidObsidian .sync-tile,
+.login-page.login-theme-solidObsidian .sync-toast {
+  background: #121215 !important;
+  border-color: #27272a !important;
+  color: #ffffff !important;
+}
+
+/* 12. SOLID DEEP NAVY (PURE SOLID NAVY NO GRADIENT) */
+.login-page.login-theme-solidNavy {
+  background: #0b193c !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+.login-page.login-theme-solidNavy .glass-card {
+  background: #0f2252 !important;
+  border: 1.5px solid #1e3a8a !important;
+  color: #ffffff !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8) !important;
+}
+
+.login-page.login-theme-solidNavy .btn-primary {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidNavy h1,
+.login-page.login-theme-solidNavy h2,
+.login-page.login-theme-solidNavy .brand-name,
+.login-page.login-theme-solidNavy label,
+.login-page.login-theme-solidNavy .tile-label,
+.login-page.login-theme-solidNavy .sync-value,
+.login-page.login-theme-solidNavy .notif-title,
+.login-page.login-theme-solidNavy .badge-value {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidNavy .input-row input {
+  background: #0b193c !important;
+  border-color: #1e3a8a !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidNavy .floating-badge,
+.login-page.login-theme-solidNavy .sync-tile,
+.login-page.login-theme-solidNavy .sync-toast {
+  background: #0f2252 !important;
+  border-color: #1e3a8a !important;
+  color: #ffffff !important;
+}
+
+/* 13. SOLID ZINC (PURE CHARCOAL ZINC NO GRADIENT) */
+.login-page.login-theme-solidZinc {
+  background: #18181b !important;
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+.login-page.login-theme-solidZinc .glass-card {
+  background: #27272a !important;
+  border: 1.5px solid #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidZinc .btn-primary {
+  background: #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidZinc h1,
+.login-page.login-theme-solidZinc h2,
+.login-page.login-theme-solidZinc .brand-name,
+.login-page.login-theme-solidZinc label,
+.login-page.login-theme-solidZinc .tile-label,
+.login-page.login-theme-solidZinc .sync-value,
+.login-page.login-theme-solidZinc .notif-title,
+.login-page.login-theme-solidZinc .badge-value {
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidZinc .input-row input {
+  background: #18181b !important;
+  border-color: #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+.login-page.login-theme-solidZinc .floating-badge,
+.login-page.login-theme-solidZinc .sync-tile,
+.login-page.login-theme-solidZinc .sync-toast {
+  background: #27272a !important;
+  border-color: #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+/* 14. SOLID SNOW (PURE SOLID CRISP WHITE NO GRADIENT) */
+.login-page.login-theme-solidSnow {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.login-page.login-theme-solidSnow .glass-card {
+  background: #f8fafc !important;
+  border: 1.5px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08) !important;
+}
+
+.login-page.login-theme-solidSnow .btn-primary {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+/* 15. SOLID SKY (PURE SOFT SKY BLUE NO GRADIENT) */
+.login-page.login-theme-solidSky {
+  background: #e0f2fe !important;
+  color: #0f172a !important;
+}
+
+.login-page.login-theme-solidSky .glass-card {
+  background: #ffffff !important;
+  border: 1.5px solid #bae6fd !important;
+  color: #0f172a !important;
+  box-shadow: 0 15px 40px rgba(2, 132, 199, 0.12) !important;
+}
+
+.login-page.login-theme-solidSky .btn-primary {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+/* 10. CUSTOM COLOR THEME (Individual Section Customization) */
+.login-page.login-theme-custom {
+  background: var(--custom-body-bg, #0b193c) !important;
+  color: var(--custom-text-color, #ffffff) !important;
+}
+
+.login-page.login-theme-custom .form-card {
+  background: var(--custom-form-card-bg, #0f172a) !important;
+  border-color: var(--custom-accent, #38bdf8) !important;
+  color: var(--custom-text-color, #ffffff) !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.6), 0 0 30px var(--custom-accent, #38bdf8) !important;
+}
+
+.login-page.login-theme-custom .sync-card {
+  background: var(--custom-sync-card-bg, #1e293b) !important;
+  border-color: var(--custom-accent, #38bdf8) !important;
+  color: var(--custom-text-color, #ffffff) !important;
+}
+
+.login-page.login-theme-custom .btn-primary {
+  background: var(--custom-btn-bg, #0284c7) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px -6px var(--custom-accent, #38bdf8) !important;
+}
+
+.login-page.login-theme-custom .floating-badge {
+  background: var(--custom-badge-bg, #0f172a) !important;
+  border-color: var(--custom-accent, #38bdf8) !important;
+  color: var(--custom-text-color, #ffffff) !important;
+}
+
+.login-page.login-theme-custom .sync-tile,
+.login-page.login-theme-custom .sync-toast {
+  background: var(--custom-sync-card-bg, #1e293b) !important;
+  border-color: var(--custom-accent, #38bdf8) !important;
+  color: var(--custom-text-color, #ffffff) !important;
+}
+
+.login-page.login-theme-custom h1,
+.login-page.login-theme-custom h2,
+.login-page.login-theme-custom .brand-name,
+.login-page.login-theme-custom label,
+.login-page.login-theme-custom .tile-label,
+.login-page.login-theme-custom .sync-value,
+.login-page.login-theme-custom .notif-title,
+.login-page.login-theme-custom .badge-value {
+  color: var(--custom-text-color, #ffffff) !important;
+}
+
+.login-page.login-theme-custom .lede,
+.login-page.login-theme-custom .sync-caption,
+.login-page.login-theme-custom .notif-sub {
+  color: var(--custom-text-color, #ffffff) !important;
+  opacity: 0.82;
+}
+
+.login-page.login-theme-custom .input-row input {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-color: var(--custom-accent, #38bdf8) !important;
+  color: var(--custom-text-color, #ffffff) !important;
+}
+
+/* ==================== THEME SELECTOR DROPDOWN & CAPSULE ==================== */
+
+.theme-selector-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid rgba(251, 146, 60, 0.45);
+  border-radius: 999px;
+  box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-dark);
+  transition: all 0.25s ease;
+}
+
+.login-theme-oceanDeep .theme-selector-trigger,
+.login-theme-cobalt .theme-selector-trigger,
+.login-theme-midnight .theme-selector-trigger,
+.login-theme-velvet .theme-selector-trigger,
+.login-theme-ember .theme-selector-trigger,
+.login-theme-custom .theme-selector-trigger {
+  background: rgba(11, 25, 60, 0.94) !important;
+  border-color: rgba(56, 189, 248, 0.45) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.5) !important;
+}
+
+.theme-selector-trigger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.25);
+}
+
+.active-theme-name {
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.02em;
+}
+
+.caret-icon {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Dropdown Menu Container */
+.theme-selector-dropdown {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  width: 380px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8), 0 0 30px rgba(56, 189, 248, 0.2);
+  color: #ffffff;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: dropdown-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes dropdown-fade-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dropdown-header {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #38bdf8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 8px;
+}
+
+.dropdown-category {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cat-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono), monospace;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.theme-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.theme-card-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.theme-card-btn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.5);
+  transform: translateX(3px);
+}
+
+.theme-card-btn.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(2, 132, 199, 0.3) 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.3);
+}
+
+.swatch-badge {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.theme-btn-icon {
+  font-size: 14px;
+}
+
+.theme-btn-info {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.theme-btn-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.theme-btn-desc {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.active-check {
+  font-size: 13px;
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==================== FLOATING CUSTOM COLOR STUDIO MODAL ==================== */
+
+.custom-theme-studio-modal {
+  position: absolute;
+  top: 54px;
+  right: 0;
+  width: 460px;
+  max-width: 92vw;
+  padding: 16px;
+  background: rgba(11, 25, 60, 0.96);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1.5px solid rgba(56, 189, 248, 0.5);
+  border-radius: 22px;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.85), 0 0 35px rgba(56, 189, 248, 0.25);
+  color: #ffffff;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: studio-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes studio-in {
+  from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.studio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 8px;
+}
+
+.studio-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.studio-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.studio-btn:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+}
+
+.studio-btn.close:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.quick-combos-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.quick-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono), monospace;
+  color: #94a3b8;
+  margin-right: 2px;
+}
+
+.combo-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.combo-chip:hover {
+  background: rgba(56, 189, 248, 0.3);
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.studio-color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+@media (max-width: 520px) {
+  .studio-color-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.studio-field-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: border-color 0.2s ease;
+}
+
+.studio-field-card:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.field-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-icon {
+  font-size: 13px;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.field-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-circle-picker {
+  -webkit-appearance: none;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: none;
+}
+
+.color-circle-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-circle-picker::-webkit-color-swatch {
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.hex-code-input {
+  width: 68px;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: #ffffff;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.hex-code-input:focus {
+  border-color: #38bdf8;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
+}
+
+/* ==================== MOBILE RESPONSIVE ADAPTATIONS ==================== */
 
 @media (max-width: 640px) {
-  .celestial-preview-capsule {
-    top: 10px;
-    right: 10px;
-    left: 10px;
-    justify-content: space-between;
-    padding: 5px 8px;
+  .celestial-preview-capsule-wrapper {
+    top: 12px;
+    right: 14px;
   }
-  .capsule-label span:not(.live-dot) {
-    display: none;
+
+  .theme-selector-trigger {
+    padding: 6px 12px;
+    font-size: 11.5px;
   }
-  .capsule-btn .btn-text {
-    display: none;
+
+  .theme-selector-dropdown {
+    width: calc(100vw - 28px);
+    max-height: 400px;
+    right: 0;
   }
-  .capsule-btn {
-    padding: 4px 8px;
-    font-size: 13px;
+
+  .custom-theme-studio-modal {
+    width: calc(100vw - 28px);
+    right: 0;
+    padding: 12px;
+  }
+
+  .quick-combos-row {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .combo-chip {
+    font-size: 9.5px;
+    padding: 2px 6px;
   }
 }
 
