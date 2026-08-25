@@ -11,9 +11,9 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
 
   const codesToMatch = new Set<string>();
 
+  let compDoc: any = null;
   if (companyId) {
     try {
-      let compDoc: any = null;
       if (mongoose.Types.ObjectId.isValid(companyId)) {
         compDoc = await Company.findById(companyId).lean();
       } else {
@@ -23,11 +23,16 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
       if (compDoc?.companyCode) {
         codesToMatch.add(compDoc.companyCode.trim().toUpperCase());
       }
+      if (compDoc?.code) {
+        codesToMatch.add(compDoc.code.trim().toUpperCase());
+      }
 
-      const fyDocs = await FinancialYear.find({ companyId: compDoc?._id || companyId }, { fyCode: 1 }).lean();
-      for (const fy of fyDocs) {
-        if (fy.fyCode) {
-          codesToMatch.add(fy.fyCode.trim().toUpperCase());
+      if (!fyId || fyId === "ALL") {
+        const fyDocs = await FinancialYear.find({ companyId: compDoc?._id || companyId }, { fyCode: 1 }).lean();
+        for (const fy of fyDocs) {
+          if (fy.fyCode) {
+            codesToMatch.add(fy.fyCode.trim().toUpperCase());
+          }
         }
       }
     } catch (e) {
@@ -47,12 +52,6 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
       if (fyDoc?.fyCode) {
         codesToMatch.clear();
         codesToMatch.add(fyDoc.fyCode.trim().toUpperCase());
-      }
-      if (fyDoc?.companyId && !companyId) {
-        const cDoc = await Company.findById(fyDoc.companyId).lean();
-        if (cDoc?.companyCode) {
-          codesToMatch.add(cDoc.companyCode.trim().toUpperCase());
-        }
       }
     } catch (e) {
       console.error("Error matching fyId in getCompanyVfpFilter:", e);
@@ -75,8 +74,6 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
       vfpOrList.push({ companyId: new mongoose.Types.ObjectId(compStr) });
     }
     vfpOrList.push({ companyId: compStr });
-    vfpOrList.push({ companyId: null });
-    vfpOrList.push({ companyId: { $exists: false } });
   }
 
   return vfpOrList.length > 0 ? { $or: vfpOrList } : {};

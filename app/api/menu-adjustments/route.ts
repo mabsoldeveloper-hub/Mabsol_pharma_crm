@@ -1,0 +1,132 @@
+import { NextResponse } from "next/server";
+import connectDB from "@/lib/mongodb";
+import MenuAdjustment from "@/models/MenuAdjustment";
+import { getCurrentUser } from "@/lib/auth";
+import { getDefaultMenuItems } from "@/lib/defaultMenuData";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    await connectDB();
+
+    const { searchParams } = new URL(req.url);
+    let companyId = searchParams.get("companyId");
+    let financialYearId = searchParams.get("financialYearId") || "ALL";
+
+    // If companyId is not provided, attempt to get from current user session
+    if (!companyId || companyId === "undefined" || companyId === "null") {
+      const user = await getCurrentUser();
+      if (user && user.companyId) {
+        companyId = typeof user.companyId === "object" ? user.companyId._id?.toString() : user.companyId.toString();
+      }
+    }
+
+    if (!companyId) {
+      return NextResponse.json({
+        success: true,
+        isCustomized: false,
+        items: getDefaultMenuItems(),
+        companyId: null,
+        financialYearId: "ALL",
+      });
+    }
+
+    // First check exact match for companyId + financialYearId
+    let config = await MenuAdjustment.findOne({
+      companyId,
+      financialYearId: financialYearId || "ALL",
+    }).lean();
+
+    // If not found and a specific financialYearId was provided, fallback to "ALL" for this company
+    if (!config && financialYearId !== "ALL") {
+      config = await MenuAdjustment.findOne({
+        companyId,
+        financialYearId: "ALL",
+      }).lean();
+    }
+
+    if (!config || !config.items || config.items.length === 0) {
+      return NextResponse.json({
+        success: true,
+        isCustomized: false,
+        items: getDefaultMenuItems(),
+        companyId,
+        financialYearId,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      isCustomized: true,
+      items: config.items,
+      companyId,
+      financialYearId: config.financialYearId || financialYearId,
+    });
+  } catch (error: any) {
+    console.error("Error fetching menu adjustments:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || "Failed to fetch menu adjustments",
+        items: getDefaultMenuItems(),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+    const user = await getCurrentUser();
+    const body = await req.json();
+
+    const { companyId, financialYearId = "ALL", items } = body;
+
+    if (!companyId) {
+      return NextResponse.json(
+        { success: false, error: "companyId is required to save menu adjustments" },
+        { status: 400 }
+      );
+    }
+
+    if (!items || !Array.isArray(items)) {
+      return NextResponse.json(
+        { success: false, error: "items array is required" },
+        { status: 400 }
+      );
+    }
+
+    const updatedConfig = await MenuAdjustment.findOneAndUpdate(
+      {
+        companyId,
+        financialYearId: financialYearId || "ALL",
+      },
+      {
+        tenantId: "TENANT001",
+        companyId,
+        financialYearId: financialYearId || "ALL",
+        isCustomized: true,
+        items,
+        updatedBy: user?._id || undefined,
+      },
+      {
+        upsert: true,
+        new: true,
+      }
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: "Menu adjustments saved successfully",
+      data: updatedConfig,
+    });
+  } catch (error: any) {
+    console.error("Error saving menu adjustments:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to save menu adjustments" },
+      { status: 500 }
+    );
+  }
+}

@@ -664,13 +664,13 @@ export async function GET(req: NextRequest) {
         // Fetch 3 real products from database
         let topPro = await Product.find({ PRODUCT: { $exists: true, $ne: "" } }).limit(3).lean();
         if ((!topPro || topPro.length === 0) && db) {
-          topPro = await db.collection("pro").find({ PRODUCT: { $exists: true, $ne: "" } }).limit(3).toArray();
+          topPro = await db.collection("vfp_new_folder_pro").find({ PRODUCT: { $exists: true, $ne: "" } }).limit(3).toArray();
         }
 
         // Fetch 3 real customers from database
         let topCust = await Order.find({ PARNAM: { $exists: true, $ne: "" } }).limit(3).lean();
         if ((!topCust || topCust.length === 0) && db) {
-          topCust = await db.collection("order").find({ PARNAM: { $exists: true, $ne: "" } }).limit(3).toArray();
+          topCust = await db.collection("vfp_new_folder_order").find({ PARNAM: { $exists: true, $ne: "" } }).limit(3).toArray();
         }
 
         const dynamicTrending: any[] = [];
@@ -770,7 +770,7 @@ export async function GET(req: NextRequest) {
 
             let proDocs = await Product.find(productFilter).limit(15).lean();
             if ((!proDocs || proDocs.length === 0) && db) {
-              proDocs = await db.collection("pro").find(productFilter).limit(15).toArray();
+              proDocs = await db.collection("vfp_new_folder_pro").find(productFilter).limit(15).toArray();
             }
 
             // Enrich with batch stock count & batch numbers
@@ -780,7 +780,7 @@ export async function GET(req: NextRequest) {
             if (productCodes.length > 0) {
               let batchDocs = await ProductBatch.find({ CODE: { $in: productCodes } }).lean();
               if ((!batchDocs || batchDocs.length === 0) && db) {
-                batchDocs = await db.collection("probat").find({ CODE: { $in: productCodes } }).toArray();
+                batchDocs = await db.collection("vfp_new_folder_probat").find({ CODE: { $in: productCodes } }).toArray();
               }
 
               batchDocs.forEach((b: any) => {
@@ -887,7 +887,7 @@ export async function GET(req: NextRequest) {
 
             let custDocs = await Order.find(customerFilter).limit(15).lean();
             if ((!custDocs || custDocs.length === 0) && db) {
-              custDocs = await db.collection("order").find(customerFilter).limit(15).toArray();
+              custDocs = await db.collection("vfp_new_folder_order").find(customerFilter).limit(15).toArray();
             }
 
             let mappedCustomers = custDocs.map((c: any) => {
@@ -1125,7 +1125,7 @@ export async function GET(req: NextRequest) {
             // --- E. SALES INVOICES (MDIS) ---
             let mdisDocs = await SalesMdis.find(stringFilter).limit(8).lean();
             if ((!mdisDocs || mdisDocs.length === 0) && db) {
-              mdisDocs = await db.collection("mdis").find(stringFilter).limit(8).toArray();
+              mdisDocs = await db.collection("vfp_new_folder_mdis").find(stringFilter).limit(8).toArray();
             }
             (mdisDocs || []).forEach((m: any) => {
               const vKey = `mdis_${m._id || m.VCN || m.VOUCHER}`;
@@ -1160,7 +1160,7 @@ export async function GET(req: NextRequest) {
             // --- F. GENERAL LEDGERS (GLEDGER) ---
             let gLedgerDocs = await GlLedger.find(stringFilter).limit(8).lean();
             if ((!gLedgerDocs || gLedgerDocs.length === 0) && db) {
-              gLedgerDocs = await db.collection("gledger").find(stringFilter).limit(8).toArray();
+              gLedgerDocs = await db.collection("vfp_new_folder_gledger").find(stringFilter).limit(8).toArray();
             }
             (gLedgerDocs || []).forEach((g: any) => {
               const gKey = `gledger_${g._id || g.VOUCHER}`;

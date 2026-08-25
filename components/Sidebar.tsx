@@ -1,55 +1,18 @@
 "use client";
-import PermissionGate from "@/components/PermissionGate";
 import { usePermission } from "@/context/PermissionContext";
+import { useCompany } from "@/context/CompanyContext";
+import { useFinancialYear } from "@/context/FinancialYearContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
-
-
-
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  FaTachometerAlt,
-  FaUsers,
-  FaUserShield,
-  FaUserTag,
-  FaCog,
-  FaBoxOpen,
-  FaShoppingCart,
-  FaFileInvoice,
-  FaClipboardList,
-  FaChartBar,
-  FaChevronDown,
-  FaChevronRight,
-  FaBuilding,
-  FaPlusCircle,
-  FaListUl,
-  FaCalendarAlt,
-  FaExchangeAlt,
-  FaSyncAlt,
-  FaSlidersH,
-  FaWarehouse,
-  FaUserCircle,
-  FaLayerGroup,
-  FaBullseye,
-  FaGift,
-  FaTrophy,
-  FaUserCheck,
-  FaFileInvoiceDollar,
-  FaUndo,
-  FaReceipt,
-  FaShoppingBag,
-  FaCamera,
-  FaBalanceScale,
-  FaMapMarkerAlt,
-  FaBrain,
-  FaBook,
-  FaPaperPlane,
-  FaBullhorn,
-  FaFunnelDollar,
-  FaWhatsapp,
-} from "react-icons/fa";
-
-
+  DEFAULT_MENU_ITEMS,
+  MenuItemConfig,
+  SubMenuItemConfig,
+  ColorKey,
+  renderMenuIcon,
+} from "@/lib/defaultMenuData";
+import { FaChevronDown, FaChevronRight, FaUserCircle } from "react-icons/fa";
 
 type SidebarProps = {
   collapsed: boolean;
@@ -57,35 +20,15 @@ type SidebarProps = {
   mobile: boolean;
 };
 
-// ---------------------------------------------------------------------------
-// Color system
-// Every nav section gets its own color. All Tailwind class strings below are
-// written out FULLY and STATICALLY (no `${color}-500` string building) so
-// Tailwind's JIT scanner always finds them and never purges them in a
-// production build. This also avoids "unknown word" editor/spell-check
-// squiggles that show up under dynamically-built class name fragments.
-// ---------------------------------------------------------------------------
-type ColorKey =
-  | "indigo"
-  | "violet"
-  | "sky"
-  | "blue"
-  | "emerald"
-  | "amber"
-  | "teal"
-  | "rose"
-  | "orange"
-  | "cyan";
-
 type ColorClasses = {
-  bar: string; // active-state left indicator bar
-  iconText: string; // icon color, inactive state
-  iconActiveBg: string; // icon background, active state
-  hoverText: string; // label/text color on hover
-  activeText: string; // label/text color when active
-  subHoverIcon: string; // sub-link icon color on hover
-  glow: string; // raw hex used for the glass glow blob
-  glowDark: string; // darker hex stop for the active icon's glossy gradient
+  bar: string;
+  iconText: string;
+  iconActiveBg: string;
+  hoverText: string;
+  activeText: string;
+  subHoverIcon: string;
+  glow: string;
+  glowDark: string;
 };
 
 const colorMap: Record<ColorKey, ColorClasses> = {
@@ -192,62 +135,120 @@ const colorMap: Record<ColorKey, ColorClasses> = {
 };
 
 export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProps) {
-  const { can } = usePermission();
-  const [crmOpen, setCrmOpen] = useState(false);
-  const [masterOpen, setMasterOpen] = useState(false);
-  const [inventoryOpen, setInventoryOpen] = useState(false);
-  const [salesOpen, setSalesOpen] = useState(false);
-  const [purchaseOpen, setPurchaseOpen] = useState(false);
-  const [customerOpen, setCustomerOpen] = useState(false);
-  const [companyOpen, setCompanyOpen] = useState(false);
-  const [fyOpen, setFyOpen] = useState(false);
-  const [vfpOpen, setVfpOpen] = useState(false);
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [customFormsOpen, setCustomFormsOpen] = useState(false);
+  const { can, loading: permissionsLoading } = usePermission();
+  const { selectedCompany } = useCompany();
+  const { selectedFY } = useFinancialYear();
   const pathname = usePathname();
 
-  useEffect(() => {
-    if (pathname.startsWith("/dashboard/master")) setMasterOpen(true);
-    if (
-      pathname.startsWith("/dashboard/users") ||
-      pathname.startsWith("/dashboard/permissions") ||
-      pathname.startsWith("/dashboard/roles")
-    ) setCrmOpen(true);
-    if (pathname.startsWith("/dashboard/inventory") || pathname.startsWith("/dashboard/stock")) setInventoryOpen(true);
-    if (pathname.startsWith("/dashboard/sales") || pathname.startsWith("/dashboard/orders")) setSalesOpen(true);
-    if (pathname.startsWith("/dashboard/purchase")) setPurchaseOpen(true);
-    if (pathname.startsWith("/dashboard/customers")) setCustomerOpen(true);
-    if (pathname.startsWith("/dashboard/company")) setCompanyOpen(true);
-    if (pathname.startsWith("/dashboard/financial-year")) setFyOpen(true);
-    if (pathname.startsWith("/dashboard/mabsolcrmsync")) setVfpOpen(true);
-    if (pathname.startsWith("/dashboard/compare")) setCompareOpen(true);
-    if (pathname.startsWith("/dashboard/custom-forms")) setCustomFormsOpen(true);
-  }, [pathname]);
-
+  const [menuItems, setMenuItems] = useState<MenuItemConfig[]>(DEFAULT_MENU_ITEMS);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [user, setUser] = useState<any>(null);
+  const [companySettings, setCompanySettings] = useState<any>(null);
 
-  const [company, setCompany] = useState<any>(null);
+  // Fetch Menu Adjustments based on active Company & FY
+  const loadMenuAdjustments = useCallback(async () => {
+    try {
+      const companyId = selectedCompany?._id;
+      const fyId = selectedFY?._id || "ALL";
+
+      const url = companyId
+        ? `/api/menu-adjustments?companyId=${companyId}&financialYearId=${fyId}`
+        : `/api/menu-adjustments`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+        // Sort items by order
+        const sorted = [...data.items].sort((a: MenuItemConfig, b: MenuItemConfig) => (a.order ?? 0) - (b.order ?? 0));
+        sorted.forEach((item: MenuItemConfig) => {
+          if (item.subItems && Array.isArray(item.subItems)) {
+            item.subItems.sort((a: SubMenuItemConfig, b: SubMenuItemConfig) => (a.order ?? 0) - (b.order ?? 0));
+          }
+        });
+        setMenuItems(sorted);
+      } else {
+        setMenuItems(DEFAULT_MENU_ITEMS);
+      }
+    } catch (err) {
+      console.error("Failed to load menu adjustments:", err);
+      setMenuItems(DEFAULT_MENU_ITEMS);
+    }
+  }, [selectedCompany, selectedFY]);
+
   useEffect(() => {
-    //fetch("/api/company-master")
+    loadMenuAdjustments();
+
+    const handleMenuChanged = () => {
+      loadMenuAdjustments();
+    };
+
+    window.addEventListener("menu-settings-changed", handleMenuChanged);
+    return () => {
+      window.removeEventListener("menu-settings-changed", handleMenuChanged);
+    };
+  }, [loadMenuAdjustments]);
+
+  // Automatically expand group containing the active pathname
+  useEffect(() => {
+    menuItems.forEach((group) => {
+      if (group.isGroup && group.subItems) {
+        const hasActiveChild = group.subItems.some((sub) => {
+          if (!sub.href) return false;
+          if (sub.href === "/dashboard") return pathname === "/dashboard";
+          return pathname === sub.href || pathname.startsWith(sub.href + "/") || (sub.href.endsWith("/") && pathname.startsWith(sub.href));
+        });
+        if (hasActiveChild) {
+          setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
+        }
+      }
+    });
+  }, [pathname, menuItems]);
+
+  useEffect(() => {
     fetch("/api/company-settings")
       .then((res) => res.json())
-      .then((data) => setCompany(data))
-      .catch(() => { });
-  }, []);
+      .then((data) => setCompanySettings(data))
+      .catch(() => {});
 
-  useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => res.json())
       .then((data) => {
-        console.log(data);
-
-        setUser(data.user);   // <-- sirf user object save karo
+        if (data?.user) setUser(data.user);
       })
-      .catch(console.error);
+      .catch(() => {});
   }, []);
 
-  // Sidebar is "iconOnly" when collapsed on desktop. On mobile, collapsed hides it off-screen.
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
+
   const iconOnly = collapsed && !mobile;
+
+  // Filter items by visibility and user permissions
+  const visibleMenuItems = useMemo(() => {
+    return menuItems.filter((item) => {
+      if (item.isVisible === false) return false;
+
+      // Permission check for main item
+      if (item.permission && !can(item.permission)) {
+        // If it's a group, check if any subitem is permitted
+        if (item.isGroup && item.subItems && item.subItems.length > 0) {
+          const hasAnyPermittedSub = item.subItems.some(
+            (sub) => sub.isVisible !== false && (!sub.permission || can(sub.permission))
+          );
+          if (!hasAnyPermittedSub) return false;
+        } else {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [menuItems, can]);
 
   // ---------------- Single link (no submenu) ----------------
   const NavLink = ({
@@ -263,23 +264,31 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     active: boolean;
     color: ColorKey;
   }) => {
-    const c = colorMap[color];
+    const c = colorMap[color] || colorMap.indigo;
+
+    const handleNavClick = () => {
+      if (mobile && setCollapsed) {
+        setCollapsed(true);
+      }
+    };
 
     if (iconOnly) {
       return (
         <Link
           href={href}
           title={label}
-          className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out group shrink-0 ${active
-            ? "text-white scale-105 shadow-md"
-            : `glass-icon-chip ${c.iconText} hover:scale-110 hover:-rotate-3`
-            }`}
+          onClick={handleNavClick}
+          className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out group shrink-0 ${
+            active
+              ? "text-white scale-105 shadow-md"
+              : `glass-icon-chip ${c.iconText} hover:scale-110 hover:-rotate-3`
+          }`}
           style={
             active
               ? {
-                background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
-                boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
-              }
+                  background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
+                  boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
+                }
               : undefined
           }
         >
@@ -287,7 +296,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
             <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/50 to-transparent" />
           )}
           {active && (
-            <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full ${c.bar}`} />
+            <span
+              className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full ${c.bar}`}
+            />
           )}
           <span className="text-[17px]">{icon}</span>
         </Link>
@@ -297,10 +308,12 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     return (
       <Link
         href={href}
-        className={`glass-nav-item relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] transition-all duration-300 ease-out group no-underline select-none ${active
-          ? `glass-nav-item-active font-semibold ${c.activeText}`
-          : `text-gray-700 dark:text-gray-200 hover:text-gray-900 ${c.hoverText}`
-          }`}
+        onClick={handleNavClick}
+        className={`glass-nav-item relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] transition-all duration-300 ease-out group no-underline select-none ${
+          active
+            ? `glass-nav-item-active font-semibold ${c.activeText}`
+            : `text-gray-700 dark:text-gray-200 hover:text-gray-900 ${c.hoverText}`
+        }`}
       >
         {active && (
           <span
@@ -308,16 +321,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           />
         )}
         <span
-          className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
-            ? "icon-chip-active text-white scale-105"
-            : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
-            }`}
+          className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+            active
+              ? "icon-chip-active text-white scale-105"
+              : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
+          }`}
           style={
             active
               ? {
-                background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
-                boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
-              }
+                  background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
+                  boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
+                }
               : undefined
           }
         >
@@ -326,7 +340,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           )}
           <span className="relative">{icon}</span>
         </span>
-        <span className="leading-tight whitespace-normal break-words transition-opacity duration-200">{label}</span>
+        <span className="leading-tight whitespace-normal break-words transition-opacity duration-200">
+          {label}
+        </span>
       </Link>
     );
   };
@@ -345,19 +361,28 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     active: boolean;
     color: ColorKey;
   }) => {
-    const c = colorMap[color];
+    const c = colorMap[color] || colorMap.indigo;
+    const handleSubClick = () => {
+      if (mobile && setCollapsed) {
+        setCollapsed(true);
+      }
+    };
+
     return (
       <Link
         href={href}
         title={label}
-        className={`group/sub flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[12.5px] transition-all duration-200 ease-out no-underline select-none ${active
-          ? `bg-white/60 dark:bg-white/10 font-semibold ${c.activeText} shadow-sm`
-          : `text-gray-600 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-white/5 ${c.hoverText}`
-          }`}
+        onClick={handleSubClick}
+        className={`group/sub flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[12.5px] transition-all duration-200 ease-out no-underline select-none ${
+          active
+            ? `bg-white/60 dark:bg-white/10 font-semibold ${c.activeText} shadow-sm`
+            : `text-gray-600 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-white/5 ${c.hoverText}`
+        }`}
       >
         <span
-          className={`text-[12px] shrink-0 transition-colors duration-200 ${active ? c.activeText : `text-gray-400 ${c.subHoverIcon}`
-            }`}
+          className={`text-[12px] shrink-0 transition-colors duration-200 ${
+            active ? c.activeText : `text-gray-400 ${c.subHoverIcon}`
+          }`}
         >
           {icon}
         </span>
@@ -368,24 +393,54 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
   // ---------------- Collapsible group ----------------
   const Group = ({
+    id,
     icon,
     label,
     open,
     onClick,
     active,
-    items,
     color,
+    subItems,
   }: {
+    id: string;
     icon: React.ReactNode;
     label: string;
     open: boolean;
     onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
     active: boolean;
-    items: React.ReactNode;
     color: ColorKey;
+    subItems: SubMenuItemConfig[];
   }) => {
-    const c = colorMap[color];
+    const c = colorMap[color] || colorMap.indigo;
     const [isHovered, setIsHovered] = useState(false);
+
+    // Filter subitems by permissions & visibility
+    const visibleSubs = subItems.filter((sub) => {
+      if (sub.isVisible === false) return false;
+      if (sub.permission && !can(sub.permission)) return false;
+      return true;
+    });
+
+    if (visibleSubs.length === 0) return null;
+
+    const renderedSubs = visibleSubs.map((sub) => {
+      const isSubActive =
+        sub.href === "/dashboard"
+          ? pathname === "/dashboard"
+          : pathname === sub.href || pathname.startsWith(sub.href + "/");
+
+      return (
+        <li key={sub.id || sub.href}>
+          <SubLink
+            href={sub.href}
+            icon={renderMenuIcon(sub.icon)}
+            label={sub.label}
+            active={isSubActive}
+            color={color}
+          />
+        </li>
+      );
+    });
 
     return (
       <li
@@ -401,16 +456,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               e.preventDefault();
               onClick(e);
             }}
-            className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out shrink-0 select-none ${active
-              ? "text-white scale-105 shadow-md"
-              : `glass-icon-chip ${c.iconText} hover:scale-110 hover:-rotate-3`
-              }`}
+            className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out shrink-0 select-none ${
+              active
+                ? "text-white scale-105 shadow-md"
+                : `glass-icon-chip ${c.iconText} hover:scale-110 hover:-rotate-3`
+            }`}
             style={
               active
                 ? {
-                  background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
-                  boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
-                }
+                    background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
+                    boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
+                  }
                 : undefined
             }
           >
@@ -426,23 +482,25 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               e.preventDefault();
               onClick(e);
             }}
-            className={`glass-nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-[13.5px] transition-all duration-300 ease-out group select-none ${active
-              ? `glass-nav-item-active font-semibold ${c.activeText}`
-              : `text-gray-700 dark:text-gray-200 hover:text-gray-900 ${c.hoverText}`
-              }`}
+            className={`glass-nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-[13.5px] transition-all duration-300 ease-out group select-none ${
+              active
+                ? `glass-nav-item-active font-semibold ${c.activeText}`
+                : `text-gray-700 dark:text-gray-200 hover:text-gray-900 ${c.hoverText}`
+            }`}
           >
             <span className="flex items-center gap-3 min-w-0 flex-1 text-left">
               <span
-                className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
-                  ? "icon-chip-active text-white scale-105"
-                  : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
-                  }`}
+                className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                  active
+                    ? "icon-chip-active text-white scale-105"
+                    : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
+                }`}
                 style={
                   active
                     ? {
-                      background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
-                      boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
-                    }
+                        background: `linear-gradient(155deg, ${c.glow} 0%, ${c.glowDark} 100%)`,
+                        boxShadow: `0 4px 14px -2px ${c.glow}80, inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -3px 4px rgba(0,0,0,0.18)`,
+                      }
                     : undefined
                 }
               >
@@ -451,12 +509,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                 )}
                 <span className="relative">{icon}</span>
               </span>
-              <span className="leading-tight whitespace-normal break-words text-left">{label}</span>
+              <span className="leading-tight whitespace-normal break-words text-left">
+                {label}
+              </span>
             </span>
             <FaChevronDown
               size={11}
-              className={`text-gray-400 transition-transform duration-300 ease-out shrink-0 ml-1 ${c.hoverText} ${open ? "rotate-180" : ""
-                }`}
+              className={`text-gray-400 transition-transform duration-300 ease-out shrink-0 ml-1 ${
+                c.hoverText
+              } ${open ? "rotate-180" : ""}`}
             />
           </button>
         )}
@@ -466,7 +527,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           <div className={`sidebar-submenu ${open ? "open" : ""}`}>
             <div className="sidebar-submenu-inner">
               <ul className="flex flex-col gap-0.5 ml-4 pl-1.5 border-l-2 border-slate-200/60 dark:border-white/10 my-1">
-                {items}
+                {renderedSubs}
               </ul>
             </div>
           </div>
@@ -481,7 +542,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               backdropFilter: "blur(24px)",
               WebkitBackdropFilter: "blur(24px)",
               border: "1px solid rgba(255, 255, 255, 0.8)",
-              boxShadow: "0 20px 45px -10px rgba(31, 38, 135, 0.25), 0 0 0 1px rgba(0,0,0,0.06)"
+              boxShadow:
+                "0 20px 45px -10px rgba(31, 38, 135, 0.25), 0 0 0 1px rgba(0,0,0,0.06)",
             }}
           >
             <div
@@ -490,12 +552,15 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               <span>{label}</span>
               <FaChevronRight size={9} />
             </div>
-            <ul className="flex flex-col gap-1.5">{items}</ul>
+            <ul className="flex flex-col gap-1.5">{renderedSubs}</ul>
           </div>
         )}
       </li>
     );
   };
+
+  const logoUrl =
+    selectedCompany?.logo || companySettings?.logo || "/m-logo.jpg";
 
   return (
     <>
@@ -516,7 +581,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           left: 0,
           top: 0,
           transform: mobile && collapsed ? "translateX(-100%)" : "translateX(0)",
-          transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition:
+            "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           zIndex: 1050,
         }}
       >
@@ -526,18 +592,19 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         <div className={`relative flex flex-col h-full ${iconOnly ? "overflow-visible" : ""}`}>
           {/* Logo */}
           <div
-            className={`flex items-center justify-center shrink-0 ${iconOnly ? "px-0" : "px-5"
-              } h-[76px] border-b border-white/40 dark:border-white/10`}
+            className={`flex items-center justify-center shrink-0 ${
+              iconOnly ? "px-0" : "px-5"
+            } h-[76px] border-b border-white/40 dark:border-white/10`}
           >
             {iconOnly ? (
               <img
-                src={company?.logo || "/m-logo.jpg"}
+                src={logoUrl}
                 alt="logo"
                 className="w-11 h-11 rounded-full object-cover shadow-sm mx-auto transition-transform hover:scale-105"
               />
             ) : (
               <img
-                src={company?.logo || "/m-logo.jpg"}
+                src={logoUrl}
                 alt="logo"
                 className="max-h-16 w-auto object-contain"
               />
@@ -546,756 +613,59 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
           {/* Nav List */}
           <div
-            className={`flex-1 min-h-0 py-3 sidebar-scroll ${iconOnly ? "px-0 overflow-visible" : "px-2.5 overflow-y-auto"
-              }`}
+            className={`flex-1 min-h-0 py-3 sidebar-scroll ${
+              iconOnly ? "px-0 overflow-visible" : "px-2.5 overflow-y-auto"
+            }`}
           >
             <ul className={`flex flex-col ${iconOnly ? "items-center gap-2" : "gap-1.5"}`}>
-              <PermissionGate permission="dashboard.view">
-                <li>
-                  <NavLink
-                    href="/dashboard"
-                    icon={<FaTachometerAlt />}
-                    label="Standard Dashboard"
-                    active={pathname === "/dashboard"}
-                    color="indigo"
-                  />
-                </li>
-                <li>
-                  <NavLink
-                    href="/dashboard/executive-ai"
-                    icon={<FaBrain />}
-                    label="Executive AI Dashboard"
-                    active={pathname === "/dashboard/executive-ai"}
-                    color="violet"
-                  />
-                </li>
-                <li>
-                  <NavLink
-                    href="/dashboard/targets"
-                    icon={<FaBullseye />}
-                    label="Targets & Achievements"
-                    active={pathname === "/dashboard/targets" || pathname.startsWith("/dashboard/targets")}
-                    color="rose"
-                  />
-                </li>
-                <li>
-                  <NavLink
-                    href="/dashboard/purchase-sales-analytics"
-                    icon={<FaChartBar />}
-                    label="Purchase & Sale Analytics"
-                    active={pathname === "/dashboard/purchase-sales-analytics" || pathname.startsWith("/dashboard/purchase-sales-analytics")}
-                    color="sky"
-                  />
-                </li>
-                <li>
-                  <NavLink
-                    href="/dashboard/email-campaign"
-                    icon={<FaPaperPlane />}
-                    label="Email Campaign"
-                    active={pathname === "/dashboard/email-campaign" || pathname.startsWith("/dashboard/email-campaign")}
-                    color="amber"
-                  />
-                </li>
-                <li>
-                  <NavLink
-                    href="/dashboard/whatsapp-campaign"
-                    icon={<FaWhatsapp />}
-                    label="WhatsApp Campaign"
-                    active={pathname === "/dashboard/whatsapp-campaign" || pathname.startsWith("/dashboard/whatsapp-campaign")}
-                    color="emerald"
-                  />
-                </li>
-                {/* ── Lead Management Hub ─────────────────── */}
-                <li>
-                  <NavLink
-                    href="/dashboard/leads"
-                    icon={<FaBullhorn />}
-                    label="Lead Management Hub"
-                    active={pathname === "/dashboard/leads" || pathname.startsWith("/dashboard/leads")}
-                    color="rose"
-                  />
-                </li>
-                {/* Dynamic Custom Form Studio */}
-                <Group
-                  icon={<FaSlidersH />}
-                  label="Form Studio (Custom)"
-                  open={customFormsOpen}
-                  onClick={() => setCustomFormsOpen(!customFormsOpen)}
-                  active={pathname.startsWith("/dashboard/custom-forms")}
-                  color="violet"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/custom-forms"
-                          icon={<FaListUl />}
-                          label="Saved Forms Hub"
-                          active={pathname === "/dashboard/custom-forms"}
-                          color="violet"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/custom-forms/builder"
-                          icon={<FaPlusCircle />}
-                          label="Create New Form"
-                          active={pathname === "/dashboard/custom-forms/builder"}
-                          color="violet"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/custom-forms/guide"
-                          icon={<FaBook />}
-                          label="Guide & Capabilities"
-                          active={pathname === "/dashboard/custom-forms/guide"}
-                          color="violet"
-                        />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-              {/* ################ master Start here ##################### */}
-              <PermissionGate permission="master.view">
-                <Group
-                  icon={<FaCog />}
-                  label="Master"
-                  open={masterOpen}
-                  onClick={() => setMasterOpen(!masterOpen)}
-                  active={pathname.startsWith("/dashboard/master")}
-                  color="cyan"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/master"
-                          icon={<FaTachometerAlt />}
-                          label="Dashboard"
-                          active={pathname === "/dashboard/master"}
-                          color="cyan"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/accounting-group-master"
-                          icon={<FaLayerGroup />}
-                          label="Accounting Group"
-                          active={pathname.startsWith("/dashboard/master/accounting-group-master")}
-                          color="cyan"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/customer-master"
-                          icon={<FaUsers />}
-                          label="Ledger Master"
-                          active={pathname.startsWith("/dashboard/master/customer-master")}
-                          color="cyan"
-                        />
-                      </li>
+              {visibleMenuItems.map((item) => {
+                const color = item.color || "indigo";
 
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/area-master"
-                          icon={<FaBuilding />}
-                          label="Area Master"
-                          active={pathname.startsWith("/dashboard/master/area-master")}
-                          color="cyan"
-                        />
-                      </li>
+                if (item.isGroup && item.subItems && item.subItems.length > 0) {
+                  const isGroupActive = item.subItems.some((sub) => {
+                    if (!sub.href) return false;
+                    if (sub.href === "/dashboard") return pathname === "/dashboard";
+                    return (
+                      pathname === sub.href ||
+                      pathname.startsWith(sub.href + "/") ||
+                      (sub.href.endsWith("/") && pathname.startsWith(sub.href))
+                    );
+                  });
 
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/product-master"
-                          icon={<FaBoxOpen />}
-                          label="Product Master"
-                          active={pathname.startsWith("/dashboard/master/product-master")}
-                          color="cyan"
-                        />
-                      </li>
+                  return (
+                    <Group
+                      key={item.id}
+                      id={item.id}
+                      icon={renderMenuIcon(item.icon)}
+                      label={item.label}
+                      open={!!openGroups[item.id]}
+                      onClick={() => toggleGroup(item.id)}
+                      active={isGroupActive}
+                      color={color}
+                      subItems={item.subItems}
+                    />
+                  );
+                }
 
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/hsn-master"
-                          icon={<FaListUl />}
-                          label="HSN Master"
-                          active={pathname.startsWith("/dashboard/master/hsn-master")}
-                          color="cyan"
-                        />
-                      </li>
+                // Single link item
+                const href = item.href || "#";
+                const isSingleActive =
+                  href === "/dashboard"
+                    ? pathname === "/dashboard"
+                    : pathname === href || pathname.startsWith(href + "/");
 
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/division-master"
-                          icon={<FaListUl />}
-                          label="Division Master"
-                          active={pathname.startsWith("/dashboard/master/division-master")}
-                          color="cyan"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/targets"
-                          icon={<FaBullseye />}
-                          label="Target & Gift Master"
-                          active={pathname.startsWith("/dashboard/master/targets")}
-                          color="cyan"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/mr-customer"
-                          icon={<FaUserCheck />}
-                          label="MR Customer Master"
-                          active={pathname.startsWith("/dashboard/master/mr-customer")}
-                          color="cyan"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/master/voucher-series"
-                          icon={<FaSlidersH />}
-                          label="Bill Series Master"
-                          active={pathname.startsWith("/dashboard/master/voucher-series")}
-                          color="cyan"
-                        />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-              {/* ################ master end here ##################### */}
-              {/* ################ Area Start here ##################### */}
-              <PermissionGate permission="area.view">
-                <li>
-                  <NavLink
-                    href="/dashboard/area"
-                    icon={<FaBuilding />}
-                    label="Area"
-                    active={pathname.startsWith("/dashboard/area")}
-                    color="emerald"
-                  />
-                </li>
-              </PermissionGate>
-              {/* ################ Area END here ##################### */}
-
-              {/* ################ Compare Start here ##################### */}
-              <PermissionGate permission="compare.view">
-                <Group
-                  icon={<FaBalanceScale />}
-                  label="Comparison"
-                  open={compareOpen}
-                  onClick={() => setCompareOpen(!compareOpen)}
-                  active={pathname.startsWith("/dashboard/compare")}
-                  color="orange"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/compare"
-                          icon={<FaChartBar />}
-                          label="Overview Dashboard"
-                          active={pathname === "/dashboard/compare"}
-                          color="orange"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/compare/fy-wise"
-                          icon={<FaCalendarAlt />}
-                          label="Financial Year Wise"
-                          active={pathname === "/dashboard/compare/fy-wise"}
-                          color="orange"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/compare/fy-area-wise"
-                          icon={<FaMapMarkerAlt />}
-                          label="FY Area Wise Map"
-                          active={pathname.startsWith("/dashboard/compare/fy-area-wise")}
-                          color="orange"
-                        />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-              {/* ################ Compare END here ##################### */}
-
-              <PermissionGate permission="users.view">
-                <Group
-                  icon={<FaUsers />}
-                  label="Users"
-                  open={crmOpen}
-                  onClick={() => setCrmOpen(!crmOpen)}
-                  active={
-                    pathname.startsWith("/dashboard/users") ||
-                    pathname.startsWith("/dashboard/permissions") ||
-                    pathname.startsWith("/dashboard/roles")
-                  }
-                  color="violet"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/users"
-                          icon={<FaUsers />}
-                          label="User Management"
-                          active={pathname.startsWith("/dashboard/users")}
-                          color="violet"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/permissions"
-                          icon={<FaUserShield />}
-                          label="Permission"
-                          active={pathname.startsWith("/dashboard/permissions")}
-                          color="violet"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/roles"
-                          icon={<FaUserTag />}
-                          label="Roles"
-                          active={pathname.startsWith("/dashboard/roles")}
-                          color="violet"
-                        />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-
-              <PermissionGate permission="inventory.view">
-                <Group
-                  icon={<FaBoxOpen />}
-                  label="Inventory"
-                  open={inventoryOpen}
-                  onClick={() => setInventoryOpen(!inventoryOpen)}
-                  active={pathname.startsWith("/dashboard/inventory")}
-                  color="sky"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/inventory/dashboard"
-                          icon={<FaTachometerAlt />}
-                          label="Inventory Dashboard"
-                          active={pathname === "/dashboard/inventory/dashboard"}
-                          color="sky"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/inventory/products"
-                          icon={<FaBoxOpen />}
-                          label="Products"
-                          active={pathname.startsWith("/dashboard/inventory/products")}
-                          color="sky"
-                        />
-                      </li>
-                      <li>
-                        <SubLink href="/dashboard/stock" icon={<FaWarehouse />} label="Stock Overview" active={pathname === "/dashboard/stock"} color="sky" />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/stock/expiry-liquidator"
-                          icon={<FaWarehouse />}
-                          label="Batch Expiry Liquidator"
-                          active={pathname.startsWith("/dashboard/stock/expiry-liquidator")}
-                          color="sky"
-                        />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-
-              <PermissionGate permission="sales.view">
-                <Group
-                  icon={<FaShoppingCart />}
-                  label="Sales"
-                  open={salesOpen}
-                  onClick={() => setSalesOpen(!salesOpen)}
-                  active={pathname.startsWith("/dashboard/sales")}
-                  color="blue"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/sales/dashboard/"
-                          icon={<FaTachometerAlt />}
-                          label="Sales Dashboard"
-                          active={pathname.startsWith("/dashboard/sales/dashboard/")}
-                          color="blue"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/sales/invoice"
-                          icon={<FaFileInvoice />}
-                          label="Invoices List"
-                          active={pathname === "/dashboard/sales/invoice"}
-                          color="blue"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/sales/outstanding"
-                          icon={<FaFileInvoiceDollar />}
-                          label="Sales Outstanding"
-                          active={pathname.startsWith("/dashboard/sales/outstanding")}
-                          color="blue"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/credit-risk/bad-debts"
-                          icon={<FaUserShield />}
-                          label="Bad Debt & Credit Risk"
-                          active={pathname.startsWith("/dashboard/credit-risk/bad-debts")}
-                          color="blue"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/sales/invoice/create"
-                          icon={<FaPlusCircle />}
-                          label="Create Sale Invoice"
-                          active={pathname.startsWith("/dashboard/sales/invoice/create")}
-                          color="blue"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/sales/sale-return"
-                          icon={<FaUndo />}
-                          label="Sales Return"
-                          active={pathname.startsWith("/dashboard/sales/sale-return")}
-                          color="blue"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/sales/receipt"
-                          icon={<FaReceipt />}
-                          label="Receipt Entry"
-                          active={pathname.startsWith("/dashboard/sales/receipt")}
-                          color="blue"
-                        />
-                      </li>
-                      <li>
-                        <SubLink href="/dashboard/orders" icon={<FaClipboardList />} label="Orders" active={false} color="blue" />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-
-              {/* ################ Purchase Start here ##################### */}
-              <PermissionGate permission="purchase.view">
-                <Group
-                  icon={<FaShoppingBag />}
-                  label="Purchase"
-                  open={purchaseOpen}
-                  onClick={() => setPurchaseOpen(!purchaseOpen)}
-                  active={pathname.startsWith("/dashboard/purchase")}
-                  color="amber"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/purchase/dashboard"
-                          icon={<FaTachometerAlt />}
-                          label="Purchase Dashboard"
-                          active={pathname === "/dashboard/purchase/dashboard" || pathname === "/dashboard/purchase"}
-                          color="amber"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/purchase/invoice"
-                          icon={<FaFileInvoice />}
-                          label="Purchase Invoices List"
-                          active={pathname === "/dashboard/purchase/invoice"}
-                          color="amber"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/purchase/outstanding"
-                          icon={<FaFileInvoiceDollar />}
-                          label="Purchase Outstanding"
-                          active={pathname.startsWith("/dashboard/purchase/outstanding")}
-                          color="amber"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/purchase/invoice/create"
-                          icon={<FaPlusCircle />}
-                          label="Create Purchase Bill"
-                          active={pathname === "/dashboard/purchase/invoice/create"}
-                          color="amber"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/purchase/ai-entry"
-                          icon={<FaCamera />}
-                          label="AI Bill Entry (Photo/PDF)"
-                          active={pathname.startsWith("/dashboard/purchase/ai-entry")}
-                          color="amber"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/purchase/purchase-return"
-                          icon={<FaUndo />}
-                          label="Purchase Return"
-                          active={
-                            pathname.startsWith("/dashboard/purchase/purchase-return") ||
-                            pathname.startsWith("/dashboard/reports/purchase-return")
-                          }
-                          color="amber"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/purchase/payment"
-                          icon={<FaReceipt />}
-                          label="Payment Entry"
-                          active={pathname.startsWith("/dashboard/purchase/payment")}
-                          color="amber"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/purchase/orders"
-                          icon={<FaClipboardList />}
-                          label="Purchase Orders"
-                          active={pathname.startsWith("/dashboard/purchase/orders")}
-                          color="amber"
-                        />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-              {/* ################ Purchase END here ##################### */}
-
-              <PermissionGate permission="customer.view">
-                <Group
-                  icon={<FaBuilding />}
-                  label="Customer"
-                  open={customerOpen}
-                  onClick={() => setCustomerOpen(!customerOpen)}
-                  active={pathname.startsWith("/dashboard/customers")}
-                  color="emerald"
-                  items={
-                    <li>
-                      <SubLink
-                        href="/dashboard/customers"
-                        icon={<FaListUl />}
-                        label="List Customers"
-                        active={pathname.startsWith("/dashboard/customers")}
-                        color="emerald"
-                      />
-                    </li>
-                  }
-                />
-              </PermissionGate>
-
-              <PermissionGate permission="company.view">
-                <Group
-                  icon={<FaBuilding />}
-                  label="Company"
-                  open={companyOpen}
-                  onClick={() => setCompanyOpen(!companyOpen)}
-                  active={pathname.startsWith("/dashboard/company")}
-                  color="amber"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/company/create"
-                          icon={<FaPlusCircle />}
-                          label="Create Company"
-                          active={pathname.startsWith("/dashboard/company/create")}
-                          color="amber"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/company/list"
-                          icon={<FaListUl />}
-                          label="List Company"
-                          active={pathname.startsWith("/dashboard/company/list")}
-                          color="amber"
-                        />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-
-              <PermissionGate permission="financialyear.view">
-                <Group
-                  icon={<FaCalendarAlt />}
-                  label="F.Year"
-                  open={fyOpen}
-                  onClick={() => setFyOpen(!fyOpen)}
-                  active={pathname.startsWith("/dashboard/financial-year")}
-                  color="teal"
-                  items={
-                    <>
-                      <li>
-                        <SubLink
-                          href="/dashboard/financial-year/create"
-                          icon={<FaPlusCircle />}
-                          label="Create FY"
-                          active={pathname.startsWith("/dashboard/financial-year/create")}
-                          color="teal"
-                        />
-                      </li>
-                      <li>
-                        <SubLink
-                          href="/dashboard/financial-year/list"
-                          icon={<FaListUl />}
-                          label="List FY"
-                          active={pathname.startsWith("/dashboard/financial-year/list")}
-                          color="teal"
-                        />
-                      </li>
-                    </>
-                  }
-                />
-              </PermissionGate>
-
-              {(can("vfp.view") || can("vfp.settings")) && (
-                <Group
-                  icon={<FaExchangeAlt />}
-                  label="Migration"
-                  open={vfpOpen}
-                  onClick={() => setVfpOpen(!vfpOpen)}
-                  active={pathname.startsWith("/dashboard/mabsolcrmsync")}
-                  color="rose"
-                  items={
-                    <>
-                      {can("vfp.view") && (
-                        <li>
-                          <SubLink
-                            href="/dashboard/mabsolcrmsync"
-                            icon={<FaSyncAlt />}
-                            label="Sync Busy ERP"
-                            active={pathname === "/dashboard/mabsolcrmsync"}
-                            color="rose"
-                          />
-                        </li>
-                      )} {can("vfp.view") && (
-                        <li>
-                          <SubLink
-                            href="/dashboard/mabsolcrmsync"
-                            icon={<FaSyncAlt />}
-                            label="Sync Tally ERP"
-                            active={pathname === "/dashboard/mabsolcrmsync"}
-                            color="rose"
-                          />
-                        </li>
-                      )}{can("vfp.view") && (
-                        <li>
-                          <SubLink
-                            href="/dashboard/mabsolcrmsync"
-                            icon={<FaSyncAlt />}
-                            label="Sync EasySol"
-                            active={pathname === "/dashboard/mabsolcrmsync"}
-                            color="rose"
-                          />
-                        </li>
-                      )}{can("vfp.view") && (
-                        <li>
-                          <SubLink
-                            href="/dashboard/mabsolcrmsync"
-                            icon={<FaSyncAlt />}
-                            label="Sync Logic ERP"
-                            active={pathname === "/dashboard/mabsolcrmsync"}
-                            color="rose"
-                          />
-                        </li>
-                      )} {can("vfp.view") && (
-                        <li>
-                          <SubLink
-                            href="/dashboard/mabsolcrmsync"
-                            icon={<FaSyncAlt />}
-                            label="Sync Marg ERP"
-                            active={pathname === "/dashboard/mabsolcrmsync"}
-                            color="rose"
-                          />
-                        </li>
-                      )}
-                      {can("vfp.settings") && (
-                        <li>
-                          <SubLink
-                            href="/dashboard/mabsolcrmsync/settings"
-                            icon={<FaSlidersH />}
-                            label="Sync Settings"
-                            active={pathname.startsWith("/dashboard/mabsolcrmsync/settings")}
-                            color="rose"
-                          />
-                        </li>
-                      )}
-                    </>
-                  }
-                />
-              )}
-
-              <PermissionGate permission="reports.view">
-                <li>
-                  <NavLink
-                    href="/dashboard/reports"
-                    icon={<FaChartBar />}
-                    label="Dash Reports"
-                    active={pathname.startsWith("/dashboard/reports")}
-                    color="orange"
-                  />
-                </li>
-                <li>
-                  <NavLink
-                    href="/dashboard/gst-reports"
-                    icon={<FaChartBar />}
-                    label="GST Reports"
-                    active={pathname.startsWith("/dashboard/gst-reports")}
-                    color="orange"
-                  />
-                </li>
-              </PermissionGate>
-
-              <PermissionGate permission="settings.edit">
-                <li>
-                  <NavLink
-                    href="/dashboard/settings"
-                    icon={<FaCog />}
-                    label="Company Settings"
-                    active={pathname === "/dashboard/settings"}
-                    color="cyan"
-                  />
-                </li>
-
-
-                <li>
-                  <NavLink
-                    href="/dashboard/voice-settings"
-                    icon={<FaSlidersH />}
-                    label="Voice AI 🎙️"
-                    active={pathname.startsWith("/dashboard/voice-settings")}
-                    color="rose"
-                  />
-                </li>
-              </PermissionGate>
+                return (
+                  <li key={item.id}>
+                    <NavLink
+                      href={href}
+                      icon={renderMenuIcon(item.icon)}
+                      label={item.label}
+                      active={isSingleActive}
+                      color={color}
+                    />
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -1319,14 +689,14 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                   </div>
 
                   <div className="text-[11px] text-gray-500 truncate">
-                    {user?.roleId?.roleName || "Logged in"}
+                    {user?.roleId?.roleName || selectedCompany?.companyName || "Logged in"}
                   </div>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div >
+      </div>
 
       <style>{`
         .glass-sidebar {
@@ -1447,7 +817,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           scroll-behavior: smooth;
         }
 
-        /* Apple Light Liquid Glass Aesthetics for Responsive Mobile */
+        /* Responsive Mobile */
         @media (max-width: 991px) {
           .glass-sidebar {
             background: linear-gradient(160deg, rgba(248,249,255,0.98) 0%, rgba(240,244,255,0.96) 100%) !important;

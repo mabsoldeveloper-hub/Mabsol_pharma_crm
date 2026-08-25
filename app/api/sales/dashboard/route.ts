@@ -57,9 +57,9 @@ export async function GET(req: Request) {
           }
         }
 
-        const mdisSaleFilter = { ...mdisFilter, TYPE: "S" };
-        const mdisReturnFilter = { ...mdisFilter, TYPE: "R" };
-        const disSaleFilter = { ...disFilter, TYPE: "S" };
+        const mdisSaleFilter = combineFilters(mdisFilter, { TYPE: "S" });
+        const mdisReturnFilter = combineFilters(mdisFilter, { TYPE: "R" });
+        const disSaleFilter = combineFilters(disFilter, { TYPE: "S" });
 
         const [
           totalBills,
@@ -84,8 +84,8 @@ export async function GET(req: Request) {
             { $match: disSaleFilter },
             { $group: { _id: null, qty: { $sum: "$QTY" } } }
           ]),
-          Customer.countDocuments({ ...customerFilter, STATUS: { $ne: "N" } }),
-          Product.countDocuments({ ...productFilter, STATUS: { $ne: "N" } }),
+          Customer.countDocuments(combineFilters(customerFilter, { STATUS: { $ne: "N" } })),
+          Product.countDocuments(combineFilters(productFilter, { STATUS: { $ne: "N" } })),
         ]);
 
         const totalSales = salesAgg[0]?.total || 0;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import KPICards from "@/components/KPICards";
 import DashboardCharts, { PurchaseDashboardCharts, CreditDashboardCharts } from "@/components/DashboardCharts";
 import AnalyticsCards from "@/components/AnalyticsCards";
@@ -17,6 +17,9 @@ import {
     FaWallet,
     FaTruck,
     FaCheckCircle,
+    FaClock,
+    FaVolumeUp,
+    FaVolumeMute,
 } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -35,9 +38,134 @@ export default function DashboardContent() {
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>("overview");
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
+    const [currentTime, setCurrentTime] = useState<Date | null>(null);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
+    const hasSpokenRef = useRef(false);
 
     const { selectedCompany } = useCompany();
     const { selectedFY } = useFinancialYear();
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("dashboard_voice_enabled");
+            if (saved !== null) {
+                setVoiceEnabled(saved !== "false");
+            }
+        }
+    }, []);
+
+    const toggleVoice = () => {
+        setVoiceEnabled((prev) => {
+            const next = !prev;
+            if (typeof window !== "undefined") {
+                localStorage.setItem("dashboard_voice_enabled", String(next));
+                if (!next && "speechSynthesis" in window) {
+                    window.speechSynthesis.cancel();
+                    setIsSpeaking(false);
+                } else if (next && "speechSynthesis" in window) {
+                    // Instantly speak greeting when user turns voice ON
+                    setTimeout(() => speakGreeting(), 150);
+                }
+            }
+            return next;
+        });
+    };
+
+    const speakGreeting = useCallback((customText?: string) => {
+        if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
+        const isMuted = localStorage.getItem("dashboard_voice_enabled") === "false";
+        if (isMuted) return;
+
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume(); // Fix Chrome paused audio queue bug
+
+        const hour = new Date().getHours();
+        let greetingPhrase = "";
+        if (hour >= 5 && hour < 12) {
+            greetingPhrase = "Good Morning, Sir";
+        } else if (hour >= 12 && hour < 17) {
+            greetingPhrase = "Good Afternoon, Sir";
+        } else if (hour >= 17 && hour < 20) {
+            greetingPhrase = "Good Evening, Sir";
+        } else {
+            greetingPhrase = "Good Night, Sir";
+        }
+
+        const utterance = new SpeechSynthesisUtterance(customText || greetingPhrase);
+        utterance.lang = "en-IN";
+
+        // Prioritize Indian English / Indian Accent voices (en-IN / hi-IN)
+        const voices = window.speechSynthesis.getVoices();
+        const indianVoice = voices.find(
+            (v) =>
+                v.lang === "en-IN" ||
+                v.lang === "en_IN" ||
+                v.lang.toLowerCase().includes("in") ||
+                v.name.toLowerCase().includes("india") ||
+                v.name.toLowerCase().includes("ravi") ||
+                v.name.toLowerCase().includes("heera") ||
+                v.name.toLowerCase().includes("neerja") ||
+                v.name.toLowerCase().includes("swara") ||
+                v.name.toLowerCase().includes("google english (india)")
+        ) || voices.find((v) => v.lang.startsWith("en"));
+
+        if (indianVoice) {
+            utterance.voice = indianVoice;
+        }
+
+        utterance.rate = 0.95; // Crisp, warm executive pace
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+
+        window.speechSynthesis.speak(utterance);
+    }, []);
+
+    useEffect(() => {
+        // Auto-greet with Indian voice reliably on page load and first interaction
+        let spoken = false;
+        const triggerGreeting = () => {
+            if (spoken) return;
+            spoken = true;
+            speakGreeting();
+        };
+
+        const timer = setTimeout(triggerGreeting, 600);
+
+        // Fallback: If browser blocked audio before user clicked, play on first click/tap
+        const handleInteraction = () => {
+            if (!spoken) {
+                triggerGreeting();
+            }
+        };
+
+        window.addEventListener("pointerdown", handleInteraction, { once: true });
+        window.addEventListener("keydown", handleInteraction, { once: true });
+
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                if (!spoken) triggerGreeting();
+            };
+        }
+
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener("pointerdown", handleInteraction);
+            window.removeEventListener("keydown", handleInteraction);
+        };
+    }, [speakGreeting]);
+
+    useEffect(() => {
+        setCurrentTime(new Date());
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     const loadMrTerritoryInfo = async () => {
         try {
@@ -83,8 +211,8 @@ export default function DashboardContent() {
 
             const res = await fetch(url);
             if (!res.ok) {
-              console.error(`Dashboard API returned status ${res.status}`);
-              return;
+                console.error(`Dashboard API returned status ${res.status}`);
+                return;
             }
             const json = await res.json();
             setData(json);
@@ -124,22 +252,137 @@ export default function DashboardContent() {
         };
     }, [loadDashboard]);
 
-    // Greeting according to local hour
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return "Good Morning ☀️";
-        if (hour < 17) return "Good Afternoon 🌤️";
-        return "Good Evening 🌙";
+    const [previewPhase, setPreviewPhase] = useState<"auto" | "morning" | "afternoon" | "evening" | "night">("auto");
+
+    // Dynamic Celestial Time Info according to local hour or manual preview
+    const getCelestialTimeInfo = () => {
+        let activePhase: "morning" | "afternoon" | "evening" | "night";
+
+        if (previewPhase !== "auto") {
+            activePhase = previewPhase;
+        } else {
+            const hour = currentTime ? currentTime.getHours() : new Date().getHours();
+            if (hour >= 5 && hour < 12) activePhase = "morning";
+            else if (hour >= 12 && hour < 17) activePhase = "afternoon";
+            else if (hour >= 17 && hour < 20) activePhase = "evening";
+            else activePhase = "night";
+        }
+
+        if (activePhase === "morning") {
+            return {
+                phase: "morning",
+                greeting: "Good Morning",
+                tag: "🌅 Dawn Energy • Peak Focus",
+                tagColor: "bg-amber-50/80 text-amber-900 dark:text-amber-300 border-amber-200/60 hover:bg-amber-100/60",
+                subtitle: "Morning dispatch pipeline, sales velocity & batch distribution health",
+                gradient: "from-[#ffffff]/98 via-[#fffbf6]/95 to-[#fff5eb]/90",
+                borderColor: "border-amber-200/60 hover:border-amber-300/80",
+                hoverShadow: "hover:shadow-[0_16px_40px_-12px_rgba(245,158,11,0.12)]",
+                textColor: "text-slate-900",
+                subtextColor: "text-slate-600",
+                orb1: "bg-amber-300/12 group-hover:scale-115 transition-all duration-700",
+                orb2: "bg-rose-200/10 group-hover:scale-115 transition-all duration-700",
+                icon: (
+                    <span className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 to-orange-400 shadow-[0_2px_8px_rgba(251,191,36,0.35)] group-hover:scale-110 transition-all duration-300">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="group-hover:rotate-45 transition-transform duration-500">
+                            <circle cx="12" cy="12" r="5" fill="#ffffff" />
+                            <path d="M12 2v2m0 16v2M2 12h2m16 0h2m-3.17-6.83l-1.42 1.42m-9.82 9.82l-1.42 1.42m0-12.66l1.42 1.42m9.82 9.82l1.42 1.42" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
+                        </svg>
+                    </span>
+                ),
+            };
+        } else if (activePhase === "afternoon") {
+            return {
+                phase: "afternoon",
+                greeting: "Good Afternoon",
+                tag: "☀️ Midday Surge • Active Stream",
+                tagColor: "bg-orange-50/80 text-orange-900 dark:text-orange-300 border-orange-200/60 hover:bg-orange-100/60",
+                subtitle: "Peak-hour transaction throughput, real-time invoices & territory velocity",
+                gradient: "from-[#ffffff]/98 via-[#fff9f4]/95 to-[#fff3e8]/90",
+                borderColor: "border-orange-200/60 hover:border-orange-300/80",
+                hoverShadow: "hover:shadow-[0_16px_40px_-12px_rgba(249,115,22,0.12)]",
+                textColor: "text-slate-900",
+                subtextColor: "text-slate-600",
+                orb1: "bg-orange-300/12 group-hover:scale-115 transition-all duration-700",
+                orb2: "bg-amber-200/10 group-hover:scale-115 transition-all duration-700",
+                icon: (
+                    <span className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-orange-400 via-amber-500 to-orange-500 shadow-[0_2px_8px_rgba(249,115,22,0.35)] group-hover:scale-110 transition-all duration-300">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="animate-[spin_16s_linear_infinite] group-hover:animate-[spin_5s_linear_infinite]">
+                            <circle cx="12" cy="12" r="4.5" fill="#ffffff" />
+                            <path d="M12 1v3m0 16v3M1 12h3m16 0h3m-4.22-6.78l-2.12 2.12m-9.32 9.32l-2.12 2.12m0-13.56l2.12 2.12m9.32 9.32l2.12 2.12" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" />
+                        </svg>
+                    </span>
+                ),
+            };
+        } else if (activePhase === "evening") {
+            return {
+                phase: "evening",
+                greeting: "Good Evening",
+                tag: "🌇 Twilight Wrap • Settlement Mode",
+                tagColor: "bg-rose-50/80 text-rose-900 dark:text-rose-300 border-rose-200/60 hover:bg-rose-100/60",
+                subtitle: "End-of-day sales reconciliation, territory summaries & warehouse ledger",
+                gradient: "from-[#ffffff]/98 via-[#fff7f5]/95 to-[#fef2f0]/90",
+                borderColor: "border-rose-200/60 hover:border-rose-300/80",
+                hoverShadow: "hover:shadow-[0_16px_40px_-12px_rgba(244,63,94,0.12)]",
+                textColor: "text-slate-900",
+                subtextColor: "text-slate-600",
+                orb1: "bg-rose-300/12 group-hover:scale-115 transition-all duration-700",
+                orb2: "bg-indigo-200/10 group-hover:scale-115 transition-all duration-700",
+                icon: (
+                    <span className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-rose-500 via-orange-500 to-indigo-500 shadow-[0_2px_8px_rgba(244,63,94,0.35)] group-hover:scale-110 transition-all duration-300">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="group-hover:translate-y-[-2px] transition-transform duration-300">
+                            <path d="M12 4v4m0 10v2M4.93 6.93l2.83 2.83M3 16h18M6 19h12" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
+                            <circle cx="12" cy="13" r="3.5" fill="#ffffff" />
+                        </svg>
+                    </span>
+                ),
+            };
+        } else {
+            return {
+                phase: "night",
+                greeting: "Good Night",
+                tag: "🌙 Night Ops • Automated Sync",
+                tagColor: "bg-indigo-950/60 text-indigo-300 border-indigo-500/30 hover:bg-indigo-900/60",
+                subtitle: "Overnight automated batch sync, encrypted ERP backups & ledger locks",
+                gradient: "from-[#0f172a]/98 via-[#1e293b]/95 to-[#0f172a]/92",
+                borderColor: "border-indigo-500/30 hover:border-indigo-400/50",
+                hoverShadow: "hover:shadow-[0_16px_40px_-12px_rgba(99,102,241,0.25)]",
+                textColor: "text-white",
+                subtextColor: "text-indigo-200/80",
+                orb1: "bg-indigo-500/20 group-hover:scale-115 transition-all duration-700",
+                orb2: "bg-cyan-500/12 group-hover:scale-115 transition-all duration-700",
+                icon: (
+                    <span className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-cyan-400 shadow-[0_2px_8px_rgba(99,102,241,0.35)] group-hover:scale-110 transition-all duration-300">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="group-hover:rotate-[-12deg] transition-transform duration-300">
+                            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="#ffffff" />
+                            <circle cx="17" cy="6" r="1" fill="#ffffff" className="animate-ping" />
+                            <circle cx="19" cy="9" r="0.8" fill="#ffffff" />
+                        </svg>
+                    </span>
+                ),
+            };
+        }
     };
 
-    if (loading && !data) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
-                <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading Apple Liquid Dashboard...</p>
-            </div>
-        );
-    }
+    const celestial = getCelestialTimeInfo();
+
+    const formattedDate = currentTime
+        ? currentTime.toLocaleDateString("en-IN", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        })
+        : "";
+
+    const formattedTime = currentTime
+        ? currentTime.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+        })
+        : "";
 
     const tabs = [
         { id: "overview", label: "Executive Overview", icon: FaChartPie, badge: "Live" },
@@ -150,47 +393,121 @@ export default function DashboardContent() {
     ];
 
     return (
-        <div className="flex flex-col gap-5">
-            {/* ==================== APPLE EXECUTIVE LIQUID GLASS BANNER ==================== */}
-            <div className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/90 via-slate-900/90 to-blue-900/90 p-5 sm:p-6 text-white border border-white/20 shadow-[0_16px_40px_rgba(0,0,0,0.15)] backdrop-blur-2xl">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-                <div className="pointer-events-none absolute -bottom-20 -right-20 w-64 h-64 rounded-full bg-indigo-500/20 blur-3xl" />
-                <div className="pointer-events-none absolute -top-20 -left-20 w-64 h-64 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="flex flex-col gap-5 min-h-screen">
+            {/* ==================== DYNAMIC TIME-AWARE CELESTIAL EXECUTIVE BANNER ==================== */}
+            <div className={`group relative isolate overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br ${celestial.gradient} p-4 sm:p-5 md:p-6 ${celestial.textColor} border-[1.5px] ${celestial.borderColor} shadow-[0_12px_36px_-12px_rgba(249,115,22,0.08),0_4px_12px_rgba(0,0,0,0.02)] backdrop-blur-3xl transition-all duration-500 ${celestial.hoverShadow}`}>
+                {/* Top Glass Specular Highlight */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white to-transparent" />
+                {/* Ambient Celestial Glow Orbs */}
+                <div className={`pointer-events-none absolute -bottom-20 -right-20 w-56 sm:w-72 h-56 sm:h-72 rounded-full ${celestial.orb1} blur-3xl`} />
+                <div className={`pointer-events-none absolute -top-20 -left-20 w-56 sm:w-72 h-56 sm:h-72 rounded-full ${celestial.orb2} blur-3xl`} />
 
-                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4">
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-widest bg-white/10 text-indigo-200 px-2.5 py-0.5 rounded-full border border-white/10 backdrop-blur-md">
-                                Executive Intelligence OS
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 flex-wrap">
+                            <span className={`text-[10px] sm:text-[10.5px] font-extrabold uppercase tracking-widest px-2.5 sm:px-3 py-0.5 rounded-full border shadow-xs backdrop-blur-md transition-all duration-200 hover:scale-105 cursor-default ${celestial.tagColor}`}>
+                                {celestial.tag}
                             </span>
                             {selectedCompany?.companyName && (
-                                <span className="text-[10px] font-semibold text-indigo-300 flex items-center gap-1 bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-500/30">
-                                    <FaBuilding size={9} /> {selectedCompany.companyName}
+                                <span className={`text-[10px] sm:text-[10.5px] font-bold flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-0.5 rounded-full border shadow-xs transition-all duration-200 hover:scale-105 cursor-default ${celestial.phase === 'night' ? 'bg-indigo-900/60 text-sky-300 border-indigo-400/30' : 'bg-sky-500/10 text-sky-700 border-sky-400/30'}`}>
+                                    <FaBuilding size={9} className={celestial.phase === 'night' ? 'text-sky-400' : 'text-sky-600'} /> {selectedCompany.companyName}
                                 </span>
                             )}
                         </div>
-                        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white font-sans">
-                            {getGreeting()}
+                        <h2 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight font-sans flex items-center gap-2.5 sm:gap-3">
+                            {celestial.icon}
+                            <span>{celestial.greeting}</span>
                         </h2>
-                        <p className="text-xs text-indigo-200/80 font-normal mt-0.5">
-                            Real-time pharma CRM analytics, sales velocity, & inventory health score
+                        <p className={`text-[11px] sm:text-xs font-medium mt-1 leading-snug sm:leading-normal ${celestial.subtextColor}`}>
+                            {celestial.subtitle}
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                        {/* Theme Preview Switcher Capsule */}
+                        <div className={`flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[10.5px] sm:text-[11px] shadow-xs ${celestial.phase === 'night' ? 'bg-white/10 border-white/20' : 'bg-white/90 border-slate-200/80'}`}>
+                            {[
+                                { id: "auto", label: "Auto", icon: "⏱️" },
+                                { id: "morning", label: "Morning", icon: "🌅" },
+                                { id: "afternoon", label: "Afternoon", icon: "☀️" },
+                                { id: "evening", label: "Evening", icon: "🌇" },
+                                { id: "night", label: "Night", icon: "🌙" },
+                            ].map((m) => (
+                                <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => setPreviewPhase(m.id as any)}
+                                    className={`flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-lg sm:rounded-xl font-bold transition-all duration-200 cursor-pointer ${
+                                        previewPhase === m.id
+                                            ? "bg-slate-900 text-white shadow-xs scale-102"
+                                            : celestial.phase === 'night'
+                                            ? "text-indigo-200 hover:text-white hover:bg-white/10"
+                                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                                    }`}
+                                    title={`Preview ${m.label} theme`}
+                                >
+                                    <span>{m.icon}</span>
+                                    <span className="hidden md:inline">{m.label}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Auto-Voice Greeting ON / OFF Toggle Button */}
+                        <button
+                            type="button"
+                            onClick={toggleVoice}
+                            title={voiceEnabled ? "Automatic Voice is ON (Click to turn OFF)" : "Automatic Voice is OFF (Click to turn ON)"}
+                            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer ${
+                                voiceEnabled
+                                    ? "bg-white/90 hover:bg-white border-slate-200/80 text-slate-800"
+                                    : "bg-slate-100/90 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-400 opacity-75"
+                            }`}
+                        >
+                            {voiceEnabled ? (
+                                <>
+                                    <FaVolumeUp size={11} className={`${isSpeaking ? "animate-bounce text-orange-500" : "text-emerald-600"}`} />
+                                    <span className="font-bold text-[10.5px] sm:text-[11px] flex items-center gap-1">
+                                        Voice: <span className="text-emerald-600 font-extrabold">ON</span>
+                                    </span>
+                                </>
+                            ) : (
+                                <>
+                                    <FaVolumeMute size={11} className="text-slate-400" />
+                                    <span className="font-bold text-[10.5px] sm:text-[11px] text-slate-400 flex items-center gap-1">
+                                        Voice: <span className="font-semibold">OFF</span>
+                                    </span>
+                                </>
+                            )}
+                        </button>
+
+                        {currentTime && (
+                            <div className={`flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default ${celestial.phase === 'night' ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white' : 'bg-white/90 hover:bg-white border-slate-200/80 text-slate-800'}`}>
+                                <div className={`flex items-center gap-1 sm:gap-1.5 ${celestial.phase === 'night' ? 'text-indigo-200' : 'text-slate-700'}`}>
+                                    <FaCalendarAlt size={10.5} className={celestial.phase === 'night' ? 'text-indigo-300 flex-shrink-0' : 'text-orange-500 flex-shrink-0'} />
+                                    <span className="font-bold text-[10.5px] sm:text-[11px] whitespace-nowrap">{formattedDate}</span>
+                                </div>
+                                <div className={`w-[1px] h-3 sm:h-3.5 ${celestial.phase === 'night' ? 'bg-white/20' : 'bg-slate-200'}`} />
+                                <div className="flex items-center gap-1 sm:gap-1.5 text-emerald-600 dark:text-emerald-400 font-mono font-extrabold tracking-wider">
+                                    <FaClock size={10.5} className="text-emerald-500 animate-pulse flex-shrink-0" />
+                                    <span className="text-[10.5px] sm:text-[11px] whitespace-nowrap">{formattedTime}</span>
+                                </div>
+                            </div>
+                        )}
                         {selectedFY && (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/15 text-xs text-white">
-                                <FaCalendarAlt size={12} className="text-indigo-300" />
-                                <span className="font-semibold text-[11px]">FY: {selectedFY.fyName || "All"}</span>
+                            <div className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default ${celestial.phase === 'night' ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white' : 'bg-white/90 hover:bg-white border-slate-200/80 text-slate-800'}`}>
+                                <FaCalendarAlt size={10.5} className={celestial.phase === 'night' ? 'text-indigo-300' : 'text-orange-500'} />
+                                <span className="font-bold text-[10.5px] sm:text-[11px] whitespace-nowrap">FY: {selectedFY.fyName || "All"}</span>
                             </div>
                         )}
                         <button
                             onClick={handleManualRefresh}
                             disabled={refreshing}
-                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 transition-all text-xs font-semibold text-white backdrop-blur-xl border border-white/20 cursor-pointer"
+                            className="group relative overflow-hidden flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 transition-all duration-200 text-[11px] sm:text-xs font-bold text-white shadow-[0_4px_12px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.15)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.18)] hover:-translate-y-0.5 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                            <FaSyncAlt size={11} className={`${refreshing ? "animate-spin" : ""}`} />
-                            <span>{refreshing ? "Syncing..." : "Refresh Data"}</span>
+                            {/* Animated light-sweep reflection */}
+                            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 pointer-events-none" />
+                            <FaSyncAlt size={10.5} className={`text-orange-400 ${refreshing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
+                            <span className="whitespace-nowrap">{refreshing ? "Syncing..." : "Refresh"}</span>
                         </button>
                     </div>
                 </div>
@@ -198,9 +515,9 @@ export default function DashboardContent() {
 
             {/* ==================== MR TERRITORY BANNER ==================== */}
             {mrTerritoryInfo?.isMrRestricted && (
-                <div className="flex items-start gap-3 rounded-2xl border border-amber-300/60 bg-amber-500/10 backdrop-blur-xl px-4 py-3 shadow-xs">
+                <div className="flex items-start gap-2.5 sm:gap-3 rounded-2xl border border-amber-300/60 bg-amber-500/10 backdrop-blur-xl px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-xs">
                     <div className="flex-shrink-0 mt-0.5">
-                        <FaMapMarkerAlt size={16} className="text-amber-500" />
+                        <FaMapMarkerAlt size={15} className="text-amber-500" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-0.5">Territory Restricted View</p>
@@ -255,82 +572,119 @@ export default function DashboardContent() {
                 </div>
             )}
 
-            {/* ==================== FLOATING APPLE LIQUID GLASS TAB BAR ==================== */}
-            <div className="flex flex-wrap items-center gap-1.5 bg-white/60 dark:bg-slate-900/60 p-1.5 rounded-2xl border border-white/80 dark:border-slate-800/80 backdrop-blur-2xl backdrop-saturate-180 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
-                {tabs.map((tab) => {
-                    const IconComponent = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as TabType)}
-                            className={`
-                                relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold
-                                transition-all duration-300 cursor-pointer border
-                                ${isActive
-                                    ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border-white/80 dark:border-slate-700 shadow-md scale-[1.02]"
-                                    : "text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40"
-                                }
-                            `}
-                        >
-                            <IconComponent size={14} className={isActive ? "text-indigo-600 dark:text-indigo-400" : "opacity-70"} />
-                            <span>{tab.label}</span>
-                            <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
-                                isActive
-                                    ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300"
-                                    : "bg-slate-500/10 text-slate-500"
-                            }`}>
-                                {tab.badge}
-                            </span>
-                        </button>
-                    );
-                })}
+            {/* ==================== FLOATING CALM LUXURY GLASS TAB BAR (MOBILE SWIPEABLE RIBBON) ==================== */}
+            <div className="w-full overflow-x-auto no-scrollbar scroll-smooth -mx-1 px-1 sm:mx-0 sm:px-0">
+                <div className="inline-flex sm:flex sm:flex-wrap items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 backdrop-blur-2xl backdrop-saturate-180 shadow-xs min-w-max sm:min-w-0">
+                    {tabs.map((tab) => {
+                        const IconComponent = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as TabType)}
+                                className={`
+                                    relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-semibold
+                                    transition-all duration-300 cursor-pointer border flex-shrink-0 whitespace-nowrap
+                                    ${isActive
+                                        ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent shadow-md scale-[1.02]"
+                                        : "text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
+                                    }
+                                `}
+                            >
+                                <IconComponent size={13} className={isActive ? "text-orange-400 dark:text-orange-500" : "opacity-70"} />
+                                <span>{tab.label}</span>
+                                <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${isActive
+                                    ? "bg-orange-500 text-white"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                                    }`}>
+                                    {tab.badge}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
-            {/* ==================== TAB CONTENT RENDERING ==================== */}
-
-            {/* TAB 1: EXECUTIVE OVERVIEW */}
-            {activeTab === "overview" && (
+            {/* ==================== TAB CONTENT RENDERING (ZERO-CLS SKELETON) ==================== */}
+            {loading && !data ? (
+                <div className="flex flex-col gap-5 animate-pulse">
+                    {/* KPI Cards Placeholder Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[1, 2, 3, 4].map((n) => (
+                            <div key={n} className="h-32 rounded-3xl bg-white/80 dark:bg-slate-900/60 border border-orange-400/20 shadow-xs p-5 flex flex-col justify-between">
+                                <div className="flex justify-between items-center">
+                                    <div className="h-3.5 w-24 bg-orange-200/60 dark:bg-slate-700 rounded-full" />
+                                    <div className="h-8 w-8 bg-orange-200/60 dark:bg-slate-700 rounded-xl" />
+                                </div>
+                                <div>
+                                    <div className="h-7 w-32 bg-orange-300/60 dark:bg-slate-600 rounded-lg mb-2" />
+                                    <div className="h-3 w-20 bg-orange-200/40 dark:bg-slate-700 rounded-full" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {/* Charts Placeholder Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        <div className="h-80 rounded-3xl bg-white/80 dark:bg-slate-900/60 border border-orange-400/20 p-6 flex flex-col justify-between">
+                            <div className="h-4 w-40 bg-orange-200/60 dark:bg-slate-700 rounded-full" />
+                            <div className="h-56 bg-orange-50/50 dark:bg-slate-800/40 rounded-2xl flex items-center justify-center">
+                                <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                        </div>
+                        <div className="h-80 rounded-3xl bg-white/80 dark:bg-slate-900/60 border border-orange-400/20 p-6 flex flex-col justify-between">
+                            <div className="h-4 w-40 bg-orange-200/60 dark:bg-slate-700 rounded-full" />
+                            <div className="h-56 bg-orange-50/50 dark:bg-slate-800/40 rounded-2xl flex items-center justify-center">
+                                <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
                 <>
-                    <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
-                    <KPICards kpis={data?.kpis} />
-                    <DashboardCharts charts={data?.charts} />
-                    <AnalyticsCards analytics={data?.analytics} />
-                </>
-            )}
+                    {/* TAB 1: EXECUTIVE OVERVIEW */}
+                    {activeTab === "overview" && (
+                        <>
+                            <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                            <KPICards kpis={data?.kpis} />
+                            <DashboardCharts charts={data?.charts} />
+                            <AnalyticsCards analytics={data?.analytics} />
+                        </>
+                    )}
 
-            {/* TAB 2: SALES & REVENUE */}
-            {activeTab === "sales" && (
-                <>
-                    <KPICards kpis={data?.kpis} />
-                    <DashboardCharts charts={data?.charts} />
-                </>
-            )}
+                    {/* TAB 2: SALES & REVENUE */}
+                    {activeTab === "sales" && (
+                        <>
+                            <KPICards kpis={data?.kpis} />
+                            <DashboardCharts charts={data?.charts} />
+                        </>
+                    )}
 
-            {/* TAB 3: INVENTORY & EXPIRY */}
-            {activeTab === "inventory" && (
-                <>
-                    <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
-                    <KPICards kpis={data?.kpis} />
-                    <DashboardCharts charts={data?.charts} />
-                </>
-            )}
+                    {/* TAB 3: INVENTORY & EXPIRY */}
+                    {activeTab === "inventory" && (
+                        <>
+                            <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                            <KPICards kpis={data?.kpis} />
+                            <DashboardCharts charts={data?.charts} />
+                        </>
+                    )}
 
-            {/* TAB 4: CREDIT & RECEIVABLES */}
-            {activeTab === "credit" && (
-                <>
-                    <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
-                    <KPICards kpis={data?.kpis} />
-                    <CreditDashboardCharts charts={data?.charts} />
-                </>
-            )}
+                    {/* TAB 4: CREDIT & RECEIVABLES */}
+                    {activeTab === "credit" && (
+                        <>
+                            <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                            <KPICards kpis={data?.kpis} />
+                            <CreditDashboardCharts charts={data?.charts} />
+                        </>
+                    )}
 
-            {/* TAB 5: PURCHASE & VENDORS */}
-            {activeTab === "purchase" && (
-                <>
-                    <KPICards kpis={data?.kpis} />
-                    <PurchaseDashboardCharts charts={data?.charts} />
-                    <AnalyticsCards analytics={data?.analytics} />
+                    {/* TAB 5: PURCHASE & VENDORS */}
+                    {activeTab === "purchase" && (
+                        <>
+                            <KPICards kpis={data?.kpis} />
+                            <PurchaseDashboardCharts charts={data?.charts} />
+                            <AnalyticsCards analytics={data?.analytics} />
+                        </>
+                    )}
                 </>
             )}
         </div>

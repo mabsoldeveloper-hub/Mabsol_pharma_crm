@@ -409,7 +409,7 @@ export async function GET(request: Request) {
             { $match: productFilter },
             {
                 $lookup: {
-                    from: "probat",
+                    from: "vfp_new_folder_probat",
                     localField: "CODE",
                     foreignField: "CODE",
                     as: "batches",

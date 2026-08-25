@@ -93,15 +93,7 @@ export async function GET(req: NextRequest) {
             if (isNum) {
                 searchConds.push({ CODE: Number(search) });
             }
-            if (batchFilter.$or) {
-                batchFilter.$and = [
-                    { $or: batchFilter.$or },
-                    { $or: searchConds }
-                ];
-                delete batchFilter.$or;
-            } else {
-                batchFilter.$or = searchConds;
-            }
+            batchFilter = combineFilters(batchFilter, { $or: searchConds });
         }
 
         const sortOption: any = {};

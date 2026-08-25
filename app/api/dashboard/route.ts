@@ -194,21 +194,21 @@ export async function GET(req: Request) {
 
   const mdisBaseFilter = restriction.isMrRestricted
     ? territoryOrConditions.length > 0
-      ? { ...MDIS_SALE_FILTER, ...companyVfpMatch, $or: territoryOrConditions }
-      : { ...MDIS_SALE_FILTER, ...companyVfpMatch, CODEP: "NONE_MATCH" }
-    : { ...MDIS_SALE_FILTER, ...companyVfpMatch };
+      ? combineFilters(MDIS_SALE_FILTER, companyVfpMatch, { $or: territoryOrConditions })
+      : combineFilters(MDIS_SALE_FILTER, companyVfpMatch, { CODEP: "NONE_MATCH" })
+    : combineFilters(MDIS_SALE_FILTER, companyVfpMatch);
 
   const mdisSaleFilter = restriction.isMrRestricted
     ? territoryOrConditions.length > 0
-      ? { ...MDIS_SALE_FILTER, ...dateMatchMDIS, ...companyVfpMatch, $or: territoryOrConditions }
-      : { ...MDIS_SALE_FILTER, ...dateMatchMDIS, ...companyVfpMatch, CODEP: "NONE_MATCH" }
-    : { ...MDIS_SALE_FILTER, ...dateMatchMDIS, ...companyVfpMatch };
+      ? combineFilters(MDIS_SALE_FILTER, dateMatchMDIS, companyVfpMatch, { $or: territoryOrConditions })
+      : combineFilters(MDIS_SALE_FILTER, dateMatchMDIS, companyVfpMatch, { CODEP: "NONE_MATCH" })
+    : combineFilters(MDIS_SALE_FILTER, dateMatchMDIS, companyVfpMatch);
 
   const mdisPurchaseFilter = restriction.isMrRestricted
     ? territoryOrConditions.length > 0
-      ? { $and: [{ $or: [{ TRANSFER: "P" }, { TYPE: "P" }] }, { $or: territoryOrConditions }], ...dateMatchMDIS, ...companyVfpMatch }
-      : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS, ...companyVfpMatch, CODEP: "NONE_MATCH" }
-    : { $or: [{ TRANSFER: "P" }, { TYPE: "P" }], ...dateMatchMDIS, ...companyVfpMatch };
+      ? combineFilters({ $or: [{ TRANSFER: "P" }, { TYPE: "P" }] }, dateMatchMDIS, companyVfpMatch, { $or: territoryOrConditions })
+      : combineFilters({ $or: [{ TRANSFER: "P" }, { TYPE: "P" }] }, dateMatchMDIS, companyVfpMatch, { CODEP: "NONE_MATCH" })
+    : combineFilters({ $or: [{ TRANSFER: "P" }, { TYPE: "P" }] }, dateMatchMDIS, companyVfpMatch);
 
   const today = todayStr();
   const monthStart = monthStartStr();
@@ -222,21 +222,21 @@ export async function GET(req: Request) {
 
   const pendFilter = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...dateMatchPEND, ...companyVfpMatch, ORD: { $in: restriction.allowedOrdnos } }
-      : { ...dateMatchPEND, ...companyVfpMatch, ORD: "NONE_MATCH" }
-    : { ...dateMatchPEND, ...companyVfpMatch };
+      ? combineFilters(dateMatchPEND, companyVfpMatch, { ORD: { $in: restriction.allowedOrdnos } })
+      : combineFilters(dateMatchPEND, companyVfpMatch, { ORD: "NONE_MATCH" })
+    : combineFilters(dateMatchPEND, companyVfpMatch);
 
   const baseCustomerFilter: any = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...CUSTOMER_FILTER, ...companyVfpMatch, ORDNO: { $in: restriction.allowedOrdnos } }
-      : { ...CUSTOMER_FILTER, ...companyVfpMatch, ORDNO: "NONE_MATCH" }
-    : { ...CUSTOMER_FILTER, ...companyVfpMatch };
+      ? combineFilters(CUSTOMER_FILTER, companyVfpMatch, { ORDNO: { $in: restriction.allowedOrdnos } })
+      : combineFilters(CUSTOMER_FILTER, companyVfpMatch, { ORDNO: "NONE_MATCH" })
+    : combineFilters(CUSTOMER_FILTER, companyVfpMatch);
 
   const productFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-      ? { GCODE: { $in: restriction.allowedCompanyCodes }, ...companyVfpMatch }
+      ? combineFilters({ GCODE: { $in: restriction.allowedCompanyCodes } }, companyVfpMatch)
       : { GCODE: "NONE_MATCH" }
-    : { ...companyVfpMatch };
+    : companyVfpMatch;
 
   let allowedProductCodesNumber: number[] = [];
   if (restriction.isMrRestricted) {
@@ -247,8 +247,8 @@ export async function GET(req: Request) {
   }
 
   const batchFilter = restriction.isMrRestricted
-    ? { CODE: { $in: allowedProductCodesNumber }, ...companyVfpMatch }
-    : { ...companyVfpMatch };
+    ? combineFilters({ CODE: { $in: allowedProductCodesNumber } }, companyVfpMatch)
+    : companyVfpMatch;
 
   const companyFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
@@ -258,23 +258,23 @@ export async function GET(req: Request) {
 
   const orderFilter = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ORDNO: { $in: restriction.allowedOrdnos }, ...companyVfpMatch }
+      ? combineFilters({ ORDNO: { $in: restriction.allowedOrdnos } }, companyVfpMatch)
       : { ORDNO: "NONE_MATCH" }
-    : { ...companyVfpMatch };
+    : companyVfpMatch;
 
   const activeCustomerFilter = restriction.isMrRestricted
     ? restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-      ? { ...ACTIVE_CUSTOMER_FILTER, ...companyVfpMatch, ORDNO: { $in: restriction.allowedOrdnos } }
-      : { ...ACTIVE_CUSTOMER_FILTER, ...companyVfpMatch, ORDNO: "NONE_MATCH" }
-    : { ...ACTIVE_CUSTOMER_FILTER, ...companyVfpMatch };
+      ? combineFilters(ACTIVE_CUSTOMER_FILTER, companyVfpMatch, { ORDNO: { $in: restriction.allowedOrdnos } })
+      : combineFilters(ACTIVE_CUSTOMER_FILTER, companyVfpMatch, { ORDNO: "NONE_MATCH" })
+    : combineFilters(ACTIVE_CUSTOMER_FILTER, companyVfpMatch);
 
   const salesDisFilter = restriction.isMrRestricted
     ? restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0
-      ? { ...dateMatchDIS, ...companyVfpMatch, COMPANY: { $in: restriction.allowedCompanyCodes } }
+      ? combineFilters(dateMatchDIS, companyVfpMatch, { COMPANY: { $in: restriction.allowedCompanyCodes } })
       : restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0
-        ? { ...dateMatchDIS, ...companyVfpMatch, CODEP: { $in: restriction.allowedOrdnos } }
-        : { ...dateMatchDIS, ...companyVfpMatch, CODEP: "NONE_MATCH" }
-    : { ...dateMatchDIS, ...companyVfpMatch };
+        ? combineFilters(dateMatchDIS, companyVfpMatch, { CODEP: { $in: restriction.allowedOrdnos } })
+        : combineFilters(dateMatchDIS, companyVfpMatch, { CODEP: "NONE_MATCH" })
+    : combineFilters(dateMatchDIS, companyVfpMatch);
 
   const near90 = daysFromNowStr(90);
 
@@ -283,19 +283,19 @@ export async function GET(req: Request) {
     .map((o: any) => o[ORDER_CUSTOMER_JOIN_FIELD])
     .filter(Boolean);
 
-  const GLEDGER_COLLECTION_FILTER = {
-    ...GLEDGER_BASE_FILTER,
-    ...dateMatchGLEDGER,
-    ...companyVfpMatch,
-    [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
-  };
+  const GLEDGER_COLLECTION_FILTER = combineFilters(
+    GLEDGER_BASE_FILTER,
+    dateMatchGLEDGER,
+    companyVfpMatch,
+    customerCodes.length > 0 ? { [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes } } : {}
+  );
 
-  const GLEDGER_CUSTOMER_TXN_FILTER = {
-    BOOK: { $in: CUSTOMER_TXN_BOOKS },
-    ...dateMatchGLEDGER,
-    ...companyVfpMatch,
-    [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes },
-  };
+  const GLEDGER_CUSTOMER_TXN_FILTER = combineFilters(
+    { BOOK: { $in: CUSTOMER_TXN_BOOKS } },
+    dateMatchGLEDGER,
+    companyVfpMatch,
+    customerCodes.length > 0 ? { [GLEDGER_CUSTOMER_FIELD]: { $in: customerCodes } } : {}
+  );
 
   const [
     // ---- KPI cards ----
@@ -345,12 +345,12 @@ export async function GET(req: Request) {
     nearExpiryStockValueRow,
     lastMonthSales,
   ] = await Promise.all([
-    sumField(SalesMdis, { ...mdisSaleFilter }, "FINAL"),
+    sumField(SalesMdis, mdisSaleFilter, "FINAL"),
     sumField(SalesMdis, combineFilters(mdisBaseFilter, todayMatch), "FINAL"),
     sumField(SalesMdis, combineFilters(mdisBaseFilter, monthMatch), "FINAL"),
     sumField(SalesMdis, combineFilters(mdisBaseFilter, yearMatch), "FINAL"),
-    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, companyVfpMatch), "BALANCE"),
-    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, INVTYPE: "I", BALANCE: { $gt: 0 } }, dateMatchPEND, companyVfpMatch), "BALANCE"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, pendFilter), "BALANCE"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, INVTYPE: "I", BALANCE: { $gt: 0 } }, pendFilter), "BALANCE"),
     (async () => {
       const baseF: any = combineFilters({ ACGROUP: /^D/i, INVTYPE: "I", BALANCE: { $lt: 0 } }, dateMatchPEND, companyVfpMatch);
       if (restriction.isMrRestricted) {
@@ -366,8 +366,8 @@ export async function GET(req: Request) {
         0
       );
     })(),
-    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 }, DDATE: { $lt: today } }, companyVfpMatch), "BALANCE"),
-    sumField(GLedger, { ...GLEDGER_COLLECTION_FILTER }, "CREDIT"),
+    sumField(Pendings, combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 }, DDATE: { $lt: today } }, pendFilter), "BALANCE"),
+    sumField(GLedger, GLEDGER_COLLECTION_FILTER, "CREDIT"),
     Order.countDocuments(orderFilter),
     Product.countDocuments(productFilter),
     sumField(Product, productFilter, "BALANCE"),
@@ -381,18 +381,18 @@ export async function GET(req: Request) {
     // 2. Total Companies
     Company.countDocuments(companyFilter),
     // 3. Credit — SUM(CREDIT) for customer transactions only
-    sumField(GLedger, { ...GLEDGER_CUSTOMER_TXN_FILTER }, "CREDIT"),
+    sumField(GLedger, GLEDGER_CUSTOMER_TXN_FILTER, "CREDIT"),
     // 4. Debit — SUM(DEBIT) for Payment Book (BOOK: "P", CD: "D") matching Marg ERP Payment Book
     (async () => {
       const pDocs = await GLedger.find(combineFilters({ BOOK: "P", CD: "D" }, dateMatchGLEDGER, companyVfpMatch)).lean();
       return pDocs.reduce((sum: number, r: any) => sum + Number(r.DEBIT || r.AMOUNT || 0), 0);
     })(),
     // 5. Active Customers — ORDER.SALDR === "Y" (see ACTIVE_CUSTOMER_FILTER note above)
-    Order.countDocuments({ ...activeCustomerFilter }),
+    Order.countDocuments(activeCustomerFilter),
 
     // Sales Trend — last 12 months
     SalesMdis.aggregate([
-      { $match: { ...mdisSaleFilter } },
+      { $match: mdisSaleFilter },
       { $group: { _id: { $substr: ["$DATE", 0, 7] }, total: { $sum: "$FINAL" } } },
       { $sort: { _id: 1 } },
       { $limit: 12 },
@@ -400,14 +400,14 @@ export async function GET(req: Request) {
 
     // Collection Trend — last 12 months
     GLedger.aggregate([
-      { $match: { ...GLEDGER_COLLECTION_FILTER } },
+      { $match: GLEDGER_COLLECTION_FILTER },
       { $group: { _id: { $substr: ["$DATE", 0, 7] }, total: { $sum: "$CREDIT" } } },
       { $sort: { _id: 1 } },
       { $limit: 12 },
     ]),
 
     // Outstanding Aging — raw rows, bucketed in JS below (DUEDAYS varies per voucher)
-    Pendings.find(combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, companyVfpMatch), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
+    Pendings.find(combineFilters({ ACGROUP: /^C/i, BALANCE: { $gt: 0 } }, pendFilter), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
 
     // Top 10 Products — DIS joined to PRO by CODE
     SalesDis.aggregate([
@@ -441,7 +441,7 @@ export async function GET(req: Request) {
     ProductBatch.find(batchFilter, { EXP: 1, BALANCE: 1 }).lean(),
 
     SalesMdis.aggregate([
-      { $match: { ...mdisSaleFilter, TYPE: { $ne: null } } },
+      { $match: combineFilters(mdisSaleFilter, { TYPE: { $ne: null } }) },
       { $group: { _id: "$TYPE", amount: { $sum: "$FINAL" } } },
       { $match: { amount: { $ne: 0 } } },
       { $sort: { amount: -1 } },
@@ -450,7 +450,7 @@ export async function GET(req: Request) {
 
     // Top 10 Customers — MDIS.CODEP joins to ORDER.ORDNO
     SalesMdis.aggregate([
-      { $match: { ...mdisSaleFilter, [MDIS_CUSTOMER_FIELD]: { $ne: null } } },
+      { $match: combineFilters(mdisSaleFilter, { [MDIS_CUSTOMER_FIELD]: { $ne: null } }) },
       { $group: { _id: `$${MDIS_CUSTOMER_FIELD}`, amount: { $sum: "$FINAL" } } },
       { $sort: { amount: -1 } },
       { $limit: 10 },
@@ -473,7 +473,7 @@ export async function GET(req: Request) {
 
     // Top 10 Suppliers Raw
     SalesMdis.aggregate([
-      { $match: { ...mdisPurchaseFilter, [MDIS_CUSTOMER_FIELD]: { $ne: null } } },
+      { $match: combineFilters(mdisPurchaseFilter, { [MDIS_CUSTOMER_FIELD]: { $ne: null } }) },
       { $group: { _id: `$${MDIS_CUSTOMER_FIELD}`, amount: { $sum: "$FINAL" } } },
       { $sort: { amount: -1 } },
       { $limit: 10 },
@@ -495,11 +495,11 @@ export async function GET(req: Request) {
     ]),
 
     // Creditor Aging Raw
-    Pendings.find(combineFilters({ ACGROUP: /^D/i, BALANCE: { $ne: 0 } }, companyVfpMatch), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
+    Pendings.find(combineFilters({ ACGROUP: /^D/i, BALANCE: { $ne: 0 } }, pendFilter), { FINAL: 1, BALANCE: 1, DDATE: 1 }).lean(),
 
     // Purchase Trend Raw
     SalesMdis.aggregate([
-      { $match: { ...mdisPurchaseFilter } },
+      { $match: mdisPurchaseFilter },
       { $group: { _id: { $substr: ["$DATE", 0, 7] }, total: { $sum: "$FINAL" } } },
       { $sort: { _id: 1 } },
       { $limit: 12 },
@@ -507,7 +507,7 @@ export async function GET(req: Request) {
 
     // Distinct invoice count for Avg Invoice Value
     SalesMdis.aggregate([
-      { $match: { ...mdisSaleFilter } },
+      { $match: mdisSaleFilter },
       { $group: { _id: "$VOUCHER" } },
       { $count: "count" },
     ]),
@@ -553,7 +553,7 @@ export async function GET(req: Request) {
 
     // Expired Stock Value (MRP)
     ProductBatch.aggregate([
-      { $match: { ...batchFilter, EXP: { $ne: null, $lt: today } } },
+      { $match: combineFilters(batchFilter, { EXP: { $ne: null, $lt: today } }) },
       {
         $group: {
           _id: null,
@@ -571,7 +571,7 @@ export async function GET(req: Request) {
 
     // Near Expiry Stock Value (MRP)
     ProductBatch.aggregate([
-      { $match: { ...batchFilter, EXP: { $ne: null, $gte: today, $lte: near90 } } },
+      { $match: combineFilters(batchFilter, { EXP: { $ne: null, $gte: today, $lte: near90 } }) },
       {
         $group: {
           _id: null,
@@ -593,7 +593,7 @@ export async function GET(req: Request) {
       d.setMonth(d.getMonth() - 1);
       const lmStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
       const lmEnd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-31`;
-      return sumField(SalesMdis, { ...mdisSaleFilter, DATE: { $gte: lmStart, $lte: lmEnd } }, "FINAL");
+      return sumField(SalesMdis, combineFilters(mdisSaleFilter, { DATE: { $gte: lmStart, $lte: lmEnd } }), "FINAL");
     })(),
   ]);
 

@@ -6,7 +6,7 @@ import PurchaseBill from "@/models/PurchaseBill";
 import PurchaseReturn from "@/models/PurchaseReturn";
 import GLedger from "@/models/GLedger";
 import Customer from "@/models/Customer";
-import { SalesDis, SalesMdis } from "@/models/dashboardModels";
+import { SalesDis, SalesMdis, Product } from "@/models/dashboardModels";
 import {
     buildStateResolution,
     resolveState,
@@ -15,6 +15,8 @@ import {
     stateFromCity,
     resolveStateFromText,
     cleanPartyName,
+    extractDistrict,
+    extractPincode,
 } from "@/lib/indiaMapStateResolver";
 import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
@@ -51,7 +53,35 @@ interface StateFyMetrics {
     suppliers: Set<string>;
     monthlySales: number[]; // 12 months Apr..Mar
     productSales: Map<string, { name: string; qty: number; amount: number }>;
-    partySales: Map<string, { name: string; sales: number }>;
+}
+
+interface CustomerAgg {
+    code: string;
+    name: string;
+    city: string;
+    district: string;
+    area: string;
+    route: string;
+    state: string;
+    pincode: string;
+    gstno: string;
+    phone: string;
+    dlno: string;
+    email: string;
+    address: string;
+    dsm: string;
+    asm: string;
+    rsm: string;
+    balance: number;
+    creditLimit: number;
+    creditDays: number;
+    totalSales: number;
+    totalNetSales: number;
+    totalReturns: number;
+    invoicesCount: number;
+    lastSaleDate?: string;
+    byFy: Record<string, { sales: number; netSales: number; returns: number; invoicesCount: number }>;
+    productSales: Map<string, { name: string; qty: number; amount: number }>;
 }
 
 export async function GET(req: Request) {
@@ -196,15 +226,64 @@ export async function GET(req: Request) {
         let territoryCodeps: string[] | null = null;
         let territoryVouchers: number[] | null = null;
 
-        if (hasTerritoryFilter) {
-            const allCustomers = await Customer.find(
-                {},
-                { ORDNO: 1, PARNAM: 1, CITY: 1, AREA: 1, ROUT: 1, DSM: 1, ASM: 1, RSM: 1, STATE: 1, GSTNO: 1 }
-            ).lean();
+        // Fetch customer master directory for accurate name and details resolution
+        const allCustomerDocs = await Customer.find(
+            {},
+            {
+                ORDNO: 1, CODEP: 1, PARNAM: 1, CITY: 1, AREA: 1, ROUT: 1, DSM: 1, ASM: 1, RSM: 1,
+                STATE: 1, GSTNO: 1, DLNO: 1, DLNO1: 1, DLNO2: 1, PANNO: 1, PHONE1: 1, PHONE2: 1,
+                MOBILE: 1, EMAIL: 1, PARADD: 1, PARADD1: 1, PARADD2: 1, BALANCE: 1, CRLIMIT: 1,
+                CRDAYS: 1, SALCR: 1, SALDR: 1, PURCR: 1, PURDR: 1, STATUS: 1
+            }
+        ).lean().catch(() => []);
 
+        const customerMasterMap = new Map<string, any>();
+        (allCustomerDocs as any[]).forEach((c: any) => {
+            const keys = [c.ORDNO, c.CODEP].filter(Boolean).map(k => String(k).trim());
+            keys.forEach(k => {
+                if (!customerMasterMap.has(k)) {
+                    const city = c.CITY ? String(c.CITY).trim() : "";
+                    const { district } = extractDistrict(city, c.PARADD, c.PARADD1, c.PARADD2);
+                    const pincode = extractPincode(c.PARADD, c.PARADD1, c.PARADD2, city) || "";
+                    const state = (c.STATE ? String(c.STATE).trim() : "") || stateFromGstno(c.GSTNO) || stateFromCity(city) || "";
+                    const phone = (c.PHONE1 || c.PHONE2 || c.MOBILE || "").toString().trim();
+                    const dlno = (c.DLNO || c.DLNO1 || c.DLNO2 || "").toString().trim();
+                    const address = [c.PARADD, c.PARADD1, c.PARADD2].filter(Boolean).map(s => String(s).trim()).join(", ");
+
+                    customerMasterMap.set(k, {
+                        code: k,
+                        name: cleanPartyName(c.PARNAM, city) || (c.PARNAM ? String(c.PARNAM).trim() : `Customer ${k}`),
+                        rawName: c.PARNAM ? String(c.PARNAM).trim() : "",
+                        city,
+                        district: district || "",
+                        area: (c.AREA || "").toString().trim(),
+                        route: (c.ROUT || "").toString().trim(),
+                        state,
+                        pincode,
+                        gstno: (c.GSTNO || "").toString().trim(),
+                        phone,
+                        dlno,
+                        email: (c.EMAIL || "").toString().trim(),
+                        panno: (c.PANNO || "").toString().trim(),
+                        address,
+                        dsm: (c.DSM || "").toString().trim(),
+                        asm: (c.ASM || "").toString().trim(),
+                        rsm: (c.RSM || "").toString().trim(),
+                        balance: Number(c.BALANCE || 0),
+                        creditLimit: Number(c.CRLIMIT || 0),
+                        creditDays: Number(c.CRDAYS || 0),
+                        status: (c.STATUS || "ACTIVE").toString().trim(),
+                        isBuyer: c.SALDR === "Y",
+                        isSupplier: c.PURCR === "Y",
+                    });
+                }
+            });
+        });
+
+        if (hasTerritoryFilter) {
             const codepSet = new Set<string>();
 
-            (allCustomers as any[]).forEach((c: any) => {
+            (allCustomerDocs as any[]).forEach((c: any) => {
                 const city = (c.CITY || "").toString().trim();
                 const explicitArea = (c.AREA || "").toString().trim();
                 const state = (c.STATE || "").toString().trim() || stateFromGstno(c.GSTNO) || stateFromCity(city) || "";
@@ -322,6 +401,7 @@ export async function GET(req: Request) {
         // 2. Build State Resolution Anchor
         const resolution = await buildStateResolution(codepFilter);
         const stateDataMap = new Map<string, Map<string, StateFyMetrics>>();
+        const stateCustomerMap = new Map<string, Map<string, CustomerAgg>>();
 
         const getMetricAcc = (stateName: string, fyId: string): StateFyMetrics => {
             if (!stateDataMap.has(stateName)) {
@@ -340,10 +420,68 @@ export async function GET(req: Request) {
                     suppliers: new Set(),
                     monthlySales: Array(12).fill(0),
                     productSales: new Map(),
-                    partySales: new Map(),
                 });
             }
             return fyMapAcc.get(fyId)!;
+        };
+
+        const getCustomerAcc = (stateName: string, partyCode: string): CustomerAgg => {
+            if (!stateCustomerMap.has(stateName)) {
+                stateCustomerMap.set(stateName, new Map());
+            }
+            const partyMap = stateCustomerMap.get(stateName)!;
+            if (!partyMap.has(partyCode)) {
+                const master = customerMasterMap.get(partyCode) || {
+                    code: partyCode,
+                    name: cleanPartyName(partyCode) || `Customer ${partyCode}`,
+                    city: "",
+                    district: "",
+                    area: "",
+                    route: "",
+                    state: stateName,
+                    pincode: "",
+                    gstno: "",
+                    phone: "",
+                    dlno: "",
+                    email: "",
+                    address: "",
+                    dsm: "",
+                    asm: "",
+                    rsm: "",
+                    balance: 0,
+                    creditLimit: 0,
+                    creditDays: 0,
+                };
+
+                partyMap.set(partyCode, {
+                    code: partyCode,
+                    name: master.name,
+                    city: master.city,
+                    district: master.district,
+                    area: master.area,
+                    route: master.route,
+                    state: master.state || stateName,
+                    pincode: master.pincode,
+                    gstno: master.gstno,
+                    phone: master.phone,
+                    dlno: master.dlno,
+                    email: master.email,
+                    address: master.address,
+                    dsm: master.dsm,
+                    asm: master.asm,
+                    rsm: master.rsm,
+                    balance: master.balance,
+                    creditLimit: master.creditLimit,
+                    creditDays: master.creditDays,
+                    totalSales: 0,
+                    totalNetSales: 0,
+                    totalReturns: 0,
+                    invoicesCount: 0,
+                    byFy: {},
+                    productSales: new Map(),
+                });
+            }
+            return partyMap.get(partyCode)!;
         };
 
         // ---- A. Process MDIS Rows (Sales / Returns / Purchases) ----
@@ -360,47 +498,95 @@ export async function GET(req: Request) {
 
             const acc = getMetricAcc(state, fyRes.fyId);
             const amt = Number(r.FINAL || 0);
+            const partyCode = r.CODEP ? String(r.CODEP).trim() : "";
 
             if (r.TYPE === "S") {
                 acc.sales += amt;
                 acc.netSales += amt;
                 acc.monthlySales[fyRes.monthIndex] += amt;
-                if (r.CODEP) {
-                    const partyName = r.CODEP;
-                    acc.customers.add(partyName);
-                    const partyAcc = acc.partySales.get(partyName) || { name: cleanPartyName(partyName), sales: 0 };
-                    partyAcc.sales += amt;
-                    acc.partySales.set(partyName, partyAcc);
+                if (partyCode) {
+                    acc.customers.add(partyCode);
+
+                    const custAgg = getCustomerAcc(state, partyCode);
+                    custAgg.totalSales += amt;
+                    custAgg.totalNetSales += amt;
+                    custAgg.invoicesCount += 1;
+
+                    if (!custAgg.lastSaleDate || (r.DATE && new Date(r.DATE) > new Date(custAgg.lastSaleDate))) {
+                        custAgg.lastSaleDate = r.DATE ? new Date(r.DATE).toISOString().slice(0, 10) : "";
+                    }
+
+                    const fyCust = custAgg.byFy[fyRes.fyId] || { sales: 0, netSales: 0, returns: 0, invoicesCount: 0 };
+                    fyCust.sales += amt;
+                    fyCust.netSales += amt;
+                    fyCust.invoicesCount += 1;
+                    custAgg.byFy[fyRes.fyId] = fyCust;
                 }
             } else if (r.TYPE === "P") {
                 acc.purchase += amt;
-                if (r.CODEP) acc.suppliers.add(r.CODEP);
+                if (partyCode) acc.suppliers.add(partyCode);
             } else if (r.TYPE === "B") {
                 acc.salesReturns += amt;
                 acc.netSales -= amt;
+                if (partyCode) {
+                    const custAgg = getCustomerAcc(state, partyCode);
+                    custAgg.totalReturns += amt;
+                    custAgg.totalNetSales -= amt;
+
+                    const fyCust = custAgg.byFy[fyRes.fyId] || { sales: 0, netSales: 0, returns: 0, invoicesCount: 0 };
+                    fyCust.returns += amt;
+                    fyCust.netSales -= amt;
+                    custAgg.byFy[fyRes.fyId] = fyCust;
+                }
             }
         });
 
-        // ---- B. Process SubDis Rows for Product Breakdown ----
+        // ---- B. Process SalesDis Rows for Accurate Product Breakdown ----
         try {
-            const subdisRows = await SubDis.find(codepFilter).lean();
-            subdisRows.forEach((d: any) => {
+            const [allProds, disRows] = await Promise.all([
+                Product.find({}, { CODE: 1, PRODUCT: 1, NAME: 1 }).lean().catch(() => []),
+                SalesDis.find(combineFilters(companyVfpMatch, codepFilter)).lean().catch(() => []),
+            ]);
+
+            const proMap = new Map<string, string>();
+            (allProds as any[]).forEach((p: any) => {
+                const code = String(p.CODE || "").trim();
+                const name = String(p.PRODUCT || p.NAME || code).trim();
+                if (code && name) proMap.set(code, name);
+            });
+
+            (disRows as any[]).forEach((d: any) => {
                 const fyRes = matchFy(d.DATE);
                 if (!fyRes) return;
                 const state = resolveState(resolution, d.CODEP, d.VOUCHER);
                 if (!state) return;
                 if (stateFilter && !state.toLowerCase().includes(stateFilter.toLowerCase())) return;
 
-                const acc = getMetricAcc(state, fyRes.fyId);
-                const pCode = String(d.PROCD || d.PRODUCT || "GENERIC");
-                const pName = d.PRONAM || d.PRODUCT_NAME || `Product ${pCode}`;
-                const qty = Number(d.QTY || 0);
-                const amt = Number(d.AMOUNT || d.FINAL || 0);
+                const pCode = String(d.CODE || d.PROCD || "").trim();
+                if (!pCode || pCode.toUpperCase() === "GENERIC") return;
 
+                const qty = Number(d.QTY || d.ISSUEQTY || 0);
+                const amt = Number(d.AMMMOUNT || d.AMOUNT || d.FINAL || d.COST || (d.RATE ? Number(d.RATE) * qty : 0));
+                if (qty <= 0 && amt <= 0) return;
+
+                const pName = proMap.get(pCode) || d.PRODUCT || d.PRONAM || pCode;
+                if (!pName || pName.toLowerCase() === "generic") return;
+
+                const acc = getMetricAcc(state, fyRes.fyId);
                 const pAcc = acc.productSales.get(pCode) || { name: pName, qty: 0, amount: 0 };
                 pAcc.qty += qty;
                 pAcc.amount += amt;
                 acc.productSales.set(pCode, pAcc);
+
+                // Track product for specific customer
+                const partyCode = d.CODEP ? String(d.CODEP).trim() : "";
+                if (partyCode) {
+                    const custAgg = getCustomerAcc(state, partyCode);
+                    const cpAcc = custAgg.productSales.get(pCode) || { name: pName, qty: 0, amount: 0 };
+                    cpAcc.qty += qty;
+                    cpAcc.amount += amt;
+                    custAgg.productSales.set(pCode, cpAcc);
+                }
             });
         } catch {}
 
@@ -497,7 +683,7 @@ export async function GET(req: Request) {
                 const acc = fyAccMap.get(fy.fyId) || {
                     sales: 0, netSales: 0, salesReturns: 0, purchase: 0,
                     collections: 0, payments: 0, customers: new Set(), suppliers: new Set(),
-                    monthlySales: Array(12).fill(0), productSales: new Map(), partySales: new Map(),
+                    monthlySales: Array(12).fill(0), productSales: new Map(),
                 };
 
                 const returnsRatio = acc.sales > 0 ? Number(((acc.salesReturns / acc.sales) * 100).toFixed(1)) : 0;
@@ -543,15 +729,107 @@ export async function GET(req: Request) {
             const retFactor = Math.max(100 - (retRatio * 10), 0);
             const healthScore = Math.round((collFactor * 0.4) + (growthFactor * 0.4) + (retFactor * 0.2));
 
-            // Extract Top 10 Products and Customers
-            const latestAcc = fyAccMap.get(lastFyId) || fyAccMap.get(firstFyId);
-            const topProducts = latestAcc ? Array.from(latestAcc.productSales.values())
-                .sort((a, b) => b.amount - a.amount)
-                .slice(0, 10) : [];
+            // Extract Top Products across all FYs for this state
+            const allStateProducts = new Map<string, { name: string; qty: number; amount: number }>();
+            fyAccMap.forEach(acc => {
+                acc.productSales.forEach((p, code) => {
+                    const existing = allStateProducts.get(code) || { name: p.name, qty: 0, amount: 0 };
+                    existing.qty += p.qty;
+                    existing.amount += p.amount;
+                    allStateProducts.set(code, existing);
+                });
+            });
 
-            const topCustomers = latestAcc ? Array.from(latestAcc.partySales.values())
-                .sort((a, b) => b.sales - a.sales)
-                .slice(0, 10) : [];
+            const topProducts = Array.from(allStateProducts.values())
+                .filter(p => (p.qty > 0 || p.amount > 0) && !p.name.toUpperCase().includes("GENERIC"))
+                .sort((a, b) => b.amount - a.amount || b.qty - a.qty)
+                .slice(0, 15);
+
+            // Extract Enriched Customer Details for this State
+            const stateCustAccMap = stateCustomerMap.get(stateName) || new Map<string, CustomerAgg>();
+            const isInternalTaxLedger = (name: string, code?: string) => {
+                if (code && ["MM", "JF", "SGST", "CGST", "IGST"].includes(code.toUpperCase().trim())) return true;
+                if (!name) return false;
+                const n = name.toUpperCase();
+                return /\b(CGST|SGST|IGST|SALES TAX|PURCHASE TAX|TAX A\/C|TAX ACCOUNT|ROUND OFF|DISCOUNT ALLOWED|TDS A\/C)\b/.test(n);
+            };
+
+            const customerList = Array.from(stateCustAccMap.values())
+                .filter(c => !isInternalTaxLedger(c.name, c.code))
+                .map(c => {
+                const firstCustSales = c.byFy[firstFyId]?.sales ?? 0;
+                const lastCustSales = c.byFy[lastFyId]?.sales ?? 0;
+                const custGrowth = firstCustSales > 0 ? Number((((lastCustSales - firstCustSales) / firstCustSales) * 100).toFixed(1)) : null;
+                const retPct = c.totalSales > 0 ? Number(((c.totalReturns / c.totalSales) * 100).toFixed(1)) : 0;
+
+                let category: "Key Account" | "Growth Account" | "Standard" | "High Return Risk" = "Standard";
+                if (retPct > 8) {
+                    category = "High Return Risk";
+                } else if (custGrowth !== null && custGrowth > 25) {
+                    category = "Growth Account";
+                }
+
+                const topProds = Array.from(c.productSales.values())
+                    .filter(p => (p.qty > 0 || p.amount > 0) && !p.name.toUpperCase().includes("GENERIC"))
+                    .sort((a, b) => b.amount - a.amount || b.qty - a.qty)
+                    .slice(0, 5);
+
+                return {
+                    code: c.code,
+                    name: c.name,
+                    city: c.city,
+                    district: c.district,
+                    area: c.area,
+                    route: c.route,
+                    state: c.state || stateName,
+                    pincode: c.pincode,
+                    gstno: c.gstno,
+                    phone: c.phone,
+                    dlno: c.dlno,
+                    email: c.email,
+                    address: c.address,
+                    dsm: c.dsm,
+                    asm: c.asm,
+                    rsm: c.rsm,
+                    totalSales: Math.round(c.totalSales),
+                    totalNetSales: Math.round(c.totalNetSales),
+                    totalReturns: Math.round(c.totalReturns),
+                    returnsRatioPercent: retPct,
+                    invoicesCount: c.invoicesCount,
+                    balance: Math.round(c.balance),
+                    creditLimit: Math.round(c.creditLimit),
+                    creditDays: c.creditDays,
+                    lastSaleDate: c.lastSaleDate,
+                    byFy: c.byFy,
+                    salesGrowthPct: custGrowth,
+                    category: category as "Key Account" | "Growth Account" | "Standard" | "High Return Risk",
+                    topProducts: topProds,
+                };
+            });
+
+            // Sort customers by total sales descending
+            customerList.sort((a, b) => b.totalSales - a.totalSales);
+
+            // Assign Top 20% Key Accounts
+            const keyCount = Math.max(1, Math.ceil(customerList.length * 0.2));
+            customerList.slice(0, keyCount).forEach(cust => {
+                if (cust.category !== "High Return Risk") {
+                    cust.category = "Key Account";
+                }
+            });
+
+            const topCustomers = customerList.slice(0, 10).map(c => ({
+                code: c.code,
+                name: c.name,
+                city: c.city,
+                area: c.area,
+                sales: c.totalSales,
+                netSales: c.totalNetSales,
+                gstno: c.gstno,
+                phone: c.phone,
+                invoicesCount: c.invoicesCount,
+                byFy: c.byFy,
+            }));
 
             stateList.push({
                 stateId,
@@ -565,6 +843,7 @@ export async function GET(req: Request) {
                 byFy,
                 topProducts,
                 topCustomers,
+                customers: customerList,
             });
         });
 
@@ -626,3 +905,4 @@ export async function GET(req: Request) {
         return NextResponse.json({ success: false, error: error.message || "Failed to load area comparison data" }, { status: 500 });
     }
 }
+

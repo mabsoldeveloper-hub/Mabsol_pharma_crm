@@ -899,7 +899,7 @@ export default function AiPurchaseBillEntry() {
                 onClick={() => setShowAiReviewModal(true)}
                 className="px-4 py-2.5 text-xs font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 transition-all flex items-center gap-2 shadow-lg shadow-amber-950/20"
               >
-                <FaMagic /> 🔍 Select Scanned Data (पॉपअप)
+                <FaMagic /> 🔍 Review Extracted Data
               </button>
             )}
             <button
@@ -980,19 +980,19 @@ export default function AiPurchaseBillEntry() {
           <div className="text-red-500 text-2xl mt-1">⚠️</div>
           <div className="flex-1">
             <h3 className="font-bold text-red-700 dark:text-red-400 text-sm mb-1">
-              Gemini AI Key Configure Nahi Hai — Bill Data Extract Nahi Ho Sakta
+              Gemini AI Key Not Configured — Automatic Bill Extraction Unavailable
             </h3>
             <p className="text-xs text-red-600 dark:text-red-300 mb-3">
-              Image se data automatically pick karne ke liye <strong>GEMINI_API_KEY</strong> chahiye. Yeh bilkul free hai.
+              To automatically extract invoice data from images and PDFs, please configure <strong>GEMINI_API_KEY</strong> in your environment.
             </p>
             <div className="bg-white dark:bg-red-950/60 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-300 space-y-1 border border-red-100 dark:border-red-800">
-              <p className="font-bold text-red-700 dark:text-red-300 mb-2">📋 Steps to fix:</p>
-              <p>1️⃣ Open: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">https://aistudio.google.com/apikey</a></p>
-              <p>2️⃣ Google account se login karo → "Create API Key" click karo</p>
-              <p>3️⃣ Key copy karo (AIzaSy... jaisi dikhegi)</p>
-              <p>4️⃣ Project root mein <code className="bg-red-100 dark:bg-red-900 px-1 rounded">.env</code> file mein yeh line add karo:</p>
-              <pre className="bg-slate-100 dark:bg-slate-900 rounded-lg p-2 mt-1 text-green-700 dark:text-green-400 font-mono text-[11px]">GEMINI_API_KEY=AIzaSy_aapki_key_yahan</pre>
-              <p>5️⃣ Dev server restart karo: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">npm run dev</code></p>
+              <p className="font-bold text-red-700 dark:text-red-300 mb-2">📋 Configuration Steps:</p>
+              <p>1️⃣ Visit: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">https://aistudio.google.com/apikey</a></p>
+              <p>2️⃣ Sign in with your Google account and click &quot;Create API Key&quot;</p>
+              <p>3️⃣ Copy the generated key (e.g. AIzaSy...)</p>
+              <p>4️⃣ Add it to your project root <code className="bg-red-100 dark:bg-red-900 px-1 rounded">.env</code> file:</p>
+              <pre className="bg-slate-100 dark:bg-slate-900 rounded-lg p-2 mt-1 text-green-700 dark:text-green-400 font-mono text-[11px]">GEMINI_API_KEY=your_gemini_api_key_here</pre>
+              <p>5️⃣ Restart your dev server: <code className="bg-red-100 dark:bg-red-900 px-1 rounded">npm run dev</code></p>
             </div>
           </div>
         </div>
@@ -1897,7 +1897,7 @@ export default function AiPurchaseBillEntry() {
                     AI Scan Verification & Supplier Selector
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    बिल फोटो से प्राप्त विवरण सत्यापित करें और अपनी पसंद का सप्लायर (विक्रेता) चुनें।
+                    Verify extracted invoice details and choose the correct supplier / vendor.
                   </p>
                 </div>
               </div>
@@ -1916,7 +1916,7 @@ export default function AiPurchaseBillEntry() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <h4 className="font-extrabold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider flex items-center gap-2">
-                    <FaBuilding className="text-amber-500 text-sm" /> Step 1: Choose Supplier / Seller from Bill (सप्लायर चुनें)
+                    <FaBuilding className="text-amber-500 text-sm" /> Step 1: Choose Supplier / Seller from Bill
                   </h4>
                   <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold">
                     {candidateParties.length} Parties Detected
@@ -2003,7 +2003,7 @@ export default function AiPurchaseBillEntry() {
                             }`}
                           >
                             <FaCheckCircle className="text-xs" />
-                            {isSelected ? "Selected as Supplier" : "Select as Supplier (सप्लायर बनाएं)"}
+                            {isSelected ? "Selected as Supplier" : "Select as Supplier"}
                           </button>
                         </div>
                       );
@@ -2224,7 +2224,7 @@ export default function AiPurchaseBillEntry() {
                 onClick={() => setShowAiReviewModal(false)}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all"
               >
-                Cancel / Edit Manually (बंद करें)
+                Cancel / Edit Manually
               </button>
 
               <button
@@ -2232,7 +2232,7 @@ export default function AiPurchaseBillEntry() {
                 onClick={handleApplyReviewedData}
                 className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black tracking-wide uppercase shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
               >
-                <FaCheckCircle className="text-base" /> Apply & Fill in Bill Form (बिल में भरें)
+                <FaCheckCircle className="text-base" /> Apply & Fill in Bill Form
               </button>
             </div>
           </div>
