@@ -15,6 +15,7 @@ interface Node {
   pulsePhase: number;
   pulseSpeed: number;
   driftPhase: number;
+  depthZ: number; // 3D depth field (0.3 to 1.0)
 }
 
 interface BenzeneStructure {
@@ -25,11 +26,16 @@ interface BenzeneStructure {
   size: number;
   angle: number;
   vAngle: number;
+  tiltAngleX: number;
+  tiltAngleY: number;
+  vTiltX: number;
+  vTiltY: number;
   color: string;
   glowColor: string;
   opacity: number;
   orbitAngle: number;
   orbitSpeed: number;
+  depthZ: number;
 }
 
 interface RadarScope {
@@ -78,6 +84,7 @@ interface PulsePacket {
   progress: number;
   speed: number;
   color: string;
+  trailLength: number;
 }
 
 interface Shockwave {
@@ -90,18 +97,22 @@ interface Shockwave {
   color: string;
 }
 
-// Saturated, Rich Warm Peach, Coral Flame, Golden Amber & Sky Cyan Palette
+// Saturated, Rich Warm Peach, Coral Flame, Golden Amber & Sky Azure Palette
 const PALETTE = [
-  { main: "#f97316", glow: "rgba(249, 115, 22, 0.6)" },   // Vibrant Warm Peach
-  { main: "#fb923c", glow: "rgba(251, 146, 60, 0.55)" },  // Soft Apricot
-  { main: "#ea580c", glow: "rgba(234, 88, 12, 0.65)" },   // Deep Sunset Peach
-  { main: "#e11d48", glow: "rgba(225, 29, 72, 0.5)" },    // Coral Rose
-  { main: "#0284c7", glow: "rgba(2, 132, 199, 0.55)" },   // Sky Azure
-  { main: "#6366f1", glow: "rgba(99, 102, 241, 0.5)" },   // Soft Indigo
-  { main: "#10b981", glow: "rgba(16, 185, 129, 0.55)" },  // Bio Emerald
+  { main: "#f97316", glow: "rgba(249, 115, 22, 0.65)" },   // Vibrant Warm Peach
+  { main: "#fb923c", glow: "rgba(251, 146, 60, 0.6)" },   // Soft Apricot
+  { main: "#ea580c", glow: "rgba(234, 88, 12, 0.7)" },    // Deep Sunset Peach
+  { main: "#e11d48", glow: "rgba(225, 29, 72, 0.55)" },   // Coral Rose
+  { main: "#0284c7", glow: "rgba(2, 132, 199, 0.6)" },    // Sky Azure
+  { main: "#6366f1", glow: "rgba(99, 102, 241, 0.55)" },  // Soft Indigo
+  { main: "#10b981", glow: "rgba(16, 185, 129, 0.6)" },   // Bio Emerald
 ];
 
-export default function PharmaBackgroundCanvas() {
+interface PharmaBackgroundCanvasProps {
+  accentColor?: string;
+}
+
+export default function PharmaBackgroundCanvas({ accentColor }: PharmaBackgroundCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -123,7 +134,7 @@ export default function PharmaBackgroundCanvas() {
       y: -1000,
       targetX: -1000,
       targetY: -1000,
-      radius: 240,
+      radius: 260,
       isHovered: false,
       reticleAngle: 0,
     };
@@ -141,20 +152,25 @@ export default function PharmaBackgroundCanvas() {
     function initElements() {
       const isMobile = width < 640;
       const isTablet = width >= 640 && width < 1024;
-      const nodeCount = isMobile ? 32 : isTablet ? 55 : 80;
-      const ringCount = isMobile ? 3 : isTablet ? 5 : 7;
+      const nodeCount = isMobile ? 36 : isTablet ? 60 : 88;
+      const ringCount = isMobile ? 3 : isTablet ? 5 : 8;
       const radarCount = isMobile ? 1 : 2;
       const donutCount = isMobile ? 1 : 3;
       const waveCount = isMobile ? 1 : 2;
 
-      // 1. Molecular Nodes
+      const activePalette = accentColor
+        ? [{ main: accentColor, glow: `${accentColor}99` }, ...PALETTE.slice(1)]
+        : PALETTE;
+
+      // 1. Molecular Nodes with 3D Depth-of-Field
       nodes = [];
       for (let i = 0; i < nodeCount; i++) {
-        const item = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+        const item = activePalette[Math.floor(Math.random() * activePalette.length)];
         const layer = Math.random() < 0.35 ? 0 : Math.random() < 0.75 ? 1 : 2;
-        const baseR = layer === 0 ? 1.6 : layer === 1 ? 2.4 : 3.2;
+        const depthZ = layer === 0 ? 0.45 : layer === 1 ? 0.75 : 1.0;
+        const baseR = (layer === 0 ? 1.6 : layer === 1 ? 2.4 : 3.4) * depthZ;
         const r = baseR + Math.random() * 0.8;
-        const speedScale = layer === 0 ? 0.25 : layer === 1 ? 0.45 : 0.65;
+        const speedScale = (layer === 0 ? 0.22 : layer === 1 ? 0.42 : 0.62) * depthZ;
 
         nodes.push({
           x: Math.random() * width,
@@ -169,48 +185,55 @@ export default function PharmaBackgroundCanvas() {
           pulsePhase: Math.random() * Math.PI * 2,
           pulseSpeed: 0.02 + Math.random() * 0.03,
           driftPhase: Math.random() * Math.PI * 2,
+          depthZ,
         });
       }
 
-      // 2. Benzene Rings
+      // 2. Benzene Rings with 3D Gyroscopic Tilt Wobble
       benzeneRings = [];
       for (let i = 0; i < ringCount; i++) {
         const item = PALETTE[i % (PALETTE.length - 1)];
+        const depthZ = 0.55 + Math.random() * 0.45;
         benzeneRings.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.22,
-          vy: (Math.random() - 0.5) * 0.22,
-          size: Math.random() * 32 + (isMobile ? 24 : 34),
+          vx: (Math.random() - 0.5) * 0.22 * depthZ,
+          vy: (Math.random() - 0.5) * 0.22 * depthZ,
+          size: (Math.random() * 30 + (isMobile ? 24 : 36)) * depthZ,
           angle: Math.random() * Math.PI * 2,
-          vAngle: (Math.random() - 0.5) * 0.007,
+          vAngle: (Math.random() - 0.5) * 0.008,
+          tiltAngleX: Math.random() * Math.PI * 2,
+          tiltAngleY: Math.random() * Math.PI * 2,
+          vTiltX: 0.006 + Math.random() * 0.008,
+          vTiltY: 0.008 + Math.random() * 0.009,
           color: item.main,
           glowColor: item.glow,
-          opacity: 0.28,
+          opacity: 0.28 * depthZ,
           orbitAngle: Math.random() * Math.PI * 2,
-          orbitSpeed: 0.022 + Math.random() * 0.015,
+          orbitSpeed: 0.025 + Math.random() * 0.018,
+          depthZ,
         });
       }
 
       // 3. Holographic Radar Scopes
       radars = [];
       for (let i = 0; i < radarCount; i++) {
-        const posX = i === 0 ? width * 0.18 : width * 0.82;
-        const posY = i === 0 ? height * 0.72 : height * 0.25;
+        const posX = i === 0 ? width * 0.16 : width * 0.84;
+        const posY = i === 0 ? height * 0.74 : height * 0.22;
         const blips = [
           { angle: Math.random() * Math.PI * 2, dist: 0.4, opacity: 0.8 },
-          { angle: Math.random() * Math.PI * 2, dist: 0.75, opacity: 0.9 },
+          { angle: Math.random() * Math.PI * 2, dist: 0.75, opacity: 0.95 },
         ];
         radars.push({
           x: posX,
           y: posY,
-          vx: (Math.random() - 0.5) * 0.15,
-          vy: (Math.random() - 0.5) * 0.15,
-          radius: isMobile ? 48 : 65,
+          vx: (Math.random() - 0.5) * 0.14,
+          vy: (Math.random() - 0.5) * 0.14,
+          radius: isMobile ? 48 : 68,
           angle: 0,
-          sweepSpeed: 0.024,
+          sweepSpeed: 0.026,
           color: i === 0 ? "#f97316" : "#0284c7",
-          opacity: 0.35,
+          opacity: 0.38,
           blips,
         });
       }
@@ -218,22 +241,22 @@ export default function PharmaBackgroundCanvas() {
       // 4. Floating Holographic Donut/Pie Charts
       donutCharts = [];
       const donutData = [
-        { label: "BATCH 94%", segments: [{ percent: 0.74, color: "#f97316" }, { percent: 0.26, color: "#fed7aa" }], x: width * 0.12, y: height * 0.25 },
-        { label: "ERP SYNC", segments: [{ percent: 0.88, color: "#10b981" }, { percent: 0.12, color: "#a7f3d0" }], x: width * 0.88, y: height * 0.75 },
-        { label: "STOCK", segments: [{ percent: 0.65, color: "#0284c7" }, { percent: 0.35, color: "#bae6fd" }], x: width * 0.5, y: height * 0.88 },
+        { label: "BATCH 94%", segments: [{ percent: 0.74, color: "#f97316" }, { percent: 0.26, color: "#fed7aa" }], x: width * 0.12, y: height * 0.24 },
+        { label: "ERP SYNC", segments: [{ percent: 0.88, color: "#10b981" }, { percent: 0.12, color: "#a7f3d0" }], x: width * 0.88, y: height * 0.76 },
+        { label: "STOCK", segments: [{ percent: 0.65, color: "#0284c7" }, { percent: 0.35, color: "#bae6fd" }], x: width * 0.5, y: height * 0.9 },
       ];
       for (let i = 0; i < donutCount; i++) {
         const d = donutData[i % donutData.length];
         donutCharts.push({
           x: d.x,
           y: d.y,
-          vx: (Math.random() - 0.5) * 0.18,
-          vy: (Math.random() - 0.5) * 0.18,
-          radius: isMobile ? 32 : 44,
+          vx: (Math.random() - 0.5) * 0.16,
+          vy: (Math.random() - 0.5) * 0.16,
+          radius: isMobile ? 32 : 46,
           angle: 0,
-          rotSpeed: 0.008,
+          rotSpeed: 0.009,
           segments: d.segments,
-          opacity: 0.38,
+          opacity: 0.4,
           label: d.label,
         });
       }
@@ -241,19 +264,19 @@ export default function PharmaBackgroundCanvas() {
       // 5. Holographic Trend Graph Waveforms
       trendWaves = [];
       for (let i = 0; i < waveCount; i++) {
-        const posX = i === 0 ? width * 0.22 : width * 0.76;
+        const posX = i === 0 ? width * 0.22 : width * 0.78;
         const posY = i === 0 ? height * 0.42 : height * 0.58;
         trendWaves.push({
           x: posX,
           y: posY,
-          vx: (Math.random() - 0.5) * 0.16,
-          vy: (Math.random() - 0.5) * 0.16,
-          width: isMobile ? 90 : 130,
-          height: 36,
+          vx: (Math.random() - 0.5) * 0.15,
+          vy: (Math.random() - 0.5) * 0.15,
+          width: isMobile ? 90 : 136,
+          height: 38,
           phase: 0,
-          phaseSpeed: 0.035,
+          phaseSpeed: 0.038,
           color: i === 0 ? "#ea580c" : "#0284c7",
-          opacity: 0.4,
+          opacity: 0.42,
           label: i === 0 ? "SALES VELOCITY ▲" : "ERP PULSE 60fps",
         });
       }
@@ -315,10 +338,10 @@ export default function PharmaBackgroundCanvas() {
       shockwaves.push({
         x: clickX,
         y: clickY,
-        radius: 8,
-        maxRadius: Math.min(width, height) * 0.52,
-        opacity: 0.85,
-        speed: 5.2,
+        radius: 6,
+        maxRadius: Math.min(width, height) * 0.54,
+        opacity: 0.9,
+        speed: 5.5,
         color: "#f97316",
       });
 
@@ -326,9 +349,9 @@ export default function PharmaBackgroundCanvas() {
         x: clickX,
         y: clickY,
         radius: 2,
-        maxRadius: Math.min(width, height) * 0.42,
-        opacity: 0.75,
-        speed: 3.8,
+        maxRadius: Math.min(width, height) * 0.44,
+        opacity: 0.8,
+        speed: 4.0,
         color: "#0284c7",
       });
 
@@ -336,8 +359,8 @@ export default function PharmaBackgroundCanvas() {
         const dx = nodes[i].x - clickX;
         const dy = nodes[i].y - clickY;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 260 && dist > 0) {
-          const push = (1 - dist / 260) * 8;
+        if (dist < 280 && dist > 0) {
+          const push = (1 - dist / 280) * 9;
           nodes[i].vx += (dx / dist) * push;
           nodes[i].vy += (dy / dist) * push;
 
@@ -346,13 +369,14 @@ export default function PharmaBackgroundCanvas() {
               const ndx = nodes[i].x - nodes[j].x;
               const ndy = nodes[i].y - nodes[j].y;
               const nDist = Math.sqrt(ndx * ndx + ndy * ndy);
-              if (nDist < 170 && Math.random() < 0.5) {
+              if (nDist < 180 && Math.random() < 0.6) {
                 pulses.push({
                   fromNode: i,
                   toNode: j,
                   progress: 0,
-                  speed: 0.035 + Math.random() * 0.03,
+                  speed: 0.038 + Math.random() * 0.032,
                   color: nodes[i].color,
+                  trailLength: 0.28,
                 });
               }
             }
@@ -367,18 +391,24 @@ export default function PharmaBackgroundCanvas() {
     window.addEventListener("touchend", handleTouchEnd);
     window.addEventListener("click", handleClick);
 
-    function drawHexagon(
+    // 3D Gyro Projection for Benzene Rings
+    function draw3DHexagon(
       context: CanvasRenderingContext2D,
       x: number,
       y: number,
       size: number,
-      angle: number
+      angle: number,
+      tiltX: number,
+      tiltY: number
     ) {
+      const scaleX = 0.85 + Math.cos(tiltX) * 0.25; // Gyro 3D horizontal squash/stretch
+      const scaleY = 0.85 + Math.sin(tiltY) * 0.25; // Gyro 3D vertical squash/stretch
+
       context.beginPath();
       for (let i = 0; i < 6; i++) {
         const a = angle + (i * Math.PI) / 3;
-        const hx = x + size * Math.cos(a);
-        const hy = y + size * Math.sin(a);
+        const hx = x + size * Math.cos(a) * scaleX;
+        const hy = y + size * Math.sin(a) * scaleY;
         if (i === 0) context.moveTo(hx, hy);
         else context.lineTo(hx, hy);
       }
@@ -386,16 +416,15 @@ export default function PharmaBackgroundCanvas() {
     }
 
     function render(currentTime: number) {
-      const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
       lastTime = currentTime;
 
       mouse.x += (mouse.targetX - mouse.x) * 0.14;
       mouse.y += (mouse.targetY - mouse.y) * 0.14;
-      mouse.reticleAngle += 0.02;
+      mouse.reticleAngle += 0.022;
 
       ctx!.clearRect(0, 0, width, height);
 
-      const maxDist = width < 640 ? 120 : 170;
+      const maxDist = width < 640 ? 120 : 175;
       const maxDistSq = maxDist * maxDist;
 
       // ---------------- 1. DRAW HOLOGRAPHIC RADAR SCOPES ----------------
@@ -411,13 +440,12 @@ export default function PharmaBackgroundCanvas() {
           if (r.y > height + r.radius * 2) r.y = -r.radius * 2;
         }
 
-        // Proximity hover boost
         let hoverBoost = 0;
         if (mouse.isHovered) {
           const dx = mouse.x - r.x;
           const dy = mouse.y - r.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 220) hoverBoost = (1 - dist / 220) * 0.55;
+          if (dist < 230) hoverBoost = (1 - dist / 230) * 0.6;
         }
 
         const activeOpacity = Math.min(r.opacity + hoverBoost, 0.95);
@@ -426,7 +454,7 @@ export default function PharmaBackgroundCanvas() {
         ctx!.translate(r.x, r.y);
         ctx!.globalAlpha = activeOpacity;
         ctx!.strokeStyle = r.color;
-        ctx!.lineWidth = 1.2;
+        ctx!.lineWidth = 1.3;
 
         // Concentric Rings
         ctx!.beginPath();
@@ -454,13 +482,13 @@ export default function PharmaBackgroundCanvas() {
         // Sweep Cone Beam
         ctx!.beginPath();
         ctx!.moveTo(0, 0);
-        ctx!.arc(0, 0, r.radius, r.angle, r.angle + 0.6);
+        ctx!.arc(0, 0, r.radius, r.angle, r.angle + 0.65);
         ctx!.closePath();
         const sweepGrad = ctx!.createRadialGradient(0, 0, 0, 0, 0, r.radius);
         sweepGrad.addColorStop(0, "transparent");
         sweepGrad.addColorStop(1, r.color);
         ctx!.fillStyle = sweepGrad;
-        ctx!.globalAlpha = activeOpacity * 0.45;
+        ctx!.globalAlpha = activeOpacity * 0.48;
         ctx!.fill();
 
         // Blips
@@ -468,9 +496,11 @@ export default function PharmaBackgroundCanvas() {
           const bx = Math.cos(b.angle) * (r.radius * b.dist);
           const by = Math.sin(b.angle) * (r.radius * b.dist);
           ctx!.beginPath();
-          ctx!.arc(bx, by, 3, 0, Math.PI * 2);
+          ctx!.arc(bx, by, 3.2, 0, Math.PI * 2);
           ctx!.fillStyle = r.color;
           ctx!.globalAlpha = activeOpacity * b.opacity;
+          ctx!.shadowColor = r.color;
+          ctx!.shadowBlur = 6;
           ctx!.fill();
         }
 
@@ -495,7 +525,7 @@ export default function PharmaBackgroundCanvas() {
           const dx = mouse.x - d.x;
           const dy = mouse.y - d.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 200) hoverBoost = (1 - dist / 200) * 0.55;
+          if (dist < 210) hoverBoost = (1 - dist / 210) * 0.55;
         }
 
         const activeOpacity = Math.min(d.opacity + hoverBoost, 0.95);
@@ -511,13 +541,15 @@ export default function PharmaBackgroundCanvas() {
           ctx!.arc(0, 0, d.radius, startAngle, startAngle + segAngle - 0.08);
           ctx!.strokeStyle = seg.color;
           ctx!.lineWidth = 5.5;
+          ctx!.shadowColor = seg.color;
+          ctx!.shadowBlur = 6;
           ctx!.stroke();
           startAngle += segAngle;
         }
 
         // Center micro label
         ctx!.fillStyle = "#ea580c";
-        ctx!.font = "bold 9px monospace";
+        ctx!.font = "bold 9.5px monospace";
         ctx!.textAlign = "center";
         ctx!.textBaseline = "middle";
         ctx!.fillText(d.label, 0, 0);
@@ -543,7 +575,7 @@ export default function PharmaBackgroundCanvas() {
           const dx = mouse.x - (w.x + w.width / 2);
           const dy = mouse.y - w.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 220) hoverBoost = (1 - dist / 220) * 0.55;
+          if (dist < 230) hoverBoost = (1 - dist / 230) * 0.55;
         }
 
         const activeOpacity = Math.min(w.opacity + hoverBoost, 0.95);
@@ -559,36 +591,38 @@ export default function PharmaBackgroundCanvas() {
         ctx!.strokeRect(0, -w.height / 2, w.width, w.height);
         ctx!.setLineDash([]);
 
-        // Spline Waveform
+        // Spline Waveform with glowing flare
         ctx!.beginPath();
-        for (let x = 0; x <= w.width; x += 6) {
+        for (let x = 0; x <= w.width; x += 5) {
           const normX = x / w.width;
-          const y = Math.sin(normX * Math.PI * 3 + w.phase) * (w.height * 0.38);
+          const y = Math.sin(normX * Math.PI * 3 + w.phase) * (w.height * 0.4);
           if (x === 0) ctx!.moveTo(x, y);
           else ctx!.lineTo(x, y);
         }
         ctx!.strokeStyle = w.color;
-        ctx!.lineWidth = 2.2;
+        ctx!.lineWidth = 2.4;
         ctx!.shadowColor = w.color;
-        ctx!.shadowBlur = 8;
+        ctx!.shadowBlur = 10;
         ctx!.stroke();
 
         // Top tag label
         ctx!.fillStyle = w.color;
-        ctx!.font = "bold 8.5px monospace";
+        ctx!.font = "bold 9px monospace";
         ctx!.textAlign = "left";
-        ctx!.fillText(w.label, 4, -w.height / 2 - 4);
+        ctx!.fillText(w.label, 4, -w.height / 2 - 5);
 
         ctx!.restore();
       }
 
-      // ---------------- 4. BENZENE RINGS ----------------
+      // ---------------- 4. BENZENE RINGS (3D GYROSCOPIC TILT) ----------------
       for (let i = 0; i < benzeneRings.length; i++) {
         const b = benzeneRings[i];
         if (!reducedMotion) {
           b.x += b.vx;
           b.y += b.vy;
           b.angle += b.vAngle;
+          b.tiltAngleX += b.vTiltX;
+          b.tiltAngleY += b.vTiltY;
           b.orbitAngle += b.orbitSpeed;
 
           if (b.x < -b.size * 2) b.x = width + b.size * 2;
@@ -597,65 +631,68 @@ export default function PharmaBackgroundCanvas() {
           if (b.y > height + b.size * 2) b.y = -b.size * 2;
         }
 
+        const scaleX = 0.85 + Math.cos(b.tiltAngleX) * 0.25;
+        const scaleY = 0.85 + Math.sin(b.tiltAngleY) * 0.25;
+
         ctx!.save();
         ctx!.strokeStyle = b.color;
         ctx!.shadowColor = b.glowColor;
-        ctx!.shadowBlur = 10;
+        ctx!.shadowBlur = 12;
         ctx!.globalAlpha = b.opacity;
-        ctx!.lineWidth = 1.6;
+        ctx!.lineWidth = 1.7;
         ctx!.setLineDash([6, 5]);
 
-        drawHexagon(ctx!, b.x, b.y, b.size, b.angle);
+        draw3DHexagon(ctx!, b.x, b.y, b.size, b.angle, b.tiltAngleX, b.tiltAngleY);
         ctx!.stroke();
 
-        // Inner conjugated aromatic ring
+        // Inner conjugated aromatic ring with 3D scale
         ctx!.beginPath();
-        ctx!.arc(b.x, b.y, b.size * 0.46, 0, Math.PI * 2);
+        ctx!.ellipse(b.x, b.y, b.size * 0.46 * scaleX, b.size * 0.46 * scaleY, 0, 0, Math.PI * 2);
         ctx!.setLineDash([]);
-        ctx!.lineWidth = 1.2;
+        ctx!.lineWidth = 1.3;
         ctx!.stroke();
 
         // Alternating double bonds
         for (let k = 0; k < 6; k += 2) {
           const a1 = b.angle + (k * Math.PI) / 3;
           const a2 = b.angle + ((k + 1) * Math.PI) / 3;
-          const x1 = b.x + (b.size * 0.82) * Math.cos(a1);
-          const y1 = b.y + (b.size * 0.82) * Math.sin(a1);
-          const x2 = b.x + (b.size * 0.82) * Math.cos(a2);
-          const y2 = b.y + (b.size * 0.82) * Math.sin(a2);
+          const x1 = b.x + (b.size * 0.82) * Math.cos(a1) * scaleX;
+          const y1 = b.y + (b.size * 0.82) * Math.sin(a1) * scaleY;
+          const x2 = b.x + (b.size * 0.82) * Math.cos(a2) * scaleX;
+          const y2 = b.y + (b.size * 0.82) * Math.sin(a2) * scaleY;
           ctx!.beginPath();
           ctx!.moveTo(x1, y1);
           ctx!.lineTo(x2, y2);
-          ctx!.lineWidth = 1.1;
+          ctx!.lineWidth = 1.2;
           ctx!.stroke();
         }
 
         // Orbiting electron photon
-        const ox = b.x + b.size * 0.46 * Math.cos(b.orbitAngle);
-        const oy = b.y + b.size * 0.46 * Math.sin(b.orbitAngle);
+        const ox = b.x + b.size * 0.46 * Math.cos(b.orbitAngle) * scaleX;
+        const oy = b.y + b.size * 0.46 * Math.sin(b.orbitAngle) * scaleY;
 
         ctx!.beginPath();
-        ctx!.arc(ox, oy, 2.6, 0, Math.PI * 2);
+        ctx!.arc(ox, oy, 2.8, 0, Math.PI * 2);
         ctx!.fillStyle = "#ffffff";
         ctx!.shadowColor = b.color;
-        ctx!.shadowBlur = 8;
+        ctx!.shadowBlur = 10;
         ctx!.fill();
 
         // Vertex Atoms
         for (let j = 0; j < 6; j++) {
           const a = b.angle + (j * Math.PI) / 3;
-          const cx = b.x + b.size * Math.cos(a);
-          const cy = b.y + b.size * Math.sin(a);
+          const cx = b.x + b.size * Math.cos(a) * scaleX;
+          const cy = b.y + b.size * Math.sin(a) * scaleY;
 
           ctx!.beginPath();
-          ctx!.arc(cx, cy, 2.8, 0, Math.PI * 2);
+          ctx!.arc(cx, cy, 3.0, 0, Math.PI * 2);
           ctx!.fillStyle = b.color;
           ctx!.shadowColor = b.glowColor;
-          ctx!.shadowBlur = 6;
+          ctx!.shadowBlur = 8;
           ctx!.fill();
 
           ctx!.beginPath();
-          ctx!.arc(cx - 0.7, cy - 0.7, 0.9, 0, Math.PI * 2);
+          ctx!.arc(cx - 0.7, cy - 0.7, 1.0, 0, Math.PI * 2);
           ctx!.fillStyle = "#ffffff";
           ctx!.fill();
         }
@@ -678,22 +715,22 @@ export default function PharmaBackgroundCanvas() {
         ctx!.beginPath();
         ctx!.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
         ctx!.strokeStyle = rip.color;
-        ctx!.globalAlpha = rip.opacity * 0.8;
+        ctx!.globalAlpha = rip.opacity * 0.85;
         ctx!.lineWidth = 2.8;
         ctx!.shadowColor = rip.color;
-        ctx!.shadowBlur = 12;
+        ctx!.shadowBlur = 14;
         ctx!.stroke();
         ctx!.restore();
       }
 
-      // ---------------- 6. UPDATE NODES & PHYSICS ----------------
+      // ---------------- 6. UPDATE NODES & GRAVITATIONAL LENS ----------------
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
 
         if (!reducedMotion) {
-          node.driftPhase += 0.015;
-          node.x += node.vx + Math.sin(node.driftPhase) * 0.15;
-          node.y += node.vy + Math.cos(node.driftPhase) * 0.15;
+          node.driftPhase += 0.016;
+          node.x += node.vx + Math.sin(node.driftPhase) * 0.16;
+          node.y += node.vy + Math.cos(node.driftPhase) * 0.16;
 
           node.vx *= 0.985;
           node.vy *= 0.985;
@@ -708,6 +745,7 @@ export default function PharmaBackgroundCanvas() {
           node.radius = node.baseRadius + Math.sin(node.pulsePhase) * 0.6;
         }
 
+        // Gravitational lens deflection
         if (mouse.isHovered) {
           const dx = mouse.x - node.x;
           const dy = mouse.y - node.y;
@@ -715,14 +753,14 @@ export default function PharmaBackgroundCanvas() {
 
           if (dist < mouse.radius && dist > 0) {
             const layerMultiplier = node.layer === 2 ? 1.3 : node.layer === 1 ? 1.0 : 0.6;
-            const force = (1 - dist / mouse.radius) * 2.2 * layerMultiplier;
-            node.x -= (dx / dist) * force * 1.6;
-            node.y -= (dy / dist) * force * 1.6;
+            const force = (1 - dist / mouse.radius) * 2.4 * layerMultiplier;
+            node.x -= (dx / dist) * force * 1.8;
+            node.y -= (dy / dist) * force * 1.8;
           }
         }
       }
 
-      // ---------------- 7. CONNECTOR BONDS ----------------
+      // ---------------- 7. CONNECTOR BONDS & CURVED FLUID SYNAPSES ----------------
       for (let i = 0; i < nodes.length; i++) {
         const n1 = nodes[i];
         for (let j = i + 1; j < nodes.length; j++) {
@@ -733,7 +771,7 @@ export default function PharmaBackgroundCanvas() {
 
           if (distSq < maxDistSq) {
             const dist = Math.sqrt(distSq);
-            const alpha = Math.pow(1 - dist / maxDist, 1.25) * 0.55;
+            const alpha = Math.pow(1 - dist / maxDist, 1.25) * 0.58;
 
             let mouseBoost = 0;
             if (mouse.isHovered) {
@@ -742,40 +780,37 @@ export default function PharmaBackgroundCanvas() {
               const mdx = mouse.x - midX;
               const mdy = mouse.y - midY;
               const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-              if (mDist < 140) {
-                mouseBoost = (1 - mDist / 140) * 0.45;
+              if (mDist < 150) {
+                mouseBoost = (1 - mDist / 150) * 0.48;
               }
             }
 
-            const finalAlpha = Math.min(alpha + mouseBoost, 0.9);
+            const finalAlpha = Math.min(alpha + mouseBoost, 0.95);
 
             ctx!.beginPath();
             ctx!.moveTo(n1.x, n1.y);
             ctx!.lineTo(n2.x, n2.y);
 
-            const grad = ctx!.createLinearGradient(n1.x, n1.y, n2.x, n2.y);
-            grad.addColorStop(0, n1.color);
-            grad.addColorStop(1, n2.color);
-
-            ctx!.strokeStyle = grad;
+            ctx!.strokeStyle = n1.color;
             ctx!.globalAlpha = finalAlpha;
-            ctx!.lineWidth = mouseBoost > 0.1 ? 2.0 : n1.layer === 2 ? 1.5 : 1.1;
+            ctx!.lineWidth = mouseBoost > 0.1 ? 2.2 : n1.layer === 2 ? 1.6 : 1.1;
             ctx!.stroke();
 
-            if (!reducedMotion && pulses.length < 18 && Math.random() < 0.0008) {
+            if (!reducedMotion && pulses.length < 20 && Math.random() < 0.001) {
               pulses.push({
                 fromNode: i,
                 toNode: j,
                 progress: 0,
-                speed: 0.024 + Math.random() * 0.028,
+                speed: 0.026 + Math.random() * 0.03,
                 color: n1.color,
+                trailLength: 0.25,
               });
             }
           }
         }
       }
 
-      // ---------------- 8. ENERGY PHOTON PULSES ----------------
+      // ---------------- 8. FLUID PHOTON SYNAPSE PULSES ----------------
       for (let i = pulses.length - 1; i >= 0; i--) {
         const p = pulses[i];
         p.progress += p.speed;
@@ -795,23 +830,42 @@ export default function PharmaBackgroundCanvas() {
         const px = from.x + (to.x - from.x) * p.progress;
         const py = from.y + (to.y - from.y) * p.progress;
 
+        const tailProg = Math.max(0, p.progress - p.trailLength);
+        const tx = from.x + (to.x - from.x) * tailProg;
+        const ty = from.y + (to.y - from.y) * tailProg;
+
+        // Draw laser comet trail
         ctx!.save();
+        const laserGrad = ctx!.createLinearGradient(tx, ty, px, py);
+        laserGrad.addColorStop(0, "transparent");
+        laserGrad.addColorStop(1, p.color);
+
         ctx!.beginPath();
-        ctx!.arc(px, py, 3.4, 0, Math.PI * 2);
+        ctx!.moveTo(tx, ty);
+        ctx!.lineTo(px, py);
+        ctx!.strokeStyle = laserGrad;
+        ctx!.lineWidth = 3.0;
+        ctx!.shadowColor = p.color;
+        ctx!.shadowBlur = 12;
+        ctx!.stroke();
+
+        // Glowing Photon Core
+        ctx!.beginPath();
+        ctx!.arc(px, py, 3.6, 0, Math.PI * 2);
         ctx!.fillStyle = p.color;
         ctx!.shadowColor = p.color;
-        ctx!.shadowBlur = 10;
+        ctx!.shadowBlur = 12;
         ctx!.globalAlpha = 0.95;
         ctx!.fill();
 
         ctx!.beginPath();
-        ctx!.arc(px, py, 1.4, 0, Math.PI * 2);
+        ctx!.arc(px, py, 1.5, 0, Math.PI * 2);
         ctx!.fillStyle = "#ffffff";
         ctx!.fill();
         ctx!.restore();
       }
 
-      // ---------------- 9. DRAW ATOM NODES ----------------
+      // ---------------- 9. DRAW ATOM NODES (DEPTH OF FIELD) ----------------
       for (let i = 0; i < nodes.length; i++) {
         const n = nodes[i];
 
@@ -821,21 +875,21 @@ export default function PharmaBackgroundCanvas() {
 
         ctx!.fillStyle = n.color;
         ctx!.shadowColor = n.glowColor;
-        ctx!.shadowBlur = n.layer === 2 ? 10 : 6;
-        ctx!.globalAlpha = n.layer === 0 ? 0.65 : 0.95;
+        ctx!.shadowBlur = n.layer === 2 ? 12 : n.layer === 1 ? 8 : 4;
+        ctx!.globalAlpha = n.layer === 0 ? 0.6 : n.layer === 1 ? 0.85 : 0.98;
         ctx!.fill();
 
         ctx!.beginPath();
-        ctx!.arc(n.x, n.y, n.radius * (n.layer === 2 ? 2.4 : 1.9), 0, Math.PI * 2);
+        ctx!.arc(n.x, n.y, n.radius * (n.layer === 2 ? 2.5 : 1.9), 0, Math.PI * 2);
         ctx!.fillStyle = n.glowColor;
-        ctx!.globalAlpha = n.layer === 2 ? 0.28 : 0.16;
+        ctx!.globalAlpha = n.layer === 2 ? 0.3 : 0.16;
         ctx!.fill();
 
         if (n.layer >= 1) {
           ctx!.beginPath();
           ctx!.arc(n.x - n.radius * 0.32, n.y - n.radius * 0.32, n.radius * 0.38, 0, Math.PI * 2);
           ctx!.fillStyle = "#ffffff";
-          ctx!.globalAlpha = 0.85;
+          ctx!.globalAlpha = 0.9;
           ctx!.fill();
         }
 
@@ -847,23 +901,23 @@ export default function PharmaBackgroundCanvas() {
         ctx!.save();
         ctx!.translate(mouse.x, mouse.y);
         ctx!.strokeStyle = "#f97316";
-        ctx!.globalAlpha = 0.4;
-        ctx!.lineWidth = 1.2;
+        ctx!.globalAlpha = 0.45;
+        ctx!.lineWidth = 1.3;
 
         // Rotating HUD Reticle Outer Ring
         ctx!.beginPath();
-        ctx!.arc(0, 0, 32, mouse.reticleAngle, mouse.reticleAngle + Math.PI * 1.5);
+        ctx!.arc(0, 0, 34, mouse.reticleAngle, mouse.reticleAngle + Math.PI * 1.5);
         ctx!.stroke();
 
         ctx!.beginPath();
-        ctx!.arc(0, 0, 22, -mouse.reticleAngle, -mouse.reticleAngle + Math.PI);
+        ctx!.arc(0, 0, 24, -mouse.reticleAngle, -mouse.reticleAngle + Math.PI);
         ctx!.setLineDash([3, 3]);
         ctx!.stroke();
         ctx!.setLineDash([]);
 
         // Center crosshair micro dot
         ctx!.beginPath();
-        ctx!.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx!.arc(0, 0, 2.2, 0, Math.PI * 2);
         ctx!.fillStyle = "#ea580c";
         ctx!.fill();
 

@@ -26,7 +26,7 @@ const monoFont = IBM_Plex_Mono({
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TILT_MAX_DEG = 8;
+const TILT_MAX_DEG = 7.5;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,6 +41,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [emailTouched, setEmailTouched] = useState(false);
 
+  // Typing reactivity for ECG Heartbeat chip
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [otpError, setOtpError] = useState<string | null>(null);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
@@ -48,13 +52,228 @@ export default function LoginPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const otpInputsRef = useRef<Array<HTMLInputElement | null>>([]);
 
-  // 3D tilt for the form card
+  // 3D tilt for the form card and sync card
   const formCardRef = useRef<HTMLDivElement | null>(null);
+  const syncCardRef = useRef<HTMLDivElement | null>(null);
+  const pageContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const [previewPhase, setPreviewPhase] = useState<"auto" | "morning" | "afternoon" | "evening" | "night">("auto");
+  type ThemeOption =
+    | "auto"
+    | "peach"
+    | "oceanDeep"
+    | "sapphire"
+    | "cobalt"
+    | "midnight"
+    | "glacier"
+    | "emerald"
+    | "velvet"
+    | "ember"
+    | "mabsolSpecial"
+    | "solidObsidian"
+    | "solidNavy"
+    | "solidZinc"
+    | "solidSnow"
+    | "solidSky"
+    | "custom";
+
+  const THEME_PRESETS: Array<{
+    id: ThemeOption;
+    label: string;
+    category: "Auto" | "Blue Combos" | "Vibrant Combos" | "Single Color Combos" | "Custom";
+    icon: string;
+    badgeBg: string;
+    accent: string;
+    description: string;
+  }> = [
+    { id: "auto", label: "Auto Adaptive", category: "Auto", icon: "⏱️", badgeBg: "linear-gradient(135deg, #f97316, #38bdf8)", accent: "#38bdf8", description: "Auto-syncs with time of day" },
+    
+    // 5 High-End Blue Combos
+    { id: "oceanDeep", label: "Ocean Deep Navy", category: "Blue Combos", icon: "🌊", badgeBg: "linear-gradient(135deg, #030712, #00f2fe)", accent: "#00f2fe", description: "Rich Deep Ocean Dark & Neon Cyan" },
+    { id: "sapphire", label: "Sapphire Cyber", category: "Blue Combos", icon: "💎", badgeBg: "linear-gradient(135deg, #e0f2fe, #0284c7)", accent: "#0284c7", description: "Light Ice Blue & Sapphire Azure" },
+    { id: "cobalt", label: "Cobalt Ultra", category: "Blue Combos", icon: "⚡", badgeBg: "linear-gradient(135deg, #090d2a, #3b82f6)", accent: "#3b82f6", description: "Royal Blue & Electric Cobalt" },
+    { id: "midnight", label: "Cosmic Midnight", category: "Blue Combos", icon: "🌌", badgeBg: "linear-gradient(135deg, #0f0c29, #818cf8)", accent: "#818cf8", description: "Deep Indigo & Neon Starburst" },
+    { id: "glacier", label: "Glacier Aquamarine", category: "Blue Combos", icon: "❄️", badgeBg: "linear-gradient(135deg, #f0fdfa, #06b6d4)", accent: "#06b6d4", description: "Frost Cyan & Aquamarine Sky" },
+    
+    // 5 Single Solid Color Minimal Themes (No Gradients)
+    { id: "solidObsidian", label: "Solid Obsidian", category: "Single Color Combos", icon: "🖤", badgeBg: "#09090b", accent: "#a1a1aa", description: "Pure Solid Dark Minimal Charcoal" },
+    { id: "solidNavy", label: "Solid Deep Navy", category: "Single Color Combos", icon: "💙", badgeBg: "#0b193c", accent: "#38bdf8", description: "Pure Solid Deep Navy Blue" },
+    { id: "solidZinc", label: "Solid Zinc Gray", category: "Single Color Combos", icon: "🩶", badgeBg: "#18181b", accent: "#3f3f46", description: "Pure Solid Zinc Dark Industrial" },
+    { id: "solidSnow", label: "Solid Pure Snow", category: "Single Color Combos", icon: "🤍", badgeBg: "#ffffff", accent: "#0284c7", description: "Pure Crisp Solid Clean White" },
+    { id: "solidSky", label: "Solid Sky Soft", category: "Single Color Combos", icon: "🩵", badgeBg: "#e0f2fe", accent: "#0284c7", description: "Pure Soft Solid Sky Blue" },
+
+    // Vibrant Combos
+    { id: "peach", label: "Sunset Peach", category: "Vibrant Combos", icon: "🍑", badgeBg: "linear-gradient(135deg, #f97316, #fb923c)", accent: "#f97316", description: "Warm Sunset Apricot & Amber (Default)" },
+    { id: "emerald", label: "Bio Emerald", category: "Vibrant Combos", icon: "🍃", badgeBg: "linear-gradient(135deg, #ecfdf5, #10b981)", accent: "#10b981", description: "Fresh Mint & Bio Emerald" },
+    { id: "velvet", label: "Neon Velvet", category: "Vibrant Combos", icon: "🍇", badgeBg: "linear-gradient(135deg, #180b2c, #a855f7)", accent: "#a855f7", description: "Cyber Plum & Neon Violet Glow" },
+    { id: "mabsolSpecial", label: "Mabsol Special", category: "Vibrant Combos", icon: "⭐", badgeBg: "linear-gradient(135deg, #343872, #fb8c00)", accent: "#fb8c00", description: "Signature Mabsol (#343872 & #fb8c00)" },
+    { id: "ember", label: "Crimson Ember", category: "Vibrant Combos", icon: "🔥", badgeBg: "linear-gradient(135deg, #1c0a0e, #f43f5e)", accent: "#f43f5e", description: "Rose Flame & Charcoal Ember" },
+    
+    // Custom Theme
+    { id: "custom", label: "Custom Colors", category: "Custom", icon: "🎨", badgeBg: "linear-gradient(135deg, #ec4899, #8b5cf6, #3b82f6)", accent: "#ec4899", description: "Section-by-Section Color Pickers" },
+  ];
+
+  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("auto");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Detailed Section-by-Section Custom Color States
+  const [customBodyBg, setCustomBodyBg] = useState("#0b193c");
+  const [customFormCardBg, setCustomFormCardBg] = useState("#0f172a");
+  const [customSyncCardBg, setCustomSyncCardBg] = useState("#1e293b");
+  const [customButtonBg, setCustomButtonBg] = useState("#0284c7");
+  const [customAccent, setCustomAccent] = useState("#38bdf8");
+  const [customBadgeBg, setCustomBadgeBg] = useState("#0f172a");
+  const [customTextColor, setCustomTextColor] = useState("#ffffff");
+  const [showCustomDrawer, setShowCustomDrawer] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Load saved theme preference on client mount (prevents SSR Hydration Mismatch)
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const localTheme = localStorage.getItem("mabsol_saved_theme") as ThemeOption | null;
+      if (localTheme) {
+        setSelectedTheme(localTheme);
+        if (localTheme === "custom") setShowCustomDrawer(true);
+      }
+
+      const savedCustom = localStorage.getItem("mabsol_saved_custom_colors");
+      if (savedCustom) {
+        const parsed = JSON.parse(savedCustom);
+        if (parsed.bodyBg) setCustomBodyBg(parsed.bodyBg);
+        if (parsed.formCardBg) setCustomFormCardBg(parsed.formCardBg);
+        if (parsed.syncCardBg) setCustomSyncCardBg(parsed.syncCardBg);
+        if (parsed.buttonBg) setCustomButtonBg(parsed.buttonBg);
+        if (parsed.accent) setCustomAccent(parsed.accent);
+        if (parsed.badgeBg) setCustomBadgeBg(parsed.badgeBg);
+        if (parsed.textColor) setCustomTextColor(parsed.textColor);
+      }
+    } catch (e) {}
+
+    // Sync with MongoDB API in background
+    fetch("/api/theme")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && data?.selectedTheme) {
+          setSelectedTheme(data.selectedTheme);
+          if (data.selectedTheme === "custom") setShowCustomDrawer(true);
+          if (data.customColors) {
+            const cc = data.customColors;
+            if (cc.bodyBg) setCustomBodyBg(cc.bodyBg);
+            if (cc.formCardBg) setCustomFormCardBg(cc.formCardBg);
+            if (cc.syncCardBg) setCustomSyncCardBg(cc.syncCardBg);
+            if (cc.buttonBg) setCustomButtonBg(cc.buttonBg);
+            if (cc.accent) setCustomAccent(cc.accent);
+            if (cc.badgeBg) setCustomBadgeBg(cc.badgeBg);
+            if (cc.textColor) setCustomTextColor(cc.textColor);
+          }
+        }
+      })
+      .catch((err) => console.log("MongoDB theme sync fallback", err));
+  }, []);
+
+  // Save selected theme to LocalStorage & MongoDB on change
+  const selectThemeAndSave = (newTheme: ThemeOption) => {
+    setSelectedTheme(newTheme);
+    if (newTheme === "custom") {
+      setShowCustomDrawer(true);
+    } else {
+      setShowCustomDrawer(false);
+    }
+    try {
+      localStorage.setItem("mabsol_saved_theme", newTheme);
+      localStorage.setItem(
+        "mabsol_saved_custom_colors",
+        JSON.stringify({
+          bodyBg: customBodyBg,
+          formCardBg: customFormCardBg,
+          syncCardBg: customSyncCardBg,
+          buttonBg: customButtonBg,
+          accent: customAccent,
+          badgeBg: customBadgeBg,
+          textColor: customTextColor,
+        })
+      );
+    } catch (e) {}
+
+    fetch("/api/theme", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        selectedTheme: newTheme,
+        customColors: {
+          bodyBg: customBodyBg,
+          formCardBg: customFormCardBg,
+          syncCardBg: customSyncCardBg,
+          buttonBg: customButtonBg,
+          accent: customAccent,
+          badgeBg: customBadgeBg,
+          textColor: customTextColor,
+        },
+      }),
+    }).catch((err) => console.log("MongoDB theme save fallback", err));
+  };
+
+  const sanitizeHex = (val: string, fallback: string) => {
+    if (!val) return fallback;
+    const clean = val.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(clean)) return clean;
+    if (/^[0-9A-Fa-f]{6}$/.test(clean)) return `#${clean}`;
+    return fallback;
+  };
+
+  const CUSTOM_COLOR_FIELDS = [
+    { id: "bodyBg", label: "Page Body", icon: "🏞️", val: customBodyBg, set: setCustomBodyBg, def: "#0b193c" },
+    { id: "formCardBg", label: "Form Card", icon: "🎴", val: customFormCardBg, set: setCustomFormCardBg, def: "#0f172a" },
+    { id: "syncCardBg", label: "Sync Card", icon: "📊", val: customSyncCardBg, set: setCustomSyncCardBg, def: "#1e293b" },
+    { id: "buttonBg", label: "Action Button", icon: "🔘", val: customButtonBg, set: setCustomButtonBg, def: "#0284c7" },
+    { id: "accent", label: "Accent Glow", icon: "✨", val: customAccent, set: setCustomAccent, def: "#38bdf8" },
+    { id: "badgeBg", label: "Badges BG", icon: "🏷️", val: customBadgeBg, set: setCustomBadgeBg, def: "#0f172a" },
+    { id: "textColor", label: "Text Color", icon: "✍️", val: customTextColor, set: setCustomTextColor, def: "#ffffff" },
+  ];
+
+  const applyQuickPalette = (p: { body: string; form: string; sync: string; btn: string; accent: string; badge: string; text: string }) => {
+    setCustomBodyBg(p.body);
+    setCustomFormCardBg(p.form);
+    setCustomSyncCardBg(p.sync);
+    setCustomButtonBg(p.btn);
+    setCustomAccent(p.accent);
+    setCustomBadgeBg(p.badge);
+    setCustomTextColor(p.text);
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const resetCustomColors = () => {
+    setCustomBodyBg("#0b193c");
+    setCustomFormCardBg("#0f172a");
+    setCustomSyncCardBg("#1e293b");
+    setCustomButtonBg("#0284c7");
+    setCustomAccent("#38bdf8");
+    setCustomBadgeBg("#0f172a");
+    setCustomTextColor("#ffffff");
+  };
+
   const [detectedPhase, setDetectedPhase] = useState<"morning" | "afternoon" | "evening" | "night">("morning");
 
-  const bars = [32, 54, 42, 85, 62, 74];
+  // Rich Sales Velocity data with labels and revenue tooltip info
+  const barsData = [
+    { label: "Q1", height: 32, rev: "₹34.2L" },
+    { label: "Q2", height: 54, rev: "₹58.6L" },
+    { label: "Q3", height: 42, rev: "₹46.1L" },
+    { label: "Q4", height: 85, rev: "₹92.4L" },
+    { label: "Q5", height: 62, rev: "₹68.0L" },
+    { label: "Q6", height: 74, rev: "₹81.5L" },
+  ];
 
   const emailIsValid = EMAIL_RE.test(email.trim());
   const showEmailError = emailTouched && email.length > 0 && !emailIsValid;
@@ -72,17 +291,27 @@ export default function LoginPage() {
     }
   }, []);
 
-  const activePhase = previewPhase === "auto" ? detectedPhase : previewPhase;
+  // Determine active theme based on auto detection or manual selection
+  const effectiveTheme = selectedTheme === "auto"
+    ? (detectedPhase === "morning" ? "peach" : detectedPhase === "afternoon" ? "sapphire" : detectedPhase === "evening" ? "emerald" : "oceanDeep")
+    : selectedTheme;
+
+  const activePreset = THEME_PRESETS.find((t) => t.id === effectiveTheme) || THEME_PRESETS[0];
+
+  // Accent color map for dynamic cursor and particle canvas synchronization
+  const activeAccent = effectiveTheme === "custom" ? customAccent : activePreset.accent;
+
+  // CSS theme class name
+  const themeClassName = effectiveTheme === "custom" ? "login-theme-custom" : `login-theme-${effectiveTheme}`;
 
   const getCelestialData = () => {
-    switch (activePhase) {
+    switch (detectedPhase) {
       case "morning":
         return {
           greeting: "Good Morning",
           icon: "🌅",
           tag: "Dawn Shift Active",
           subtitle: "Sign in to access dawn pipeline, territory dispatch & real-time inventory.",
-          themeClass: "login-theme-morning",
         };
       case "afternoon":
         return {
@@ -90,7 +319,6 @@ export default function LoginPage() {
           icon: "☀️",
           tag: "Midday Surge",
           subtitle: "Peak-hour throughput active. Real-time billing & ERP sync running.",
-          themeClass: "login-theme-afternoon",
         };
       case "evening":
         return {
@@ -98,7 +326,6 @@ export default function LoginPage() {
           icon: "🌇",
           tag: "Twilight Settlement",
           subtitle: "End-of-day sales reconciliation, territory summaries & warehouse ledger ready.",
-          themeClass: "login-theme-evening",
         };
       case "night":
       default:
@@ -107,7 +334,6 @@ export default function LoginPage() {
           icon: "🌙",
           tag: "Night Operations",
           subtitle: "Overnight automated batch sync & encrypted ledger backups active.",
-          themeClass: "login-theme-night",
         };
     }
   };
@@ -120,6 +346,38 @@ export default function LoginPage() {
     return () => clearTimeout(t);
   }, [resendTimer]);
 
+  // Trigger typing pulse for ECG heartbeat
+  const triggerTypingPulse = () => {
+    setIsTyping(true);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 1200);
+  };
+
+  const globalMouseRaf = useRef<number | null>(null);
+  const cardTiltRaf = useRef<number | null>(null);
+  const syncCardRaf = useRef<number | null>(null);
+
+  // Global mousemove for 3D parallax on corner badges
+  function handleGlobalMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!pageContainerRef.current) return;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    if (globalMouseRaf.current) return;
+    globalMouseRaf.current = requestAnimationFrame(() => {
+      globalMouseRaf.current = null;
+      if (pageContainerRef.current) {
+        const px = (clientX / window.innerWidth - 0.5) * -18;
+        const py = (clientY / window.innerHeight - 0.5) * -18;
+        pageContainerRef.current.style.setProperty("--badge-px", `${px.toFixed(1)}px`);
+        pageContainerRef.current.style.setProperty("--badge-py", `${py.toFixed(1)}px`);
+      }
+    });
+  }
+
+  // Specular reflection & 3D tilt on the form card
   function handleCardTiltMove(e: React.MouseEvent<HTMLDivElement>) {
     const card = formCardRef.current;
     if (!card) return;
@@ -128,21 +386,66 @@ export default function LoginPage() {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const percentX = (x / rect.width - 0.5) * 2; // -1 -> 1
-    const percentY = (y / rect.height - 0.5) * 2; // -1 -> 1
+    if (cardTiltRaf.current) return;
+    cardTiltRaf.current = requestAnimationFrame(() => {
+      cardTiltRaf.current = null;
+      if (formCardRef.current) {
+        const percentX = (x / rect.width - 0.5) * 2;
+        const percentY = (y / rect.height - 0.5) * 2;
+        const rotateY = percentX * TILT_MAX_DEG;
+        const rotateX = -percentY * TILT_MAX_DEG;
 
-    const rotateY = percentX * TILT_MAX_DEG;
-    const rotateX = -percentY * TILT_MAX_DEG;
-
-    card.style.setProperty("--rx", `${rotateX.toFixed(2)}deg`);
-    card.style.setProperty("--ry", `${rotateY.toFixed(2)}deg`);
+        formCardRef.current.style.transition = "none";
+        formCardRef.current.style.setProperty("--rx", `${rotateX.toFixed(2)}deg`);
+        formCardRef.current.style.setProperty("--ry", `${rotateY.toFixed(2)}deg`);
+        formCardRef.current.style.setProperty("--mouse-x", `${x.toFixed(1)}px`);
+        formCardRef.current.style.setProperty("--mouse-y", `${y.toFixed(1)}px`);
+      }
+    });
   }
 
   function handleCardTiltLeave() {
+    if (cardTiltRaf.current) {
+      cancelAnimationFrame(cardTiltRaf.current);
+      cardTiltRaf.current = null;
+    }
     const card = formCardRef.current;
     if (!card) return;
+    card.style.transition = "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
     card.style.setProperty("--rx", "0deg");
     card.style.setProperty("--ry", "0deg");
+    card.style.setProperty("--mouse-x", "50%");
+    card.style.setProperty("--mouse-y", "50%");
+  }
+
+  // Specular reflection on the right sync card
+  function handleSyncCardMove(e: React.MouseEvent<HTMLDivElement>) {
+    const card = syncCardRef.current;
+    if (!card) return;
+
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (syncCardRaf.current) return;
+    syncCardRaf.current = requestAnimationFrame(() => {
+      syncCardRaf.current = null;
+      if (syncCardRef.current) {
+        syncCardRef.current.style.setProperty("--mouse-x", `${x.toFixed(1)}px`);
+        syncCardRef.current.style.setProperty("--mouse-y", `${y.toFixed(1)}px`);
+      }
+    });
+  }
+
+  function handleSyncCardLeave() {
+    if (syncCardRaf.current) {
+      cancelAnimationFrame(syncCardRaf.current);
+      syncCardRaf.current = null;
+    }
+    const card = syncCardRef.current;
+    if (!card) return;
+    card.style.setProperty("--mouse-x", "50%");
+    card.style.setProperty("--mouse-y", "50%");
   }
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
@@ -173,7 +476,7 @@ export default function LoginPage() {
         setStep("otp");
         setOtp(Array(OTP_LENGTH).fill(""));
         setResendTimer(RESEND_SECONDS);
-        setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
+        setTimeout(() => otpInputsRef.current[0]?.focus(), 50);
       } else {
         setError(data.message || "Couldn't sign you in. Check your details and try again.");
       }
@@ -200,7 +503,7 @@ export default function LoginPage() {
       if (data.success) {
         setResendTimer(RESEND_SECONDS);
         setOtp(Array(OTP_LENGTH).fill(""));
-        setTimeout(() => otpInputsRef.current[0]?.focus(), 0);
+        setTimeout(() => otpInputsRef.current[0]?.focus(), 50);
       } else {
         setOtpError(data.message || "Couldn't resend the code. Try again.");
       }
@@ -212,6 +515,7 @@ export default function LoginPage() {
   }
 
   function handleOtpChange(index: number, value: string) {
+    triggerTypingPulse();
     const digit = value.replace(/\D/g, "").slice(-1);
     const next = [...otp];
     next[index] = digit;
@@ -224,12 +528,14 @@ export default function LoginPage() {
   }
 
   function handleOtpKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    triggerTypingPulse();
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       otpInputsRef.current[index - 1]?.focus();
     }
   }
 
   function handleOtpPaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    triggerTypingPulse();
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
     if (!pasted) return;
     e.preventDefault();
@@ -274,39 +580,297 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={`login-page ${celestial.themeClass} ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
+    <div
+      suppressHydrationWarning
+      ref={pageContainerRef}
+      onMouseMove={handleGlobalMouseMove}
+      className={`login-page ${themeClassName} ${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
+      style={
+        effectiveTheme === "custom"
+          ? ({
+              "--custom-body-bg": customBodyBg,
+              "--custom-form-card-bg": customFormCardBg,
+              "--custom-sync-card-bg": customSyncCardBg,
+              "--custom-btn-bg": customButtonBg,
+              "--custom-accent": customAccent,
+              "--custom-badge-bg": customBadgeBg,
+              "--custom-text-color": customTextColor,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
       {/* High Performance Dynamic Celestial Custom Cursor Pointer */}
-      <CelestialCursor theme={activePhase} />
+      <CelestialCursor theme={effectiveTheme} accentColor={activeAccent} />
 
       {/* High Performance Interactive Molecular Background Canvas */}
-      <PharmaBackgroundCanvas />
+      <PharmaBackgroundCanvas accentColor={activeAccent} />
 
-      {/* Floating Interactive Celestial Time Live Preview Capsule */}
-      <div className="celestial-preview-capsule">
-        <div className="capsule-label">
-          <span className="live-dot" />
-          <span>Live Theme</span>
+      {/* Floating Interactive Celestial Color Theme Selector & Customizer Capsule */}
+      <div className="celestial-preview-capsule-wrapper" ref={dropdownRef}>
+        <div className="celestial-preview-capsule">
+          <button
+            suppressHydrationWarning
+            type="button"
+            className="theme-selector-trigger"
+            onClick={() => setDropdownOpen((v) => !v)}
+            title="Select from 10 Premium Color Themes"
+          >
+            <span className="live-dot" style={{ backgroundColor: activeAccent }} />
+            <span className="active-theme-icon">{activePreset.icon}</span>
+            <span className="active-theme-name">{activePreset.label}</span>
+            <span className="caret-icon">{dropdownOpen ? "▲" : "▼"}</span>
+          </button>
         </div>
-        <div className="capsule-buttons">
-          {[
-            { id: "auto", label: "Auto", icon: "⏱️" },
-            { id: "morning", label: "Morning", icon: "🌅" },
-            { id: "afternoon", label: "Afternoon", icon: "☀️" },
-            { id: "evening", label: "Evening", icon: "🌇" },
-            { id: "night", label: "Night", icon: "🌙" },
-          ].map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => setPreviewPhase(m.id as any)}
-              className={`capsule-btn ${previewPhase === m.id ? "active" : ""}`}
-              title={`Preview ${m.label} theme`}
-            >
-              <span>{m.icon}</span>
-              <span className="btn-text">{m.label}</span>
-            </button>
-          ))}
-        </div>
+
+        {/* Theme Dropdown Menu */}
+        {dropdownOpen && (
+          <div className="theme-selector-dropdown">
+            <div className="dropdown-header">
+              <span>🎨 CHOOSE FROM PREMIUM COLOR THEMES</span>
+            </div>
+
+            {/* Single Color Minimal Themes (No Gradients) */}
+            <div className="dropdown-category">
+              <span className="cat-title">⬛ SINGLE SOLID COLOR MINIMAL (NO GRADIENT)</span>
+              <div className="theme-grid">
+                {THEME_PRESETS.filter((t) => t.category === "Single Color Combos").map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`theme-card-btn ${selectedTheme === t.id ? "active" : ""}`}
+                    onClick={() => {
+                      selectThemeAndSave(t.id);
+                      setDropdownOpen(false);
+                      setShowCustomDrawer(false);
+                    }}
+                  >
+                    <span className="swatch-badge" style={{ background: t.badgeBg }} />
+                    <span className="theme-btn-icon">{t.icon}</span>
+                    <div className="theme-btn-info">
+                      <span className="theme-btn-title">{t.label}</span>
+                      <span className="theme-btn-desc">{t.description}</span>
+                    </div>
+                    {selectedTheme === t.id && <span className="active-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Blue Combos */}
+            <div className="dropdown-category">
+              <span className="cat-title">🔵 BLUE COMBOS</span>
+              <div className="theme-grid">
+                {THEME_PRESETS.filter((t) => t.category === "Blue Combos").map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`theme-card-btn ${selectedTheme === t.id ? "active" : ""}`}
+                    onClick={() => {
+                      selectThemeAndSave(t.id);
+                      setDropdownOpen(false);
+                      setShowCustomDrawer(false);
+                    }}
+                  >
+                    <span className="swatch-badge" style={{ background: t.badgeBg }} />
+                    <span className="theme-btn-icon">{t.icon}</span>
+                    <div className="theme-btn-info">
+                      <span className="theme-btn-title">{t.label}</span>
+                      <span className="theme-btn-desc">{t.description}</span>
+                    </div>
+                    {selectedTheme === t.id && <span className="active-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Vibrant Combos */}
+            <div className="dropdown-category">
+              <span className="cat-title">✨ VIBRANT COMBOS</span>
+              <div className="theme-grid">
+                {THEME_PRESETS.filter((t) => t.category === "Vibrant Combos").map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`theme-card-btn ${selectedTheme === t.id ? "active" : ""}`}
+                    onClick={() => {
+                      selectThemeAndSave(t.id);
+                      setDropdownOpen(false);
+                      setShowCustomDrawer(false);
+                    }}
+                  >
+                    <span className="swatch-badge" style={{ background: t.badgeBg }} />
+                    <span className="theme-btn-icon">{t.icon}</span>
+                    <div className="theme-btn-info">
+                      <span className="theme-btn-title">{t.label}</span>
+                      <span className="theme-btn-desc">{t.description}</span>
+                    </div>
+                    {selectedTheme === t.id && <span className="active-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Auto & Custom */}
+            <div className="dropdown-category">
+              <span className="cat-title">⏱️ AUTO &amp; 🎨 CUSTOM</span>
+              <div className="theme-grid">
+                {THEME_PRESETS.filter((t) => t.category === "Auto" || t.category === "Custom").map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`theme-card-btn ${selectedTheme === t.id ? "active" : ""}`}
+                    onClick={() => {
+                      selectThemeAndSave(t.id);
+                      setDropdownOpen(false);
+                      if (t.id === "custom") setShowCustomDrawer(true);
+                      else setShowCustomDrawer(false);
+                    }}
+                  >
+                    <span className="swatch-badge" style={{ background: t.badgeBg }} />
+                    <span className="theme-btn-icon">{t.icon}</span>
+                    <div className="theme-btn-info">
+                      <span className="theme-btn-title">{t.label}</span>
+                      <span className="theme-btn-desc">{t.description}</span>
+                    </div>
+                    {selectedTheme === t.id && <span className="active-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dedicated Floating Glass Custom Section Color Studio */}
+        {showCustomDrawer && (
+          <div className="custom-theme-studio-modal">
+            <div className="studio-header">
+              <div className="studio-title">
+                <span className="studio-icon">🎨</span>
+                <span>Custom Section Color Studio</span>
+              </div>
+              <div className="studio-actions">
+                <button
+                  type="button"
+                  className="studio-btn reset"
+                  onClick={resetCustomColors}
+                  title="Reset to default colors"
+                >
+                  🔄 Reset
+                </button>
+                <button
+                  type="button"
+                  className="studio-btn close"
+                  onClick={() => setShowCustomDrawer(false)}
+                  title="Close customizer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Quick 1-Click Custom Combo Chips */}
+            <div className="quick-combos-row">
+              <span className="quick-label">⚡ Quick Combos:</span>
+              <button
+                type="button"
+                className="combo-chip"
+                onClick={() =>
+                  applyQuickPalette({
+                    body: "#0b193c",
+                    form: "#0f172a",
+                    sync: "#1e293b",
+                    btn: "#0284c7",
+                    accent: "#38bdf8",
+                    badge: "#0f172a",
+                    text: "#ffffff",
+                  })
+                }
+              >
+                🔵 Cyber Blue
+              </button>
+              <button
+                type="button"
+                className="combo-chip"
+                onClick={() =>
+                  applyQuickPalette({
+                    body: "#1a0f00",
+                    form: "#2a1a00",
+                    sync: "#3a2400",
+                    btn: "#d97706",
+                    accent: "#fde047",
+                    badge: "#2a1a00",
+                    text: "#ffffff",
+                  })
+                }
+              >
+                👑 Royal Amber
+              </button>
+              <button
+                type="button"
+                className="combo-chip"
+                onClick={() =>
+                  applyQuickPalette({
+                    body: "#14052b",
+                    form: "#210a42",
+                    sync: "#2e0e5c",
+                    btn: "#9333ea",
+                    accent: "#c084fc",
+                    badge: "#210a42",
+                    text: "#ffffff",
+                  })
+                }
+              >
+                🍇 Neon Violet
+              </button>
+              <button
+                type="button"
+                className="combo-chip"
+                onClick={() =>
+                  applyQuickPalette({
+                    body: "#022c22",
+                    form: "#064e3b",
+                    sync: "#0f766e",
+                    btn: "#10b981",
+                    accent: "#34d399",
+                    badge: "#064e3b",
+                    text: "#ffffff",
+                  })
+                }
+              >
+                🍃 Emerald Mint
+              </button>
+            </div>
+
+            {/* Section Color Cards Grid */}
+            <div className="studio-color-grid">
+              {CUSTOM_COLOR_FIELDS.map((field) => (
+                <div key={field.id} className="studio-field-card">
+                  <div className="field-info">
+                    <span className="field-icon">{field.icon}</span>
+                    <span className="field-label">{field.label}</span>
+                  </div>
+                  <div className="field-inputs">
+                    <input
+                      type="color"
+                      className="color-circle-picker"
+                      value={sanitizeHex(field.val, field.def)}
+                      onChange={(e) => field.set(e.target.value)}
+                      title={`Pick ${field.label} color`}
+                    />
+                    <input
+                      type="text"
+                      className="hex-code-input"
+                      value={field.val}
+                      onChange={(e) => field.set(e.target.value)}
+                      placeholder="#000000"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Aurora Gradient Mesh Orbs */}
@@ -316,7 +880,7 @@ export default function LoginPage() {
         <span className="orb orb-c" />
       </div>
 
-      {/* Floating Holographic Ambient Badges with High-Detail SVG Icons */}
+      {/* Floating Holographic Ambient Badges with 3D Mouse Parallax */}
       <div className="floating-badge badge-tl" aria-hidden="true">
         <div className="badge-icon-box">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -373,16 +937,25 @@ export default function LoginPage() {
       </div>
 
       <div className="stage">
-        {/* FORM CARD — 3D tilt follows the cursor */}
+        {/* FORM CARD — 3D tilt + VisionOS Dynamic Specular Light Sheen */}
         <div
           className="glass-card form-card"
           ref={formCardRef}
           onMouseMove={handleCardTiltMove}
           onMouseLeave={handleCardTiltLeave}
         >
+          {/* Mabsol Special Exclusive VIP Signature Crown Badge */}
+          {effectiveTheme === "mabsolSpecial" && (
+            <div className="mabsol-vip-crown-badge">
+              <span className="crown-sparkle">👑</span>
+              <span className="crown-text">MABSOL SIGNATURE VIP EDITION</span>
+              <span className="verified-dot">✓</span>
+            </div>
+          )}
+
           <div className="brand-row">
             <span className="brand-mark">
-              <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
                 <defs>
                   <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#ffb347" />
@@ -441,7 +1014,10 @@ export default function LoginPage() {
                       autoComplete="email"
                       placeholder="you@pharmacy.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        triggerTypingPulse();
+                      }}
                       onBlur={() => setEmailTouched(true)}
                       required
                       disabled={loading}
@@ -467,7 +1043,10 @@ export default function LoginPage() {
                       autoComplete="current-password"
                       placeholder="Enter password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        triggerTypingPulse();
+                      }}
                       required
                       disabled={loading}
                     />
@@ -533,6 +1112,7 @@ export default function LoginPage() {
                         ref={(el) => {
                           otpInputsRef.current[i] = el;
                         }}
+                        style={{ "--i": i } as React.CSSProperties}
                         inputMode="numeric"
                         maxLength={1}
                         className="otp-box"
@@ -580,20 +1160,26 @@ export default function LoginPage() {
           )}
         </div>
 
-        {/* BEAM — glowing 3D sync capsule connecting the two panels */}
+        {/* BEAM — Glowing Quantum Conduit Pipe with Multi-Packet Laser Stream */}
         <div className="beam-wrap" aria-hidden="true">
           <div className="beam-labels">
             <span>ERP</span>
             <span>CRM</span>
           </div>
 
-          <div className="beam-capsule">
+          <div className={`beam-capsule ${isTyping ? "typing-active" : ""}`}>
             <span className="beam-track" />
-            <span className="beam-node" />
-            <span className="beam-particle" />
-            <span className="beam-node" />
+            <span className="beam-node node-left" />
+            
+            {/* Continuous Multi-Packet Fiber-Optic Laser Stream */}
+            <span className="beam-particle particle-1" />
+            <span className="beam-particle particle-2" />
+            <span className="beam-particle particle-3" />
+            
+            <span className="beam-node node-right" />
 
-            <span className="heartbeat-chip">
+            {/* Central Heartbeat ECG Chip with Typing Reactivity */}
+            <span className={`heartbeat-chip ${isTyping ? "typing-active" : ""}`}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <defs>
                   <linearGradient id="ecgGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -602,7 +1188,7 @@ export default function LoginPage() {
                     <stop offset="100%" stopColor="#10b981" />
                   </linearGradient>
                   <filter id="ecgGlow" x="-30%" y="-30%" width="160%" height="160%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#ff7700" floodOpacity="0.9" />
+                    <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#ff7700" floodOpacity="0.95" />
                   </filter>
                 </defs>
                 <path
@@ -618,8 +1204,14 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* SYNC CARD — Highly detailed SaaS ERP-CRM live sync metrics */}
-        <div className="glass-card sync-card" aria-hidden="true">
+        {/* SYNC CARD — Highly detailed SaaS ERP-CRM live sync metrics + Specular Light Sheen */}
+        <div
+          className="glass-card sync-card"
+          ref={syncCardRef}
+          onMouseMove={handleSyncCardMove}
+          onMouseLeave={handleSyncCardLeave}
+          aria-hidden="true"
+        >
           <div className="sync-top">
             <div className="sync-dots">
               <span className="dot-red" /><span className="dot-yellow" /><span className="dot-green" />
@@ -636,7 +1228,7 @@ export default function LoginPage() {
           <h2>Synced instantly</h2>
 
           <div className="sync-tiles">
-            {/* Sales Velocity Tile */}
+            {/* Sales Velocity Tile with Organic Breathing Bars & Interactive Micro-Tooltips */}
             <div className="sync-tile">
               <div className="tile-header">
                 <p className="tile-label">Sales Velocity</p>
@@ -649,9 +1241,12 @@ export default function LoginPage() {
               </div>
               <div className="mini-bars-wrapper">
                 <div className="mini-bars">
-                  {bars.map((h, i) => (
-                    <div key={i} className="bar-col">
-                      <span className="bar-fill" style={{ height: `${h}%`, animationDelay: `${i * 70}ms` }} />
+                  {barsData.map((bar, i) => (
+                    <div key={i} className="bar-col" data-tooltip={`${bar.label}: ${bar.rev}`}>
+                      <span
+                        className="bar-fill"
+                        style={{ height: `${bar.height}%`, animationDelay: `${i * 65}ms` }}
+                      />
                     </div>
                   ))}
                 </div>
@@ -664,7 +1259,7 @@ export default function LoginPage() {
               <div className="tile-header">
                 <p className="tile-label">Refresh Cycle</p>
                 <span className="sync-status-icon">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="spin-sync">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="spin-sync">
                     <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="#ea580c" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
@@ -677,7 +1272,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Real-time Activity Notification Card */}
+          {/* Real-time Activity Notification Card with Prismatic Highlight */}
           <div className="sync-toast">
             <div className="toast-icon-wrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">

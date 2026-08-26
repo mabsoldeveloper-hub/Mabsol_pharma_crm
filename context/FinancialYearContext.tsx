@@ -85,15 +85,19 @@ export function FinancialYearProvider({ children }: { children: React.ReactNode 
         }
       }
 
-      // Default to current FY from DB for this company
-      const currentFY = data.find((x) => x.isCurrent);
-      if (currentFY) {
-        setSelectedFYState(currentFY);
-      } else if (data.length > 0) {
-        setSelectedFYState(data[0]);
-      } else {
-        setSelectedFYState(companyAllFY);
-      }
+      // Default to current calendar year FY (e.g. 2026-27) or current FY from DB
+      const now = new Date();
+      const curYear = now.getFullYear();
+      const curMonth = now.getMonth();
+      const fyStartYear = curMonth >= 3 ? curYear : curYear - 1;
+      const expectedFyName = `${fyStartYear}-${String(fyStartYear + 1).slice(-2)}`;
+
+      const matchedCurrentDateFY = data.find(
+        (x) => x.fyName?.includes(expectedFyName) || x.fyName === expectedFyName
+      );
+      const currentFY =
+        matchedCurrentDateFY || data.find((x) => x.isCurrent) || data[0] || companyAllFY;
+      setSelectedFYState(currentFY);
     } catch (err) {
       console.error("Failed to load financial years", err);
     } finally {
