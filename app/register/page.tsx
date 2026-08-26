@@ -265,8 +265,9 @@ export default function RegisterPage() {
   // ==========================================
   async function handleSendEmailOtp() {
     if (emailSending) return;
-    if (!email || !EMAIL_RE.test(email.trim())) {
-      showToast("Please enter a valid work email address", "error");
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      showToast(emailErr, "error");
       return;
     }
 
@@ -317,11 +318,12 @@ export default function RegisterPage() {
 
   async function handleSendMobileOtp() {
     if (mobileSending) return;
-    const cleanMobile = mobile.replace(/\D/g, "");
-    if (cleanMobile.length !== 10) {
-      showToast("Please enter a valid 10-digit mobile number", "error");
+    const mobileErr = validateMobile(mobile);
+    if (mobileErr) {
+      showToast(mobileErr, "error");
       return;
     }
+    const cleanMobile = mobile.replace(/\D/g, "");
 
     setMobileSending(true);
     try {

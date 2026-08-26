@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { Space_Grotesk, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./company-wizard.css";
 import { useCompany } from "@/context/CompanyContext";
+import { validateEmail, validateMobile } from "@/lib/constants/validation.constant";
 
 const displayFont = Space_Grotesk({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" });
 const bodyFont = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body" });
 const monoFont = IBM_Plex_Mono({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-mono" });
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const PHARMA_MODULES = [
   { id: "dashboard", label: "Executive AI Dashboard", desc: "KPI Cards, Performance Radar & Simulator" },
@@ -241,7 +240,8 @@ export default function CreateCompanyPage() {
 
   // ── Email OTP ──
   async function sendEmailOtp() {
-    if (!EMAIL_RE.test(email)) { showToast("Enter a valid email address", "error"); return; }
+    const emailErr = validateEmail(email);
+    if (emailErr) { showToast(emailErr, "error"); return; }
     setEmailSending(true); setEmailErrMsg(null);
     try {
       const res = await fetch("/api/auth/send-company-email-otp", {
@@ -275,8 +275,9 @@ export default function CreateCompanyPage() {
 
   // ── Mobile OTP ──
   async function sendMobileOtp() {
+    const mobErr = validateMobile(mobile);
+    if (mobErr) { showToast(mobErr, "error"); return; }
     const clean = mobile.replace(/\D/g, "");
-    if (clean.length !== 10) { showToast("Enter a valid 10-digit mobile number", "error"); return; }
     setMobileSending(true); setMobileErrMsg(null);
     try {
       const res = await fetch("/api/auth/send-company-mobile-otp", {
@@ -320,9 +321,11 @@ export default function CreateCompanyPage() {
       setCurrentStep(2);
       showToast("Step 1 complete — Add contact & verify with OTP", "info");
     } else if (currentStep === 2) {
-      if (!email.trim() || !EMAIL_RE.test(email)) { setErrorBanner("A valid email address is required"); return; }
+      const emailErr = validateEmail(email);
+      if (emailErr) { setErrorBanner(emailErr); return; }
       if (!emailVerified) { setErrorBanner("Please verify your email address via OTP"); return; }
-      if (!mobile.replace(/\D/g,"") || mobile.replace(/\D/g,"").length !== 10) { setErrorBanner("A valid 10-digit mobile number is required"); return; }
+      const mobErr = validateMobile(mobile);
+      if (mobErr) { setErrorBanner(mobErr); return; }
       if (!mobileVerified) { setErrorBanner("Please verify your mobile number via OTP"); return; }
       // Password validation
       if (!password || password.length < 8) { setErrorBanner("Password must be at least 8 characters"); return; }
