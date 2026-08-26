@@ -12,7 +12,7 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
   const codesToMatch = new Set<string>();
 
   let compDoc: any = null;
-  if (companyId) {
+  if (companyId && companyId !== "ALL") {
     try {
       if (mongoose.Types.ObjectId.isValid(companyId)) {
         compDoc = await Company.findById(companyId).lean();
@@ -50,8 +50,12 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
       }
 
       if (fyDoc?.fyCode) {
-        codesToMatch.clear();
         codesToMatch.add(fyDoc.fyCode.trim().toUpperCase());
+      }
+      if (fyDoc?.companyId) {
+        const fyComp: any = await Company.findById(fyDoc.companyId).lean();
+        if (fyComp?.companyCode) codesToMatch.add(fyComp.companyCode.trim().toUpperCase());
+        if (fyComp?.code) codesToMatch.add(fyComp.code.trim().toUpperCase());
       }
     } catch (e) {
       console.error("Error matching fyId in getCompanyVfpFilter:", e);
@@ -68,7 +72,7 @@ export async function getCompanyVfpFilter(searchParams: URLSearchParams): Promis
     }
   }
 
-  if (companyId) {
+  if (companyId && companyId !== "ALL") {
     const compStr = String(companyId).trim();
     if (mongoose.Types.ObjectId.isValid(compStr)) {
       vfpOrList.push({ companyId: new mongoose.Types.ObjectId(compStr) });

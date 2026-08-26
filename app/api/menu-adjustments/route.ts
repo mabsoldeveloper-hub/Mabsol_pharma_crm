@@ -56,10 +56,31 @@ export async function GET(req: Request) {
       });
     }
 
+    const defaults = getDefaultMenuItems();
+    const existingIds = new Set(config.items.map((i: any) => i.id));
+    const mergedItems = [...config.items];
+
+    defaults.forEach((defItem) => {
+      if (!existingIds.has(defItem.id)) {
+        mergedItems.push(defItem);
+      } else {
+        const found = mergedItems.find((i: any) => i.id === defItem.id);
+        if (found && defItem.subItems && defItem.subItems.length > 0) {
+          if (!found.subItems) found.subItems = [];
+          const existingSubIds = new Set(found.subItems.map((s: any) => s.id));
+          defItem.subItems.forEach((defSub) => {
+            if (!existingSubIds.has(defSub.id)) {
+              found.subItems.push(defSub);
+            }
+          });
+        }
+      }
+    });
+
     return NextResponse.json({
       success: true,
       isCustomized: true,
-      items: config.items,
+      items: mergedItems,
       companyId,
       financialYearId: config.financialYearId || financialYearId,
     });

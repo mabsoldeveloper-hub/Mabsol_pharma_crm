@@ -90,8 +90,11 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Fallback 2: Default or first company
-      const defaultComp = data.find((c) => c.isDefault) || data[0];
+      // Fallback 2: Default company or active pharma enterprise (Skylark)
+      const defaultComp =
+        data.find((c) => c.isDefault) ||
+        data.find((c) => c.companyName?.toLowerCase().includes("skylark")) ||
+        data[0];
       setSelectedCompanyState(defaultComp);
     } catch (err) {
       console.error("Failed to load companies", err);
