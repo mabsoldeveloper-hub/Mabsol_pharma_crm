@@ -496,6 +496,17 @@ export default function LoginPage() {
                   {loading ? <span className="spinner" aria-hidden="true" /> : null}
                   {loading ? "Signing in…" : "Log in"}
                 </button>
+
+                <p className="switch-line">
+                  Don't have an account?{" "}
+                  <button
+                    type="button"
+                    className="link-strong"
+                    onClick={() => router.push("/register")}
+                  >
+                    Create an account →
+                  </button>
+                </p>
               </form>
             </>
           ) : (

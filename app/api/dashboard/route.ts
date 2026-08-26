@@ -166,9 +166,25 @@ async function sumField(model: any, match: Record<string, any>, field: string) {
 
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(req: Request) {
   await dbConnect();
+  const currentUser = await getCurrentUser();
+
+  const userCountQuery: any = {};
+  if (currentUser?.tenantId) {
+    userCountQuery.tenantId = currentUser.tenantId;
+  } else if (currentUser?.companyId) {
+    userCountQuery.companyId = currentUser.companyId;
+  }
+
+  const companyCountQuery: any = {};
+  if (currentUser?.tenantId) {
+    companyCountQuery.tenantId = currentUser.tenantId;
+  } else if (currentUser?.companyId) {
+    companyCountQuery._id = currentUser.companyId;
+  }
 
   const { searchParams } = new URL(req.url);
   const companyId = searchParams.get("companyId");
@@ -377,9 +393,9 @@ export async function GET(req: Request) {
 
     // ---- NEW: 5 new KPI queries ----
     // 1. Total Users
-    User.countDocuments({}),
+    User.countDocuments(userCountQuery),
     // 2. Total Companies
-    Company.countDocuments(companyFilter),
+    Company.countDocuments(companyCountQuery),
     // 3. Credit — SUM(CREDIT) for customer transactions only
     sumField(GLedger, GLEDGER_CUSTOMER_TXN_FILTER, "CREDIT"),
     // 4. Debit — SUM(DEBIT) for Payment Book (BOOK: "P", CD: "D") matching Marg ERP Payment Book

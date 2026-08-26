@@ -55,6 +55,29 @@ const CompanySchema = new mongoose.Schema(
       default: "",
     },
 
+    businessType: {
+      type: String,
+      default: "pcd_marketing",
+    },
+
+    additionalGstins: [
+      {
+        gstNo: { type: String, trim: true },
+        state: { type: String, default: "" },
+        stateCode: { type: String, default: "" },
+        verified: { type: Boolean, default: false },
+        address: { type: String, default: "" },
+        city: { type: String, default: "" },
+        pincode: { type: String, default: "" },
+      },
+    ],
+
+    enabledModules: [
+      {
+        type: String,
+      },
+    ],
+
     address: {
       type: String,
       default: "",

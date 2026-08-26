@@ -6,15 +6,24 @@ import bcrypt from "bcryptjs";
 
 
 import "@/models/Role";
-import "@/models/CompanyMaster";
+import Company from "@/models/Company";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     await connectDB();
+    const currentUser = await getCurrentUser();
 
-    const users = await User.find()
+    let query: any = {};
+    if (currentUser?.tenantId) {
+      query.tenantId = currentUser.tenantId;
+    } else if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+
+    const users = await User.find(query)
       .populate("companyId", "companyName")
       .populate("roleId", "roleName")
       .sort({ createdAt: -1 })
@@ -135,18 +144,23 @@ export async function POST(
     }
 
     // Password Hash
-
     const hashedPassword =
       await bcrypt.hash(
         password,
         10
       );
 
+    let targetTenantId = body.tenantId || "TENANT001";
+    if (companyId) {
+      const comp = await Company.findById(companyId);
+      if (comp?.tenantId) {
+        targetTenantId = comp.tenantId;
+      }
+    }
+
     const user =
       await User.create({
-
-        tenantId:
-          "TENANT001",
+        tenantId: targetTenantId,
 
         employeeCode,
 

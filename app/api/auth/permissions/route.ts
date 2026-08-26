@@ -1,112 +1,113 @@
 import { NextResponse } from "next/server";
-
 import connectDB from "@/lib/mongodb";
-
 import { getCurrentUser } from "@/lib/auth";
-
 import RolePermission from "@/models/RolePermission";
 import UserPermission from "@/models/UserPermission";
+import Permission from "@/models/Permission";
 
-import "@/models/Permission";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-
   try {
-
     await connectDB();
 
-    const user =
-      await getCurrentUser();
+    const user = await getCurrentUser();
 
     if (!user) {
-
       return NextResponse.json(
         {
           success: false,
+          permissions: [],
         },
         {
           status: 401,
         }
       );
-
     }
 
-    // -----------------------
-    // Role Permissions
-    // -----------------------
+    // ─── Super Admin / Workspace Owner has Full Access ─────────────────────────
+    if (
+      user.role === "Admin" ||
+      user.roleType === "Admin" ||
+      (user.roleId as any)?.roleName === "Admin"
+    ) {
+      const allPermissions = await Permission.find({ status: "Active" }).lean();
+      const allKeys = allPermissions.map((p: any) => p.permissionKey);
 
-    const rolePermissions =
-      await RolePermission.find({
+      const adminCoreKeys = [
+        "*",
+        "dashboard.view",
+        "dashboard.kpi",
+        "dashboard.analytics",
+        "company.view",
+        "company.create",
+        "company.edit",
+        "users.view",
+        "users.create",
+        "users.edit",
+        "leads.view",
+        "leads.create",
+        "leads.edit",
+        "orders.view",
+        "sales.view",
+        "stock.view",
+        "targets.view",
+        "reports.view",
+        "settings.view",
+        "master.view",
+      ];
 
-        roleId:
-          user.roleId,
+      return NextResponse.json({
+        success: true,
+        isAdmin: true,
+        permissions: Array.from(new Set([...adminCoreKeys, ...allKeys])),
+      });
+    }
 
-        allow: true,
+    // ─── Role Permissions ──────────────────────────────────────────────────────
+    const rolePermissions = user.roleId
+      ? await RolePermission.find({
+          roleId: user.roleId,
+          allow: true,
+        }).populate("permissionId")
+      : [];
 
-      }).populate(
-        "permissionId"
-      );
+    // ─── User Permissions ──────────────────────────────────────────────────────
+    const userPermissions = await UserPermission.find({
+      userId: user._id,
+      allow: true,
+    }).populate("permissionId");
 
-    // -----------------------
-    // User Permissions
-    // -----------------------
-
-    const userPermissions =
-      await UserPermission.find({
-
-        userId:
-          user._id,
-
-        allow: true,
-
-      }).populate(
-        "permissionId"
-      );
-
-    // -----------------------
-    // Merge
-    // -----------------------
-
-    const finalPermissions =
-      new Set<string>();
+    // ─── Merge ────────────────────────────────────────────────────────────────
+    const finalPermissions = new Set<string>();
 
     rolePermissions.forEach((item: any) => {
-      if (item.permissionId) {
+      if (item.permissionId?.permissionKey) {
         finalPermissions.add(item.permissionId.permissionKey);
-      } else {
-        console.log("Invalid Role Permission:", item);
       }
     });
 
     userPermissions.forEach((item: any) => {
-      if (item.permissionId) {
+      if (item.permissionId?.permissionKey) {
         finalPermissions.add(item.permissionId.permissionKey);
-      } else {
-        console.log("Invalid User Permission:", item);
       }
     });
 
     return NextResponse.json({
-
       success: true,
-
-      permissions:
-        [...finalPermissions],
-
+      permissions: [...finalPermissions],
     });
-
   } catch (error: any) {
-
+    console.error("PERMISSIONS ERROR:", error);
     return NextResponse.json(
       {
         success: false,
         error: error.message,
+        permissions: [],
       },
       {
         status: 500,
       }
     );
-
   }
-
 }

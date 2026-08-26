@@ -104,7 +104,7 @@ export async function POST(req: Request) {
         financialYearId: financialYearId || "ALL",
       },
       {
-        tenantId: "TENANT001",
+        tenantId: user?.tenantId || "TENANT001",
         companyId,
         financialYearId: financialYearId || "ALL",
         isCustomized: true,

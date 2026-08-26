@@ -5,101 +5,58 @@ import {
   useContext,
   useEffect,
   useState,
-  useRef,
+  useCallback,
 } from "react";
+import { useUser } from "./UserContext";
 
-const PermissionContext =
-createContext<any>(null);
+const PermissionContext = createContext<any>(null);
 
-export function PermissionProvider({
-  children,
-}:any){
+export function PermissionProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useUser();
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const [permissions,setPermissions]=
-useState<string[]>([]);
+  const loadPermissions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/auth/permissions");
+      const data = await res.json();
 
-const [loading,setLoading]=
-useState(true);
+      if (data.success && Array.isArray(data.permissions)) {
+        setPermissions(data.permissions);
+      }
+    } catch (error) {
+      console.error("Failed to load permissions:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-const loadStarted = useRef(false);
+  useEffect(() => {
+    loadPermissions();
+  }, [user, loadPermissions]);
 
-useEffect(()=>{
-
-if (loadStarted.current) return;
-loadStarted.current = true;
-loadPermissions();
-
-},[]);
-
-const loadPermissions=
-async()=>{
-
-try{
-
-const res=
-await fetch(
-"/api/auth/permissions"
-);
-
-const data=
-await res.json();
-
-if(data.success){
-
-setPermissions(
-data.permissions
-);
-
-}
-
-}catch(error){
-
-console.log(error);
-
-}
-
-setLoading(false);
-
-};
-
-const can = (key: string) => {
-
-    if (loading)
-      return false;
-  
-    return permissions.includes(key);
-  
+  const can = (key: string) => {
+    // If the logged-in user is an Admin, grant instant full access
+    if (user?.roleType === "Admin" || user?.role === "Admin" || (user?.roleId as any)?.roleName === "Admin") {
+      return true;
+    }
+    if (loading) return false;
+    return permissions.includes("*") || permissions.includes(key);
   };
-// const can=(key:string)=>{
 
-// return permissions.includes(
-// key
-// );
-
-// };
-
-return(
-
-<PermissionContext.Provider
-value={{
-
-permissions,
-
-loading,
-
-reload:loadPermissions,
-
-can,
-
-}}
->
-
-{children}
-
-</PermissionContext.Provider>
-
-);
-
+  return (
+    <PermissionContext.Provider
+      value={{
+        permissions,
+        loading,
+        reload: loadPermissions,
+        can,
+      }}
+    >
+      {children}
+    </PermissionContext.Provider>
+  );
 }
 
 export function usePermission() {

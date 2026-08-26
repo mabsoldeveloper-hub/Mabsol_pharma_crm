@@ -228,12 +228,57 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
   const iconOnly = collapsed && !mobile;
 
-  // Filter items by visibility and user permissions
+  const MODULE_KEY_MAP: Record<string, string[]> = {
+    dashboard: ["standard-dashboard", "executive-ai", "targets", "purchase-sales-analytics"],
+    sales: ["sales", "sales-orders", "sales-invoices", "sales-return", "sales-management"],
+    purchase: ["purchase", "purchase-bills", "purchase-orders", "purchase-returns", "purchase-payments"],
+    inventory: ["stock", "inventory", "expiry", "near-expiry", "stock-status"],
+    accounting: ["accounts", "ledgers", "receipts", "payments", "finance", "credit-debit"],
+    leads: ["leads", "email-campaign", "whatsapp-campaign"],
+    fieldforce: ["fieldforce", "mr-reporting", "mr-customer", "mr-territory", "mr-fieldforce"],
+    reports: ["reports", "sales-report", "purchase-report", "stock-report", "ledger-report"],
+    master: ["master", "area", "division", "category", "hsn", "company"],
+    custom_forms: ["custom-forms"],
+  };
+
+  // Filter items by visibility, company enabled modules, and user permissions
   const visibleMenuItems = useMemo(() => {
+    const enabledModules = (selectedCompany as any)?.enabledModules;
+
     return menuItems.filter((item) => {
       if (item.isVisible === false) return false;
 
-      // Permission check for main item
+      // Module-level company permission check
+      if (enabledModules && Array.isArray(enabledModules) && enabledModules.length > 0) {
+        const isAlwaysAllowed =
+          item.id === "standard-dashboard" ||
+          item.id === "executive-ai" ||
+          item.href === "/dashboard";
+
+        if (!isAlwaysAllowed) {
+          const itemHref = item.href || (item.subItems && item.subItems[0]?.href) || "";
+          const isEnabled = enabledModules.some((modKey: string) => {
+            if (item.id === modKey || item.id.includes(modKey)) return true;
+            if (itemHref.includes(`/dashboard/${modKey}`)) return true;
+            const mappedIds = MODULE_KEY_MAP[modKey] || [];
+            if (mappedIds.includes(item.id)) return true;
+            if (
+              item.subItems?.some(
+                (sub) =>
+                  mappedIds.includes(sub.id) ||
+                  sub.id.includes(modKey) ||
+                  sub.href?.includes(modKey)
+              )
+            )
+              return true;
+            return false;
+          });
+
+          if (!isEnabled) return false;
+        }
+      }
+
+      // User role permission check for main item
       if (item.permission && !can(item.permission)) {
         // If it's a group, check if any subitem is permitted
         if (item.isGroup && item.subItems && item.subItems.length > 0) {
@@ -248,7 +293,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
       return true;
     });
-  }, [menuItems, can]);
+  }, [menuItems, can, selectedCompany]);
 
   // ---------------- Single link (no submenu) ----------------
   const NavLink = ({
