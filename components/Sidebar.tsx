@@ -332,6 +332,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   const [sidebarCustomHex, setSidebarCustomHex] = useState<string>("#001f54");
   const [showColorPicker, setShowColorPicker] = useState<boolean>(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const colorPickerBtnRef = useRef<HTMLButtonElement>(null);
+  const colorPickerPopupRef = useRef<HTMLDivElement>(null);
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -363,7 +366,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   // Click outside to close sidebar color picker
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (colorPickerRef.current && !colorPickerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const inWrapper = colorPickerRef.current?.contains(target);
+      const inPopup = colorPickerPopupRef.current?.contains(target);
+      if (!inWrapper && !inPopup) {
         setShowColorPicker(false);
       }
     };
@@ -1143,8 +1149,35 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                 {/* Collapsed Palette Icon Button */}
                 <div className="relative" ref={colorPickerRef}>
                   <button
+                    ref={colorPickerBtnRef}
                     type="button"
-                    onClick={() => setShowColorPicker((prev) => !prev)}
+                    onClick={() => {
+                      if (!showColorPicker && colorPickerBtnRef.current) {
+                        const rect = colorPickerBtnRef.current.getBoundingClientRect();
+                        const isMobile = window.innerWidth < 992;
+                        const popupWidth = Math.min(384, window.innerWidth - 16);
+                        const popupHeight = Math.min(window.innerHeight * 0.82, 640);
+                        let left: number;
+                        let top = rect.bottom - popupHeight;
+
+                        if (isMobile) {
+                          left = Math.max(8, (window.innerWidth - popupWidth) / 2);
+                        } else {
+                          left = rect.right + 10;
+                          if (left + popupWidth > window.innerWidth - 8) {
+                            left = rect.left - popupWidth - 10;
+                          }
+                        }
+
+                        if (top < 8) top = 8;
+                        if (top + popupHeight > window.innerHeight - 8) top = Math.max(8, window.innerHeight - popupHeight - 8);
+                        if (left < 8) left = 8;
+                        if (left + popupWidth > window.innerWidth - 8) left = window.innerWidth - popupWidth - 8;
+
+                        setPickerPos({ top, left });
+                      }
+                      setShowColorPicker((prev) => !prev);
+                    }}
                     className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all duration-200 cursor-pointer shadow-xs ${showColorPicker
                         ? "bg-slate-900 text-white border-slate-700 ring-2 ring-sky-500/40 scale-105"
                         : currentVisuals.isDark
@@ -1156,8 +1189,11 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     <FaPalette size={10.5} className={showColorPicker ? "text-amber-400" : currentVisuals.isDark ? "text-sky-300" : "text-indigo-600"} />
                   </button>
 
-                  {showColorPicker && (
-                    <div className="fixed left-[82px] bottom-3 w-80 sm:w-96 max-h-[82vh] overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-3.5 sm:p-4 z-[1090] animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100">
+                  {showColorPicker && pickerPos && (
+                    <div
+                      ref={colorPickerPopupRef}
+                      style={{ position: "fixed", top: pickerPos.top, left: pickerPos.left, zIndex: 9999, width: Math.min(384, window.innerWidth - 16) }}
+                      className="max-h-[82vh] overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100">
                       {/* Popover Header */}
                       <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/70 dark:border-slate-800">
                         <div className="flex items-center gap-2">
@@ -1318,8 +1354,38 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                 {/* Sidebar Theme Button (Expanded) */}
                 <div className="relative" ref={colorPickerRef}>
                   <button
+                    ref={colorPickerBtnRef}
                     type="button"
-                    onClick={() => setShowColorPicker((prev) => !prev)}
+                    onClick={() => {
+                      if (!showColorPicker && colorPickerBtnRef.current) {
+                        const rect = colorPickerBtnRef.current.getBoundingClientRect();
+                        const isMobile = window.innerWidth < 992;
+                        const popupWidth = Math.min(384, window.innerWidth - 16);
+                        const popupHeight = Math.min(window.innerHeight * 0.82, 640);
+                        let left: number;
+                        let top = rect.bottom - popupHeight;
+
+                        if (isMobile) {
+                          // Center horizontally on mobile
+                          left = Math.max(8, (window.innerWidth - popupWidth) / 2);
+                        } else {
+                          // Try right of button first, else flip left
+                          left = rect.right + 10;
+                          if (left + popupWidth > window.innerWidth - 8) {
+                            left = rect.left - popupWidth - 10;
+                          }
+                        }
+
+                        // Clamp vertical & horizontal
+                        if (top < 8) top = 8;
+                        if (top + popupHeight > window.innerHeight - 8) top = Math.max(8, window.innerHeight - popupHeight - 8);
+                        if (left < 8) left = 8;
+                        if (left + popupWidth > window.innerWidth - 8) left = window.innerWidth - popupWidth - 8;
+
+                        setPickerPos({ top, left });
+                      }
+                      setShowColorPicker((prev) => !prev);
+                    }}
                     className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-all duration-200 cursor-pointer shadow-xs ${showColorPicker
                         ? "bg-slate-900 text-white border-slate-700 ring-2 ring-sky-500/40 scale-105"
                         : currentVisuals.isDark
@@ -1331,9 +1397,12 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                     <FaPalette size={12} className={showColorPicker ? "text-amber-400" : currentVisuals.isDark ? "text-sky-300" : "text-indigo-600"} />
                   </button>
 
-                  {/* Floating Sidebar Theme Popover */}
-                  {showColorPicker && (
-                    <div className="absolute left-0 sm:left-full bottom-full sm:bottom-0 ml-0 sm:ml-2.5 mb-2 sm:mb-0 w-80 sm:w-96 max-h-[82vh] overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-3.5 sm:p-4 z-[1090] animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100">
+                  {/* Floating Sidebar Theme Popover — fixed pos to escape overflow:hidden */}
+                  {showColorPicker && pickerPos && (
+                    <div
+                      ref={colorPickerPopupRef}
+                      style={{ position: "fixed", top: pickerPos.top, left: pickerPos.left, zIndex: 9999, width: Math.min(384, window.innerWidth - 16) }}
+                      className="max-h-[82vh] overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-100">
                       {/* Popover Header */}
                       <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/70 dark:border-slate-800">
                         <div className="flex items-center gap-2">
@@ -1648,51 +1717,57 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         /* Responsive Mobile */
         @media (max-width: 991px) {
           .glass-sidebar {
-            background: linear-gradient(160deg, rgba(248,249,255,0.98) 0%, rgba(240,244,255,0.96) 100%) !important;
-            backdrop-filter: blur(36px) saturate(200%) brightness(1.03) !important;
-            -webkit-backdrop-filter: blur(36px) saturate(200%) brightness(1.03) !important;
-            border-right: 1px solid rgba(99,102,241,0.18) !important;
-            box-shadow: 12px 0 60px rgba(79,70,229,0.18), inset 1px 0 1px rgba(255,255,255,0.95) !important;
+            /* Background is set via inline style (currentVisuals.bg) — do NOT override with !important here */
+            backdrop-filter: blur(36px) saturate(200%) brightness(1.03);
+            -webkit-backdrop-filter: blur(36px) saturate(200%) brightness(1.03);
           }
-          .glass-sidebar .glass-nav-item {
+          /* Light theme mobile */
+          .glass-sidebar:not(.sidebar-dark-theme) .glass-nav-item {
             color: #1e293b !important;
             min-height: 44px !important;
           }
-          .glass-sidebar .glass-nav-item:hover {
+          .glass-sidebar:not(.sidebar-dark-theme) .glass-nav-item:hover {
             background: rgba(255, 255, 255, 0.92) !important;
             color: #0f172a !important;
           }
-          .glass-sidebar .glass-nav-item-active {
+          .glass-sidebar:not(.sidebar-dark-theme) .glass-nav-item-active {
             background: rgba(255, 255, 255, 0.98) !important;
             color: #0f172a !important;
             box-shadow: inset 0 1px 1px #ffffff, 0 4px 22px rgba(79,70,229,0.16) !important;
           }
-          .glass-sidebar .group\/sub {
+          .glass-sidebar:not(.sidebar-dark-theme) .group\/sub {
             color: #334155 !important;
             min-height: 38px !important;
           }
-          .glass-sidebar .group\/sub:hover {
+          .glass-sidebar:not(.sidebar-dark-theme) .group\/sub:hover {
             background: rgba(255, 255, 255, 0.8) !important;
             color: #0f172a !important;
           }
-          .glass-sidebar .glass-profile-chip {
+          .glass-sidebar:not(.sidebar-dark-theme) .glass-profile-chip {
             background: rgba(255, 255, 255, 0.92) !important;
             border: 1px solid rgba(99, 102, 241, 0.15) !important;
           }
-          .glass-sidebar .glass-profile-chip div {
+          .glass-sidebar:not(.sidebar-dark-theme) .glass-profile-chip div {
             color: #0f172a !important;
           }
-          .glass-sidebar .glass-profile-chip .text-gray-500 {
+          .glass-sidebar:not(.sidebar-dark-theme) .glass-profile-chip .text-gray-500 {
             color: #64748b !important;
           }
-          .glass-sidebar .text-gray-600,
-          .glass-sidebar .text-gray-500,
-          .glass-sidebar .text-gray-400 {
+          .glass-sidebar:not(.sidebar-dark-theme) .text-gray-600,
+          .glass-sidebar:not(.sidebar-dark-theme) .text-gray-500,
+          .glass-sidebar:not(.sidebar-dark-theme) .text-gray-400 {
             color: #475569 !important;
           }
-          .glass-sidebar .glass-icon-chip {
+          .glass-sidebar:not(.sidebar-dark-theme) .glass-icon-chip {
             background: rgba(248, 249, 255, 0.92) !important;
             border-color: rgba(99, 102, 241, 0.15) !important;
+          }
+          /* Dark theme mobile — keep touch-friendly sizes */
+          .glass-sidebar.sidebar-dark-theme .glass-nav-item {
+            min-height: 44px !important;
+          }
+          .glass-sidebar.sidebar-dark-theme .group\/sub {
+            min-height: 38px !important;
           }
         }
         .glass-sidebar:has(.px-2) .sidebar-scroll {
