@@ -65,15 +65,15 @@ export default function DashboardLayout({
             ? "0"
             : collapsed
             ? "76px"
-            : "260px",
+            : "265px",
 
           width: mobile
             ? "100%"
             : collapsed
             ? "calc(100% - 76px)"
-            : "calc(100% - 260px)",
+            : "calc(100% - 265px)",
 
-          transition: "margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: "margin-left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1)",
           minHeight: "100vh",
           overflowX: "hidden",
         }}

@@ -4,7 +4,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
 import {
     DEFAULT_MENU_ITEMS,
     MenuItemConfig,
@@ -474,6 +474,46 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     });
   }, [pathname, menuItems]);
 
+  // Scroll to top on every dashboard route change (not on login/register)
+  useEffect(() => {
+    if (pathname.startsWith("/dashboard")) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [pathname]);
+
+  // ---- Preserve sidebar nav scroll position across accordion toggles ----
+  // Problem: Group/NavLink/SubLink are defined inside Sidebar, so React treats
+  // them as new component types on every render → unmount/remount → scroll resets.
+  // Fix: save scrollTop on scroll event, restore it after openGroups changes via useLayoutEffect.
+  // Reset saved position only when navigating to a new route (pathname change).
+  const sidebarNavRef = useRef<HTMLDivElement>(null);
+  const savedSidebarScroll = useRef<number>(0);
+
+  // Reset saved scroll when pathname changes (real navigation),
+  // then smoothly scroll the active item into view
+  useEffect(() => {
+    savedSidebarScroll.current = 0;
+    // After route change, scroll active item into view smoothly
+    const timer = setTimeout(() => {
+      if (sidebarNavRef.current) {
+        const activeEl = sidebarNavRef.current.querySelector(".glass-nav-item-active");
+        if (activeEl) {
+          activeEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+      }
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [pathname]);
+
+  // Restore scroll position after openGroups changes (accordion expand/collapse)
+  // Only runs when openGroups state changes, not on every render
+  useLayoutEffect(() => {
+    if (sidebarNavRef.current) {
+      sidebarNavRef.current.scrollTop = savedSidebarScroll.current;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openGroups]);
+
   useEffect(() => {
     fetch("/api/company-settings")
       .then((res) => res.json())
@@ -665,32 +705,36 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     label,
     active,
     color,
+    onClick,
   }: {
     href: string;
     icon: React.ReactNode;
     label: string;
     active: boolean;
     color: ColorKey;
+    onClick?: () => void;
   }) => {
     const c = colorMap[color] || colorMap.indigo;
     const handleSubClick = () => {
       if (mobile && setCollapsed) {
         setCollapsed(true);
       }
+      if (onClick) {
+        onClick();
+      }
     };
 
     return (
       <Link
         href={href}
-        title={label}
         onClick={handleSubClick}
-        className={`group/sub flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[12.5px] transition-all duration-200 ease-out no-underline select-none ${active
-            ? `bg-white/60 dark:bg-white/10 font-semibold ${c.activeText} shadow-sm`
-            : `text-gray-600 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-white/5 ${c.hoverText}`
+        className={`group/sub flex items-center gap-2 rounded-xl px-2.5 py-2 text-[12.5px] transition-all duration-200 ease-out no-underline select-none ${active
+            ? `bg-white/70 dark:bg-white/15 font-semibold ${c.activeText} shadow-sm`
+            : `${currentVisuals.isDark ? "text-slate-300 hover:bg-white/10 hover:text-white" : "text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5"} ${c.hoverText}`
           }`}
       >
         <span
-          className={`text-[12px] shrink-0 transition-colors duration-200 ${active ? c.activeText : `text-gray-400 ${c.subHoverIcon}`
+          className={`text-[13px] shrink-0 transition-colors duration-200 ${active ? c.activeText : `text-gray-400 ${c.subHoverIcon}`
             }`}
         >
           {icon}
@@ -722,6 +766,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   }) => {
     const c = colorMap[color] || colorMap.indigo;
     const [isHovered, setIsHovered] = useState(false);
+    const [flyoutCoords, setFlyoutCoords] = useState<{ top: number; left: number } | null>(null);
+    const groupRef = useRef<HTMLLIElement>(null);
+    const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Filter subitems by permissions & visibility
     const visibleSubs = subItems.filter((sub) => {
@@ -729,6 +776,52 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       if (sub.permission && !can(sub.permission)) return false;
       return true;
     });
+
+    const updateFlyoutPosition = () => {
+      if (groupRef.current && typeof window !== "undefined") {
+        const rect = groupRef.current.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        const estimatedHeight = Math.min(visibleSubs.length * 38 + 65, 380);
+
+        const left = rect.right + 10;
+        let top = rect.top;
+
+        // If bottom would overflow below screen, flip/shift upwards
+        if (rect.top + estimatedHeight > windowHeight - 15) {
+          top = Math.max(15, windowHeight - estimatedHeight - 15);
+        }
+
+        setFlyoutCoords({ top, left });
+      }
+    };
+
+    const handleMouseEnter = () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+
+      updateFlyoutPosition();
+      setIsHovered(true);
+    };
+
+    const handleMouseLeave = () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+      // 300ms grace period so mouse can easily travel from icon to flyout without disappearing
+      hoverTimerRef.current = setTimeout(() => {
+        setIsHovered(false);
+      }, 300);
+    };
+
+    useEffect(() => {
+      return () => {
+        if (hoverTimerRef.current) {
+          clearTimeout(hoverTimerRef.current);
+        }
+      };
+    }, []);
 
     if (visibleSubs.length === 0) return null;
 
@@ -746,6 +839,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
             label={sub.label}
             active={isSubActive}
             color={color}
+            onClick={() => {
+              setIsHovered(false);
+              if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+            }}
           />
         </li>
       );
@@ -753,19 +850,19 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
     return (
       <li
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        ref={groupRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={`relative ${iconOnly ? "flex justify-center" : ""}`}
       >
         {iconOnly ? (
           <button
             type="button"
-            title={label}
             onClick={(e) => {
               e.preventDefault();
               onClick(e);
             }}
-            className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out shrink-0 select-none ${active
+            className={`relative flex items-center justify-center w-11 h-11 mx-auto rounded-2xl transition-all duration-300 ease-out shrink-0 select-none cursor-pointer ${active
                 ? "text-white scale-105 shadow-md"
                 : `glass-icon-chip ${c.iconText} hover:scale-110 hover:-rotate-3`
               }`}
@@ -838,26 +935,65 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           </div>
         )}
 
-        {/* Hover flyout (collapsed icon-only sidebar) */}
-        {iconOnly && isHovered && (
+        {/* Hover flyout (collapsed icon-only sidebar) with fixed positioning */}
+        {iconOnly && isHovered && flyoutCoords && (
           <div
-            className="glass-flyout absolute left-full top-0 ml-3 min-w-[220px] rounded-2xl p-3 shadow-2xl transition-all duration-200 ease-out z-[9999]"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            className="fixed z-[9999]"
             style={{
-              background: "rgba(255, 255, 255, 0.96)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              border: "1px solid rgba(255, 255, 255, 0.8)",
-              boxShadow:
-                "0 20px 45px -10px rgba(31, 38, 135, 0.25), 0 0 0 1px rgba(0,0,0,0.06)",
+              top: `${flyoutCoords.top}px`,
+              left: `${flyoutCoords.left}px`,
+              minWidth: "235px",
+              maxWidth: "290px",
             }}
           >
+            {/* Seamless invisible bridge so mouse never leaves hover zone when moving across */}
             <div
-              className={`px-3 pb-2 mb-2 text-[12px] font-bold border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between ${c.activeText}`}
+              className="absolute top-0 bottom-0"
+              style={{ left: "-18px", width: "24px" }}
+            />
+
+            <div
+              className="glass-flyout flex flex-col rounded-2xl p-3 shadow-2xl transition-all duration-150 ease-out animate-in fade-in zoom-in-95"
+              style={{
+                background: currentVisuals.isDark
+                  ? "rgba(15, 23, 42, 0.97)"
+                  : "rgba(255, 255, 255, 0.97)",
+                color: currentVisuals.isDark ? "#f8fafc" : "#0f172a",
+                backdropFilter: "blur(28px)",
+                WebkitBackdropFilter: "blur(28px)",
+                border: currentVisuals.isDark
+                  ? "1px solid rgba(255, 255, 255, 0.12)"
+                  : "1px solid rgba(255, 255, 255, 0.85)",
+                boxShadow: currentVisuals.isDark
+                  ? "0 20px 45px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.08)"
+                  : "0 20px 45px -10px rgba(31, 38, 135, 0.22), 0 4px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.05)",
+              }}
             >
-              <span>{label}</span>
-              <FaChevronRight size={9} />
+              {/* Flyout Header */}
+              <div
+                className={`px-2.5 pb-2 mb-2 text-[12px] font-bold border-b shrink-0 ${
+                  currentVisuals.isDark ? "border-white/10" : "border-slate-200/80"
+                } flex items-center justify-between ${c.activeText}`}
+              >
+                <span className="truncate pr-2">{label}</span>
+                <span className="text-[10px] font-medium opacity-60">
+                  {visibleSubs.length} items
+                </span>
+              </div>
+
+              {/* Scrollable Submenu Links */}
+              <ul
+                className="flex flex-col gap-1 overflow-y-auto pr-1"
+                style={{
+                  maxHeight: "min(360px, calc(80vh - 80px))",
+                  scrollbarWidth: "thin",
+                }}
+              >
+                {renderedSubs}
+              </ul>
             </div>
-            <ul className="flex flex-col gap-1.5">{renderedSubs}</ul>
           </div>
         )}
       </li>
@@ -872,15 +1008,20 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       {/* Mobile backdrop */}
       {mobile && !collapsed && (
         <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[1040] lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-slate-900/50 z-[1040] lg:hidden"
+          style={{
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            transition: "opacity 0.3s ease",
+          }}
           onClick={() => setCollapsed && setCollapsed(true)}
         />
       )}
 
       <div
-        className={`glass-sidebar flex flex-col ${iconOnly ? "overflow-visible" : ""} ${currentVisuals.isDark ? "sidebar-dark-theme" : ""}`}
+        className={`glass-sidebar flex flex-col ${currentVisuals.isDark ? "sidebar-dark-theme" : ""}`}
         style={{
-          width: mobile ? "260px" : collapsed ? "76px" : "260px",
+          width: mobile ? "270px" : collapsed ? "76px" : "265px",
           height: "100vh",
           position: "fixed",
           left: 0,
@@ -889,18 +1030,19 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           borderRight: `1px solid ${currentVisuals.borderColor}`,
           transform: mobile && collapsed ? "translateX(-100%)" : "translateX(0)",
           transition:
-            "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease",
+            "transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1), background 0.4s ease",
           zIndex: 1050,
         }}
       >
         {/* Specular highlight sweeping down panel */}
         <div className="pointer-events-none absolute inset-0 glass-sidebar-specular" />
 
-        <div className={`relative flex flex-col h-full ${iconOnly ? "overflow-visible" : ""}`}>
-          {/* Logo */}
+        <div className="relative flex flex-col h-full overflow-hidden">
+          {/* Logo / Brand Header */}
           <div
-            className={`flex items-center justify-center shrink-0 ${iconOnly ? "px-0" : "px-5"
-              } h-[76px] border-b ${currentVisuals.isDark ? "border-white/10" : "border-white/40 dark:border-white/10"}`}
+            className={`flex items-center justify-center shrink-0 ${
+              iconOnly ? "px-0" : "px-4"
+            } h-[68px] border-b ${currentVisuals.isDark ? "border-white/10" : "border-slate-100/80"}`}
           >
             {iconOnly ? (
               <img
@@ -909,24 +1051,29 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src = "/mabsol_logo.ico";
                 }}
-                className="w-11 h-11 rounded-full object-cover shadow-sm mx-auto transition-transform hover:scale-105"
+                className="w-10 h-10 rounded-xl object-cover shadow-md mx-auto transition-all duration-300 hover:scale-110 hover:shadow-lg"
               />
             ) : (
-              <img
-                src={logoUrl}
-                alt="logo"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = "/mabsol_logo.ico";
-                }}
-                className="max-h-16 w-auto object-contain"
-              />
+              <div className="flex items-center justify-center w-full">
+                <img
+                  src={logoUrl}
+                  alt="logo"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = "/mabsol_logo.ico";
+                  }}
+                  className="max-h-12 max-w-[200px] w-auto object-contain transition-transform duration-200 hover:scale-105"
+                />
+              </div>
             )}
           </div>
 
           {/* Nav List */}
           <div
-            className={`flex-1 min-h-0 py-3 sidebar-scroll ${iconOnly ? "px-0 overflow-visible" : "px-2.5 overflow-y-auto"
-              }`}
+            ref={sidebarNavRef}
+            onScroll={(e) => { savedSidebarScroll.current = e.currentTarget.scrollTop; }}
+            className={`flex-1 min-h-0 py-3 sidebar-scroll ${
+              iconOnly ? "px-1.5" : "px-2.5"
+            } overflow-y-auto overflow-x-hidden`}
           >
             <ul className={`flex flex-col ${iconOnly ? "items-center gap-2" : "gap-1.5"}`}>
               {visibleMenuItems.map((item) => {
@@ -980,8 +1127,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
             </ul>
           </div>
 
-          {/* Profile footer with Sidebar Color Theme Customizer */}
-          <div className={`border-t ${currentVisuals.isDark ? "border-white/10" : "border-white/40 dark:border-white/10"} p-2.5 shrink-0 flex items-center justify-between gap-2 relative`}>
+          {/* Profile footer */}
+          <div className={`border-t ${
+            currentVisuals.isDark ? "border-white/10" : "border-slate-100/80"
+          } px-2.5 py-2 shrink-0 flex items-center justify-between gap-2 relative`}>
             {iconOnly ? (
               <div className="flex flex-col items-center gap-1.5 w-full">
                 <span
@@ -1333,91 +1482,111 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
 
       <style>{`
         .glass-sidebar {
-          backdrop-filter: blur(36px) saturate(200%) brightness(1.03);
-          -webkit-backdrop-filter: blur(36px) saturate(200%) brightness(1.03);
+          backdrop-filter: blur(40px) saturate(180%) brightness(1.02);
+          -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(1.02);
           box-shadow:
-            inset -1px 0 0 rgba(255,255,255,0.9),
-            inset 1px 0 1px rgba(255,255,255,1),
-            8px 0 48px rgba(79,70,229,0.07),
-            2px 0 0 rgba(99,102,241,0.05);
+            4px 0 24px rgba(15, 23, 42, 0.06),
+            8px 0 48px rgba(79, 70, 229, 0.05),
+            inset -1px 0 0 rgba(255,255,255,0.7);
           position: relative;
         }
-        .dark .glass-sidebar {
-          border-right: 1px solid rgba(255,255,255,0.1);
+        .sidebar-dark-theme.glass-sidebar {
+          box-shadow:
+            4px 0 32px rgba(0,0,0,0.35),
+            inset -1px 0 0 rgba(255,255,255,0.06);
         }
         .glass-sidebar::before {
           content: "";
           position: absolute;
           top: 0; left: 0; right: 0;
-          height: 220px;
-          background: radial-gradient(120% 80% at 20% 0%, rgba(139,92,246,0.07) 0%, rgba(99,102,241,0.05) 35%, rgba(56,189,248,0.03) 70%, transparent 100%);
+          height: 180px;
+          background: radial-gradient(110% 70% at 30% 0%, rgba(99,102,241,0.06) 0%, rgba(56,189,248,0.03) 60%, transparent 100%);
           pointer-events: none;
           z-index: 0;
         }
         .glass-sidebar-specular {
-          background: radial-gradient(140% 60% at 15% 0%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.3) 35%, transparent 65%);
+          background: linear-gradient(160deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 40%, transparent 70%);
           mix-blend-mode: overlay;
         }
 
         .glass-nav-item {
-          color: #334155;
-          transform: translateX(0);
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+          color: #374151;
+          transform: translateX(0) scale(1);
+          transition:
+            transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+            background 0.15s ease,
+            box-shadow 0.15s ease,
+            color 0.15s ease;
+          will-change: transform;
         }
-        .dark .glass-nav-item,
         .sidebar-dark-theme .glass-nav-item {
-          color: #e2e8f0;
+          color: #cbd5e1;
         }
         .glass-nav-item:hover {
-          background: rgba(255,255,255,0.92);
-          color: #0f172a;
-          transform: translateX(3px);
-          box-shadow: inset 0 1px 1px rgba(255,255,255,1), 0 2px 14px rgba(79,70,229,0.09);
+          background: rgba(255,255,255,0.88);
+          color: #111827;
+          transform: translateX(5px) scale(1.008);
+          box-shadow:
+            0 2px 12px rgba(79,70,229,0.1),
+            inset 0 1px 0 rgba(255,255,255,0.9);
         }
-        .dark .glass-nav-item:hover,
         .sidebar-dark-theme .glass-nav-item:hover {
-          background: rgba(255,255,255,0.14);
-          color: #ffffff;
-          transform: translateX(3px);
+          background: rgba(255,255,255,0.1);
+          color: #f1f5f9;
+          transform: translateX(5px) scale(1.008);
+          box-shadow: 0 2px 12px rgba(0,0,0,0.2);
         }
         .glass-nav-item-active {
-          background: rgba(255,255,255,0.98);
-          color: #0f172a;
+          background: rgba(255,255,255,0.95);
+          color: #111827;
           transform: translateX(0) !important;
           box-shadow:
-            inset 0 1px 1px rgba(255,255,255,1),
-            0 4px 22px rgba(79,70,229,0.16),
-            0 1px 4px rgba(79,70,229,0.08);
+            0 4px 20px rgba(79,70,229,0.14),
+            0 1px 4px rgba(79,70,229,0.08),
+            inset 0 1px 0 rgba(255,255,255,1);
+          scroll-margin-top: 8px;
+          scroll-margin-bottom: 8px;
         }
-        .dark .glass-nav-item-active,
         .sidebar-dark-theme .glass-nav-item-active {
-          background: rgba(255,255,255,0.18);
-          color: #ffffff;
+          background: rgba(255,255,255,0.14);
+          color: #f1f5f9;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
         }
 
         .glass-icon-chip {
-          background: rgba(248,249,255,0.88);
-          box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 2px 6px rgba(79,70,229,0.06);
-          border: 1px solid rgba(99,102,241,0.12);
+          background: rgba(244,246,255,0.9);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.95),
+            0 1px 4px rgba(79,70,229,0.08);
+          border: 1px solid rgba(99,102,241,0.1);
+          transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .dark .glass-icon-chip,
         .sidebar-dark-theme .glass-icon-chip {
           background: rgba(255,255,255,0.08);
-          border-color: rgba(255,255,255,0.12);
+          border-color: rgba(255,255,255,0.1);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
 
         .glass-profile-chip {
-          background: rgba(255,255,255,0.92);
-          border: 1px solid rgba(99,102,241,0.12);
-          box-shadow: inset 0 1px 1px rgba(255,255,255,1), 0 4px 16px rgba(79,70,229,0.08);
+          background: rgba(255,255,255,0.88);
+          border: 1px solid rgba(99,102,241,0.1);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,1),
+            0 2px 12px rgba(79,70,229,0.07);
+          transition: all 0.2s ease;
         }
-        .dark .glass-profile-chip,
+        .glass-profile-chip:hover {
+          background: rgba(255,255,255,0.98);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,1),
+            0 4px 16px rgba(79,70,229,0.12);
+        }
         .sidebar-dark-theme .glass-profile-chip {
-          background: rgba(255,255,255,0.1);
-          border-color: rgba(255,255,255,0.15);
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(255,255,255,0.12);
         }
         .sidebar-dark-theme .glass-profile-chip div {
-          color: #ffffff !important;
+          color: #f1f5f9 !important;
         }
         .sidebar-dark-theme .glass-profile-chip .text-gray-500 {
           color: #93c5fd !important;
@@ -1426,7 +1595,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         .sidebar-submenu {
           display: grid;
           grid-template-rows: 0fr;
-          transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+          transition: grid-template-rows 0.38s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
           opacity: 0;
         }
         .sidebar-submenu.open {
@@ -1436,8 +1605,27 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         .sidebar-submenu-inner {
           overflow: hidden;
         }
+        /* Stagger submenu items on open */
+        .sidebar-submenu.open li {
+          animation: submenuItemIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) both;
+        }
+        .sidebar-submenu.open li:nth-child(1) { animation-delay: 0.04s; }
+        .sidebar-submenu.open li:nth-child(2) { animation-delay: 0.08s; }
+        .sidebar-submenu.open li:nth-child(3) { animation-delay: 0.12s; }
+        .sidebar-submenu.open li:nth-child(4) { animation-delay: 0.16s; }
+        .sidebar-submenu.open li:nth-child(5) { animation-delay: 0.20s; }
+        .sidebar-submenu.open li:nth-child(6) { animation-delay: 0.24s; }
+        .sidebar-submenu.open li:nth-child(n+7) { animation-delay: 0.27s; }
+        @keyframes submenuItemIn {
+          from { opacity: 0; transform: translateX(-10px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
         .sidebar-submenu ul {
-          border-left-color: rgba(99,102,241,0.22) !important;
+          border-left: 2px solid rgba(99,102,241,0.18) !important;
+          margin-left: 18px !important;
+        }
+        .sidebar-dark-theme .sidebar-submenu ul {
+          border-left-color: rgba(255,255,255,0.1) !important;
         }
 
         .glass-sidebar a,
@@ -1454,6 +1642,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         .sidebar-scroll {
           scrollbar-width: thin;
           scroll-behavior: smooth;
+          overscroll-behavior: contain;
         }
 
         /* Responsive Mobile */
@@ -1517,13 +1706,24 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         .sidebar-scroll::-webkit-scrollbar {
           width: 3px;
         }
+        .sidebar-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
         .sidebar-scroll::-webkit-scrollbar-thumb {
-          background-color: rgba(99, 102, 241, 0.22);
+          background-color: rgba(99, 102, 241, 0.25);
           border-radius: 999px;
           transition: background-color 0.2s ease;
         }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(99, 102, 241, 0.5);
+        }
         .dark .sidebar-scroll::-webkit-scrollbar-thumb {
-          background-color: rgba(255, 255, 255, 0.12);
+          background-color: rgba(255, 255, 255, 0.15);
+        }
+        /* Smooth scroll-margin so active item is never cut off */
+        .glass-nav-item-active {
+          scroll-margin-top: 8px;
+          scroll-margin-bottom: 8px;
         }
       `}</style>
     </>
