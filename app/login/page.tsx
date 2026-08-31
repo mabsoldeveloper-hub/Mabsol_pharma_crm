@@ -112,7 +112,7 @@ export default function LoginPage() {
     { id: "custom", label: "Custom Colors", category: "Custom", icon: "🎨", badgeBg: "linear-gradient(135deg, #ec4899, #8b5cf6, #3b82f6)", accent: "#ec4899", description: "Section-by-Section Color Pickers" },
   ];
 
-  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("auto");
+  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("mabsolSpecial");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -126,15 +126,22 @@ export default function LoginPage() {
   const [customTextColor, setCustomTextColor] = useState("#ffffff");
   const [showCustomDrawer, setShowCustomDrawer] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // Animations toggle — default OFF (false)
+  const [animationsEnabled, setAnimationsEnabled] = useState(false);
 
   // Load saved theme preference on client mount (prevents SSR Hydration Mismatch)
   useEffect(() => {
     setMounted(true);
     try {
       const localTheme = localStorage.getItem("mabsol_saved_theme") as ThemeOption | null;
-      if (localTheme) {
+      // If no theme saved OR old default "auto" was saved → force mabsolSpecial
+      if (localTheme && localTheme !== "auto") {
         setSelectedTheme(localTheme);
         if (localTheme === "custom") setShowCustomDrawer(true);
+      } else {
+        // No saved theme or old "auto" — force mabsolSpecial as new default
+        setSelectedTheme("mabsolSpecial");
+        localStorage.setItem("mabsol_saved_theme", "mabsolSpecial");
       }
 
       const savedCustom = localStorage.getItem("mabsol_saved_custom_colors");
@@ -155,8 +162,10 @@ export default function LoginPage() {
       .then((res) => res.json())
       .then((data) => {
         if (data?.success && data?.selectedTheme) {
-          setSelectedTheme(data.selectedTheme);
-          if (data.selectedTheme === "custom") setShowCustomDrawer(true);
+          // If MongoDB also has old "auto", override with mabsolSpecial
+          const dbTheme = data.selectedTheme === "auto" ? "mabsolSpecial" : data.selectedTheme;
+          setSelectedTheme(dbTheme);
+          if (dbTheme === "custom") setShowCustomDrawer(true);
           if (data.customColors) {
             const cc = data.customColors;
             if (cc.bodyBg) setCustomBodyBg(cc.bodyBg);
@@ -171,6 +180,7 @@ export default function LoginPage() {
       })
       .catch((err) => console.log("MongoDB theme sync fallback", err));
   }, []);
+
 
   // Save selected theme to LocalStorage & MongoDB on change
   const selectThemeAndSave = (newTheme: ThemeOption) => {
@@ -599,11 +609,24 @@ export default function LoginPage() {
           : undefined
       }
     >
-      {/* High Performance Dynamic Celestial Custom Cursor Pointer */}
-      <CelestialCursor theme={effectiveTheme} accentColor={activeAccent} />
+      {/* High Performance Dynamic Celestial Custom Cursor Pointer — only when animations ON */}
+      {animationsEnabled && <CelestialCursor theme={effectiveTheme} accentColor={activeAccent} />}
 
-      {/* High Performance Interactive Molecular Background Canvas */}
-      <PharmaBackgroundCanvas accentColor={activeAccent} />
+      {/* High Performance Interactive Molecular Background Canvas — only when animations ON */}
+      {animationsEnabled && <PharmaBackgroundCanvas accentColor={activeAccent} />}
+
+      {/* Animations Toggle Button */}
+      <button
+        type="button"
+        suppressHydrationWarning
+        className={`anim-toggle-btn${animationsEnabled ? " anim-on" : " anim-off"}`}
+        onClick={() => setAnimationsEnabled((v) => !v)}
+        title={animationsEnabled ? "Turn off background & cursor animations" : "Turn on background & cursor animations"}
+        aria-label={animationsEnabled ? "Animations ON — click to disable" : "Animations OFF — click to enable"}
+      >
+        <span className="anim-toggle-icon">{animationsEnabled ? "✨" : "🚫"}</span>
+        <span className="anim-toggle-label">{animationsEnabled ? "Animations ON" : "Animations OFF"}</span>
+      </button>
 
       {/* Floating Interactive Celestial Color Theme Selector & Customizer Capsule */}
       <div className="celestial-preview-capsule-wrapper" ref={dropdownRef}>
@@ -944,14 +967,7 @@ export default function LoginPage() {
           onMouseMove={handleCardTiltMove}
           onMouseLeave={handleCardTiltLeave}
         >
-          {/* Mabsol Special Exclusive VIP Signature Crown Badge */}
-          {effectiveTheme === "mabsolSpecial" && (
-            <div className="mabsol-vip-crown-badge">
-              <span className="crown-sparkle">👑</span>
-              <span className="crown-text">MABSOL SIGNATURE VIP EDITION</span>
-              <span className="verified-dot">✓</span>
-            </div>
-          )}
+
 
           <div className="brand-row">
             <span className="brand-mark">

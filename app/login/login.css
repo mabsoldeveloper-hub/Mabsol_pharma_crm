@@ -2226,75 +2226,51 @@ h1 {
   color: #fecdd3 !important;
 }
 
-/* MABSOL SPECIAL SIGNATURE THEME (#343872, #fb8c00, #e4e7f6) */
+/* ====== MABSOL SPECIAL — LIGHT SIGNATURE (Navy #343872 + Amber #fb8c00) ====== */
 .login-page.login-theme-mabsolSpecial {
   background:
-    radial-gradient(ellipse at 15% 15%, rgba(251, 140, 0, 0.28), transparent 50%),
-    radial-gradient(ellipse at 85% 85%, rgba(52, 56, 114, 0.25), transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(228, 231, 246, 0.5), transparent 60%),
-    linear-gradient(135deg, #e4e7f6 0%, #d8dceb 50%, #f0f2fb 100%) !important;
+    radial-gradient(ellipse at 10% 15%, rgba(251, 140, 0, 0.14) 0%, transparent 45%),
+    radial-gradient(ellipse at 90% 85%, rgba(52, 56, 114, 0.16) 0%, transparent 45%),
+    radial-gradient(ellipse at 55% 0%, rgba(52, 56, 114, 0.1) 0%, transparent 50%),
+    linear-gradient(150deg, #ffffff 0%, #f5f4ff 30%, #edeeff 60%, #f0eeff 100%) !important;
   color: #343872 !important;
+  color-scheme: light !important;
 }
 
+/* Breathing ambient layer */
+.login-page.login-theme-mabsolSpecial::before {
+  background:
+    radial-gradient(ellipse at 18% 20%, rgba(251, 140, 0, 0.12) 0%, transparent 48%),
+    radial-gradient(ellipse at 82% 80%, rgba(52, 56, 114, 0.12) 0%, transparent 48%),
+    radial-gradient(circle at 50% 50%, rgba(228, 231, 250, 0.6) 0%, transparent 65%) !important;
+  animation: mabsol-breathe 10s ease-in-out infinite alternate !important;
+}
+
+@keyframes mabsol-breathe {
+  0%   { opacity: 0.5; transform: scale(1); }
+  100% { opacity: 1;   transform: scale(1.03); }
+}
+
+/* Glass cards — #343872 dark navy with amber border glow */
 .login-page.login-theme-mabsolSpecial .glass-card {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(228, 231, 246, 0.92) 100%) !important;
+  background: linear-gradient(
+    145deg,
+    #343872 0%,
+    #2e3268 50%,
+    #292c60 100%
+  ) !important;
   border: 1.5px solid rgba(251, 140, 0, 0.45) !important;
-  color: #343872 !important;
-  box-shadow: 0 25px 60px -10px rgba(52, 56, 114, 0.25), 0 0 35px rgba(251, 140, 0, 0.3) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 28px 65px -12px rgba(30, 33, 90, 0.5),
+    0 0 0 1px rgba(251, 140, 0, 0.18),
+    0 0 40px rgba(251, 140, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
 }
 
-/* MABSOL SPECIAL VIP EXCLUSIVE BADGE & HOLOGRAPHIC BORDER */
-.mabsol-vip-crown-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 14px;
-  margin-bottom: 14px;
-  background: linear-gradient(135deg, rgba(251, 140, 0, 0.15) 0%, rgba(52, 56, 114, 0.2) 100%);
-  border: 1.5px solid #fb8c00;
-  border-radius: 999px;
-  box-shadow: 0 0 18px rgba(251, 140, 0, 0.35);
-  animation: vip-pulse-glow 2.5s ease-in-out infinite alternate;
-}
-
-@keyframes vip-pulse-glow {
-  0% { box-shadow: 0 0 12px rgba(251, 140, 0, 0.3); border-color: #fb8c00; }
-  100% { box-shadow: 0 0 24px rgba(251, 140, 0, 0.65); border-color: #f57c00; }
-}
-
-.crown-sparkle {
-  font-size: 14px;
-  animation: crown-bounce 1.5s infinite alternate;
-}
-
-@keyframes crown-bounce {
-  from { transform: translateY(0) scale(1); }
-  to { transform: translateY(-2px) scale(1.12); }
-}
-
-.crown-text {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #343872;
-  text-transform: uppercase;
-}
-
-.verified-dot {
-  width: 16px;
-  height: 16px;
-  background: #fb8c00;
-  color: #ffffff;
-  border-radius: 50%;
-  font-size: 10px;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
+/* Headings & primary text — white on dark navy card */
 .login-page.login-theme-mabsolSpecial h1,
 .login-page.login-theme-mabsolSpecial h2,
 .login-page.login-theme-mabsolSpecial .brand-name,
@@ -2303,34 +2279,180 @@ h1 {
 .login-page.login-theme-mabsolSpecial .sync-value,
 .login-page.login-theme-mabsolSpecial .notif-title,
 .login-page.login-theme-mabsolSpecial .badge-value {
-  color: #343872 !important;
+  color: #ffffff !important;
 }
 
+/* Muted / secondary text */
 .login-page.login-theme-mabsolSpecial .lede,
 .login-page.login-theme-mabsolSpecial .sync-caption,
 .login-page.login-theme-mabsolSpecial .notif-sub {
-  color: #5c62a4 !important;
+  color: rgba(210, 213, 245, 0.82) !important;
 }
 
+/* Input fields — dark transparent on navy card, NO white background */
 .login-page.login-theme-mabsolSpecial .input-row input {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-color: rgba(52, 56, 114, 0.3) !important;
-  color: #343872 !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(251, 140, 0, 0.4) !important;
+  color: #ffffff !important;
+  caret-color: #fb8c00 !important;
+  box-shadow: none !important;
+}
+.login-page.login-theme-mabsolSpecial .input-row input:hover {
+  border-color: rgba(251, 140, 0, 0.6) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+.login-page.login-theme-mabsolSpecial .input-row input::placeholder {
+  color: rgba(210, 213, 245, 0.4) !important;
+}
+/* Override focus-visible which sets background: #ffffff */
+.login-page.login-theme-mabsolSpecial .input-row input:focus,
+.login-page.login-theme-mabsolSpecial .input-row input:focus-visible {
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(251, 140, 0, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(251, 140, 0, 0.2) !important;
+}
+/* Override browser autofill white box-shadow */
+.login-page.login-theme-mabsolSpecial .input-row input:-webkit-autofill,
+.login-page.login-theme-mabsolSpecial .input-row input:-webkit-autofill:hover,
+.login-page.login-theme-mabsolSpecial .input-row input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0 1000px #2e3268 inset !important;
+  box-shadow: 0 0 0 1000px #2e3268 inset !important;
+  caret-color: #fb8c00 !important;
+  border-color: rgba(251, 140, 0, 0.45) !important;
+}
+/* Disabled state */
+.login-page.login-theme-mabsolSpecial .input-row input:disabled {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(210, 213, 245, 0.4) !important;
 }
 
+
+/* CTA button */
 .login-page.login-theme-mabsolSpecial .btn-primary {
   background: linear-gradient(135deg, #fb8c00 0%, #f57c00 50%, #e65100 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 14px 28px -6px rgba(251, 140, 0, 0.5) !important;
+  box-shadow: 0 12px 28px -6px rgba(251, 140, 0, 0.45), 0 0 0 1px rgba(251, 140, 0, 0.2) !important;
+}
+.login-page.login-theme-mabsolSpecial .btn-primary:hover {
+  box-shadow: 0 16px 36px -6px rgba(251, 140, 0, 0.6) !important;
+  transform: translateY(-1px) !important;
 }
 
+/* Floating badges, sync tiles, toasts — dark navy glass */
 .login-page.login-theme-mabsolSpecial .floating-badge,
 .login-page.login-theme-mabsolSpecial .sync-tile,
 .login-page.login-theme-mabsolSpecial .sync-toast {
-  background: rgba(255, 255, 255, 0.92) !important;
-  border-color: rgba(52, 56, 114, 0.25) !important;
-  color: #343872 !important;
+  background: linear-gradient(145deg, #2e3268 0%, #292c60 100%) !important;
+  border-color: rgba(251, 140, 0, 0.3) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 4px 16px rgba(10, 12, 40, 0.35), inset 0 1px 0 rgba(255,255,255,0.07) !important;
 }
+
+/* Toast shimmer — remove white glare */
+.login-page.login-theme-mabsolSpecial .sync-toast::after {
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.06) 50%, transparent 70%) !important;
+}
+
+/* Toast hover */
+.login-page.login-theme-mabsolSpecial .sync-toast:hover {
+  background: linear-gradient(145deg, #343872 0%, #2e3268 100%) !important;
+  border-color: rgba(251, 140, 0, 0.55) !important;
+  box-shadow: 0 10px 28px -4px rgba(10, 12, 40, 0.5), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+}
+
+/* Toast icon wrap — remove white bg */
+.login-page.login-theme-mabsolSpecial .toast-icon-wrap {
+  background: rgba(251, 140, 0, 0.15) !important;
+  border-color: rgba(251, 140, 0, 0.35) !important;
+  box-shadow: 0 2px 6px rgba(251, 140, 0, 0.15) !important;
+}
+.login-page.login-theme-mabsolSpecial .sync-toast:hover .toast-icon-wrap {
+  box-shadow: 0 0 12px rgba(251, 140, 0, 0.4) !important;
+}
+
+/* Amount badge — remove green/white bg */
+.login-page.login-theme-mabsolSpecial .amount-badge {
+  background: rgba(251, 140, 0, 0.15) !important;
+  border-color: rgba(251, 140, 0, 0.35) !important;
+  color: #fb8c00 !important;
+}
+.login-page.login-theme-mabsolSpecial .sync-toast:hover .amount-badge {
+  background: rgba(251, 140, 0, 0.25) !important;
+  box-shadow: 0 0 10px rgba(251, 140, 0, 0.3) !important;
+}
+
+/* Notif title & sub text */
+.login-page.login-theme-mabsolSpecial .notif-title {
+  color: #ffffff !important;
+}
+.login-page.login-theme-mabsolSpecial .notif-sub {
+  color: rgba(210, 213, 245, 0.7) !important;
+}
+
+/* Badge title text */
+.login-page.login-theme-mabsolSpecial .badge-title,
+.login-page.login-theme-mabsolSpecial .badge-content span:first-child {
+  color: rgba(210, 213, 245, 0.75) !important;
+}
+
+
+/* Orbs */
+.login-page.login-theme-mabsolSpecial .orb-a {
+  background: radial-gradient(circle, rgba(251, 140, 0, 0.22) 0%, transparent 70%) !important;
+}
+.login-page.login-theme-mabsolSpecial .orb-b {
+  background: radial-gradient(circle, rgba(52, 56, 114, 0.2) 0%, transparent 70%) !important;
+}
+.login-page.login-theme-mabsolSpecial .orb-c {
+  background: radial-gradient(circle, rgba(251, 140, 0, 0.12) 0%, transparent 70%) !important;
+}
+
+/* ECG chip */
+.login-page.login-theme-mabsolSpecial .ecg-chip {
+  border-color: rgba(251, 140, 0, 0.4) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* OTP boxes */
+.login-page.login-theme-mabsolSpecial .otp-box {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(251, 140, 0, 0.35) !important;
+  color: #ffffff !important;
+}
+.login-page.login-theme-mabsolSpecial .otp-box:focus {
+  border-color: #fb8c00 !important;
+  box-shadow: 0 0 0 3px rgba(251, 140, 0, 0.2) !important;
+}
+
+/* Right sync card — matching #343872 dark navy */
+.login-page.login-theme-mabsolSpecial .sync-card {
+  background: linear-gradient(
+    145deg,
+    #343872 0%,
+    #2e3268 100%
+  ) !important;
+  border: 1.5px solid rgba(251, 140, 0, 0.35) !important;
+  box-shadow:
+    0 25px 60px -12px rgba(30, 33, 90, 0.45),
+    0 0 30px rgba(251, 140, 0, 0.08) !important;
+}
+
+/* Bar chart bars */
+.login-page.login-theme-mabsolSpecial .bar {
+  background: linear-gradient(180deg, #fb8c00, rgba(251, 140, 0, 0.3)) !important;
+}
+
+/* Error banner */
+.login-page.login-theme-mabsolSpecial .error-banner {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #fca5a5 !important;
+}
+
+
 
 /* 11. SOLID OBSIDIAN (PURE SOLID DARK NO GRADIENT) */
 .login-page.login-theme-solidObsidian {
@@ -3081,5 +3203,119 @@ h1 {
 @media (pointer: coarse) {
   .celestial-cursor-container {
     display: none !important;
+  }
+}
+
+/* ────────────────── ANIMATIONS TOGGLE BUTTON ────────────────── */
+.anim-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  font-family: var(--font-body, sans-serif);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* OFF state — subtle muted glass pill */
+.anim-toggle-btn.anim-off {
+  background: rgba(15, 23, 42, 0.55);
+  color: rgba(148, 163, 184, 0.9);
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ON state — glowing accent glass pill */
+.anim-toggle-btn.anim-on {
+  background: rgba(15, 23, 42, 0.7);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 0 16px rgba(99, 179, 237, 0.25);
+}
+
+.anim-toggle-btn:hover {
+  transform: translateY(-1px) scale(1.03);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.anim-toggle-btn:active {
+  transform: scale(0.97);
+}
+
+.anim-toggle-icon {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.anim-toggle-label {
+  line-height: 1;
+}
+
+/* 480px — tablet small / larger phones */
+@media (max-width: 480px) {
+  .anim-toggle-btn {
+    bottom: 14px;
+    left: 14px;
+    padding: 6px 11px 6px 9px;
+    font-size: 11px;
+    gap: 5px;
+  }
+}
+
+/* 380px — very small phones: hide label, show icon only */
+@media (max-width: 380px) {
+  .anim-toggle-btn {
+    bottom: 12px;
+    left: 12px;
+    padding: 7px 9px;
+    gap: 0;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    justify-content: center;
+  }
+
+  .anim-toggle-label {
+    display: none;
+  }
+
+  .anim-toggle-icon {
+    font-size: 15px;
+  }
+}
+
+/* iOS safe area support (notch / home bar) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .anim-toggle-btn {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  @media (max-width: 480px) {
+    .anim-toggle-btn {
+      bottom: calc(14px + env(safe-area-inset-bottom));
+    }
+  }
+
+  @media (max-width: 380px) {
+    .anim-toggle-btn {
+      bottom: calc(12px + env(safe-area-inset-bottom));
+    }
   }
 }
