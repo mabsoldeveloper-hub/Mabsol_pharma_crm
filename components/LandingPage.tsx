@@ -278,8 +278,311 @@ function Reveal({
   );
 }
 
+/* ============================================================
+   ALL FEATURES DATA — complete catalog of every built feature
+   ============================================================ */
+const ALL_FEATURES = [
+  {
+    category: "📊 Dashboard & Analytics",
+    color: "#6366f1",
+    gradient: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+    features: [
+      { name: "Multi-Tab Dashboard", desc: "Overview, Sales, Inventory, Credit, Purchase tabs with live ERP-synced data in one screen." },
+      { name: "Executive AI Dashboard", desc: "AI-powered insights with Target Radar Chart, Credit Risk Quadrant, Detailing Funnel Chart & Financial Simulator." },
+      { name: "KPI Cards", desc: "Animated KPI cards showing Total Sales, Purchase, Outstanding, Stock value with trend indicators." },
+      { name: "Liquid Meters", desc: "Beautiful animated liquid-fill gauges for target achievement, collection rate and stock levels." },
+      { name: "Analytics Cards", desc: "Compact metric tiles for area-wise and division-wise breakdowns." },
+      { name: "Dashboard Charts", desc: "Recharts-powered bar, line, area, radar and pie charts for Sales, Purchase and Credit analytics." },
+      { name: "Smart Insights Widget", desc: "Auto-generated text summaries of KPIs with alerts and business intelligence bullets." },
+      { name: "Financial Simulator", desc: "Scenario modelling tool — adjust pricing/volumes and instantly project impact on revenue." },
+      { name: "India Map Area Breakdown", desc: "Visual India state map with area-wise sales heat-map and drill-down." },
+      { name: "Banner Theme Customiser", desc: "13+ preset colour themes (Blue Shaders, Emerald, Rose, Amber, Midnight) for the dashboard banner + custom colour picker." },
+      { name: "Auto Time-Based Theme", desc: "Dashboard banner automatically switches gradient by time of day (Morning/Afternoon/Evening/Night)." },
+      { name: "60-Second Auto-Refresh", desc: "Live ERP data refreshes every 60 seconds without any manual action." },
+    ],
+  },
+  {
+    category: "💰 Sales Module",
+    color: "#10b981",
+    gradient: "linear-gradient(135deg,#10b981,#059669)",
+    features: [
+      { name: "Sales Overview Cards", desc: "Today's sales, monthly totals, top products and YTD summary cards with sparklines." },
+      { name: "Customer-Wise Sales Table", desc: "Drill down into every customer's sales history, outstanding balance and last transaction." },
+      { name: "Recent Bills List", desc: "Live-updating list of latest invoices from ERP with amount, date and status." },
+      { name: "Top Products by Sales", desc: "Ranked product table with quantity sold, revenue and margin data." },
+      { name: "Total Sales Modal", desc: "Detailed full-screen sales breakdown with product-wise, area-wise and period filters." },
+      { name: "FY Radar / Area Radar Detail Modals", desc: "Financial-year radar and area-level radar drill-down modals with comparison overlays." },
+      { name: "Sales vs Collection Analytics", desc: "Side-by-side comparison of billed amount vs cash collected with gap analysis charts." },
+    ],
+  },
+  {
+    category: "🛒 Purchase Module",
+    color: "#f59e0b",
+    gradient: "linear-gradient(135deg,#f59e0b,#d97706)",
+    features: [
+      { name: "Purchase Dashboard", desc: "Dedicated purchase dashboard with KPIs for total purchase, vendor count, pending payments." },
+      { name: "Purchase Order Form", desc: "Full PO creation form with product search, batch entry, GST calculation and supplier selection." },
+      { name: "Purchase Orders List", desc: "Paginated list of all POs with status filters (Pending/Received/Cancelled) and export." },
+      { name: "Purchase Bill Form", desc: "GST-compliant purchase bill entry with batch number, expiry date and batch-wise stock update." },
+      { name: "Purchase Bills List", desc: "Complete bill register with search, date filter and payment status tracking." },
+      { name: "AI Purchase Bill Entry", desc: "Upload a photo of any purchase bill — AI extracts all line items, batches, rates and GST automatically." },
+      { name: "Supplier History Panel", desc: "See all past transactions, outstanding balances and payment history for any supplier." },
+      { name: "Purchase vs Payment Analytics", desc: "Visual gap chart comparing total purchase amount against payments made per period." },
+      { name: "Total Purchase Modal", desc: "Drill-down modal showing product-wise purchase detail for any period." },
+    ],
+  },
+  {
+    category: "📦 Inventory & Stock",
+    color: "#0ea5e9",
+    gradient: "linear-gradient(135deg,#0ea5e9,#0284c7)",
+    features: [
+      { name: "Inventory Overview Cards", desc: "Total SKUs, total stock value, negative stock count and near-expiry count at a glance." },
+      { name: "Company-Wise Summary", desc: "Break down stock data per ERP company with tabs." },
+      { name: "Top Products Table", desc: "Best-selling and high-value product ranking with quantity and value columns." },
+      { name: "Low Stock Table", desc: "All products below reorder level highlighted with current qty and threshold." },
+      { name: "Negative Stock Table", desc: "Products in negative stock (data-entry issues) flagged for correction." },
+      { name: "Current Stock Modal", desc: "Full searchable, sortable stock ledger with batch-wise detail, expiry dates and location." },
+      { name: "Near-Expiry Batches Modal", desc: "Batches expiring in 30/60/90 days with colour-coded urgency and quantity." },
+      { name: "Expired Batches Modal", desc: "Complete list of expired stock for write-off or return processing." },
+    ],
+  },
+  {
+    category: "👥 Customer Management",
+    color: "#8b5cf6",
+    gradient: "linear-gradient(135deg,#8b5cf6,#7c3aed)",
+    features: [
+      { name: "Customer List & Search", desc: "Paginated customer directory with global search, area and category filters." },
+      { name: "Customer Profile Page", desc: "360° customer view with contact info, outstanding, sales history and ledger." },
+      { name: "Customer Overview Cards", desc: "Outstanding balance, total purchases, last invoice date summary for each customer." },
+      { name: "Add / Edit Customer Modal", desc: "Full customer creation form with GST number, area, route, category and contact fields." },
+      { name: "Customer Quick Actions", desc: "One-click access to call, WhatsApp, view ledger or create order from customer card." },
+      { name: "Ledger Details Modal", desc: "Full debit/credit ledger for any customer with date-range filter and balance tracking." },
+      { name: "Credit Risk Dashboard", desc: "Credit Risk Quadrant chart plotting customers by outstanding vs payment behaviour." },
+    ],
+  },
+  {
+    category: "🎯 Leads & CRM Pipeline",
+    color: "#f43f5e",
+    gradient: "linear-gradient(135deg,#f43f5e,#e11d48)",
+    features: [
+      { name: "Lead Kanban Board", desc: "Drag-and-drop Kanban with stages: New → Contacted → Qualified → Proposal → Won/Lost." },
+      { name: "Lead Table View", desc: "Sortable, filterable table view of all leads with status badges and assigned MR." },
+      { name: "Lead Form Modal", desc: "Comprehensive lead capture form with source, product interest, priority and follow-up date." },
+      { name: "Lead Detail Drawer", desc: "Side-drawer with full lead history, activity timeline, notes and conversion actions." },
+      { name: "Lead Source Analytics", desc: "Funnel chart showing lead sources, conversion rates and stage-wise counts." },
+    ],
+  },
+  {
+    category: "🧑‍⚕️ MR Reporting (Field Force)",
+    color: "#06b6d4",
+    gradient: "linear-gradient(135deg,#06b6d4,#0891b2)",
+    features: [
+      { name: "DCR Submission", desc: "Medical Representatives submit Daily Call Reports with doctor, chemist and stockist visits." },
+      { name: "DCR History", desc: "Full history of all submitted DCRs with filters by date, status and MR." },
+      { name: "Call Log Entry", desc: "Log individual calls with party name, speciality, visit shift, product detailing and POB amount." },
+      { name: "DCR Approval Workflow", desc: "Admin approves or rejects DCR entries with remarks — full approval trail maintained." },
+      { name: "MR Territory Management", desc: "Assign specific companies, areas and customer groups to each MR with access restriction." },
+      { name: "MR Customer Assignment", desc: "Map customers to MRs so field reps only see their relevant accounts." },
+      { name: "Target vs Achievement Radar", desc: "Radar chart comparing MR-wise targets against actual calls and POB." },
+      { name: "Detailing Funnel", desc: "Funnel visualization from calls → samples → prescriptions → orders for field effectiveness." },
+      { name: "DCR Excel Export", desc: "Export DCR history to Excel for offline reporting and payroll." },
+    ],
+  },
+  {
+    category: "📋 Reports & Analytics",
+    color: "#84cc16",
+    gradient: "linear-gradient(135deg,#84cc16,#65a30d)",
+    features: [
+      { name: "Sales Reports", desc: "Period-wise, customer-wise, product-wise and area-wise sales reports with charts." },
+      { name: "Purchase Reports", desc: "Supplier-wise and product-wise purchase register with GST breakdowns." },
+      { name: "Inventory Reports", desc: "Stock valuation, movement and ageing reports exportable to Excel." },
+      { name: "Outstanding Reports", desc: "Customer-wise outstanding with ageing buckets (0-30, 31-60, 61-90, 90+ days)." },
+      { name: "GST Reports", desc: "GSTR-1, GSTR-2A / B reconciliation and HSN-wise summary reports." },
+      { name: "Financial Year Comparison", desc: "Year-on-year growth comparison charts for Sales, Purchase and Collection." },
+      { name: "Area & Division Reports", desc: "Drill-down reports by geographic area and product division." },
+      { name: "Purchase-Sales Analytics", desc: "Combined purchase vs sales analytics with margin and category breakdowns." },
+    ],
+  },
+  {
+    category: "📧 Communication & Campaigns",
+    color: "#ec4899",
+    gradient: "linear-gradient(135deg,#ec4899,#db2777)",
+    features: [
+      { name: "Email Campaign Manager", desc: "Design and send HTML email campaigns to customer segments with open-rate tracking." },
+      { name: "WhatsApp Campaign", desc: "Send bulk WhatsApp messages to customer lists via configured WABA integration." },
+      { name: "Notification Center", desc: "In-app notification bell with stock alerts, expiry warnings and sync status updates." },
+    ],
+  },
+  {
+    category: "📝 Custom Forms (Form Studio)",
+    color: "#a855f7",
+    gradient: "linear-gradient(135deg,#a855f7,#9333ea)",
+    features: [
+      { name: "AI Form Studio", desc: "Describe a form in plain English — AI generates the full form schema with all fields instantly." },
+      { name: "Visual Form Builder", desc: "Drag-and-drop builder with 15+ field types: text, number, date, dropdown, file, signature, GPS and more." },
+      { name: "Pharma Templates", desc: "Pre-built form templates for Doctor Visit, Chemist Survey, Adverse Event, Order Form and more." },
+      { name: "Conditional Logic Editor", desc: "Show/hide fields based on other field values using a no-code logic builder." },
+      { name: "Repeater Table Fields", desc: "Add unlimited repeated row entries (like order line items) inside a single form." },
+      { name: "GPS Location Picker", desc: "Capture exact GPS coordinates from the field with map preview inside the form." },
+      { name: "Signature Pad", desc: "Digital signature capture field with touch/mouse support for consent forms." },
+      { name: "File Upload Field", desc: "Photo and document upload fields with preview and cloud storage." },
+      { name: "Dynamic Form Renderer", desc: "Public and internal form submission pages with validation, auto-save and mobile support." },
+      { name: "Form Analytics View", desc: "Response counts, completion rates and field-level analytics for each form." },
+      { name: "PDF Print / Export", desc: "Generate a styled PDF of any form submission with company branding." },
+      { name: "Form Share Modal", desc: "Share forms via public link or embed code — no login required for external respondents." },
+      { name: "Dynamic Table View", desc: "View all responses in a filterable, sortable table with column selector." },
+      { name: "Dynamic Filter Bar", desc: "Filter form submissions by any field value with AND/OR logic." },
+    ],
+  },
+  {
+    category: "🏢 Master Data Management",
+    color: "#64748b",
+    gradient: "linear-gradient(135deg,#64748b,#475569)",
+    features: [
+      { name: "Company Master", desc: "Manage multiple ERP companies with GSTIN, address, logo and financial year settings." },
+      { name: "Category Master", desc: "Create and manage product categories and sub-categories for classification." },
+      { name: "Division Master", desc: "Define product divisions (e.g., Cardio, Ortho, Gynae) for area-wise reporting." },
+      { name: "Sub-Division Master", desc: "Granular sub-division groupings under each division for detailed analytics." },
+      { name: "Area / Territory Master", desc: "Geographic area definitions linked to MR territories and sales regions." },
+      { name: "Product Master", desc: "Full product catalogue with HSN code, pack size, MRP, PTR, PTS and tax rate." },
+      { name: "Add / Edit Product Modal", desc: "Rich product creation form with image upload, batch tracking toggle and category mapping." },
+    ],
+  },
+  {
+    category: "🔐 Users, Roles & Permissions",
+    color: "#ef4444",
+    gradient: "linear-gradient(135deg,#ef4444,#dc2626)",
+    features: [
+      { name: "User Management Table", desc: "List all users with role, status, last login and quick actions (edit, delete, reset password)." },
+      { name: "Role Management", desc: "Create custom roles (Admin, Manager, MR, Accountant, etc.) with descriptive labels." },
+      { name: "Granular Permissions", desc: "Toggle 100+ individual permissions per role or per user — module-level and action-level." },
+      { name: "Permission Gate Components", desc: "UI elements auto-hide or disable based on logged-in user's permissions." },
+      { name: "MR Territory Restriction", desc: "MR users see only their assigned companies, areas and customers — not the full database." },
+      { name: "Menu Adjustments", desc: "Admin can show/hide sidebar menu items per role without code changes." },
+      { name: "User Registration", desc: "Self-registration with email verification or admin-created accounts with role assignment." },
+      { name: "JWT Authentication", desc: "Secure cookie-based JWT tokens with auto-expiry and refresh logic." },
+    ],
+  },
+  {
+    category: "⚙️ Settings & Customisation",
+    color: "#0891b2",
+    gradient: "linear-gradient(135deg,#0891b2,#0e7490)",
+    features: [
+      { name: "Company Settings", desc: "Configure company info, logo, GST number, financial year, default currency and timezone." },
+      { name: "Sidebar Theme Picker", desc: "13 sidebar themes (Deep Navy, Cobalt Tech, Emerald Mint, Sunset Rose, etc.) + custom colour." },
+      { name: "Dashboard Banner Themes", desc: "Separate theme picker for the dashboard banner with 14+ options including Auto mode." },
+      { name: "Voice Settings", desc: "Configure voice announcement preferences for alerts and dashboard narration." },
+      { name: "Website Animations Toggle", desc: "Enable or disable all UI animations site-wide for accessibility or performance." },
+      { name: "Profile Management", desc: "Edit name, email, profile photo upload, change password and personal preferences." },
+      { name: "VFP Sync Config Wizard", desc: "Step-by-step wizard to configure the ERP (Visual FoxPro) sync with folder paths and schedule." },
+      { name: "VFP Sync Actions", desc: "Manual trigger, schedule config and sync log viewer for ERP data synchronisation." },
+      { name: "Financial Year Switcher", desc: "Switch active financial year from the top bar — all reports update instantly." },
+      { name: "Multi-Company Switcher", desc: "Switch between multiple ERP companies from the topbar — data scoped per selection." },
+    ],
+  },
+  {
+    category: "🌐 UI & UX Highlights",
+    color: "#f59e0b",
+    gradient: "linear-gradient(135deg,#f59e0b,#f97316)",
+    features: [
+      { name: "Global Search (Cmd+K)", desc: "Spotlight-style instant search across customers, products, invoices and all modules." },
+      { name: "Celestial Cursor", desc: "Premium custom animated cursor with particle trail effect across the app." },
+      { name: "Pharma Background Canvas", desc: "Animated scientific molecule canvas on login/landing for brand identity." },
+      { name: "Responsive Layout", desc: "Full mobile-responsive sidebar, topbar and all pages — works on tablet and phone." },
+      { name: "Fullscreen Mode", desc: "One-click fullscreen toggle in topbar for distraction-free dashboard viewing." },
+      { name: "Searchable Select Dropdowns", desc: "All select fields are searchable with keyboard navigation for fast data entry." },
+      { name: "Real-time Notifications Bell", desc: "Topbar bell icon with badge count, notification list and mark-as-read." },
+      { name: "Sidebar Collapse", desc: "Collapse sidebar to icon-only mode for maximum content area on smaller screens." },
+      { name: "Dark Sidebar Themes", desc: "Multiple dark colour themes for the sidebar including Deep Navy and Cyber Neon." },
+      { name: "Reveal-on-Scroll Animations", desc: "Smooth fade-in animations for all content sections as user scrolls." },
+      { name: "Public Form Portal", desc: "External users can submit forms via public URL without any login." },
+    ],
+  },
+  {
+    category: "🔄 ERP Sync & Integration",
+    color: "#22c55e",
+    gradient: "linear-gradient(135deg,#22c55e,#16a34a)",
+    features: [
+      { name: "Visual FoxPro (VFP) Sync", desc: "Reads DBF files from VFP/ERP automatically — no API changes needed in ERP." },
+      { name: "Automated Sync Schedule", desc: "Configure sync interval (default 60s) or run manually from the VFP Sync Actions panel." },
+      { name: "Sync Status Dashboard", desc: "Live sync status indicator, last sync time and error log in the Mabsol CRM Sync section." },
+      { name: "Multi-Company ERP Sync", desc: "Sync data from multiple ERP company databases simultaneously." },
+      { name: "Bill Document Parser", desc: "AI-powered API that reads purchase bill photos and extracts structured data via OCR." },
+      { name: "Cloud Backup", desc: "All synced data stored securely in MongoDB Atlas with encrypted backups." },
+    ],
+  },
+];
+
 export default function LandingPage() {
   const bars = [30, 48, 40, 72, 54, 64, 46];
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const filteredFeatures = ALL_FEATURES.map((cat) => ({
+    ...cat,
+    features: cat.features.filter(
+      (f) =>
+        f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        f.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        cat.category.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+  })).filter((cat) =>
+    searchQuery ? cat.features.length > 0 : activeCategory ? cat.category === activeCategory : true
+  );
+
+  const totalFeatures = ALL_FEATURES.reduce((a, c) => a + c.features.length, 0);
+
+  // Category tabs scroll & drag state for desktop PC support
+  const tabsRef = useRef<HTMLDivElement | null>(null);
+  const [isDraggingTabs, setIsDraggingTabs] = useState(false);
+  const [tabsStartX, setTabsStartX] = useState(0);
+  const [tabsScrollLeft, setTabsScrollLeft] = useState(0);
+
+  // Direct native mouse wheel listener for category tabs (translates vertical mouse wheel into horizontal scroll on desktop)
+  useEffect(() => {
+    if (!featuresOpen) return;
+    const el = tabsRef.current;
+    if (!el) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      // Scroll horizontally smoothly with mouse wheel
+      el.scrollLeft += e.deltaY * 1.2;
+    };
+
+    el.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [featuresOpen, searchQuery]);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    if (tabsRef.current) {
+      const scrollAmount = direction === "left" ? -280 : 280;
+      tabsRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
+  const handleTabsMouseDown = (e: React.MouseEvent) => {
+    if (!tabsRef.current) return;
+    setIsDraggingTabs(true);
+    setTabsStartX(e.pageX - tabsRef.current.offsetLeft);
+    setTabsScrollLeft(tabsRef.current.scrollLeft);
+  };
+
+  const handleTabsMouseUpOrLeave = () => {
+    setIsDraggingTabs(false);
+  };
+
+  const handleTabsMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingTabs || !tabsRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - tabsRef.current.offsetLeft;
+    const walk = (x - tabsStartX) * 1.5;
+    tabsRef.current.scrollLeft = tabsScrollLeft - walk;
+  };
 
   const steps = [
     {
@@ -438,6 +741,7 @@ export default function LandingPage() {
             <a href="#product">Product</a>
             <a href="#how">How it works</a>
             <a href="#features">Features</a>
+            <button onClick={() => setFeaturesOpen(true)} className="nav-all-features-btn">All Features</button>
           </nav>
 
           <a
@@ -475,6 +779,14 @@ export default function LandingPage() {
             <a href="#how" className="btn btn-outline">
               See how it works
             </a>
+            <button
+              onClick={() => setFeaturesOpen(true)}
+              className="btn btn-features-doc"
+            >
+              <span className="btn-features-icon">📋</span>
+              View All Features
+              <span className="btn-features-badge">{totalFeatures}+</span>
+            </button>
           </div>
 
           <div className="hero-trust">
@@ -714,6 +1026,129 @@ export default function LandingPage() {
       <footer className="footer">
         <p>&copy; {new Date().getFullYear()} Mabsol Infotech. Created by Mabsol Team.</p>
       </footer>
+
+      {/* ================================================================
+          ALL FEATURES FULL-SCREEN MODAL OVERLAY
+          ================================================================ */}
+      {featuresOpen && (
+        <div className="features-overlay" role="dialog" aria-modal="true" aria-label="All Features Documentation">
+          {/* Backdrop */}
+          <div className="features-backdrop" onClick={() => { setFeaturesOpen(false); setSearchQuery(""); setActiveCategory(null); }} />
+
+          {/* Panel */}
+          <div className="features-panel">
+            {/* Header */}
+            <div className="fp-header">
+              <div className="fp-header-top-bar">
+                <div className="fp-badge-group">
+                  <span className="fp-badge">📋 Documentation</span>
+                  <span className="fp-count-pill">{totalFeatures} Features</span>
+                </div>
+                <button
+                  className="fp-close"
+                  onClick={() => { setFeaturesOpen(false); setSearchQuery(""); setActiveCategory(null); }}
+                  aria-label="Close Documentation"
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="fp-header-content">
+                <div className="fp-header-info">
+                  <h2 className="fp-title">Mabsol Pharma CRM — Complete Feature Catalog</h2>
+                  <p className="fp-subtitle">
+                    Complete breakdown of <strong>{ALL_FEATURES.length} modules</strong> & <strong>{totalFeatures} features</strong>.
+                  </p>
+                </div>
+
+                <div className="fp-search-wrap">
+                  <span className="fp-search-icon">🔍</span>
+                  <input
+                    type="text"
+                    className="fp-search"
+                    placeholder="Search all features, modules…"
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setActiveCategory(null); }}
+                  />
+                  {searchQuery && (
+                    <button className="fp-search-clear" onClick={() => setSearchQuery("")} title="Clear search">✕</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Category pills - clean horizontal strip with mouse wheel scroll */}
+            {!searchQuery && (
+              <div
+                className="fp-cat-pills"
+                ref={tabsRef}
+              >
+                <button
+                  className={`fp-cat-pill ${activeCategory === null ? "fp-cat-pill--active" : ""}`}
+                  onClick={(e) => {
+                    setActiveCategory(null);
+                    e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                  }}
+                >
+                  All
+                </button>
+                {ALL_FEATURES.map((cat) => (
+                  <button
+                    key={cat.category}
+                    className={`fp-cat-pill ${activeCategory === cat.category ? "fp-cat-pill--active" : ""}`}
+                    style={activeCategory === cat.category ? { background: cat.color, color: "#fff", borderColor: cat.color } : {}}
+                    onClick={(e) => {
+                      setActiveCategory(activeCategory === cat.category ? null : cat.category);
+                      e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                    }}
+                  >
+                    {cat.category}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="fp-body">
+              {filteredFeatures.length === 0 ? (
+                <div className="fp-empty">
+                  <span className="fp-empty-icon">🔍</span>
+                  <p>No features found for &quot;{searchQuery}&quot;</p>
+                </div>
+              ) : (
+                filteredFeatures.map((cat) => (
+                  <div key={cat.category} className="fp-section">
+                    <div className="fp-section-header" style={{ borderLeftColor: cat.color }}>
+                      <span className="fp-section-title">{cat.category}</span>
+                      <span className="fp-section-count" style={{ background: cat.color }}>{cat.features.length}</span>
+                    </div>
+                    <div className="fp-features-grid">
+                      {cat.features.map((feat) => (
+                        <div key={feat.name} className="fp-feature-card">
+                          <div className="fp-feat-dot" style={{ background: cat.gradient }} />
+                          <div className="fp-feat-content">
+                            <div className="fp-feat-name">{feat.name}</div>
+                            <div className="fp-feat-desc">{feat.desc}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="fp-footer">
+              <span>Mabsol Pharma CRM &copy; {new Date().getFullYear()} · Built by Mabsol Team</span>
+              <a href="/login" className="btn btn-primary fp-cta">
+                Get Started →
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
