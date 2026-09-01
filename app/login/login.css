@@ -235,6 +235,40 @@ h2,
   flex-direction: column;
 }
 
+.badge-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.badge-radar-dot {
+  width: 5.5px;
+  height: 5.5px;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.badge-radar-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0.7;
+  animation: radar-blip 2s ease-out infinite;
+}
+
+@keyframes radar-blip {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.cyan-radar { background: #00f2fe; color: #00f2fe; }
+.emerald-radar { background: #10b981; color: #10b981; }
+.amber-radar { background: #ff7700; color: #ff7700; }
+.purple-radar { background: #a855f7; color: #a855f7; }
+
 .badge-title {
   font-size: 10.5px;
   font-weight: 700;
@@ -344,10 +378,21 @@ h2,
   z-index: 1;
 }
 
+/* Card Border Ambient Glow Highlight Layer */
+.card-border-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  z-index: 1;
+}
+
 /* ---------------- FORM CARD (3D tilt & Dynamic Glass) ---------------- */
 
 .form-card {
-  padding: 44px 40px;
+  padding: 40px 38px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 248, 242, 0.88) 100%);
   backdrop-filter: blur(32px) saturate(190%);
   -webkit-backdrop-filter: blur(32px) saturate(190%);
@@ -378,6 +423,7 @@ h2,
   }
 }
 
+.brand-header-row,
 .brand-row,
 h1,
 .lede,
@@ -387,6 +433,7 @@ form > * {
   z-index: 2;
 }
 
+.brand-header-row { animation-delay: 0.04s; }
 .brand-row { animation-delay: 0.05s; }
 h1 { animation-delay: 0.1s; }
 .lede { animation-delay: 0.15s; }
@@ -408,11 +455,46 @@ form > *:nth-child(6) { animation-delay: 0.45s; }
   }
 }
 
+.brand-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
 .brand-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 30px;
+  margin-bottom: 0;
+}
+
+.security-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono), monospace;
+  color: #059669;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.08);
+}
+
+.live-shield-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulse 1.8s infinite;
 }
 
 .brand-mark {
@@ -468,7 +550,7 @@ form > *:nth-child(6) { animation-delay: 0.45s; }
 
 h1 {
   margin: 0 0 8px;
-  font-size: 29px;
+  font-size: 28px;
   font-weight: 800;
   color: var(--navy-dark);
   letter-spacing: -0.025em;
@@ -476,9 +558,9 @@ h1 {
 }
 
 .lede {
-  margin: 0 0 28px;
+  margin: 0 0 24px;
   color: var(--text-muted);
-  font-size: 14.5px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -488,27 +570,78 @@ h1 {
 }
 
 .error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: var(--danger-bg);
   border: 1px solid var(--danger-border);
   color: var(--danger);
-  font-size: 13.5px;
-  font-weight: 500;
-  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
   border-radius: 12px;
-  margin-bottom: 20px;
-  line-height: 1.5;
+  margin-bottom: 18px;
+  line-height: 1.4;
+  animation: shake 0.35s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+.error-icon {
+  font-size: 14px;
 }
 
 .field {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
-.field label {
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.field label,
+.field-label-row label {
   display: block;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--navy-slate);
-  margin-bottom: 8px;
+  margin-bottom: 7px;
+}
+
+.field-label-row label {
+  margin-bottom: 0 !important;
+}
+
+.capslock-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono), monospace;
+  color: #ea580c;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  padding: 1px 6px;
+  border-radius: 4px;
+  animation: capslock-pop 0.2s ease-out;
+}
+
+@keyframes capslock-pop {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.caps-icon {
+  font-weight: 900;
+  font-size: 11px;
 }
 
 .input-row {
@@ -1100,7 +1233,7 @@ h1 {
 
 .eyebrow {
   display: inline-block;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1109,6 +1242,7 @@ h1 {
   border: 1px solid #fed7aa;
   padding: 3px 9px;
   border-radius: 6px;
+  font-family: var(--font-mono), monospace;
 }
 
 .sync-card h2 {
@@ -1155,7 +1289,7 @@ h1 {
 
 .tile-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 10px;
 }
@@ -1167,6 +1301,15 @@ h1 {
   color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-family: var(--font-mono), monospace;
+}
+
+.tile-sublabel {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 1px;
   font-family: var(--font-mono), monospace;
 }
 
@@ -1265,6 +1408,7 @@ h1 {
 }
 
 .bar-fill {
+  position: relative;
   width: 100%;
   border-radius: 4px 4px 0 0;
   background: linear-gradient(180deg, #ffb347 0%, #f97316 60%, #ea580c 100%);
@@ -1273,6 +1417,17 @@ h1 {
   transform-origin: bottom;
   animation: bar-grow 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.bar-glow-cap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
 }
 
 @keyframes bar-grow {
@@ -1315,6 +1470,21 @@ h1 {
   line-height: 1;
 }
 
+.latency-capsule {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.latency-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: pulse 1.8s infinite;
+}
+
 .latency-badge {
   font-size: 10px;
   font-weight: 800;
@@ -1333,11 +1503,27 @@ h1 {
   box-shadow: 0 0 8px rgba(249, 115, 22, 0.35);
 }
 
-.sync-caption {
-  margin: 4px 0 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
+.sync-progress-track {
+  margin-top: 8px;
+  width: 100%;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sync-progress-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #f97316, #fb923c, #10b981);
+  border-radius: 999px;
+  animation: sync-progress-anim 60s linear infinite;
+  transform-origin: left;
+}
+
+@keyframes sync-progress-anim {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
 }
 
 .sync-toast {
@@ -1403,6 +1589,12 @@ h1 {
 .toast-content {
   flex: 1;
   min-width: 0;
+  animation: toast-fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes toast-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .notif-title {
@@ -1444,6 +1636,18 @@ h1 {
   background: #d1fae5;
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
 }
+
+.toast-ticker-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, #0284c7, #10b981);
+  animation: toast-timer 4.2s linear infinite;
+  transform-origin: left;
+}
+
 
 /* ---------------- MOTION / RESPONSIVE ---------------- */
 
@@ -2226,75 +2430,51 @@ h1 {
   color: #fecdd3 !important;
 }
 
-/* MABSOL SPECIAL SIGNATURE THEME (#343872, #fb8c00, #e4e7f6) */
+/* ====== MABSOL SPECIAL — LIGHT SIGNATURE (Navy #343872 + Amber #fb8c00) ====== */
 .login-page.login-theme-mabsolSpecial {
   background:
-    radial-gradient(ellipse at 15% 15%, rgba(251, 140, 0, 0.28), transparent 50%),
-    radial-gradient(ellipse at 85% 85%, rgba(52, 56, 114, 0.25), transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(228, 231, 246, 0.5), transparent 60%),
-    linear-gradient(135deg, #e4e7f6 0%, #d8dceb 50%, #f0f2fb 100%) !important;
+    radial-gradient(ellipse at 10% 15%, rgba(251, 140, 0, 0.14) 0%, transparent 45%),
+    radial-gradient(ellipse at 90% 85%, rgba(52, 56, 114, 0.16) 0%, transparent 45%),
+    radial-gradient(ellipse at 55% 0%, rgba(52, 56, 114, 0.1) 0%, transparent 50%),
+    linear-gradient(150deg, #ffffff 0%, #f5f4ff 30%, #edeeff 60%, #f0eeff 100%) !important;
   color: #343872 !important;
+  color-scheme: light !important;
 }
 
+/* Breathing ambient layer */
+.login-page.login-theme-mabsolSpecial::before {
+  background:
+    radial-gradient(ellipse at 18% 20%, rgba(251, 140, 0, 0.12) 0%, transparent 48%),
+    radial-gradient(ellipse at 82% 80%, rgba(52, 56, 114, 0.12) 0%, transparent 48%),
+    radial-gradient(circle at 50% 50%, rgba(228, 231, 250, 0.6) 0%, transparent 65%) !important;
+  animation: mabsol-breathe 10s ease-in-out infinite alternate !important;
+}
+
+@keyframes mabsol-breathe {
+  0%   { opacity: 0.5; transform: scale(1); }
+  100% { opacity: 1;   transform: scale(1.03); }
+}
+
+/* Glass cards — #343872 dark navy with amber border glow */
 .login-page.login-theme-mabsolSpecial .glass-card {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(228, 231, 246, 0.92) 100%) !important;
+  background: linear-gradient(
+    145deg,
+    #343872 0%,
+    #2e3268 50%,
+    #292c60 100%
+  ) !important;
   border: 1.5px solid rgba(251, 140, 0, 0.45) !important;
-  color: #343872 !important;
-  box-shadow: 0 25px 60px -10px rgba(52, 56, 114, 0.25), 0 0 35px rgba(251, 140, 0, 0.3) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 28px 65px -12px rgba(30, 33, 90, 0.5),
+    0 0 0 1px rgba(251, 140, 0, 0.18),
+    0 0 40px rgba(251, 140, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
 }
 
-/* MABSOL SPECIAL VIP EXCLUSIVE BADGE & HOLOGRAPHIC BORDER */
-.mabsol-vip-crown-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 14px;
-  margin-bottom: 14px;
-  background: linear-gradient(135deg, rgba(251, 140, 0, 0.15) 0%, rgba(52, 56, 114, 0.2) 100%);
-  border: 1.5px solid #fb8c00;
-  border-radius: 999px;
-  box-shadow: 0 0 18px rgba(251, 140, 0, 0.35);
-  animation: vip-pulse-glow 2.5s ease-in-out infinite alternate;
-}
-
-@keyframes vip-pulse-glow {
-  0% { box-shadow: 0 0 12px rgba(251, 140, 0, 0.3); border-color: #fb8c00; }
-  100% { box-shadow: 0 0 24px rgba(251, 140, 0, 0.65); border-color: #f57c00; }
-}
-
-.crown-sparkle {
-  font-size: 14px;
-  animation: crown-bounce 1.5s infinite alternate;
-}
-
-@keyframes crown-bounce {
-  from { transform: translateY(0) scale(1); }
-  to { transform: translateY(-2px) scale(1.12); }
-}
-
-.crown-text {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #343872;
-  text-transform: uppercase;
-}
-
-.verified-dot {
-  width: 16px;
-  height: 16px;
-  background: #fb8c00;
-  color: #ffffff;
-  border-radius: 50%;
-  font-size: 10px;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
+/* Headings & primary text — white on dark navy card */
 .login-page.login-theme-mabsolSpecial h1,
 .login-page.login-theme-mabsolSpecial h2,
 .login-page.login-theme-mabsolSpecial .brand-name,
@@ -2303,34 +2483,227 @@ h1 {
 .login-page.login-theme-mabsolSpecial .sync-value,
 .login-page.login-theme-mabsolSpecial .notif-title,
 .login-page.login-theme-mabsolSpecial .badge-value {
-  color: #343872 !important;
+  color: #ffffff !important;
 }
 
+/* Muted / secondary text */
 .login-page.login-theme-mabsolSpecial .lede,
 .login-page.login-theme-mabsolSpecial .sync-caption,
 .login-page.login-theme-mabsolSpecial .notif-sub {
-  color: #5c62a4 !important;
+  color: rgba(210, 213, 245, 0.82) !important;
 }
 
+/* Input fields — dark transparent on navy card, NO white background */
 .login-page.login-theme-mabsolSpecial .input-row input {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-color: rgba(52, 56, 114, 0.3) !important;
-  color: #343872 !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(251, 140, 0, 0.4) !important;
+  color: #ffffff !important;
+  caret-color: #fb8c00 !important;
+  box-shadow: none !important;
+}
+.login-page.login-theme-mabsolSpecial .input-row input:hover {
+  border-color: rgba(251, 140, 0, 0.6) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+.login-page.login-theme-mabsolSpecial .input-row input::placeholder {
+  color: rgba(210, 213, 245, 0.4) !important;
+}
+/* Override focus-visible which sets background: #ffffff */
+.login-page.login-theme-mabsolSpecial .input-row input:focus,
+.login-page.login-theme-mabsolSpecial .input-row input:focus-visible {
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(251, 140, 0, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(251, 140, 0, 0.2) !important;
+}
+/* Override browser autofill white box-shadow */
+.login-page.login-theme-mabsolSpecial .input-row input:-webkit-autofill,
+.login-page.login-theme-mabsolSpecial .input-row input:-webkit-autofill:hover,
+.login-page.login-theme-mabsolSpecial .input-row input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0 1000px #2e3268 inset !important;
+  box-shadow: 0 0 0 1000px #2e3268 inset !important;
+  caret-color: #fb8c00 !important;
+  border-color: rgba(251, 140, 0, 0.45) !important;
+}
+/* Disabled state */
+.login-page.login-theme-mabsolSpecial .input-row input:disabled {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(210, 213, 245, 0.4) !important;
 }
 
+
+/* CTA button */
 .login-page.login-theme-mabsolSpecial .btn-primary {
   background: linear-gradient(135deg, #fb8c00 0%, #f57c00 50%, #e65100 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 14px 28px -6px rgba(251, 140, 0, 0.5) !important;
+  box-shadow: 0 12px 28px -6px rgba(251, 140, 0, 0.45), 0 0 0 1px rgba(251, 140, 0, 0.2) !important;
+}
+.login-page.login-theme-mabsolSpecial .btn-primary:hover {
+  box-shadow: 0 16px 36px -6px rgba(251, 140, 0, 0.6) !important;
+  transform: translateY(-1px) !important;
 }
 
+/* Floating badges, sync tiles, toasts — dark navy glass */
 .login-page.login-theme-mabsolSpecial .floating-badge,
 .login-page.login-theme-mabsolSpecial .sync-tile,
 .login-page.login-theme-mabsolSpecial .sync-toast {
-  background: rgba(255, 255, 255, 0.92) !important;
-  border-color: rgba(52, 56, 114, 0.25) !important;
-  color: #343872 !important;
+  background: linear-gradient(145deg, #2e3268 0%, #292c60 100%) !important;
+  border-color: rgba(251, 140, 0, 0.3) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 4px 16px rgba(10, 12, 40, 0.35), inset 0 1px 0 rgba(255,255,255,0.07) !important;
 }
+
+/* Toast shimmer — remove white glare */
+.login-page.login-theme-mabsolSpecial .sync-toast::after {
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.06) 50%, transparent 70%) !important;
+}
+
+/* Toast hover */
+.login-page.login-theme-mabsolSpecial .sync-toast:hover {
+  background: linear-gradient(145deg, #343872 0%, #2e3268 100%) !important;
+  border-color: rgba(251, 140, 0, 0.55) !important;
+  box-shadow: 0 10px 28px -4px rgba(10, 12, 40, 0.5), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+}
+
+/* Toast icon wrap — remove white bg */
+.login-page.login-theme-mabsolSpecial .toast-icon-wrap {
+  background: rgba(251, 140, 0, 0.15) !important;
+  border-color: rgba(251, 140, 0, 0.35) !important;
+  box-shadow: 0 2px 6px rgba(251, 140, 0, 0.15) !important;
+}
+.login-page.login-theme-mabsolSpecial .sync-toast:hover .toast-icon-wrap {
+  box-shadow: 0 0 12px rgba(251, 140, 0, 0.4) !important;
+}
+
+/* Amount badge — remove green/white bg */
+.login-page.login-theme-mabsolSpecial .amount-badge {
+  background: rgba(251, 140, 0, 0.15) !important;
+  border-color: rgba(251, 140, 0, 0.35) !important;
+  color: #fb8c00 !important;
+}
+.login-page.login-theme-mabsolSpecial .sync-toast:hover .amount-badge {
+  background: rgba(251, 140, 0, 0.25) !important;
+  box-shadow: 0 0 10px rgba(251, 140, 0, 0.3) !important;
+}
+
+/* Notif title & sub text */
+.login-page.login-theme-mabsolSpecial .notif-title {
+  color: #ffffff !important;
+}
+.login-page.login-theme-mabsolSpecial .notif-sub {
+  color: rgba(210, 213, 245, 0.7) !important;
+}
+
+/* Badge title text */
+.login-page.login-theme-mabsolSpecial .badge-title,
+.login-page.login-theme-mabsolSpecial .badge-content span:first-child {
+  color: rgba(210, 213, 245, 0.75) !important;
+}
+
+
+/* Orbs */
+.login-page.login-theme-mabsolSpecial .orb-a {
+  background: radial-gradient(circle, rgba(251, 140, 0, 0.22) 0%, transparent 70%) !important;
+}
+.login-page.login-theme-mabsolSpecial .orb-b {
+  background: radial-gradient(circle, rgba(52, 56, 114, 0.2) 0%, transparent 70%) !important;
+}
+.login-page.login-theme-mabsolSpecial .orb-c {
+  background: radial-gradient(circle, rgba(251, 140, 0, 0.12) 0%, transparent 70%) !important;
+}
+
+/* ECG chip */
+.login-page.login-theme-mabsolSpecial .ecg-chip {
+  border-color: rgba(251, 140, 0, 0.4) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* OTP boxes */
+.login-page.login-theme-mabsolSpecial .otp-box {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(251, 140, 0, 0.35) !important;
+  color: #ffffff !important;
+}
+.login-page.login-theme-mabsolSpecial .otp-box:focus {
+  border-color: #fb8c00 !important;
+  box-shadow: 0 0 0 3px rgba(251, 140, 0, 0.2) !important;
+}
+
+/* Right sync card — matching #343872 dark navy */
+.login-page.login-theme-mabsolSpecial .sync-card {
+  background: linear-gradient(
+    145deg,
+    #343872 0%,
+    #2e3268 100%
+  ) !important;
+  border: 1.5px solid rgba(251, 140, 0, 0.35) !important;
+  box-shadow:
+    0 25px 60px -12px rgba(30, 33, 90, 0.45),
+    0 0 30px rgba(251, 140, 0, 0.08) !important;
+}
+
+/* Bar chart bars */
+.login-page.login-theme-mabsolSpecial .bar,
+.login-page.login-theme-mabsolSpecial .bar-fill {
+  background: linear-gradient(180deg, #ffb347 0%, #fb8c00 50%, #e65100 100%) !important;
+  box-shadow: 0 2px 10px rgba(251, 140, 0, 0.4) !important;
+}
+
+.login-page.login-theme-mabsolSpecial .bar-glow-cap {
+  background: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 0 8px #fb8c00 !important;
+}
+
+.login-page.login-theme-mabsolSpecial .tile-sublabel {
+  color: rgba(210, 213, 245, 0.6) !important;
+}
+
+/* Security chip in Mabsol theme */
+.login-page.login-theme-mabsolSpecial .security-status-chip {
+  background: rgba(251, 140, 0, 0.14) !important;
+  border-color: rgba(251, 140, 0, 0.35) !important;
+  color: #fb8c00 !important;
+  box-shadow: 0 2px 8px rgba(251, 140, 0, 0.15) !important;
+}
+
+.login-page.login-theme-mabsolSpecial .live-shield-dot {
+  background: #fb8c00 !important;
+  box-shadow: 0 0 8px #fb8c00 !important;
+}
+
+/* Caps lock hint */
+.login-page.login-theme-mabsolSpecial .capslock-hint {
+  background: rgba(234, 88, 12, 0.25) !important;
+  border-color: rgba(251, 140, 0, 0.5) !important;
+  color: #fed7aa !important;
+}
+
+/* Progress bar & toast timer */
+.login-page.login-theme-mabsolSpecial .sync-progress-bar {
+  background: linear-gradient(90deg, #343872, #fb8c00, #ffb347) !important;
+}
+
+.login-page.login-theme-mabsolSpecial .toast-ticker-progress {
+  background: linear-gradient(90deg, #fb8c00, #ffd180) !important;
+}
+
+/* Latency badge */
+.login-page.login-theme-mabsolSpecial .latency-badge {
+  background: rgba(251, 140, 0, 0.15) !important;
+  border-color: rgba(251, 140, 0, 0.35) !important;
+  color: #fb8c00 !important;
+}
+
+/* Error banner */
+.login-page.login-theme-mabsolSpecial .error-banner {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #fca5a5 !important;
+}
+
+
 
 /* 11. SOLID OBSIDIAN (PURE SOLID DARK NO GRADIENT) */
 .login-page.login-theme-solidObsidian {
@@ -2560,6 +2933,110 @@ h1 {
   background: rgba(0, 0, 0, 0.3) !important;
   border-color: var(--custom-accent, #38bdf8) !important;
   color: var(--custom-text-color, #ffffff) !important;
+}
+
+/* ==================== UNIVERSAL THEME ADAPTATIONS ==================== */
+
+/* Dark themes adaptation for security chips, capslock hints, telemetry sublabels, and glowing borders */
+.login-page.login-theme-night .security-status-chip,
+.login-page.login-theme-oceanDeep .security-status-chip,
+.login-page.login-theme-cobalt .security-status-chip,
+.login-page.login-theme-midnight .security-status-chip,
+.login-page.login-theme-velvet .security-status-chip,
+.login-page.login-theme-ember .security-status-chip,
+.login-page.login-theme-solidObsidian .security-status-chip,
+.login-page.login-theme-solidNavy .security-status-chip,
+.login-page.login-theme-solidZinc .security-status-chip,
+.login-page.login-theme-custom .security-status-chip {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.login-page.login-theme-night .capslock-hint,
+.login-page.login-theme-oceanDeep .capslock-hint,
+.login-page.login-theme-cobalt .capslock-hint,
+.login-page.login-theme-midnight .capslock-hint,
+.login-page.login-theme-velvet .capslock-hint,
+.login-page.login-theme-ember .capslock-hint,
+.login-page.login-theme-solidObsidian .capslock-hint,
+.login-page.login-theme-solidNavy .capslock-hint,
+.login-page.login-theme-solidZinc .capslock-hint,
+.login-page.login-theme-custom .capslock-hint {
+  background: rgba(249, 115, 22, 0.22) !important;
+  border-color: rgba(249, 115, 22, 0.45) !important;
+  color: #ffedd5 !important;
+}
+
+.login-page.login-theme-night .tile-sublabel,
+.login-page.login-theme-oceanDeep .tile-sublabel,
+.login-page.login-theme-cobalt .tile-sublabel,
+.login-page.login-theme-midnight .tile-sublabel,
+.login-page.login-theme-velvet .tile-sublabel,
+.login-page.login-theme-ember .tile-sublabel,
+.login-page.login-theme-solidObsidian .tile-sublabel,
+.login-page.login-theme-solidNavy .tile-sublabel,
+.login-page.login-theme-solidZinc .tile-sublabel,
+.login-page.login-theme-custom .tile-sublabel {
+  color: #94a3b8 !important;
+}
+
+.login-page.login-theme-night .sync-progress-track,
+.login-page.login-theme-oceanDeep .sync-progress-track,
+.login-page.login-theme-cobalt .sync-progress-track,
+.login-page.login-theme-midnight .sync-progress-track,
+.login-page.login-theme-velvet .sync-progress-track,
+.login-page.login-theme-ember .sync-progress-track,
+.login-page.login-theme-solidObsidian .sync-progress-track,
+.login-page.login-theme-solidNavy .sync-progress-track,
+.login-page.login-theme-solidZinc .sync-progress-track,
+.login-page.login-theme-custom .sync-progress-track {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.login-page.login-theme-night .card-border-glow,
+.login-page.login-theme-oceanDeep .card-border-glow,
+.login-page.login-theme-cobalt .card-border-glow,
+.login-page.login-theme-midnight .card-border-glow,
+.login-page.login-theme-velvet .card-border-glow,
+.login-page.login-theme-ember .card-border-glow,
+.login-page.login-theme-solidObsidian .card-border-glow,
+.login-page.login-theme-solidNavy .card-border-glow,
+.login-page.login-theme-solidZinc .card-border-glow,
+.login-page.login-theme-custom .card-border-glow {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Light themes progress bar */
+.login-page.login-theme-sapphire .sync-progress-bar,
+.login-page.login-theme-glacier .sync-progress-bar {
+  background: linear-gradient(90deg, #0284c7, #38bdf8, #06b6d4) !important;
+}
+
+.login-page.login-theme-emerald .sync-progress-bar {
+  background: linear-gradient(90deg, #059669, #10b981, #34d399) !important;
+}
+
+.login-page.login-theme-oceanDeep .sync-progress-bar {
+  background: linear-gradient(90deg, #0284c7, #00f2fe) !important;
+}
+
+.login-page.login-theme-cobalt .sync-progress-bar {
+  background: linear-gradient(90deg, #1d4ed8, #3b82f6, #60a5fa) !important;
+}
+
+.login-page.login-theme-midnight .sync-progress-bar {
+  background: linear-gradient(90deg, #4f46e5, #818cf8, #c084fc) !important;
+}
+
+.login-page.login-theme-velvet .sync-progress-bar {
+  background: linear-gradient(90deg, #7e22ce, #a855f7, #ec4899) !important;
+}
+
+.login-page.login-theme-ember .sync-progress-bar {
+  background: linear-gradient(90deg, #e11d48, #f43f5e, #fb7185) !important;
 }
 
 /* ==================== THEME SELECTOR DROPDOWN & CAPSULE ==================== */
@@ -3081,5 +3558,119 @@ h1 {
 @media (pointer: coarse) {
   .celestial-cursor-container {
     display: none !important;
+  }
+}
+
+/* ────────────────── ANIMATIONS TOGGLE BUTTON ────────────────── */
+.anim-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  font-family: var(--font-body, sans-serif);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* OFF state — subtle muted glass pill */
+.anim-toggle-btn.anim-off {
+  background: rgba(15, 23, 42, 0.55);
+  color: rgba(148, 163, 184, 0.9);
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ON state — glowing accent glass pill */
+.anim-toggle-btn.anim-on {
+  background: rgba(15, 23, 42, 0.7);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 0 16px rgba(99, 179, 237, 0.25);
+}
+
+.anim-toggle-btn:hover {
+  transform: translateY(-1px) scale(1.03);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.anim-toggle-btn:active {
+  transform: scale(0.97);
+}
+
+.anim-toggle-icon {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.anim-toggle-label {
+  line-height: 1;
+}
+
+/* 480px — tablet small / larger phones */
+@media (max-width: 480px) {
+  .anim-toggle-btn {
+    bottom: 14px;
+    left: 14px;
+    padding: 6px 11px 6px 9px;
+    font-size: 11px;
+    gap: 5px;
+  }
+}
+
+/* 380px — very small phones: hide label, show icon only */
+@media (max-width: 380px) {
+  .anim-toggle-btn {
+    bottom: 12px;
+    left: 12px;
+    padding: 7px 9px;
+    gap: 0;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    justify-content: center;
+  }
+
+  .anim-toggle-label {
+    display: none;
+  }
+
+  .anim-toggle-icon {
+    font-size: 15px;
+  }
+}
+
+/* iOS safe area support (notch / home bar) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .anim-toggle-btn {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  @media (max-width: 480px) {
+    .anim-toggle-btn {
+      bottom: calc(14px + env(safe-area-inset-bottom));
+    }
+  }
+
+  @media (max-width: 380px) {
+    .anim-toggle-btn {
+      bottom: calc(12px + env(safe-area-inset-bottom));
+    }
   }
 }

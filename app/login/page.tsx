@@ -112,7 +112,7 @@ export default function LoginPage() {
     { id: "custom", label: "Custom Colors", category: "Custom", icon: "🎨", badgeBg: "linear-gradient(135deg, #ec4899, #8b5cf6, #3b82f6)", accent: "#ec4899", description: "Section-by-Section Color Pickers" },
   ];
 
-  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("auto");
+  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("mabsolSpecial");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -126,15 +126,22 @@ export default function LoginPage() {
   const [customTextColor, setCustomTextColor] = useState("#ffffff");
   const [showCustomDrawer, setShowCustomDrawer] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // Animations toggle — default OFF (false)
+  const [animationsEnabled, setAnimationsEnabled] = useState(false);
 
   // Load saved theme preference on client mount (prevents SSR Hydration Mismatch)
   useEffect(() => {
     setMounted(true);
     try {
       const localTheme = localStorage.getItem("mabsol_saved_theme") as ThemeOption | null;
-      if (localTheme) {
+      // If no theme saved OR old default "auto" was saved → force mabsolSpecial
+      if (localTheme && localTheme !== "auto") {
         setSelectedTheme(localTheme);
         if (localTheme === "custom") setShowCustomDrawer(true);
+      } else {
+        // No saved theme or old "auto" — force mabsolSpecial as new default
+        setSelectedTheme("mabsolSpecial");
+        localStorage.setItem("mabsol_saved_theme", "mabsolSpecial");
       }
 
       const savedCustom = localStorage.getItem("mabsol_saved_custom_colors");
@@ -155,8 +162,10 @@ export default function LoginPage() {
       .then((res) => res.json())
       .then((data) => {
         if (data?.success && data?.selectedTheme) {
-          setSelectedTheme(data.selectedTheme);
-          if (data.selectedTheme === "custom") setShowCustomDrawer(true);
+          // If MongoDB also has old "auto", override with mabsolSpecial
+          const dbTheme = data.selectedTheme === "auto" ? "mabsolSpecial" : data.selectedTheme;
+          setSelectedTheme(dbTheme);
+          if (dbTheme === "custom") setShowCustomDrawer(true);
           if (data.customColors) {
             const cc = data.customColors;
             if (cc.bodyBg) setCustomBodyBg(cc.bodyBg);
@@ -171,6 +180,7 @@ export default function LoginPage() {
       })
       .catch((err) => console.log("MongoDB theme sync fallback", err));
   }, []);
+
 
   // Save selected theme to LocalStorage & MongoDB on change
   const selectThemeAndSave = (newTheme: ThemeOption) => {
@@ -264,6 +274,25 @@ export default function LoginPage() {
   };
 
   const [detectedPhase, setDetectedPhase] = useState<"morning" | "afternoon" | "evening" | "night">("morning");
+  const [capsLockOn, setCapsLockOn] = useState(false);
+
+  // Live real-time ERP event stream ticker items
+  const LIVE_EVENTS = [
+    { id: 1, title: "Invoice #INV-2291 synced", sub: "Batch #8491-X • 2s ago", amount: "+₹1,84,500", icon: "invoice" },
+    { id: 2, title: "Cold-Chain Batch #CC-904", sub: "Warehouse Cold Store 4.2°C • 6s ago", amount: "QC Passed", icon: "qc" },
+    { id: 3, title: "Territory Mumbai-East", sub: "Target 104.8% reached • 14s ago", amount: "+₹3,42,000", icon: "target" },
+    { id: 4, title: "Doctor Rx Stream #DR-771", sub: "Apollo Hospitals Fleet • 28s ago", amount: "Dispatched", icon: "dispatch" },
+  ];
+  const [currentEventIdx, setCurrentEventIdx] = useState(0);
+  const [isToastPaused, setIsToastPaused] = useState(false);
+
+  useEffect(() => {
+    if (isToastPaused) return;
+    const interval = setInterval(() => {
+      setCurrentEventIdx((prev) => (prev + 1) % LIVE_EVENTS.length);
+    }, 4200);
+    return () => clearInterval(interval);
+  }, [isToastPaused, LIVE_EVENTS.length]);
 
   // Rich Sales Velocity data with labels and revenue tooltip info
   const barsData = [
@@ -599,11 +628,24 @@ export default function LoginPage() {
           : undefined
       }
     >
-      {/* High Performance Dynamic Celestial Custom Cursor Pointer */}
-      <CelestialCursor theme={effectiveTheme} accentColor={activeAccent} />
+      {/* High Performance Dynamic Celestial Custom Cursor Pointer — only when animations ON */}
+      {animationsEnabled && <CelestialCursor theme={effectiveTheme} accentColor={activeAccent} />}
 
-      {/* High Performance Interactive Molecular Background Canvas */}
-      <PharmaBackgroundCanvas accentColor={activeAccent} />
+      {/* High Performance Interactive Molecular Background Canvas — only when animations ON */}
+      {animationsEnabled && <PharmaBackgroundCanvas accentColor={activeAccent} />}
+
+      {/* Animations Toggle Button */}
+      <button
+        type="button"
+        suppressHydrationWarning
+        className={`anim-toggle-btn${animationsEnabled ? " anim-on" : " anim-off"}`}
+        onClick={() => setAnimationsEnabled((v) => !v)}
+        title={animationsEnabled ? "Turn off background & cursor animations" : "Turn on background & cursor animations"}
+        aria-label={animationsEnabled ? "Animations ON — click to disable" : "Animations OFF — click to enable"}
+      >
+        <span className="anim-toggle-icon">{animationsEnabled ? "✨" : "🚫"}</span>
+        <span className="anim-toggle-label">{animationsEnabled ? "Animations ON" : "Animations OFF"}</span>
+      </button>
 
       {/* Floating Interactive Celestial Color Theme Selector & Customizer Capsule */}
       <div className="celestial-preview-capsule-wrapper" ref={dropdownRef}>
@@ -891,7 +933,10 @@ export default function LoginPage() {
           </svg>
         </div>
         <div className="badge-content">
-          <span className="badge-title">Biotech Pipeline</span>
+          <div className="badge-title-row">
+            <span className="badge-radar-dot cyan-radar" />
+            <span className="badge-title">Biotech Pipeline</span>
+          </div>
           <span className="badge-value">Active &amp; Encrypted</span>
         </div>
       </div>
@@ -904,7 +949,10 @@ export default function LoginPage() {
           </svg>
         </div>
         <div className="badge-content">
-          <span className="badge-title">Pharma Compliance</span>
+          <div className="badge-title-row">
+            <span className="badge-radar-dot emerald-radar" />
+            <span className="badge-title">Pharma Compliance</span>
+          </div>
           <span className="badge-value">21 CFR Part 11</span>
         </div>
       </div>
@@ -916,8 +964,11 @@ export default function LoginPage() {
           </svg>
         </div>
         <div className="badge-content">
-          <span className="badge-title">Sync Latency</span>
-          <span className="badge-value">&lt; 80ms Real-Time</span>
+          <div className="badge-title-row">
+            <span className="badge-radar-dot amber-radar" />
+            <span className="badge-title">Sync Latency</span>
+          </div>
+          <span className="badge-value">&lt; 38ms Real-Time</span>
         </div>
       </div>
 
@@ -931,7 +982,10 @@ export default function LoginPage() {
           </svg>
         </div>
         <div className="badge-content">
-          <span className="badge-title">Batch Intelligence</span>
+          <div className="badge-title-row">
+            <span className="badge-radar-dot purple-radar" />
+            <span className="badge-title">Batch Intelligence</span>
+          </div>
           <span className="badge-value">Live ERP Stream</span>
         </div>
       </div>
@@ -944,47 +998,49 @@ export default function LoginPage() {
           onMouseMove={handleCardTiltMove}
           onMouseLeave={handleCardTiltLeave}
         >
-          {/* Mabsol Special Exclusive VIP Signature Crown Badge */}
-          {effectiveTheme === "mabsolSpecial" && (
-            <div className="mabsol-vip-crown-badge">
-              <span className="crown-sparkle">👑</span>
-              <span className="crown-text">MABSOL SIGNATURE VIP EDITION</span>
-              <span className="verified-dot">✓</span>
-            </div>
-          )}
+          {/* Card Border Ambient Glow Highlight */}
+          <div className="card-border-glow" aria-hidden="true" />
 
-          <div className="brand-row">
-            <span className="brand-mark">
-              <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                <defs>
-                  <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#ffb347" />
-                    <stop offset="50%" stopColor="#ff7700" />
-                    <stop offset="100%" stopColor="#ea580c" />
-                  </linearGradient>
-                  <filter id="brandGlow" x="-30%" y="-30%" width="160%" height="160%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#ff7700" floodOpacity="0.8" />
-                  </filter>
-                </defs>
-                {/* 3D Hexagon Emblem */}
-                <path
-                  d="M16 2.5 L28 9.5 L28 22.5 L16 29.5 L4 22.5 L4 9.5 Z"
-                  stroke="url(#brandGrad)"
-                  strokeWidth="2.2"
-                  fill="rgba(255, 119, 0, 0.2)"
-                  filter="url(#brandGlow)"
-                />
-                {/* Interlocking Medical Cross */}
-                <path
-                  d="M13.5 8 H18.5 V13.5 H24 V18.5 H18.5 V24 H13.5 V18.5 H8 V13.5 H13.5 Z"
-                  fill="url(#brandGrad)"
-                />
-                {/* Specular Glint Center */}
-                <circle cx="16" cy="16" r="2.8" fill="#ffffff" />
-                <circle cx="14.8" cy="14.8" r="1" fill="#ffffff" />
-              </svg>
-            </span>
-            <span className="brand-name">Mabsol Pharma CRM</span>
+          <div className="brand-header-row">
+            <div className="brand-row">
+              <span className="brand-mark">
+                <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                  <defs>
+                    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#ffb347" />
+                      <stop offset="50%" stopColor="#ff7700" />
+                      <stop offset="100%" stopColor="#ea580c" />
+                    </linearGradient>
+                    <filter id="brandGlow" x="-30%" y="-30%" width="160%" height="160%">
+                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#ff7700" floodOpacity="0.8" />
+                    </filter>
+                  </defs>
+                  {/* 3D Hexagon Emblem */}
+                  <path
+                    d="M16 2.5 L28 9.5 L28 22.5 L16 29.5 L4 22.5 L4 9.5 Z"
+                    stroke="url(#brandGrad)"
+                    strokeWidth="2.2"
+                    fill="rgba(255, 119, 0, 0.2)"
+                    filter="url(#brandGlow)"
+                  />
+                  {/* Interlocking Medical Cross */}
+                  <path
+                    d="M13.5 8 H18.5 V13.5 H24 V18.5 H18.5 V24 H13.5 V18.5 H8 V13.5 H13.5 Z"
+                    fill="url(#brandGrad)"
+                  />
+                  {/* Specular Glint Center */}
+                  <circle cx="16" cy="16" r="2.8" fill="#ffffff" />
+                  <circle cx="14.8" cy="14.8" r="1" fill="#ffffff" />
+                </svg>
+              </span>
+              <span className="brand-name">Mabsol Pharma CRM</span>
+            </div>
+
+            {/* Enterprise Security Chip */}
+            <div className="security-status-chip">
+              <span className="live-shield-dot" />
+              <span className="security-text">256-Bit SSL • 21 CFR Part 11</span>
+            </div>
           </div>
 
           {step === "credentials" ? (
@@ -997,12 +1053,13 @@ export default function LoginPage() {
               <form onSubmit={handleLogin} noValidate>
                 {error && (
                   <div className="error-banner" role="alert">
-                    {error}
+                    <span className="error-icon">⚠️</span>
+                    <span>{error}</span>
                   </div>
                 )}
 
                 <div className="field">
-                  <label htmlFor="email">Email</label>
+                  <label htmlFor="email">Work Email</label>
                   <div className={`input-row ${showEmailError ? "input-row-error" : ""}`}>
                     <svg className="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
                       <rect x="2" y="5" width="20" height="14" rx="3" stroke="currentColor" strokeWidth="1.8" />
@@ -1030,7 +1087,14 @@ export default function LoginPage() {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="password">Password</label>
+                  <div className="field-label-row">
+                    <label htmlFor="password">Password</label>
+                    {capsLockOn && (
+                      <span className="capslock-hint" role="status">
+                        <span className="caps-icon">⇪</span> Caps Lock ON
+                      </span>
+                    )}
+                  </div>
                   <div className="input-row">
                     <svg className="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
                       <rect x="4" y="10" width="16" height="11" rx="3" stroke="currentColor" strokeWidth="1.8" />
@@ -1047,6 +1111,8 @@ export default function LoginPage() {
                         setPassword(e.target.value);
                         triggerTypingPulse();
                       }}
+                      onKeyUp={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
+                      onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
                       required
                       disabled={loading}
                     />
@@ -1073,7 +1139,12 @@ export default function LoginPage() {
 
                 <button type="submit" className="btn-primary" disabled={loading}>
                   {loading ? <span className="spinner" aria-hidden="true" /> : null}
-                  {loading ? "Signing in…" : "Log in"}
+                  <span>{loading ? "Authenticating Session…" : "Sign In to Pharma Console"}</span>
+                  {!loading && (
+                    <svg className="btn-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
                 </button>
 
                 <p className="switch-line">
@@ -1098,7 +1169,8 @@ export default function LoginPage() {
               <form onSubmit={handleVerifyOtp} noValidate>
                 {otpError && (
                   <div className="error-banner" role="alert">
-                    {otpError}
+                    <span className="error-icon">⚠️</span>
+                    <span>{otpError}</span>
                   </div>
                 )}
 
@@ -1128,7 +1200,12 @@ export default function LoginPage() {
 
                 <button type="submit" className="btn-primary" disabled={verifyingOtp}>
                   {verifyingOtp ? <span className="spinner" aria-hidden="true" /> : null}
-                  {verifyingOtp ? "Verifying…" : "Verify & continue"}
+                  <span>{verifyingOtp ? "Verifying Token…" : "Verify & Continue"}</span>
+                  {!verifyingOtp && (
+                    <svg className="btn-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
                 </button>
 
                 <p className="switch-line">
@@ -1146,7 +1223,7 @@ export default function LoginPage() {
                 <p className="switch-line">
                   <button
                     type="button"
-                    className="link-strong"
+                    className="link-strong back-link"
                     onClick={() => {
                       setStep("credentials");
                       setOtpError(null);
@@ -1212,26 +1289,32 @@ export default function LoginPage() {
           onMouseLeave={handleSyncCardLeave}
           aria-hidden="true"
         >
+          {/* Card Border Ambient Glow Highlight */}
+          <div className="card-border-glow" aria-hidden="true" />
+
           <div className="sync-top">
             <div className="sync-dots">
               <span className="dot-red" /><span className="dot-yellow" /><span className="dot-green" />
             </div>
             <span className="live-pill">
               <span className="live-dot" />
-              Live Sync
+              Live Sync Active
             </span>
           </div>
 
           <div className="sync-eyebrow-row">
-            <span className="eyebrow">LIVE FROM ERP</span>
+            <span className="eyebrow">MISSION CONTROL • LIVE ERP</span>
           </div>
           <h2>Synced instantly</h2>
 
           <div className="sync-tiles">
             {/* Sales Velocity Tile with Organic Breathing Bars & Interactive Micro-Tooltips */}
-            <div className="sync-tile">
+            <div className="sync-tile velocity-tile">
               <div className="tile-header">
-                <p className="tile-label">Sales Velocity</p>
+                <div>
+                  <p className="tile-label">Sales Velocity</p>
+                  <span className="tile-sublabel">Throughput / Qtr</span>
+                </div>
                 <span className="growth-pill">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
                     <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1246,7 +1329,9 @@ export default function LoginPage() {
                       <span
                         className="bar-fill"
                         style={{ height: `${bar.height}%`, animationDelay: `${i * 65}ms` }}
-                      />
+                      >
+                        <span className="bar-glow-cap" />
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1255,35 +1340,72 @@ export default function LoginPage() {
             </div>
 
             {/* Auto-Refresh Tile */}
-            <div className="sync-tile">
+            <div className="sync-tile refresh-tile">
               <div className="tile-header">
-                <p className="tile-label">Refresh Cycle</p>
+                <div>
+                  <p className="tile-label">Refresh Cycle</p>
+                  <span className="tile-sublabel">Continuous</span>
+                </div>
                 <span className="sync-status-icon">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="spin-sync">
-                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="#ea580c" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
               </div>
               <div className="metric-row">
                 <p className="sync-value">60s</p>
-                <span className="latency-badge">&lt; 40ms</span>
+                <div className="latency-capsule">
+                  <span className="latency-dot" />
+                  <span className="latency-badge">&lt; 38ms</span>
+                </div>
               </div>
-              <p className="sync-caption">Active Zero-Loss Stream</p>
+              <div className="sync-progress-track">
+                <div className="sync-progress-bar" />
+              </div>
             </div>
           </div>
 
-          {/* Real-time Activity Notification Card with Prismatic Highlight */}
-          <div className="sync-toast">
+          {/* Real-time Dynamic Event Stream Ticker Notification */}
+          <div
+            className="sync-toast"
+            onMouseEnter={() => setIsToastPaused(true)}
+            onMouseLeave={() => setIsToastPaused(false)}
+            title="Hover to pause live stream"
+          >
             <div className="toast-icon-wrap">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              {LIVE_EVENTS[currentEventIdx].icon === "invoice" && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+              {LIVE_EVENTS[currentEventIdx].icon === "qc" && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="#0284c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 12l2 2 4-4" stroke="#0284c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+              {LIVE_EVENTS[currentEventIdx].icon === "target" && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="#fb8c00" strokeWidth="2" />
+                  <circle cx="12" cy="12" r="4" stroke="#fb8c00" strokeWidth="2" />
+                  <circle cx="12" cy="12" r="1" fill="#fb8c00" />
+                </svg>
+              )}
+              {LIVE_EVENTS[currentEventIdx].icon === "dispatch" && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="1" y="3" width="14" height="13" rx="2" stroke="#818cf8" strokeWidth="2" />
+                  <path d="M15 8h4l3 3v5h-7V8z" stroke="#818cf8" strokeWidth="2" />
+                  <circle cx="5.5" cy="18.5" r="2" fill="#818cf8" />
+                  <circle cx="17.5" cy="18.5" r="2" fill="#818cf8" />
+                </svg>
+              )}
             </div>
-            <div className="toast-content">
-              <p className="notif-title">Invoice #INV-2291 synced</p>
-              <p className="notif-sub">Batch #8491-X • 2s ago</p>
+            <div className="toast-content" key={LIVE_EVENTS[currentEventIdx].id}>
+              <p className="notif-title">{LIVE_EVENTS[currentEventIdx].title}</p>
+              <p className="notif-sub">{LIVE_EVENTS[currentEventIdx].sub}</p>
             </div>
-            <span className="amount-badge">+₹1,84,500</span>
+            <span className="amount-badge">{LIVE_EVENTS[currentEventIdx].amount}</span>
+            <div className="toast-ticker-progress" />
           </div>
         </div>
       </div>
