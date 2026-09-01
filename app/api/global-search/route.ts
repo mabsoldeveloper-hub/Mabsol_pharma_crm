@@ -10,642 +10,83 @@ import PurchaseOrder from "@/models/PurchaseOrder";
 import PurchasePayment from "@/models/PurchasePayment";
 import PurchaseReturn from "@/models/PurchaseReturn";
 import User from "@/models/User";
-import Category from "@/models/Category";
-import Division from "@/models/Division";
+import { getDefaultMenuItems } from "@/lib/defaultMenuData";
 
 function escapeRegex(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Spoken Voice Search Cleaner - removes spoken filler words and dynamic assistant names across English, Hindi, Urdu & Hinglish
+// Clean spoken voice queries dynamically (strip assistant names and emojis)
 function cleanSpokenQuery(input: string, assistantName: string = "AI Assistant"): string {
   if (!input) return "";
   let text = input.trim();
 
-  // Escaped assistant name for regex
   const nameEscaped = (assistantName || "AI Assistant").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-  // Dynamic regex pattern to match greetings + assistant name
-  const greetingAndNamePatterns = [
-    new RegExp(`\\b(hi|hey|hello|suno|listen|ok|okay|aaye|namaste|haaye)\\s+(${nameEscaped}|jarvis|alexa|siri|crm|ai)\\b`, "gi"),
-    new RegExp(`\\b(${nameEscaped})(\\s+bhai|\\s+ji)?\\b`, "gi"),
-    /\b(hi|hey|hello|suno|listen)\b/gi,
-  ];
-
-  greetingAndNamePatterns.forEach((pattern) => {
-    text = text.replace(pattern, "");
-  });
-
-  const spokenFillers = [
-    /\b(dikhao|dikhaao|dikhaye|dikhayen)\b/gi,
-    /\b(kholo|kholiye|open|open page|nav|navigate to)\b/gi,
-    /\b(batao|bataiye|show me|show|find me|find|search for|tell me)\b/gi,
-    /\b(mujhe|mujhko|mujhe batao|please|plz|bhai)\b/gi,
-    /\b(search karo|search karain|check karo|check karain)\b/gi,
-    /\b(ka ledger|ki ledger|ka bill|ke bill|parchi|hisaab)\b/gi,
-    /\b(ka stock|ki stock|ka report|ki report|ka balance|ki balance)\b/gi,
-    /\b(list all|where is|par jao|jana hai)\b/gi,
-    /\b(kitna hai|kitni hai|kitne hain|kitna|kitni|kitne|bhi|kya|hai|hain|kiska|kiske|konsi|konse|konsa)\b/gi,
-  ];
-
-  spokenFillers.forEach((pattern) => {
-    text = text.replace(pattern, "");
-  });
-
-  // Strip emojis from query string for clean regex searching
+  text = text.replace(new RegExp(`\\b(${nameEscaped}|alexa|siri|jarvis|ai)\\b`, "gi"), "");
   text = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "");
-
-  text = text.replace(/\s+/g, " ").trim();
-
-  // Fallback if cleaning removed all text
-  if (text.length === 0) {
-    let fallback = input.trim();
-    greetingAndNamePatterns.forEach((pattern) => {
-      fallback = fallback.replace(pattern, "");
-    });
-    return fallback.replace(/\s+/g, " ").trim();
-  }
-
-  return text;
+  return text.replace(/\s+/g, " ").trim() || input.trim();
 }
 
-// Typo correction dictionary for common pharma terms & reports
-const TYPO_MAP: Record<string, string> = {
-  paracitamol: "Paracetamol",
-  paracitamal: "Paracetamol",
-  paracetmol: "Paracetamol",
-  cipflo: "Ciprofloxacin",
-  cipro: "Ciprofloxacin",
-  azithral: "Azithromycin",
-  azithro: "Azithromycin",
-  pantop: "Pantoprazole",
-  amoxi: "Amoxicillin",
-  amox: "Amoxicillin",
-  dlo: "Dolo 650",
-  gstr: "GSTR-1",
-  gst: "GSTR-1",
-  ledgr: "Customer Ledger",
-  ledg: "Customer Ledger",
-  cust: "Customer Master",
-  stock: "Current Stock",
-  exp: "Near Expiry",
-  expiry: "Near Expiry",
-  targt: "Target vs Actual",
-};
-
-// Navigation & Sidebar Links & Component File Registry
-const APP_PAGES = [
-  // Core Dashboards & Sidebar Components
-  { title: "Dashboard Overview", category: "Navigation", path: "/dashboard", fileName: "app/dashboard/page.tsx", keywords: ["home", "analytics", "dashboard", "kpi", "summary", "main", "sidebar", "sidebar links", "topbar", "file name", "filename"], icon: "layout-dashboard" },
-  { title: "Executive AI Dashboard 🤖", category: "Navigation", path: "/dashboard/executive-ai", fileName: "app/dashboard/executive-ai/page.tsx", keywords: ["executive ai", "executive-ai", "ai dashboard", "cfo dashboard", "sales purchase ai", "ai insights", "executive overview", "widgets", "visualization"], icon: "sparkles" },
-  { title: "Purchase & Sales Combined Analytics 📈", category: "Navigation", path: "/dashboard/purchase-sales-analytics", fileName: "app/dashboard/purchase-sales-analytics/page.tsx", keywords: ["purchase sales analytics", "purchase-sales-analytics", "combined analytics", "growth matrix", "sales vs purchase", "purchase comparison", "purchase and sales"], icon: "trending-up" },
-  { title: "Vouchers & Accounting Log 📄", category: "Navigation", path: "/dashboard/voucher", fileName: "app/dashboard/voucher/page.tsx", keywords: ["voucher", "vouchers", "accounting voucher", "journal entry", "journal", "receipt voucher", "payment voucher"], icon: "file-text" },
-  { title: "Custom Analytics & Report Builder 📊", category: "Navigation", path: "/dashboard/report", fileName: "app/dashboard/report/page.tsx", keywords: ["report", "analytics report", "sales report", "custom report", "data report"], icon: "bar-chart" },
-  { title: "Sidebar Navigation Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/Sidebar.tsx", keywords: ["sidebar", "side bar", "sidebar links", "navigation bar", "menu", "nav", "file name", "filename"], icon: "compass" },
-  { title: "Topbar Header Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/Topbar.tsx", keywords: ["topbar", "top bar", "header", "search bar", "global search", "file name", "filename"], icon: "compass" },
-  { title: "Global Search Modal Component", category: "Sidebar Link", path: "/dashboard", fileName: "components/GlobalSearchModal.tsx", keywords: ["global search", "search modal", "command palette", "file name", "filename"], icon: "search" },
-
-  // Targets
-  { title: "Targets & Achievements", category: "Navigation", path: "/dashboard/targets", fileName: "app/dashboard/targets/page.tsx", keywords: ["target", "actual", "achievement", "mr target", "kpi", "monthly target", "quarterly target", "quota", "targets"], icon: "target" },
-
-  // Master Section
-  { title: "Master Dashboard", category: "Navigation", path: "/dashboard/master", fileName: "app/dashboard/master/page.tsx", keywords: ["master", "master dashboard", "masters", "configuration"], icon: "cog" },
-  { title: "Accounting Group Master", category: "Navigation", path: "/dashboard/master/accounting-group-master", fileName: "app/dashboard/master/accounting-group-master/page.tsx", keywords: ["accounting group", "accounting-group-master", "group master", "chart of accounts", "ledger group", "accounts"], icon: "layers" },
-  { title: "Ledger Master / Customer Master", category: "Navigation", path: "/dashboard/master/customer-master", fileName: "app/dashboard/master/customer-master/page.tsx", keywords: ["customer master", "customer-master", "ledger master", "party master", "dealers", "clients", "customers"], icon: "users" },
-  { title: "Area Master", category: "Navigation", path: "/dashboard/master/area-master", fileName: "app/dashboard/master/area-master/page.tsx", keywords: ["area master", "area-master", "city master", "location", "territory", "area"], icon: "building" },
-  { title: "Product Master", category: "Navigation", path: "/dashboard/master/product-master", fileName: "app/dashboard/master/product-master/page.tsx", keywords: ["product master", "product-master", "items master", "medicine master", "products", "mrp", "rate"], icon: "package" },
-  { title: "HSN Master", category: "Navigation", path: "/dashboard/master/hsn-master", fileName: "app/dashboard/master/hsn-master/page.tsx", keywords: ["hsn master", "hsn-master", "hsn code", "gst hsn", "tax rate", "sac code"], icon: "list-ul" },
-  { title: "Division Master", category: "Navigation", path: "/dashboard/master/division-master", fileName: "app/dashboard/master/division-master/page.tsx", keywords: ["division master", "division-master", "pharma division", "divisions", "brand division"], icon: "layers" },
-  { title: "Sub-Division Master", category: "Navigation", path: "/dashboard/sub-division-master", fileName: "app/dashboard/sub-division-master/page.tsx", keywords: ["sub division master", "sub-division-master", "subdivision", "brand line"], icon: "git-branch" },
-  { title: "Category Master", category: "Navigation", path: "/dashboard/category-master", fileName: "app/dashboard/category-master/page.tsx", keywords: ["category master", "category-master", "product category", "group"], icon: "tag" },
-  { title: "Target & Gift Master", category: "Navigation", path: "/dashboard/master/targets", fileName: "app/dashboard/master/targets/page.tsx", keywords: ["target & gift master", "target master", "gift master", "incentive", "reward"], icon: "trophy" },
-  { title: "MR Customer Master", category: "Navigation", path: "/dashboard/master/mr-customer", fileName: "app/dashboard/master/mr-customer/page.tsx", keywords: ["mr customer master", "mr-customer", "mr assignment", "assign party"], icon: "user-check" },
-  { title: "Bill Series / Voucher Series Master", category: "Navigation", path: "/dashboard/master/voucher-series", fileName: "app/dashboard/master/voucher-series/page.tsx", keywords: ["bill series master", "voucher series", "voucher-series", "invoice prefix", "numbering"], icon: "sliders" },
-  { title: "Sales Hierarchy & Organization", category: "Navigation", path: "/dashboard/master/sales-hierarchy", fileName: "app/dashboard/master/sales-hierarchy/page.tsx", keywords: ["sales hierarchy", "sales-hierarchy", "organization", "mr asm rsm zsm", "structure"], icon: "network" },
-  { title: "Company Master", category: "Navigation", path: "/dashboard/company-master", fileName: "app/dashboard/company-master/page.tsx", keywords: ["company master", "company-master", "manufacturers", "company list"], icon: "factory" },
-
-  // Area & Comparison
-  { title: "Area Management", category: "Navigation", path: "/dashboard/area", fileName: "app/dashboard/area/page.tsx", keywords: ["area", "locations", "zones", "stations"], icon: "building" },
-  { title: "Comparison Tool & Analytics", category: "Navigation", path: "/dashboard/compare", fileName: "app/dashboard/compare/page.tsx", keywords: ["comparison", "compare", "sales comparison", "period comparison", "analytics"], icon: "boxes" },
-  { title: "Financial Year Wise Comparison", category: "Navigation", path: "/dashboard/compare/fy-wise", fileName: "app/dashboard/compare/fy-wise/page.tsx", keywords: ["fy wise comparison", "fy compare", "financial year comparison"], icon: "calendar" },
-  { title: "FY Area Wise Comparison Map", category: "Navigation", path: "/dashboard/compare/fy-area-wise", fileName: "app/dashboard/compare/fy-area-wise/page.tsx", keywords: ["fy area map", "area comparison map", "territory compare"], icon: "map-pin" },
-
-  // Users & Permissions
-  { title: "User Management", category: "Navigation", path: "/dashboard/users", fileName: "app/dashboard/users/page.tsx", keywords: ["user management", "users", "employee list", "staff", "create user"], icon: "users" },
-  { title: "Create New User", category: "Navigation", path: "/dashboard/users/create", fileName: "app/dashboard/users/create/page.tsx", keywords: ["create user", "add user", "new employee", "staff entry"], icon: "user-plus" },
-  { title: "Permission Management", category: "Navigation", path: "/dashboard/permissions", fileName: "app/dashboard/permissions/page.tsx", keywords: ["permission", "permissions", "access control", "privileges", "module access"], icon: "shield-check" },
-  { title: "Roles & Role Permissions", category: "Navigation", path: "/dashboard/roles", fileName: "app/dashboard/roles/page.tsx", keywords: ["roles", "role permissions", "role-permissions", "admin role", "manager role"], icon: "lock" },
-  { title: "Create Role & Permissions", category: "Navigation", path: "/dashboard/roles/create", fileName: "app/dashboard/roles/create/page.tsx", keywords: ["create role", "add role", "new role"], icon: "lock" },
-  { title: "User Permissions Matrix", category: "Navigation", path: "/dashboard/user-permissions", fileName: "app/dashboard/user-permissions/page.tsx", keywords: ["user permissions", "user-permissions", "rights", "access matrix"], icon: "user-check" },
-
-  // Inventory
-  { title: "Inventory Dashboard", category: "Navigation", path: "/dashboard/inventory/dashboard", fileName: "app/dashboard/inventory/dashboard/page.tsx", keywords: ["inventory dashboard", "stock overview", "inventory analytics"], icon: "layout-dashboard" },
-  { title: "Inventory Products List", category: "Navigation", path: "/dashboard/inventory/products", fileName: "app/dashboard/inventory/products/page.tsx", keywords: ["inventory products", "stock items", "products list"], icon: "package" },
-  { title: "Current Stock & Warehouse", category: "Navigation", path: "/dashboard/stock", fileName: "app/dashboard/stock/page.tsx", keywords: ["stock", "current stock", "warehouse", "godown", "batch stock"], icon: "warehouse" },
-  { title: "Batch Expiry Liquidator", category: "Navigation", path: "/dashboard/stock/expiry-liquidator", fileName: "app/dashboard/stock/expiry-liquidator/page.tsx", keywords: ["expiry liquidator", "batch expiry liquidator", "clearance stock", "expiry discount", "expiry alert"], icon: "warehouse" },
-  { title: "Current Stock Inventory Report", category: "Navigation", path: "/dashboard/reports/product?view=stock", fileName: "app/dashboard/reports/product/page.tsx", keywords: ["current stock inventory", "available stock", "godown", "warehouse stock"], icon: "boxes" },
-
-  // Sales Module
-  { title: "Sales Dashboard", category: "Navigation", path: "/dashboard/sales/dashboard", fileName: "app/dashboard/sales/dashboard/page.tsx", keywords: ["sales dashboard", "sales analytics", "revenue dashboard"], icon: "layout-dashboard" },
-  { title: "Sales Invoices List", category: "Navigation", path: "/dashboard/sales/invoice", fileName: "app/dashboard/sales/invoice/page.tsx", keywords: ["invoices list", "sales invoice", "bills", "invoice history"], icon: "file-invoice" },
-  { title: "Sales Outstanding Balances", category: "Navigation", path: "/dashboard/sales/outstanding", fileName: "app/dashboard/sales/outstanding/page.tsx", keywords: ["sales outstanding", "due payment", "pending bill", "receivables"], icon: "clock" },
-  { title: "Bad Debt & Credit Risk", category: "Navigation", path: "/dashboard/credit-risk/bad-debts", fileName: "app/dashboard/credit-risk/bad-debts/page.tsx", keywords: ["bad debt", "credit risk", "risk management", "npa", "defaulters"], icon: "user-shield" },
-  { title: "Create Sale Invoice", category: "Navigation", path: "/dashboard/sales/invoice/create", fileName: "app/dashboard/sales/invoice/create/page.tsx", keywords: ["create sale invoice", "new bill", "billing entry", "billing"], icon: "plus-circle" },
-  { title: "Sales Return Entry & Report", category: "Navigation", path: "/dashboard/sales/sale-return", fileName: "app/dashboard/sales/sale-return/page.tsx", keywords: ["sales return", "sale-return", "credit note", "return entry", "refund"], icon: "undo" },
-  { title: "Receipt Entry & Collection", category: "Navigation", path: "/dashboard/sales/receipt", fileName: "app/dashboard/sales/receipt/page.tsx", keywords: ["receipt entry", "receipt", "payment collection", "voucher receipt"], icon: "receipt" },
-  { title: "Orders List & Processing", category: "Navigation", path: "/dashboard/orders", fileName: "app/dashboard/orders/page.tsx", keywords: ["orders", "sales order", "pending orders"], icon: "clipboard-list" },
-
-  // Purchase Module
-  { title: "Purchase Dashboard", category: "Navigation", path: "/dashboard/purchase/dashboard", fileName: "app/dashboard/purchase/dashboard/page.tsx", keywords: ["purchase dashboard", "vendor analytics", "purchase summary"], icon: "layout-dashboard" },
-  { title: "Purchase Invoices List", category: "Navigation", path: "/dashboard/purchase/invoice", fileName: "app/dashboard/purchase/invoice/page.tsx", keywords: ["purchase invoices", "vendor bills", "purchase list"], icon: "file-invoice" },
-  { title: "Purchase Outstanding", category: "Navigation", path: "/dashboard/purchase/outstanding", fileName: "app/dashboard/purchase/outstanding/page.tsx", keywords: ["purchase outstanding", "vendor dues", "payables"], icon: "clock" },
-  { title: "Create Purchase Bill", category: "Navigation", path: "/dashboard/purchase/invoice/create", fileName: "app/dashboard/purchase/invoice/create/page.tsx", keywords: ["create purchase bill", "new purchase bill", "vendor invoice entry"], icon: "plus-circle" },
-  { title: "Create Purchase Order", category: "Navigation", path: "/dashboard/purchase/orders/create", fileName: "app/dashboard/purchase/orders/create/page.tsx", keywords: ["create purchase order", "new po", "create po"], icon: "plus-circle" },
-  { title: "AI Bill Entry (Photo/PDF)", category: "Navigation", path: "/dashboard/purchase/ai-entry", fileName: "app/dashboard/purchase/ai-entry/page.tsx", keywords: ["ai bill entry", "photo bill", "pdf bill OCR", "smart bill scanner"], icon: "camera" },
-  { title: "Purchase Return Entry & Report", category: "Navigation", path: "/dashboard/purchase/purchase-return", fileName: "app/dashboard/purchase/purchase-return/page.tsx", keywords: ["purchase return", "debit note", "vendor return"], icon: "undo" },
-  { title: "Payment Entry", category: "Navigation", path: "/dashboard/purchase/payment", fileName: "app/dashboard/purchase/payment/page.tsx", keywords: ["payment entry", "vendor payment", "paid voucher"], icon: "receipt" },
-  { title: "Purchase Orders", category: "Navigation", path: "/dashboard/purchase/orders", fileName: "app/dashboard/purchase/orders/page.tsx", keywords: ["purchase orders", "po", "vendor orders"], icon: "clipboard-list" },
-  { title: "Purchase Reports Hub", category: "Navigation", path: "/dashboard/purchase/reports", fileName: "app/dashboard/purchase/reports/page.tsx", keywords: ["purchase reports", "vendor reports"], icon: "chart-bar" },
-  { title: "Purchase Returns Report", category: "Navigation", path: "/dashboard/purchase/reports/returns", fileName: "app/dashboard/purchase/reports/returns/page.tsx", keywords: ["purchase returns report", "vendor return log"], icon: "undo" },
-  { title: "Purchase Payments Report", category: "Navigation", path: "/dashboard/purchase/reports/payments", fileName: "app/dashboard/purchase/reports/payments/page.tsx", keywords: ["purchase payments report", "vendor payment log"], icon: "receipt" },
-  { title: "Purchase Orders Report", category: "Navigation", path: "/dashboard/purchase/reports/orders", fileName: "app/dashboard/purchase/reports/orders/page.tsx", keywords: ["purchase orders report", "vendor po log"], icon: "clipboard-list" },
-  { title: "Purchase Invoices Log Report", category: "Navigation", path: "/dashboard/purchase/reports/invoices", fileName: "app/dashboard/purchase/reports/invoices/page.tsx", keywords: ["purchase invoices report", "vendor bills log"], icon: "file-invoice" },
-
-  // Customers
-  { title: "Customer Master & Ledgers", category: "Navigation", path: "/dashboard/customers", fileName: "app/dashboard/customers/page.tsx", keywords: ["customers", "list customers", "customer list", "parties", "ledger", "dealers", "clients"], icon: "users" },
-
-  // Company Management
-  { title: "Create Company", category: "Navigation", path: "/dashboard/company/create", fileName: "app/dashboard/company/create/page.tsx", keywords: ["create company", "add company", "new firm"], icon: "plus-circle" },
-  { title: "List Companies", category: "Navigation", path: "/dashboard/company/list", fileName: "app/dashboard/company/list/page.tsx", keywords: ["list company", "company list", "companies"], icon: "building" },
-  { title: "Company Profile & Settings", category: "Navigation", path: "/dashboard/company-settings", fileName: "app/dashboard/company-settings/page.tsx", keywords: ["company settings", "company-settings", "profile", "gstin", "address", "settings"], icon: "building" },
-
-  // Financial Year
-  { title: "Create Financial Year", category: "Navigation", path: "/dashboard/financial-year/create", fileName: "app/dashboard/financial-year/create/page.tsx", keywords: ["create fy", "create financial year", "add fy"], icon: "calendar" },
-  { title: "List Financial Years", category: "Navigation", path: "/dashboard/financial-year/list", fileName: "app/dashboard/financial-year/list/page.tsx", keywords: ["list fy", "financial year list", "fy list", "financial-year"], icon: "calendar" },
-
-  // Migration & Sync
-  { title: "Sync Console (VFP / Marg Sync)", category: "Navigation", path: "/dashboard/mabsolcrmsync", fileName: "app/dashboard/mabsolcrmsync/page.tsx", keywords: ["mabsolcrmsync", "sync console", "vfp sync", "marg sync", "dbf import", "migration"], icon: "sync" },
-  { title: "Sync Settings & DB Configuration", category: "Navigation", path: "/dashboard/mabsolcrmsync/settings", fileName: "app/dashboard/mabsolcrmsync/settings/page.tsx", keywords: ["sync settings", "mabsolcrmsync settings", "vfp config", "db path"], icon: "sliders" },
-  { title: "VFP Config Wizard", category: "Navigation", path: "/dashboard/vfp-config", fileName: "app/dashboard/vfp-config/page.tsx", keywords: ["vfp config", "vfp-config", "vfp wizard", "sync setup"], icon: "refresh-cw" },
-
-  // Reports
-  { title: "Dashboard Reports Overview", category: "Navigation", path: "/dashboard/reports", fileName: "app/dashboard/reports/page.tsx", keywords: ["reports", "dash reports", "all reports", "analytics reports"], icon: "chart-bar" },
-  { title: "Product Master & Stock Report", category: "Navigation", path: "/dashboard/reports/product", fileName: "app/dashboard/reports/product/page.tsx", keywords: ["products report", "stock report", "inventory report", "mrp", "batches"], icon: "package" },
-  { title: "Customer Ledger Report", category: "Navigation", path: "/dashboard/reports/customer", fileName: "app/dashboard/reports/customer/page.tsx", keywords: ["customer ledger report", "party ledger", "customer report"], icon: "users" },
-  { title: "Outstanding Receivables Report", category: "Navigation", path: "/dashboard/reports/outstanding", fileName: "app/dashboard/reports/outstanding/page.tsx", keywords: ["outstanding report", "pending payment report", "due report"], icon: "clock" },
-  { title: "Sales Receipt Collection Report", category: "Navigation", path: "/dashboard/reports/sales-receipt", fileName: "app/dashboard/reports/sales-receipt/page.tsx", keywords: ["sales receipt report", "collection report", "payment report"], icon: "receipt" },
-  { title: "Sales Return Credit Note Report", category: "Navigation", path: "/dashboard/reports/sales-return", fileName: "app/dashboard/reports/sales-return/page.tsx", keywords: ["sales return report", "credit note report"], icon: "undo" },
-  { title: "Purchase Return Debit Notes Report", category: "Navigation", path: "/dashboard/reports/purchase-return", fileName: "app/dashboard/reports/purchase-return/page.tsx", keywords: ["purchase return report", "debit note report"], icon: "undo" },
-  { title: "Target vs Actual Sales Report", category: "Navigation", path: "/dashboard/reports/target-vs-actual", fileName: "app/dashboard/reports/target-vs-actual/page.tsx", keywords: ["target vs actual", "achievement report", "mr performance"], icon: "target" },
-  { title: "Batch & Expiry Detailed Report", category: "Navigation", path: "/dashboard/reports/batch", fileName: "app/dashboard/reports/batch/page.tsx", keywords: ["batch report", "batch expiry report", "batch stock", "medicine batch"], icon: "package" },
-  { title: "GST Reports Overview", category: "Navigation", path: "/dashboard/gst-reports", fileName: "app/dashboard/gst-reports/page.tsx", keywords: ["gst reports", "gst", "gstr", "tax overview"], icon: "chart-bar" },
-  { title: "GSTR-1 GST Tax Report", category: "Navigation", path: "/dashboard/gst-reports/gstr1", fileName: "app/dashboard/gst-reports/gstr1/page.tsx", keywords: ["gst", "gstr1", "gstr-1", "tax report", "b2b", "hsn", "gst-reports"], icon: "file-spreadsheet" },
-  { title: "GST Detailed Tax Report", category: "Navigation", path: "/dashboard/reports/gst", fileName: "app/dashboard/reports/gst/page.tsx", keywords: ["gst report", "tax breakdown", "gst summary"], icon: "file-spreadsheet" },
-  { title: "MR Territory Field Report", category: "Navigation", path: "/dashboard/reports/mr-territory-report", fileName: "app/dashboard/reports/mr-territory-report/page.tsx", keywords: ["mr territory report", "field visit report", "territory coverage"], icon: "map-pin" },
-
-  // MR Field Force
-  { title: "MR Customer Assignment", category: "Navigation", path: "/dashboard/mr-customer-assignment", fileName: "app/dashboard/mr-customer-assignment/page.tsx", keywords: ["mr assignment", "assign customer", "territory mapping", "mr-customer-assignment"], icon: "user-plus" },
-  { title: "MR Reporting (DCR / Call Logs)", category: "Navigation", path: "/dashboard/mr-reporting", fileName: "app/dashboard/mr-reporting/page.tsx", keywords: ["dcr", "daily call report", "mr log", "field visit", "mr-reporting"], icon: "clipboard-list" },
-  { title: "MR Territory Management", category: "Navigation", path: "/dashboard/mr-territory", fileName: "app/dashboard/mr-territory/page.tsx", keywords: ["territory", "hq", "headquarter", "zone", "region", "mr-territory"], icon: "map-pin" },
-
-  // General Settings & Profile
-  { title: "System & Company Settings", category: "Navigation", path: "/dashboard/settings", fileName: "app/dashboard/settings/page.tsx", keywords: ["settings", "general settings", "config", "system settings"], icon: "cog" },
-  { title: "AI Voice Assistant Settings 🎙️", category: "Navigation", path: "/dashboard/voice-settings", fileName: "app/dashboard/voice-settings/page.tsx", keywords: ["voice settings", "ai voice", "assistant settings", "voice assistant", "wake word", "voice-settings"], icon: "mic" },
-  { title: "User Profile & Account", category: "Navigation", path: "/dashboard/profile", fileName: "app/dashboard/profile/page.tsx", keywords: ["profile", "my profile", "account settings", "user profile"], icon: "user" },
-];
-
-// Dashboard KPI Cards Definitions
-const KPI_CARD_DEFINITIONS = [
-  {
-    key: "todaySales",
-    title: "Today's Sales",
-    getValue: (kpis: any) => `₹${Number(kpis.todaySales || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/sales/invoice",
-    keywords: ["today sales", "todays sales", "today's sales", "sales today", "aaj ki sale", "aaj ki sales", "today bill", "today collection", "daily sales"],
-    icon: "calendar-day",
-    badgeColor: "emerald",
-  },
-  {
-    key: "totalSales",
-    title: "Total Sales",
-    getValue: (kpis: any) => `₹${Number(kpis.totalSales || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/sales/dashboard",
-    keywords: ["total sales", "all sales", "overall sales", "kul sale", "total revenue", "revenue", "gross sales"],
-    icon: "chart-line",
-    badgeColor: "indigo",
-  },
-  {
-    key: "monthlySales",
-    title: "Monthly Sales",
-    getValue: (kpis: any) => `₹${Number(kpis.monthlySales || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/sales/dashboard",
-    keywords: ["monthly sales", "month sales", "this month sales", "is mahine ki sale", "month sale"],
-    icon: "calendar-alt",
-    badgeColor: "cyan",
-  },
-  {
-    key: "yearlySales",
-    title: "Yearly Sales",
-    getValue: (kpis: any) => `₹${Number(kpis.yearlySales || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/sales/dashboard",
-    keywords: ["yearly sales", "year sales", "this year sales", "annual sales", "salana sale"],
-    icon: "calendar-alt",
-    badgeColor: "teal",
-  },
-  {
-    key: "totalOutstanding",
-    title: "Total Outstanding",
-    getValue: (kpis: any) => `₹${Number(kpis.totalOutstanding || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/sales/invoice",
-    keywords: ["total outstanding", "overall outstanding", "kul baaki", "pending receivables", "total dues"],
-    icon: "wallet",
-    badgeColor: "amber",
-  },
-  {
-    key: "salesOutstanding",
-    title: "Sales Outstanding",
-    getValue: (kpis: any) => `₹${Number(kpis.salesOutstanding || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/sales/outstanding",
-    keywords: ["sales outstanding", "customer outstanding", "grahak baaki", "receivables", "dues"],
-    icon: "wallet",
-    badgeColor: "cyan",
-  },
-  {
-    key: "purchaseOutstanding",
-    title: "Purchase Outstanding",
-    getValue: (kpis: any) => `₹${Number(kpis.purchaseOutstanding || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/purchase/outstanding",
-    keywords: ["purchase outstanding", "supplier outstanding", "vendor outstanding", "payables", "supplier dues"],
-    icon: "wallet",
-    badgeColor: "orange",
-  },
-  {
-    key: "overdueAmount",
-    title: "Overdue Amount",
-    getValue: (kpis: any) => `₹${Number(kpis.overdueAmount || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/sales/invoice",
-    keywords: ["overdue amount", "overdue", "late payment", "due amount", "due balance", "overdue balance"],
-    icon: "exclamation-triangle",
-    badgeColor: "rose",
-  },
-  {
-    key: "totalCollections",
-    title: "Total Collections",
-    getValue: (kpis: any) => `₹${Number(kpis.totalCollections || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/sales/dashboard",
-    keywords: ["total collections", "collections", "total receipt", "receipts", "payments collected", "wasooli", "recovery"],
-    icon: "rupee-sign",
-    badgeColor: "emerald",
-  },
-  {
-    key: "totalCustomers",
-    title: "Total Customers",
-    getValue: (kpis: any) => `${Number(kpis.totalCustomers || 0).toLocaleString("en-IN")} Parties`,
-    path: "/dashboard/customers",
-    keywords: ["total customers", "customer count", "total parties", "grahak count", "clients", "all customers", "parties count"],
-    icon: "users",
-    badgeColor: "violet",
-  },
-  {
-    key: "activeCustomers",
-    title: "Active Customers",
-    getValue: (kpis: any) => `${Number(kpis.activeCustomers || 0).toLocaleString("en-IN")} Parties`,
-    path: "/dashboard/customers",
-    keywords: ["active customers", "working customers", "active parties", "regular customers", "active grahak"],
-    icon: "user-check",
-    badgeColor: "indigo",
-  },
-  {
-    key: "totalProducts",
-    title: "Total Products",
-    getValue: (kpis: any) => `${Number(kpis.totalProducts || 0).toLocaleString("en-IN")} Items`,
-    path: "/dashboard/inventory/products",
-    keywords: ["total products", "product count", "total medicines", "items count", "all products", "products list", "medicines"],
-    icon: "boxes",
-    badgeColor: "sky",
-  },
-  {
-    key: "currentStock",
-    title: "Current Stock",
-    getValue: (kpis: any) => `${Number(kpis.currentStockQty || 0).toLocaleString("en-IN")} Units`,
-    path: "/dashboard/reports/product?view=stock",
-    keywords: ["current stock", "stock value", "available stock", "godown stock", "warehouse stock", "stock qty", "total stock"],
-    icon: "boxes",
-    badgeColor: "green",
-  },
-  {
-    key: "nearExpiryBatches",
-    title: "Near Expiry Batches",
-    getValue: (kpis: any) => `${Number(kpis.nearExpiryBatches || 0).toLocaleString("en-IN")} Batches`,
-    path: "/dashboard/reports/product",
-    keywords: ["near expiry", "near expiry batches", "expiring soon", "expiry alert", "near expiry stock", "expiring medicines"],
-    icon: "exclamation-triangle",
-    badgeColor: "orange",
-  },
-  {
-    key: "expiredBatches",
-    title: "Expired Batches",
-    getValue: (kpis: any) => `${Number(kpis.expiredBatches || 0).toLocaleString("en-IN")} Batches`,
-    path: "/dashboard/reports/product",
-    keywords: ["expired batches", "expired stock", "expired medicine", "expired items", "out of date", "expiry stock"],
-    icon: "exclamation-triangle",
-    badgeColor: "red",
-  },
-  {
-    key: "totalUsers",
-    title: "Total Users",
-    getValue: (kpis: any) => `${Number(kpis.totalUsers || 0).toLocaleString("en-IN")} Users`,
-    path: "/dashboard/users",
-    keywords: ["total users", "user count", "system users", "staff count", "employees", "sales team count"],
-    icon: "users",
-    badgeColor: "purple",
-  },
-  {
-    key: "totalCompanies",
-    title: "Total Companies",
-    getValue: (kpis: any) => `${Number(kpis.totalCompanies || 0).toLocaleString("en-IN")} Companies`,
-    path: "/dashboard/company/list",
-    keywords: ["total companies", "company count", "companies", "manufacturers", "company list"],
-    icon: "building",
-    badgeColor: "pink",
-  },
-  {
-    key: "totalCredit",
-    title: "Total Credit",
-    getValue: (kpis: any) => `₹${Number(kpis.totalCredit || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/master/customer-master",
-    keywords: ["total credit", "credit balance", "credit amount", "jama", "credit total"],
-    icon: "arrow-up",
-    badgeColor: "lime",
-  },
-  {
-    key: "totalDebit",
-    title: "Total Debit",
-    getValue: (kpis: any) => `₹${Number(kpis.totalDebit || 0).toLocaleString("en-IN")}`,
-    path: "/dashboard/master/customer-master",
-    keywords: ["total debit", "debit balance", "debit amount", "naame", "debit total"],
-    icon: "arrow-down",
-    badgeColor: "fuchsia",
-  },
-];
-
-async function getLiveKPIMetrics(db: any) {
+// Dynamic Navigation Loader from Database Menu Adjustments / Default Menu Structure
+async function getDynamicNavPages(db: any): Promise<{ title: string; path: string; category: string }[]> {
   try {
-    const todayStr = new Date().toISOString().split("T")[0];
-    const ninetyDaysLater = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
+    let menuItems: any[] = [];
+    if (db) {
+      const savedMenu = await db.collection("menu_adjustments").findOne({ isCustomized: true });
+      if (savedMenu && Array.isArray(savedMenu.items) && savedMenu.items.length > 0) {
+        menuItems = savedMenu.items;
+      }
+    }
+    if (!menuItems || menuItems.length === 0) {
+      menuItems = getDefaultMenuItems();
+    }
 
-    const [
-      totalSalesAgg,
-      todaySalesAgg,
-      totalCustCount,
-      totalProCount,
-      totalUsersCount,
-      totalCompCount,
-      nearExpiryCount,
-      expiredCount,
-      outstandingAgg,
-      stockQtyAgg,
-      collectionsAgg,
-      creditAgg,
-      debitAgg,
-    ] = await Promise.all([
-      SalesMdis.aggregate([{ $group: { _id: null, total: { $sum: "$FINAL" } } }]).catch(() => []),
-      SalesMdis.aggregate([{ $match: { DATE: todayStr } }, { $group: { _id: null, total: { $sum: "$FINAL" } } }]).catch(() => []),
-      Order.countDocuments({ SALDR: "Y" }).catch(() => 0),
-      Product.countDocuments().catch(() => 0),
-      User.countDocuments().catch(() => 0),
-      db ? db.collection("companies").countDocuments().catch(() => 0) : 0,
-      ProductBatch.countDocuments({ EXP: { $lte: ninetyDaysLater, $gte: todayStr } }).catch(() => 0),
-      ProductBatch.countDocuments({ EXP: { $lt: todayStr } }).catch(() => 0),
-      Order.aggregate([{ $match: { BALANCE: { $gt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
-      ProductBatch.aggregate([{ $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
-      GlLedger.aggregate([{ $match: { BOOK: "R", CD: "C" } }, { $group: { _id: null, total: { $sum: "$AMOUNTP" } } }]).catch(() => []),
-      Order.aggregate([{ $match: { BALANCE: { $lt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
-      Order.aggregate([{ $match: { BALANCE: { $gt: 0 } } }, { $group: { _id: null, total: { $sum: "$BALANCE" } } }]).catch(() => []),
-    ]);
+    const pages: { title: string; path: string; category: string }[] = [];
+    menuItems.forEach((m: any) => {
+      if (m.href) {
+        pages.push({ title: m.label, path: m.href, category: "Navigation" });
+      }
+      if (Array.isArray(m.subItems)) {
+        m.subItems.forEach((sub: any) => {
+          if (sub.href) {
+            pages.push({ title: `${m.label} > ${sub.label}`, path: sub.href, category: m.label || "Navigation" });
+          }
+        });
+      }
+    });
 
-    const totSales = totalSalesAgg[0]?.total || 0;
-    const todSales = todaySalesAgg[0]?.total || 0;
-    const totOut = outstandingAgg[0]?.total || 0;
-
-    return {
-      totalSales: totSales,
-      todaySales: todSales,
-      monthlySales: totSales,
-      yearlySales: totSales,
-      totalOutstanding: totOut,
-      salesOutstanding: totOut,
-      purchaseOutstanding: Math.round(totOut * 0.4),
-      overdueAmount: Math.round(totOut * 0.25),
-      totalCollections: collectionsAgg[0]?.total || 0,
-      totalCustomers: totalCustCount || 0,
-      activeCustomers: totalCustCount || 0,
-      totalProducts: totalProCount || 0,
-      currentStockQty: stockQtyAgg[0]?.total || 0,
-      nearExpiryBatches: nearExpiryCount || 0,
-      expiredBatches: expiredCount || 0,
-      totalUsers: totalUsersCount || 0,
-      totalCompanies: totalCompCount || 0,
-      totalCredit: Math.abs(creditAgg[0]?.total || 0),
-      totalDebit: debitAgg[0]?.total || 0,
-    };
-  } catch (err) {
-    return {
-      totalSales: 0,
-      todaySales: 0,
-      monthlySales: 0,
-      yearlySales: 0,
-      totalOutstanding: 0,
-      salesOutstanding: 0,
-      purchaseOutstanding: 0,
-      overdueAmount: 0,
-      totalCollections: 0,
-      totalCustomers: 0,
-      activeCustomers: 0,
-      totalProducts: 0,
-      currentStockQty: 0,
-      nearExpiryBatches: 0,
-      expiredBatches: 0,
-      totalUsers: 0,
-      totalCompanies: 0,
-      totalCredit: 0,
-      totalDebit: 0,
-    };
+    return pages;
+  } catch (e) {
+    return getDefaultMenuItems().flatMap((m: any) => {
+      const list = m.href ? [{ title: m.label, path: m.href, category: "Navigation" }] : [];
+      if (Array.isArray(m.subItems)) {
+        m.subItems.forEach((sub: any) => {
+          if (sub.href) list.push({ title: `${m.label} > ${sub.label}`, path: sub.href, category: m.label });
+        });
+      }
+      return list;
+    });
   }
 }
 
-function parseVoiceActionCommand(query: string): { command: string; index?: number; targetTitle?: string; payload?: any } | null {
+// Dynamic Vocal Summary Generator based on real matched records
+function generateVocalSummary(query: string, results: any): string | null {
   if (!query) return null;
-  const q = query.toLowerCase().trim();
 
-  // Spoken Ordinal Index Commands
-  if (
-    q === "1" ||
-    q === "open 1" ||
-    q === "open item 1" ||
-    q === "open number 1" ||
-    q.includes("pehla kholo") ||
-    q.includes("first result") ||
-    q.includes("pehla result") ||
-    q === "pehla" ||
-    q === "first"
-  ) {
-    return { command: "OPEN_RESULT_INDEX", index: 0 };
+  const allItems = [
+    ...(results.products || []),
+    ...(results.customers || []),
+    ...(results.vouchers || []),
+    ...(results.users || []),
+    ...(results.navigation || []),
+  ];
+
+  if (allItems.length > 0) {
+    const topItem = allItems[0];
+    return `Found ${allItems.length} results. Top match: ${topItem.title}.`;
   }
 
-  if (
-    q === "2" ||
-    q === "open 2" ||
-    q === "open item 2" ||
-    q === "open number 2" ||
-    q.includes("dusra kholo") ||
-    q.includes("second result") ||
-    q.includes("dusra result") ||
-    q === "dusra" ||
-    q === "second"
-  ) {
-    return { command: "OPEN_RESULT_INDEX", index: 1 };
-  }
-
-  if (
-    q === "3" ||
-    q === "open 3" ||
-    q === "open item 3" ||
-    q === "open number 3" ||
-    q.includes("teesra kholo") ||
-    q.includes("third result") ||
-    q.includes("teesra result") ||
-    q === "teesra" ||
-    q === "third"
-  ) {
-    return { command: "OPEN_RESULT_INDEX", index: 2 };
-  }
-
-  if (
-    q === "4" ||
-    q === "open 4" ||
-    q === "open item 4" ||
-    q === "open number 4" ||
-    q.includes("chautha kholo") ||
-    q.includes("fourth result") ||
-    q.includes("chautha result") ||
-    q === "chautha" ||
-    q === "fourth"
-  ) {
-    return { command: "OPEN_RESULT_INDEX", index: 3 };
-  }
-
-  if (
-    q === "5" ||
-    q === "open 5" ||
-    q === "open item 5" ||
-    q === "open number 5" ||
-    q.includes("paanchwa kholo") ||
-    q.includes("fifth result") ||
-    q.includes("paanchwa result") ||
-    q === "paanchwa" ||
-    q === "fifth"
-  ) {
-    return { command: "OPEN_RESULT_INDEX", index: 4 };
-  }
-
-  // Spoken Direct Title Open ("open Paracetamol", "kholo Sharma Medical")
-  if (q.startsWith("open ") || q.startsWith("kholo ")) {
-    const targetTitle = q.replace(/^open\s+|^kholo\s+/, "").trim();
-    if (targetTitle.length > 1) {
-      return { command: "OPEN_RESULT_TITLE", targetTitle };
-    }
-  }
-
-  // Excel Export action
-  if (q.includes("export") || q.includes("download excel") || q.includes("excel export") || q.includes("report download")) {
-    return { command: "EXPORT_EXCEL" };
-  }
-
-  // Create Bill / Invoice action
-  if (q.includes("create bill") || q.includes("new bill") || q.includes("bill banao") || q.includes("invoice banao") || q.includes("create invoice")) {
-    return { command: "NAVIGATE_CREATE_BILL" };
-  }
-
-  // Toggle In-Stock filter
-  if (q.includes("in stock only") || q.includes("available stock only") || q.includes("stock me jo hai")) {
-    return { command: "TOGGLE_IN_STOCK" };
-  }
-
-  // Toggle Near Expiry filter
-  if (q.includes("near expiry") || q.includes("expiring soon") || q.includes("expire hone wali")) {
-    return { command: "TOGGLE_NEAR_EXPIRY" };
-  }
-
-  return null;
-}
-
-function generateVocalSummary(query: string, results: any, actionCmd: any): string | null {
-  if (!query) return null;
-  const q = query.toLowerCase();
-
-  if (actionCmd) {
-    if (actionCmd.command === "OPEN_RESULT_INDEX") {
-      return `Result number ${actionCmd.index + 1} open kar raha hu.`;
-    }
-    if (actionCmd.command === "OPEN_RESULT_TITLE") {
-      return `${actionCmd.targetTitle} open kar raha hu.`;
-    }
-    if (actionCmd.command === "EXPORT_EXCEL") {
-      return "Report data Excel me export kar raha hu.";
-    }
-    if (actionCmd.command === "NAVIGATE_CREATE_BILL") {
-      return "Naya Sales Invoice creation page open kar raha hu.";
-    }
-    if (actionCmd.command === "TOGGLE_IN_STOCK") {
-      return "In-stock items filter apply kar diya hai.";
-    }
-    if (actionCmd.command === "TOGGLE_NEAR_EXPIRY") {
-      return "Near expiry batches filter apply kar diya hai.";
-    }
-  }
-
-  // KPI Card match
-  const navResults = results.navigation || [];
-  const kpiMatch = navResults.find((r: any) => r.type === "kpi");
-  if (kpiMatch) {
-    const metricTitle = kpiMatch.raw?.kpi?.title || kpiMatch.details?.metricName || kpiMatch.title;
-    const val = kpiMatch.details?.liveValue || "";
-    return `${metricTitle} ${val} hai. Details dekhne ke liye click karein.`;
-  }
-
-  // Intent: Top Dues / Outstanding
-  if (q.includes("who owes") || q.includes("highest outstanding") || q.includes("top outstanding") || q.includes("sabse jyada baaki") || q.includes("jyada baaki")) {
-    const topCust = (results.customers || [])[0];
-    if (topCust) {
-      return `Sabse jyada outstanding ${topCust.title} ka hai, total balance ${topCust.details.outstandingBalance} hai.`;
-    }
-  }
-
-  // Products result
-  if (results.products && results.products.length > 0) {
-    const topProd = results.products[0];
-    return `${results.products.length} products mil gaye hain. Sabse pehla result ${topProd.title} hai, available stock ${topProd.details.currentStock} units hai.`;
-  }
-
-  // Customers result
-  if (results.customers && results.customers.length > 0) {
-    const topCust = results.customers[0];
-    return `${results.customers.length} customer parties mil gayi hain. Top match ${topCust.title} hai.`;
-  }
-
-  // Invoices / Vouchers result
-  if (results.vouchers && results.vouchers.length > 0) {
-    const topV = results.vouchers[0];
-    return `${results.vouchers.length} vouchers mil gaye hain. Top result ${topV.title} amount ${topV.details.netAmount || topV.details.debitAmount || ""} hai.`;
-  }
-
-  // Navigation page match
-  if (navResults.length > 0) {
-    return `${navResults[0].title} page open kar raha hu.`;
-  }
-
-  return `${query} ke liye koi matching record nahi mila.`;
+  return `No records found matching "${query}".`;
 }
 
 export async function GET(req: NextRequest) {
@@ -658,61 +99,57 @@ export async function GET(req: NextRequest) {
     const conn = await dbConnect();
     const db = conn.connection.db;
 
-    // Handle empty query: Return DYNAMIC Database Trending Items (Real Products, Customers, Reports)
+    // Handle empty query: Return DYNAMIC Database Trending Items from actual DB collections
     if (!rawQuery || rawQuery.length < 1) {
       try {
-        // Fetch 3 real products from database
-        let topPro = await Product.find({ PRODUCT: { $exists: true, $ne: "" } }).limit(3).lean();
+        let topPro = await Product.find({ PRODUCT: { $exists: true, $ne: "" } }).limit(4).lean();
         if ((!topPro || topPro.length === 0) && db) {
-          topPro = await db.collection("vfp_new_folder_pro").find({ PRODUCT: { $exists: true, $ne: "" } }).limit(3).toArray();
+          topPro = await db.collection("vfp_new_folder_pro").find({ PRODUCT: { $exists: true, $ne: "" } }).limit(4).toArray();
         }
 
-        // Fetch 3 real customers from database
-        let topCust = await Order.find({ PARNAM: { $exists: true, $ne: "" } }).limit(3).lean();
+        let topCust = await Order.find({ PARNAM: { $exists: true, $ne: "" } }).limit(4).lean();
         if ((!topCust || topCust.length === 0) && db) {
-          topCust = await db.collection("vfp_new_folder_order").find({ PARNAM: { $exists: true, $ne: "" } }).limit(3).toArray();
+          topCust = await db.collection("vfp_new_folder_order").find({ PARNAM: { $exists: true, $ne: "" } }).limit(4).toArray();
         }
 
         const dynamicTrending: any[] = [];
 
-        // Add real products
         (topPro || []).forEach((p: any) => {
           dynamicTrending.push({
             label: p.PRODUCT || p.BILLNAME || `Product ${p.CODE}`,
-            category: "Database Product 📦",
+            category: "Product",
             query: p.PRODUCT || String(p.CODE),
             actionUrl: `/dashboard/reports/product?search=${encodeURIComponent(p.PRODUCT || p.CODE || "")}`,
             type: "product",
           });
         });
 
-        // Add real customers
         (topCust || []).forEach((c: any) => {
           dynamicTrending.push({
             label: c.PARNAM || c.MAILNAM || `Customer ${c.CODEP}`,
-            category: c.CITY ? `Party (${c.CITY}) 👥` : "Customer Party 👥",
+            category: c.CITY ? `Party (${c.CITY})` : "Customer Party",
             query: c.PARNAM || String(c.CODEP),
             actionUrl: `/dashboard/reports/customer?search=${encodeURIComponent(c.PARNAM || c.CODEP || "")}`,
             type: "customer",
           });
         });
 
-        // Add core report pages
-        dynamicTrending.push(
-          { label: "GSTR-1 GST Report", category: "Tax Report 📄", query: "GSTR-1", actionUrl: "/dashboard/gst-reports/gstr1", type: "navigation" },
-          { label: "Current Stock Inventory", category: "Stock Report 📦", query: "Current Stock", actionUrl: "/dashboard/reports/product?view=stock", type: "navigation" },
-          { label: "Outstanding Receivables", category: "Finance Report 💰", query: "Outstanding", actionUrl: "/dashboard/reports/outstanding", type: "navigation" },
-          { label: "Target vs Actual Sales", category: "MR Performance 🎯", query: "Target", actionUrl: "/dashboard/reports/target-vs-actual", type: "navigation" }
-        );
-
-        const assistantNameParam = searchParams.get("assistantName") || searchParams.get("assistant") || "AI Assistant";
+        const navPages = await getDynamicNavPages(db);
+        navPages.slice(0, 4).forEach((p) => {
+          dynamicTrending.push({
+            label: p.title,
+            category: "Page Link",
+            query: p.title,
+            actionUrl: p.path,
+            type: "navigation",
+          });
+        });
 
         return NextResponse.json({
           success: true,
           query: "",
-          didYouMean: null,
           totalResults: 0,
-          vocalSummary: `Welcome to ${assistantNameParam} Voice Search. Speak or type to search products, customers, stock, and vouchers.`,
+          vocalSummary: "Live Search active. Speak or type to search database records.",
           trending: dynamicTrending,
           results: {
             products: [],
@@ -723,34 +160,25 @@ export async function GET(req: NextRequest) {
           },
         });
       } catch (err) {
-        console.error("Dynamic trending fetch error:", err);
+        console.error("Dynamic trending error:", err);
       }
     }
 
-    // E-Commerce style filters & sorting
+    // Filters and Sorting
     const inStockOnly = searchParams.get("inStock") === "true";
     const nearExpiryOnly = searchParams.get("nearExpiry") === "true";
     const highBalanceOnly = searchParams.get("highBalance") === "true";
     const sortBy = searchParams.get("sortBy") || "relevance";
-
     const assistantName = searchParams.get("assistantName") || searchParams.get("assistant") || "AI Assistant";
 
-    // Spoken query cleaning & Typo check ("Did You Mean?")
-    const cleanedQuery = cleanSpokenQuery(rawQuery, assistantName);
-    const lowerQuery = cleanedQuery.toLowerCase();
-    const suggestedQuery = TYPO_MAP[lowerQuery] || null;
-    const query = suggestedQuery || cleanedQuery;
-
+    const query = cleanSpokenQuery(rawQuery, assistantName);
     const regex = new RegExp(escapeRegex(query), "i");
     const isNumeric = !isNaN(Number(query));
     const queryNumber = isNumeric ? Number(query) : null;
 
-    // Detect Voice Action Command
-    const actionCmd = parseVoiceActionCommand(query);
-
-    // Run parallel searches across database
+    // Parallel search across MongoDB database
     const [productsRes, customersRes, vouchersRes, usersRes, navRes] = await Promise.all([
-      // 1. PRODUCTS & STOCK SEARCH
+      // 1. PRODUCTS & STOCK
       (category === "all" || category === "products")
         ? (async () => {
           try {
@@ -773,7 +201,6 @@ export async function GET(req: NextRequest) {
               proDocs = await db.collection("vfp_new_folder_pro").find(productFilter).limit(15).toArray();
             }
 
-            // Enrich with batch stock count & batch numbers
             const productCodes = proDocs.map((p: any) => p.CODE).filter(Boolean);
             let batchesByCode: Record<string | number, any[]> = {};
 
@@ -795,7 +222,6 @@ export async function GET(req: NextRequest) {
               const currentStock = p.BALANCE !== undefined && p.BALANCE !== null ? Number(p.BALANCE) : totalBatchQty;
               const stockValue = currentStock * (Number(p.PRATE) || Number(p.MRP) || 0);
 
-              // Near expiry check (< 90 days)
               const ninetyDaysLater = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
               const hasNearExpiryBatch = pBatches.some((b) => b.EXP && b.EXP <= ninetyDaysLater);
 
@@ -804,7 +230,7 @@ export async function GET(req: NextRequest) {
                 type: "product",
                 category: "Products & Stock",
                 title: p.PRODUCT || p.BILLNAME || `Product #${p.CODE}`,
-                subtitle: `Code: ${p.CODE || "N/A"} | Pack: ${p.PACKING || "Std"} | Mfg/Co: ${p.GCODE || "General"}`,
+                subtitle: `Code: ${p.CODE || "N/A"} | Pack: ${p.PACKING || "Std"} | Group/Mfg: ${p.GCODE || "General"}`,
                 details: {
                   productCode: p.CODE,
                   productName: p.PRODUCT,
@@ -841,16 +267,13 @@ export async function GET(req: NextRequest) {
               };
             });
 
-            // Apply E-Commerce filters
             if (inStockOnly) {
               mappedProducts = mappedProducts.filter((p) => p.details.currentStock > 0);
             }
-
             if (nearExpiryOnly) {
               mappedProducts = mappedProducts.filter((p) => p.details.hasNearExpiry);
             }
 
-            // Apply Sorting
             if (sortBy === "stockHigh") {
               mappedProducts.sort((a, b) => b.details.currentStock - a.details.currentStock);
             } else if (sortBy === "priceHigh") {
@@ -863,13 +286,13 @@ export async function GET(req: NextRequest) {
 
             return mappedProducts.slice(0, limit);
           } catch (err) {
-            console.error("Global search products error:", err);
+            console.error("Products search error:", err);
             return [];
           }
         })()
         : Promise.resolve([]),
 
-      // 2. CUSTOMERS & PARTIES SEARCH
+      // 2. CUSTOMERS & PARTIES
       (category === "all" || category === "customers")
         ? (async () => {
           try {
@@ -899,7 +322,7 @@ export async function GET(req: NextRequest) {
                 type: "customer",
                 category: "Customers & Parties",
                 title: c.PARNAM || c.MAILNAM || `Customer ${c.CODEP}`,
-                subtitle: `Code: ${c.CODEP || "N/A"} | Station/City: ${c.CITY || "N/A"} | GST: ${c.GSTNO || "Unregistered"}`,
+                subtitle: `Code: ${c.CODEP || "N/A"} | Station: ${c.CITY || "N/A"} | GST: ${c.GSTNO || "Unregistered"}`,
                 details: {
                   customerCode: c.CODEP,
                   partyName: c.PARNAM,
@@ -929,7 +352,6 @@ export async function GET(req: NextRequest) {
             if (highBalanceOnly) {
               mappedCustomers = mappedCustomers.filter((c) => c.details.rawBalance > 0);
             }
-
             if (sortBy === "priceHigh") {
               mappedCustomers.sort((a, b) => b.details.rawBalance - a.details.rawBalance);
             } else if (sortBy === "name") {
@@ -938,13 +360,13 @@ export async function GET(req: NextRequest) {
 
             return mappedCustomers.slice(0, limit);
           } catch (err) {
-            console.error("Global search customers error:", err);
+            console.error("Customers search error:", err);
             return [];
           }
         })()
         : Promise.resolve([]),
 
-      // 3. VOUCHERS, INVOICES, PURCHASE & SALES TRANSACTIONS SEARCH (DYNAMIC ACROSS ALL SECTIONS)
+      // 3. INVOICES, VOUCHERS, BILLS & TRANSACTIONS
       (category === "all" || category === "vouchers")
         ? (async () => {
           try {
@@ -972,7 +394,7 @@ export async function GET(req: NextRequest) {
               stringFilter.$or.push({ VOUCHER: queryNumber }, { billNumber: queryNumber }, { poNumber: queryNumber });
             }
 
-            // --- A. PURCHASE BILLS / INVOICES ---
+            // Purchase Bills
             let purBills = await PurchaseBill.find(stringFilter).limit(8).lean();
             if ((!purBills || purBills.length === 0) && db) {
               purBills = await db.collection("purchasebills").find(stringFilter).limit(8).toArray();
@@ -989,9 +411,9 @@ export async function GET(req: NextRequest) {
               resultsList.push({
                 id: bKey,
                 type: "voucher",
-                category: "Purchase Invoices 🛒",
+                category: "Purchase Invoices",
                 title: `Purchase Bill #${b.billNumber || b.supplierInvoiceNo || b.VCN}`,
-                subtitle: `Vendor: ${b.vendorName || b.CODEP || "N/A"} | Date: ${b.billDate || b.DATE || "N/A"} | Status: ${b.paymentStatus || "Pending"}`,
+                subtitle: `Vendor: ${b.vendorName || b.CODEP || "N/A"} | Date: ${b.billDate || b.DATE || "N/A"}`,
                 details: {
                   billNumber: b.billNumber || b.supplierInvoiceNo || b.VCN,
                   vendorName: b.vendorName || b.CODEP,
@@ -999,7 +421,6 @@ export async function GET(req: NextRequest) {
                   netAmount: `₹${amt.toLocaleString("en-IN")}`,
                   rawAmount: amt,
                   paymentStatus: b.paymentStatus || "Pending",
-                  itemCount: Array.isArray(b.items) ? b.items.length : "N/A",
                 },
                 badges: [
                   { label: `₹${amt.toLocaleString("en-IN")}`, color: "rose" },
@@ -1010,119 +431,7 @@ export async function GET(req: NextRequest) {
               });
             });
 
-            // --- B. PURCHASE ORDERS ---
-            let purOrders = await PurchaseOrder.find(stringFilter).limit(8).lean();
-            if ((!purOrders || purOrders.length === 0) && db) {
-              purOrders = await db.collection("purchaseorders").find(stringFilter).limit(8).toArray();
-              if (!purOrders || purOrders.length === 0) {
-                purOrders = await db.collection("purord").find(stringFilter).limit(8).toArray();
-              }
-            }
-            (purOrders || []).forEach((po: any) => {
-              const poKey = `pur_po_${po._id || po.poNumber}`;
-              if (seenIds.has(poKey)) return;
-              seenIds.add(poKey);
-              const amt = Number(po.netTotal || po.totalAmount || 0);
-
-              resultsList.push({
-                id: poKey,
-                type: "voucher",
-                category: "Purchase Orders 📦",
-                title: `Purchase Order #${po.poNumber}`,
-                subtitle: `Vendor: ${po.vendorName || po.vendorCode || "N/A"} | PO Date: ${po.poDate || "N/A"} | Status: ${po.status || "Pending"}`,
-                details: {
-                  poNumber: po.poNumber,
-                  vendorName: po.vendorName,
-                  poDate: po.poDate,
-                  netTotal: `₹${amt.toLocaleString("en-IN")}`,
-                  rawAmount: amt,
-                  status: po.status || "Pending",
-                },
-                badges: [
-                  { label: `₹${amt.toLocaleString("en-IN")}`, color: "blue" },
-                  { label: "Purchase Order 📦", color: "sky" },
-                ],
-                actionUrl: `/dashboard/purchase/orders?search=${encodeURIComponent(po.poNumber || po.vendorName || "")}`,
-                raw: po,
-              });
-            });
-
-            // --- C. PURCHASE PAYMENTS ---
-            let purPayments = await PurchasePayment.find(stringFilter).limit(8).lean();
-            if ((!purPayments || purPayments.length === 0) && db) {
-              purPayments = await db.collection("purchasepayments").find(stringFilter).limit(8).toArray();
-              if (!purPayments || purPayments.length === 0) {
-                purPayments = await db.collection("purpay").find(stringFilter).limit(8).toArray();
-              }
-            }
-            (purPayments || []).forEach((pay: any) => {
-              const payKey = `pur_pay_${pay._id || pay.voucherNo}`;
-              if (seenIds.has(payKey)) return;
-              seenIds.add(payKey);
-              const amt = Number(pay.amount || 0);
-
-              resultsList.push({
-                id: payKey,
-                type: "voucher",
-                category: "Purchase Payments 💸",
-                title: `Payment Voucher #${pay.voucherNo}`,
-                subtitle: `Vendor: ${pay.vendorName || "N/A"} | Date: ${pay.paymentDate || "N/A"} | Mode: ${pay.paymentMode || "Bank"}`,
-                details: {
-                  voucherNo: pay.voucherNo,
-                  vendorName: pay.vendorName,
-                  paymentDate: pay.paymentDate,
-                  paymentMode: pay.paymentMode,
-                  amount: `₹${amt.toLocaleString("en-IN")}`,
-                  rawAmount: amt,
-                  refNo: pay.refNo || "N/A",
-                },
-                badges: [
-                  { label: `₹${amt.toLocaleString("en-IN")}`, color: "emerald" },
-                  { label: pay.paymentMode || "Payment", color: "teal" },
-                ],
-                actionUrl: `/dashboard/purchase/payment?search=${encodeURIComponent(pay.voucherNo || pay.vendorName || "")}`,
-                raw: pay,
-              });
-            });
-
-            // --- D. PURCHASE RETURNS (DEBIT NOTES) ---
-            let purReturns = await PurchaseReturn.find(stringFilter).limit(8).lean();
-            if ((!purReturns || purReturns.length === 0) && db) {
-              purReturns = await db.collection("purchasereturns").find(stringFilter).limit(8).toArray();
-              if (!purReturns || purReturns.length === 0) {
-                purReturns = await db.collection("purret").find(stringFilter).limit(8).toArray();
-              }
-            }
-            (purReturns || []).forEach((ret: any) => {
-              const retKey = `pur_ret_${ret._id || ret.vcn}`;
-              if (seenIds.has(retKey)) return;
-              seenIds.add(retKey);
-              const amt = Number(ret.netAmount || 0);
-
-              resultsList.push({
-                id: retKey,
-                type: "voucher",
-                category: "Purchase Returns ↩️",
-                title: `Purchase Return Debit Note #${ret.vcn}`,
-                subtitle: `Vendor: ${ret.vendorName || "N/A"} | Date: ${ret.returnDate || "N/A"} | Reason: ${ret.reason || "Return"}`,
-                details: {
-                  returnNo: ret.vcn,
-                  vendorName: ret.vendorName,
-                  returnDate: ret.returnDate,
-                  reason: ret.reason,
-                  netAmount: `₹${amt.toLocaleString("en-IN")}`,
-                  rawAmount: amt,
-                },
-                badges: [
-                  { label: `₹${amt.toLocaleString("en-IN")}`, color: "amber" },
-                  { label: "Debit Note ↩️", color: "orange" },
-                ],
-                actionUrl: `/dashboard/purchase/purchase-return?search=${encodeURIComponent(ret.vcn || ret.vendorName || "")}`,
-                raw: ret,
-              });
-            });
-
-            // --- E. SALES INVOICES (MDIS) ---
+            // Sales Invoices
             let mdisDocs = await SalesMdis.find(stringFilter).limit(8).lean();
             if ((!mdisDocs || mdisDocs.length === 0) && db) {
               mdisDocs = await db.collection("vfp_new_folder_mdis").find(stringFilter).limit(8).toArray();
@@ -1136,9 +445,9 @@ export async function GET(req: NextRequest) {
               resultsList.push({
                 id: vKey,
                 type: "voucher",
-                category: "Sales Invoices 🧾",
+                category: "Sales Invoices",
                 title: `Sales Invoice #${m.VCN || m.VOUCHER}`,
-                subtitle: `Party Code: ${m.CODEP || "N/A"} | Date: ${m.DATE || m.CDATE || "N/A"} | Godown: ${m.GODWON || "Main"}`,
+                subtitle: `Party: ${m.CODEP || "N/A"} | Date: ${m.DATE || m.CDATE || "N/A"}`,
                 details: {
                   invoiceNo: m.VCN || m.VOUCHER,
                   voucherNo: m.VOUCHER,
@@ -1146,18 +455,17 @@ export async function GET(req: NextRequest) {
                   invoiceDate: m.DATE || m.CDATE,
                   netAmount: `₹${amount.toLocaleString("en-IN")}`,
                   rawAmount: amount,
-                  totalQty: m.ISSUEQTY || "N/A",
                 },
                 badges: [
                   { label: `₹${amount.toLocaleString("en-IN")}`, color: "indigo" },
-                  { label: m.DATE || "Sales Invoice", color: "slate" },
+                  { label: "Sales Invoice 🧾", color: "slate" },
                 ],
                 actionUrl: `/dashboard/reports/sales-receipt?search=${encodeURIComponent(m.VCN || m.VOUCHER || "")}`,
                 raw: m,
               });
             });
 
-            // --- F. GENERAL LEDGERS (GLEDGER) ---
+            // General Ledgers
             let gLedgerDocs = await GlLedger.find(stringFilter).limit(8).lean();
             if ((!gLedgerDocs || gLedgerDocs.length === 0) && db) {
               gLedgerDocs = await db.collection("vfp_new_folder_gledger").find(stringFilter).limit(8).toArray();
@@ -1174,13 +482,11 @@ export async function GET(req: NextRequest) {
               resultsList.push({
                 id: gKey,
                 type: "voucher",
-                category: "General Ledger Vouchers 📄",
-                title: `Voucher #${g.VCN || g.VOUCHER || "N/A"} (${g.TYPE || g.BOOK || "Voucher"})`,
-                subtitle: `Code: ${g.CODE || g.CODE1 || "N/A"} | Date: ${g.DATE || "N/A"} | Particulars: ${g.REMARK1 || "N/A"}`,
+                category: "General Ledger Vouchers",
+                title: `Voucher #${g.VCN || g.VOUCHER || "N/A"}`,
+                subtitle: `Code: ${g.CODE || g.CODE1 || "N/A"} | Date: ${g.DATE || "N/A"} | ${g.REMARK1 || ""}`,
                 details: {
                   voucherNo: g.VOUCHER || g.VCN,
-                  voucherType: g.TYPE || g.BOOK || "General Ledger",
-                  partyCode: g.CODE || g.CODE1,
                   date: g.DATE,
                   debitAmount: debit ? `₹${debit.toLocaleString("en-IN")}` : "₹0",
                   creditAmount: credit ? `₹${credit.toLocaleString("en-IN")}` : "₹0",
@@ -1196,70 +502,19 @@ export async function GET(req: NextRequest) {
               });
             });
 
-            // --- G. DYNAMIC MONGODB COLLECTION AUTO-DISCOVERY ---
-            // Scans any newly created transaction collections dynamically (e.g. salret, salrec, purdrcr, vouchers, etc.)
-            if (db) {
-              try {
-                const allCols = await db.listCollections().toArray();
-                const txnColNames = allCols
-                  .map((c) => c.name)
-                  .filter((name) =>
-                    /^(pur|sal|bill|order|vouch|pay|ret|ledg|inv|rec)/i.test(name) &&
-                    !["pro", "probat", "order", "users", "sessions", "categories", "divisions"].includes(name)
-                  );
-
-                for (const colName of txnColNames) {
-                  const docs = await db.collection(colName).find(stringFilter).limit(4).toArray();
-                  (docs || []).forEach((d: any, idx: number) => {
-                    const dynKey = `dyn_${colName}_${d._id || idx}`;
-                    if (seenIds.has(dynKey)) return;
-                    seenIds.add(dynKey);
-
-                    const docNo = d.VCN || d.VOUCHER || d.billNumber || d.poNumber || d.voucherNo || d.receiptNo || `#${idx + 1}`;
-                    const party = d.vendorName || d.customerName || d.PARNAM || d.CODEP || d.CODE || "N/A";
-                    const amt = Number(d.netAmount || d.netTotal || d.FINAL || d.amount || d.DEBIT || d.CREDIT || 0);
-
-                    resultsList.push({
-                      id: dynKey,
-                      type: "voucher",
-                      category: `Database Collection: ${colName.toUpperCase()} 🔄`,
-                      title: `${colName.toUpperCase()} Doc ${docNo}`,
-                      subtitle: `Party: ${party} | Date: ${d.DATE || d.billDate || d.poDate || d.paymentDate || "N/A"}`,
-                      details: {
-                        collection: colName,
-                        docNo: docNo,
-                        party: party,
-                        amount: `₹${amt.toLocaleString("en-IN")}`,
-                        rawAmount: amt,
-                        raw: d,
-                      },
-                      badges: [
-                        { label: `₹${amt.toLocaleString("en-IN")}`, color: "indigo" },
-                        { label: colName, color: "slate" },
-                      ],
-                      actionUrl: `/dashboard/reports?search=${encodeURIComponent(String(docNo))}`,
-                      raw: d,
-                    });
-                  });
-                }
-              } catch (autoErr) {
-                console.error("Dynamic auto-discovery collection search error:", autoErr);
-              }
-            }
-
             if (sortBy === "priceHigh") {
               resultsList.sort((a, b) => b.details.rawAmount - a.details.rawAmount);
             }
 
             return resultsList.slice(0, limit);
           } catch (err) {
-            console.error("Global search vouchers error:", err);
+            console.error("Vouchers search error:", err);
             return [];
           }
         })()
         : Promise.resolve([]),
 
-      // 4. SALES TEAM & MR SEARCH
+      // 4. SALES TEAM & USERS
       (category === "all" || category === "users")
         ? (async () => {
           try {
@@ -1275,10 +530,7 @@ export async function GET(req: NextRequest) {
               ],
             };
 
-            const userDocs = await User.find(userFilter)
-              .select("-password")
-              .limit(8)
-              .lean();
+            const userDocs = await User.find(userFilter).select("-password").limit(8).lean();
 
             return userDocs.map((u: any) => ({
               id: `user_${u._id}`,
@@ -1292,9 +544,6 @@ export async function GET(req: NextRequest) {
                 phone: u.phone || "N/A",
                 roleType: u.roleType || "MR",
                 headquarter: u.headquarter || "N/A",
-                zoneCode: u.zoneCode || "N/A",
-                regionCode: u.regionCode || "N/A",
-                profilePhoto: u.profilePhoto || null,
               },
               badges: [
                 { label: u.roleType || "MR", color: "blue" },
@@ -1304,81 +553,41 @@ export async function GET(req: NextRequest) {
               raw: u,
             }));
           } catch (err) {
-            console.error("Global search users error:", err);
+            console.error("Users search error:", err);
             return [];
           }
         })()
         : Promise.resolve([]),
 
-      // 5. NAVIGATION, PAGES, FILE NAMES & LIVE DASHBOARD KPI CARDS SEARCH
+      // 5. NAVIGATION & SYSTEM PAGES (Loaded dynamically from database / menu configs)
       (category === "all" || category === "navigation")
         ? (async () => {
-          const cleanQuery = query.toLowerCase().replace(/[\s\-_.]/g, "");
-
-          // 1. Search KPI Cards Definitions
-          const kpiMatches = KPI_CARD_DEFINITIONS.filter((kpi) => {
-            const inTitle = kpi.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
-            const inKeywords = kpi.keywords.some((k) => k.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery));
-            return inTitle || inKeywords;
-          });
-
-          let kpiResults: any[] = [];
-          if (kpiMatches.length > 0) {
-            const liveMetrics = await getLiveKPIMetrics(db);
-            kpiResults = kpiMatches.map((kpi, idx) => {
-              const val = kpi.getValue(liveMetrics);
-              return {
-                id: `kpi_${idx}_${kpi.key}`,
-                type: "kpi",
-                category: "Dashboard KPI Metric 📊",
-                title: `${kpi.title}: ${val}`,
-                subtitle: `Live Dashboard KPI Card • Click to open ${kpi.title} section`,
-                details: {
-                  metricName: kpi.title,
-                  liveValue: val,
-                  route: kpi.path,
-                  keywords: kpi.keywords.join(", "),
-                },
-                badges: [
-                  { label: `Live Value: ${val}`, color: kpi.badgeColor || "emerald" },
-                  { label: "Dashboard Metric 📊", color: "indigo" },
-                ],
-                actionUrl: kpi.path,
-                raw: { kpi, val },
-              };
+          try {
+            const navPages = await getDynamicNavPages(db);
+            const matches = navPages.filter((p) => {
+              return regex.test(p.title) || regex.test(p.path);
             });
-          }
 
-          // 2. Search Page & Navigation Items
-          const matches = APP_PAGES.filter((page) => {
-            const inTitle = page.title.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
-            const inPath = page.path.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
-            const inFileName = (page.fileName || "").toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery);
-            const inKeywords = page.keywords.some((k) => k.toLowerCase().replace(/[\s\-_.]/g, "").includes(cleanQuery));
-            return inTitle || inPath || inFileName || inKeywords;
-          });
-
-          const navResults = matches.map((p, idx) => ({
-            id: `nav_${idx}_${p.path}`,
-            type: "navigation",
-            category: p.category || "Navigation & Pages",
-            title: p.title,
-            subtitle: `Route: ${p.path} • File: ${p.fileName || "Page Link"}`,
-            details: {
+            return matches.map((p, idx) => ({
+              id: `nav_${idx}_${p.path}`,
+              type: "navigation",
+              category: p.category || "Navigation & Pages",
               title: p.title,
-              route: p.path,
-              fileName: p.fileName || "N/A",
-              keywords: p.keywords.join(", "),
-            },
-            badges: [
-              { label: "Page Link", color: "cyan" },
-              p.fileName ? { label: p.fileName.split("/").pop() || p.fileName, color: "indigo" } : null,
-            ].filter(Boolean),
-            actionUrl: p.path,
-            raw: p,
-          }));
-
-          return [...kpiResults, ...navResults];
+              subtitle: `Route: ${p.path}`,
+              details: {
+                title: p.title,
+                route: p.path,
+              },
+              badges: [
+                { label: "Page Route", color: "indigo" },
+              ],
+              actionUrl: p.path,
+              raw: p,
+            }));
+          } catch (err) {
+            console.error("Nav search error:", err);
+            return [];
+          }
         })()
         : Promise.resolve([]),
     ]);
@@ -1396,16 +605,14 @@ export async function GET(req: NextRequest) {
       vouchers: vouchersRes,
       users: usersRes,
       navigation: navRes,
-    }, actionCmd);
+    });
 
     return NextResponse.json({
       success: true,
       query: rawQuery,
-      didYouMean: suggestedQuery ? suggestedQuery : null,
       category,
       totalResults: totalCount,
       vocalSummary,
-      actionCommand: actionCmd,
       results: {
         products: productsRes,
         customers: customersRes,

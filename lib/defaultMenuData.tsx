@@ -53,6 +53,7 @@ import {
   FaHeartbeat,
   FaShieldAlt,
   FaCreditCard,
+  FaSearch,
 } from "react-icons/fa";
 
 export type ColorKey =
@@ -267,6 +268,8 @@ export function renderMenuIcon(iconName: string): React.ReactNode {
       return <FaShieldAlt />;
     case "FaCreditCard":
       return <FaCreditCard />;
+    case "FaSearch":
+      return <FaSearch />;
     default:
       return <FaLayerGroup />;
   }
@@ -285,6 +288,17 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
     order: 0,
   },
   {
+    id: "global-search",
+    label: "Global Search & Voice AI",
+    icon: "FaSearch",
+    color: "cyan",
+    href: "/dashboard/search",
+    isGroup: false,
+    permission: "dashboard.view",
+    isVisible: true,
+    order: 1,
+  },
+  {
     id: "executive-ai",
     label: "Executive AI Dashboard",
     icon: "FaBrain",
@@ -293,7 +307,7 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
     isGroup: false,
     permission: "dashboard.view",
     isVisible: true,
-    order: 1,
+    order: 2,
   },
   {
     id: "targets",

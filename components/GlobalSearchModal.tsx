@@ -22,21 +22,12 @@ import {
   ShieldCheck,
   Info,
   Calendar,
-  DollarSign,
-  Phone,
-  MapPin,
-  BookOpen,
   HelpCircle,
-  Zap,
-  Command,
-  CornerDownLeft,
-  Sliders,
   TrendingUp,
   Filter,
   CheckSquare,
   Square,
   ArrowUpDown,
-  ShoppingBag,
   Share2,
   Trash2,
   AlertTriangle,
@@ -56,6 +47,8 @@ interface GlobalSearchModalProps {
   autoVoiceStart?: boolean;
   onVoiceStartHandled?: () => void;
   initialQuery?: string;
+  query?: string;
+  setQuery?: (q: string) => void;
 }
 
 export default function GlobalSearchModal({
@@ -64,15 +57,18 @@ export default function GlobalSearchModal({
   autoVoiceStart = false,
   onVoiceStartHandled,
   initialQuery = "",
+  query: externalQuery,
+  setQuery: externalSetQuery,
 }: GlobalSearchModalProps) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [internalQuery, setInternalQuery] = useState("");
+  const query = externalQuery !== undefined ? externalQuery : internalQuery;
+  const setQuery = externalSetQuery || setInternalQuery;
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
 
   // AI Voice Search & Vocal Response (TTS) State
-  const [selectedLang] = useState("en-IN");
+  const [selectedLang, setSelectedLang] = useState("en-IN");
   const [isListening, setIsListening] = useState(false);
   const [transcriptPreview, setTranscriptPreview] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -165,12 +161,6 @@ export default function GlobalSearchModal({
           utterance.onend = () => {
             setVocalSpeaking(false);
             setVocalText(null);
-            // AI Assistant Dialogue Loop: Automatically turn on microphone AFTER assistant finishes speaking ONLY IF modal is still open!
-            setTimeout(() => {
-              if (isOpenRef.current) {
-                toggleVoiceSearch();
-              }
-            }, 350);
           };
 
           utterance.onerror = () => {
@@ -207,14 +197,13 @@ export default function GlobalSearchModal({
   useEffect(() => {
     if (isOpen && autoVoiceStart) {
       if (onVoiceStartHandled) onVoiceStartHandled();
-      if (!initialQuery || !initialQuery.trim()) {
-        const timer = setTimeout(() => {
-          speakText(greetingText || "Haan ji! Main aapki kya help kar sakta hu?");
-        }, 250);
-        return () => clearTimeout(timer);
-      }
+      // Start microphone immediately
+      const timer = setTimeout(() => {
+        toggleVoiceSearch();
+      }, 200);
+      return () => clearTimeout(timer);
     }
-  }, [isOpen, autoVoiceStart, initialQuery, onVoiceStartHandled, speakText, greetingText]);
+  }, [isOpen, autoVoiceStart, onVoiceStartHandled]);
 
   const stopSpeaking = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -247,7 +236,7 @@ export default function GlobalSearchModal({
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setVoiceError("Voice search is not supported in this browser.");
+      setVoiceError("Voice search is not supported in this browser. Use Chrome, Edge, or Safari.");
       return;
     }
 
@@ -267,28 +256,40 @@ export default function GlobalSearchModal({
       };
 
       rec.onresult = (event: any) => {
-        let text = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          text += event.results[i][0].transcript;
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = 0; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + " ";
+          } else {
+            interimTranscript += transcript;
+          }
         }
-        setTranscriptPreview(text);
-        setQuery(text);
-        setSelectedIndex(0);
+
+        const combined = (finalTranscript + interimTranscript).trim();
+        if (combined) {
+          setTranscriptPreview(combined);
+          setQuery(combined);
+          setSelectedIndex(0);
+        }
       };
 
       rec.onerror = (event: any) => {
         setIsListening(false);
-        if (event.error === "no-speech" || event.error === "aborted") {
+        if (event.error === "no-speech") {
           setVoiceError("No speech heard. Tap mic 🎙️ and speak again.");
           setTimeout(() => {
             setVoiceError((prev) => (prev?.includes("No speech heard") ? null : prev));
-          }, 4000);
+          }, 3500);
           return;
         }
+        if (event.error === "aborted") return;
 
         console.warn("Voice search notice:", event.error);
-        if (event.error === "not-allowed") {
-          setVoiceError("Microphone access denied. Please allow mic permissions in browser.");
+        if (event.error === "not-allowed" || event.error === "permission-denied") {
+          setVoiceError("Microphone access denied. Please click lock icon in address bar to allow mic permissions.");
         } else {
           setVoiceError(`Voice notice: ${event.error}`);
         }
@@ -451,7 +452,6 @@ export default function GlobalSearchModal({
       setNearExpiryOnly(false);
       setHighBalanceOnly(false);
       setSortBy("relevance");
-      setShowGuide(false);
     }
   }, [isOpen, initialQuery]);
 
@@ -631,170 +631,17 @@ export default function GlobalSearchModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-start justify-center pt-2 sm:pt-8 px-2 sm:px-4 bg-slate-950/75 backdrop-blur-md transition-all animate-fadeIn">
+    <div className="fixed inset-x-0 bottom-0 top-[52px] sm:top-[62px] z-[990] flex items-start justify-center pt-2 sm:pt-3 px-2 sm:px-4 bg-slate-950/40 backdrop-blur-sm transition-all animate-fadeIn">
       {/* Background click to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Main Search Modal Container */}
       <div
-        className={`relative w-full ${showGuide ? "max-w-6xl" : "max-w-4xl"
-          } bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] z-10 transition-all duration-300 transform scale-100`}
+        className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col max-h-[82vh] z-10 transition-all duration-300 transform scale-100"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        {/* Header Search Bar */}
-        <div className="flex items-center px-4 py-3.5 border-b border-slate-100 bg-slate-50/80 gap-3">
-          <div className="flex items-center justify-center text-indigo-600 shrink-0">
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Search className="w-5 h-5 text-indigo-600" />
-            )}
-          </div>
 
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSelectedIndex(0);
-            }}
-            placeholder="Search sidebar links, file names, products, stock, customers, vouchers, reports..."
-            className="w-full text-base sm:text-lg font-semibold text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
-          />
-
-          {query && (
-            <button
-              onClick={() => {
-                setQuery("");
-                inputRef.current?.focus();
-              }}
-              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* Voice Search Mic & Alexa Vocal Response Controls */}
-          <div className="flex items-center gap-1.5 shrink-0 border-l border-slate-200 pl-2">
-            {/* Vocal Toggle (TTS) */}
-            <button
-              onClick={() => {
-                if (vocalSpeaking) stopSpeaking();
-                setVocalEnabled((v) => !v);
-              }}
-              className={`p-2 rounded-xl border text-xs font-bold transition-all shrink-0 cursor-pointer ${vocalEnabled
-                  ? "bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100"
-                  : "bg-slate-100 text-slate-400 border-slate-200"
-                }`}
-              title={vocalEnabled ? `${assistantName} Vocal Answers Enabled (Click to Mute)` : `${assistantName} Vocal Answers Muted (Click to Enable)`}
-            >
-              {vocalEnabled ? <Volume2 className="w-4 h-4 text-indigo-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
-            </button>
-
-            {/* Microphone Button */}
-            <button
-              onClick={toggleVoiceSearch}
-              className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all cursor-pointer ${isListening
-                  ? "bg-rose-600 text-white shadow-lg scale-105 animate-pulse"
-                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80"
-                }`}
-              title={isListening ? "Stop Voice Search" : `Speak to Search (${assistantName} Voice AI)`}
-            >
-              {isListening ? (
-                <>
-                  <span className="absolute inset-0 rounded-xl bg-rose-500 animate-ping opacity-75" />
-                  <MicOff className="w-4 h-4 relative z-10" />
-                </>
-              ) : (
-                <Mic className="w-4 h-4" />
-              )}
-            </button>
-          </div>
-
-          {/* Toggle Guide Sidebar Button */}
-          <button
-            onClick={() => setShowGuide((v) => !v)}
-            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shrink-0 ${showGuide
-                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-              }`}
-            title="Toggle Search Capabilities Guide"
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Search Guide</span>
-          </button>
-
-          <div className="hidden sm:flex items-center gap-1 shrink-0 pl-1">
-            <kbd className="px-2 py-1 text-[11px] font-semibold text-slate-500 bg-slate-200/70 rounded-md border border-slate-300 shadow-2xs">
-              ESC
-            </kbd>
-          </div>
-        </div>
-
-        {/* Holographic Voice Orb & Conversational State Banner */}
-        {(vocalSpeaking || isListening) && (
-          <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-950 text-white text-xs font-semibold border-b border-indigo-800/80 shadow-2xl animate-fadeIn relative overflow-hidden">
-            {/* Ambient Liquid Gradient Orb Glow Background */}
-            <div className="absolute -left-10 -top-10 w-32 h-32 bg-cyan-500/20 rounded-full blur-2xl animate-pulse" />
-            <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl animate-pulse" />
-
-            <div className="flex items-center gap-3.5 min-w-0 relative z-10">
-              {/* Voice Orb */}
-              <div
-                className={`relative flex items-center justify-center w-8 h-8 rounded-full ${isListening
-                    ? "bg-gradient-to-tr from-rose-500 via-purple-500 to-cyan-400 animate-pulse scale-110 shadow-rose-500/50"
-                    : "bg-gradient-to-tr from-cyan-400 via-indigo-500 to-pink-500 animate-spin [animation-duration:4s] shadow-indigo-500/50"
-                  } shadow-lg p-0.5 shrink-0`}
-              >
-                <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center">
-                  {isListening ? (
-                    <Mic className="w-4 h-4 text-rose-400 animate-pulse" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
-                  )}
-                </div>
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-300 to-pink-300 uppercase tracking-widest text-[10px]">
-                    {vocalSpeaking ? `${assistantName} AI Speaking 🔊` : `${assistantName} Listening... Speak your request 🎙️`}
-                  </span>
-                  <span className="flex items-center gap-0.5 h-3">
-                    <span className="w-1 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms] h-full" />
-                    <span className="w-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms] h-full" />
-                    <span className="w-1 bg-pink-400 rounded-full animate-bounce [animation-delay:300ms] h-full" />
-                  </span>
-                </div>
-                <p className="truncate text-indigo-100 font-semibold italic text-xs mt-0.5">
-                  {vocalSpeaking
-                    ? `"${vocalText}"`
-                    : transcriptPreview
-                      ? `Hearing: "${transcriptPreview}"`
-                      : `Listening... Speak request or say "Pehla kholo"`}
-                </p>
-              </div>
-            </div>
-
-            {vocalSpeaking ? (
-              <button
-                onClick={stopSpeaking}
-                className="px-3 py-1.5 rounded-xl bg-indigo-800/80 hover:bg-indigo-700 text-indigo-100 font-extrabold text-[11px] shrink-0 cursor-pointer shadow-md border border-indigo-600/50 transition-all relative z-10"
-              >
-                Mute 🔇
-              </button>
-            ) : (
-              <button
-                onClick={toggleVoiceSearch}
-                className="px-3 py-1.5 rounded-xl bg-rose-900/80 hover:bg-rose-800 text-rose-100 font-extrabold text-[11px] shrink-0 cursor-pointer shadow-md border border-rose-700/50 transition-all relative z-10"
-              >
-                Stop ⏹️
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Voice Error Notice */}
         {voiceError && !isListening && (
@@ -812,42 +659,9 @@ export default function GlobalSearchModal({
           </div>
         )}
 
-        {/* Category Tabs Filter */}
-        <div className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-100/90 border-b border-slate-200 overflow-x-auto text-xs font-semibold no-scrollbar">
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            {[
-              { id: "all", label: "All Data ⚡", icon: Sparkles },
-              { id: "products", label: "Products & Stock 📦", icon: Package },
-              { id: "customers", label: "Customers & Parties 👥", icon: Users },
-              { id: "vouchers", label: "Invoices & Vouchers 🧾", icon: FileText },
-              { id: "users", label: "Sales Team & MR 👔", icon: UserCheck },
-              { id: "navigation", label: "Navigation 🧭", icon: Compass },
-            ].map((cat) => {
-              const Icon = cat.icon;
-              const isActive = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    setActiveCategory(cat.id);
-                    setSelectedIndex(0);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer ${isActive
-                      ? "bg-indigo-600 text-white shadow-sm font-bold"
-                      : "bg-white text-slate-600 hover:bg-slate-200/70 border border-slate-200/70"
-                    }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{cat.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Amazon/Flipkart Style E-Commerce Facets & Filters Toolbar */}
+        {/* E-Commerce Facets & Filters Toolbar */}
         {query.trim() && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-slate-50 border-b border-slate-200/80 overflow-x-auto text-xs no-scrollbar">
+          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-slate-50/50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 overflow-x-auto text-xs no-scrollbar">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 shrink-0">
                 <Filter className="w-3.5 h-3.5 text-indigo-600" /> Filters:
@@ -856,37 +670,37 @@ export default function GlobalSearchModal({
               {/* In-Stock Only Chip */}
               <button
                 onClick={() => setInStockOnly((v) => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${inStockOnly
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold transition-all shrink-0 cursor-pointer ${inStockOnly
                     ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
                   }`}
               >
                 {inStockOnly ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-                <span>In Stock Only 📦</span>
+                <span>In Stock Only</span>
               </button>
 
               {/* Near Expiry Filter Chip */}
               <button
                 onClick={() => setNearExpiryOnly((v) => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${nearExpiryOnly
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold transition-all shrink-0 cursor-pointer ${nearExpiryOnly
                     ? "bg-amber-600 text-white border-amber-600 shadow-2xs"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
                   }`}
               >
                 {nearExpiryOnly ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-                <span>Expiring Soon (&lt; 90 Days) ⏳</span>
+                <span>Expiring Soon (&lt; 90 Days)</span>
               </button>
 
               {/* High Balance Filter Chip */}
               <button
                 onClick={() => setHighBalanceOnly((v) => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all shrink-0 cursor-pointer ${highBalanceOnly
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold transition-all shrink-0 cursor-pointer ${highBalanceOnly
                     ? "bg-rose-600 text-white border-rose-600 shadow-2xs"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
                   }`}
               >
                 {highBalanceOnly ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-                <span>Outstanding &gt; 0 💰</span>
+                <span>Outstanding &gt; 0</span>
               </button>
             </div>
 
@@ -896,13 +710,13 @@ export default function GlobalSearchModal({
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-full px-3 py-1 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
                 <option value="relevance">Sort: Relevance</option>
-                <option value="stockHigh">Sort: Stock (High to Low)</option>
-                <option value="priceHigh">Sort: Price (High to Low)</option>
-                <option value="priceLow">Sort: Price (Low to High)</option>
-                <option value="name">Sort: Name (A to Z)</option>
+                <option value="stockHigh">Stock (High to Low)</option>
+                <option value="priceHigh">Price (High to Low)</option>
+                <option value="priceLow">Price (Low to High)</option>
+                <option value="name">Name (A to Z)</option>
               </select>
             </div>
           </div>
@@ -910,7 +724,7 @@ export default function GlobalSearchModal({
 
         {/* Typo Correction Banner ("Did You Mean?") */}
         {didYouMean && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border-b border-indigo-100 text-xs font-semibold text-indigo-900">
+          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-950/50 border-b border-indigo-100 dark:border-indigo-800 text-xs font-semibold text-indigo-900 dark:text-indigo-200">
             <HelpCircle className="w-4 h-4 text-indigo-600 shrink-0" />
             <span>Did you mean:</span>
             <button
@@ -922,16 +736,16 @@ export default function GlobalSearchModal({
           </div>
         )}
 
-        {/* Modal Main Content Grid */}
-        <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-200 min-h-[380px]">
-          {/* Left Column: Results List */}
-          <div className={`${showGuide ? "md:col-span-8 lg:col-span-8" : "md:col-span-12"} overflow-y-auto p-3 flex flex-col justify-between`}>
+        {/* Modal Main Content */}
+        <div className="flex-1 overflow-hidden min-h-[380px] flex flex-col">
+          {/* Results / Content Area */}
+          <div className="w-full overflow-y-auto p-3 sm:p-4 flex flex-col justify-between flex-1">
             {/* No Query State: Show Live Dynamic Trending Items from Database */}
             {!query.trim() && (
-              <div className="p-4 space-y-6">
+              <div className="space-y-4">
                 {recentSearches.length > 0 && (
                   <div>
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                       <span className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
                         Recent Searches
@@ -943,14 +757,14 @@ export default function GlobalSearchModal({
                         <Trash2 className="w-3 h-3" /> Clear All
                       </button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {recentSearches.map((item: any, idx: number) => {
                         const displayTitle = typeof item === "string" ? item : item.title;
                         return (
                           <div
                             key={idx}
                             onClick={() => handleRecentClick(item)}
-                            className="group flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 text-xs font-semibold rounded-xl cursor-pointer transition-all border border-slate-200 shadow-2xs"
+                            className="group flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl cursor-pointer transition-all border border-slate-200/80 dark:border-slate-700 shadow-2xs"
                           >
                             <span>{displayTitle}</span>
                             <X
@@ -966,17 +780,14 @@ export default function GlobalSearchModal({
 
                 {/* DYNAMIC LIVE DATABASE TRENDING ITEMS */}
                 <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">
-                    <span className="flex items-center gap-1.5 text-slate-700">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">
+                    <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
                       <Database className="w-4 h-4 text-indigo-600" />
-                      Live Database Trending & Quick Searches
-                    </span>
-                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                      Live Mongo Data
+                      Quick Searches & Shortcuts
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-2.5">
                     {dynamicTrending.map((item, idx) => (
                       <button
                         key={idx}
@@ -988,17 +799,31 @@ export default function GlobalSearchModal({
                             setQuery(item.query || item.label);
                           }
                         }}
-                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/80 border border-slate-200/80 hover:border-indigo-200 transition-all text-left group cursor-pointer"
+                        className="flex items-center justify-between p-2.5 rounded-2xl bg-white dark:bg-slate-800/80 hover:bg-indigo-50/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 hover:border-indigo-300 dark:hover:border-indigo-600 shadow-2xs hover:shadow-xs transition-all text-left group cursor-pointer"
                       >
-                        <div className="min-w-0 pr-2">
-                          <span className="block text-xs font-bold text-slate-800 group-hover:text-indigo-700 transition-colors truncate">
-                            {item.label}
-                          </span>
-                          <span className="text-[10px] font-semibold text-slate-400">
-                            {item.category}
-                          </span>
+                        <div className="flex items-center gap-2.5 min-w-0 pr-1.5">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === "product"
+                              ? "bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
+                              : item.type === "customer"
+                                ? "bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900"
+                                : "bg-indigo-50 text-indigo-600 border border-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-900"
+                            }`}>
+                            {item.type === "product" && <Package className="w-4 h-4" />}
+                            {item.type === "customer" && <Users className="w-4 h-4" />}
+                            {item.type !== "product" && item.type !== "customer" && <FileText className="w-4 h-4" />}
+                          </div>
+
+                          <div className="min-w-0">
+                            <span className="block text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                              {item.label}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-400 truncate block">
+                              {item.category}
+                            </span>
+                          </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0" />
                       </button>
                     ))}
                   </div>
@@ -1019,9 +844,9 @@ export default function GlobalSearchModal({
               }
               if (!loading && query.trim() && flatList.length === 0) {
                 return (
-                  <div className="p-12 text-center">
+                  <div className="p-10 text-center">
                     <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <h4 className="text-sm font-bold text-slate-700">No matching records found</h4>
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">No matching records found</h4>
                     <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
                       No records matched &quot;{query}&quot; with current filters. Try turning off &quot;In Stock Only&quot; or searching product name or customer code.
                     </p>
@@ -1030,8 +855,8 @@ export default function GlobalSearchModal({
               }
               if (flatList.length > 0) {
                 return (
-                  <div className="space-y-1">
-                    <div className="px-3 py-1.5 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60 rounded-md">
+                  <div className="space-y-1.5">
+                    <div className="px-3 py-1.5 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60 dark:bg-slate-800/40 rounded-xl">
                       <span>Results ({flatList.length})</span>
                       <span>Use ↑ ↓ to navigate, Enter to open</span>
                     </div>
@@ -1043,25 +868,25 @@ export default function GlobalSearchModal({
                           key={item.id}
                           onClick={() => handleItemClick(item)}
                           onMouseEnter={() => setSelectedIndex(index)}
-                          className={`group relative flex items-center justify-between gap-3 p-3 rounded-xl cursor-pointer transition-all border ${isSelected
-                              ? "bg-indigo-50/90 border-indigo-200 shadow-sm"
-                              : "bg-white hover:bg-slate-50 border-transparent"
+                          className={`group relative flex items-center justify-between gap-3 p-3 rounded-2xl cursor-pointer transition-all border ${isSelected
+                              ? "bg-indigo-50/90 dark:bg-indigo-950/70 border-indigo-200 dark:border-indigo-800 shadow-2xs"
+                              : "bg-white dark:bg-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200/70 dark:border-slate-800"
                             }`}
                         >
                           {/* Left Icon & Details */}
                           <div className="flex items-start gap-3 min-w-0">
                             <div
                               className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 mt-0.5 shadow-2xs ${item.type === "kpi"
-                                  ? "bg-gradient-to-br from-indigo-500 to-emerald-600 text-white shadow-sm"
+                                  ? "bg-gradient-to-br from-indigo-500 to-emerald-600 text-white shadow-xs"
                                   : item.type === "product"
-                                    ? "bg-emerald-100 text-emerald-700"
+                                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900"
                                     : item.type === "customer"
-                                      ? "bg-amber-100 text-amber-700"
+                                      ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-100 dark:border-amber-900"
                                       : item.type === "voucher"
-                                        ? "bg-indigo-100 text-indigo-700"
+                                        ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900"
                                         : item.type === "user"
-                                          ? "bg-sky-100 text-sky-700"
-                                          : "bg-slate-100 text-slate-700"
+                                          ? "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 border border-sky-100 dark:border-sky-900"
+                                          : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                                 }`}
                             >
                               {item.type === "kpi" && <TrendingUp className="w-4 h-4 text-white" />}
@@ -1074,23 +899,15 @@ export default function GlobalSearchModal({
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-extrabold text-sm text-slate-800 group-hover:text-indigo-700 transition-colors truncate">
+                                <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
                                   {item.title}
                                 </span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
                                   {item.category}
                                 </span>
-                                {index < 5 && (
-                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-900 text-indigo-100 border border-indigo-700 shadow-2xs flex items-center gap-1">
-                                    <span>#{index + 1}</span>
-                                    <span className="text-[9px] text-indigo-300 font-medium hidden sm:inline">
-                                      🎙️ Say &quot;{index === 0 ? "Pehla" : index === 1 ? "Dusra" : index === 2 ? "Teesra" : index === 3 ? "Chautha" : "Paanchwa"}&quot;
-                                    </span>
-                                  </span>
-                                )}
                               </div>
 
-                              <p className="text-xs text-slate-500 mt-0.5 truncate font-medium">
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate font-medium">
                                 {item.subtitle}
                               </p>
 
@@ -1101,16 +918,16 @@ export default function GlobalSearchModal({
                                     <span
                                       key={bIdx}
                                       className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${b.color === "emerald"
-                                          ? "bg-emerald-100 text-emerald-800"
+                                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
                                           : b.color === "rose"
-                                            ? "bg-rose-100 text-rose-800"
+                                            ? "bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950 dark:text-rose-300"
                                             : b.color === "amber"
-                                              ? "bg-amber-100 text-amber-800"
+                                              ? "bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:text-amber-300"
                                               : b.color === "blue"
-                                                ? "bg-blue-100 text-blue-800"
+                                                ? "bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-950 dark:text-blue-300"
                                                 : b.color === "indigo"
-                                                  ? "bg-indigo-100 text-indigo-800"
-                                                  : "bg-slate-100 text-slate-700"
+                                                  ? "bg-indigo-50 text-indigo-800 border border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300"
+                                                  : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                                         }`}
                                     >
                                       {b.label}
@@ -1121,36 +938,7 @@ export default function GlobalSearchModal({
                             </div>
                           </div>
 
-                          {/* Right Quick E-Commerce Action Buttons */}
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {/* Read Aloud Button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                speakText(`${item.title}. ${item.subtitle || ""}`);
-                              }}
-                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all shadow-2xs cursor-pointer"
-                              title={`Read Aloud with ${assistantName} Voice AI`}
-                            >
-                              <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
-                            </button>
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedItem(item);
-                              }}
-                              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
-                              title="View Full Details"
-                            >
-                              <Info className="w-3.5 h-3.5 text-indigo-500" />
-                              <span className="hidden sm:inline">Details</span>
-                            </button>
-
-                            <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ArrowRight className="w-4 h-4" />
-                            </div>
-                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0" />
                         </div>
                       );
                     })}
@@ -1161,162 +949,36 @@ export default function GlobalSearchModal({
             })()}
           </div>
 
-          {/* Right Column: Global Search Guide & Amazon/Flipkart Capabilities Sidebar */}
-          {showGuide && (
-            <div className="hidden md:block md:col-span-4 lg:col-span-4 bg-slate-900 text-slate-100 p-4 overflow-y-auto space-y-4 text-xs font-medium">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2 text-indigo-400 font-extrabold uppercase text-[11px] tracking-wider">
-                  <Zap className="w-4 h-4 text-indigo-400" />
-                  <span>Search Guide & Features</span>
-                </div>
-                <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
-                  Enterprise AI Search
-                </span>
-              </div>
-
-              {/* What Global Search Can Do Section */}
-              <div className="space-y-3">
-                <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-                  What You Can Search Across Database
-                </h4>
-
-                <div className="space-y-2.5">
-                  <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
-                    <div className="flex items-center gap-2 font-bold text-emerald-400">
-                      <Package className="w-3.5 h-3.5" />
-                      <span>Products, Batches & Stock</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Search by Product Name, Code, Pack, Brand/Group, Composition formula or Rack No. See live stock, MRP, rates, and expiry dates.
-                    </p>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
-                    <div className="flex items-center gap-2 font-bold text-amber-400">
-                      <Users className="w-3.5 h-3.5" />
-                      <span>Customers, Parties & Ledgers</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Search by Party Name, Customer Code, City/Station, Phone number, or GSTIN. Displays Outstanding Balance (Dr/Cr) & Credit Limit.
-                    </p>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
-                    <div className="flex items-center gap-2 font-bold text-indigo-400">
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>Invoices, Vouchers & Bills</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Search by Invoice / Voucher number (<code className="text-indigo-300">VCN</code>), Date, Party Code or Particulars. Displays Net Bill amount (₹).
-                    </p>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
-                    <div className="flex items-center gap-2 font-bold text-sky-400">
-                      <UserCheck className="w-3.5 h-3.5" />
-                      <span>Sales Hierarchy & MR Team</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Search by MR / Employee name, Email, HQ City, Territory or Role (MR, ASM, RSM, ZSM, Admin).
-                    </p>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
-                    <div className="flex items-center gap-2 font-bold text-rose-400">
-                      <Mic className="w-3.5 h-3.5" />
-                      <span>{assistantName} Voice AI & Wake-Word (&quot;Hey {assistantName}&quot;) 🎙️</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Say <strong>&quot;Hey {assistantName}&quot;</strong> or <strong>&quot;{assistantName}&quot;</strong> anytime anywhere on the dashboard to automatically wake up {assistantName} Voice Assistant! Speaks and responds in <strong>Hindi, English & Urdu</strong> like Alexa or Siri.
-                    </p>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-1">
-                    <div className="flex items-center gap-2 font-bold text-cyan-400">
-                      <Compass className="w-3.5 h-3.5" />
-                      <span>Sidebar Links & File Names Search</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Type any sidebar link, route or file name (e.g. <code className="text-cyan-300">Sidebar.tsx</code>, <code className="text-cyan-300">Topbar.tsx</code>, <code className="text-cyan-300">accounting-group-master</code>, <code className="text-cyan-300">voucher-series</code>, <code className="text-cyan-300">sale-return</code>, <code className="text-cyan-300">mabsolcrmsync</code>) to jump instantly to that module.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Amazon / Flipkart Features List */}
-              <div className="pt-2 border-t border-slate-800 space-y-2">
-                <h4 className="text-[11px] font-extrabold text-orange-400 uppercase tracking-wider flex items-center gap-1">
-                  <ShoppingBag className="w-3.5 h-3.5 text-orange-400" />
-                  Amazon & Flipkart Search Features
-                </h4>
-                <ul className="space-y-1.5 text-[11px] text-slate-300">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-400 font-bold">✓</span>
-                    <span><strong>Dynamic Live Trending</strong>: Fetches real database products, parties & reports live.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-400 font-bold">✓</span>
-                    <span><strong>In-Stock & Expiry Filters</strong>: Filter available items or near-expiry batches instantly.</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-400 font-bold">✓</span>
-                    <span><strong>Typo Correction</strong>: Auto detects typos (&quot;Did you mean...&quot;).</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-emerald-400 font-bold">✓</span>
-                    <span><strong>Smart Sorting</strong>: Sort by stock level, price/rate, or relevance.</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Keyboard Shortcuts Guide */}
-              <div className="pt-2 border-t border-slate-800 space-y-2">
-                <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-                  Pro Keyboard Shortcuts
-                </h4>
-                <div className="grid grid-cols-1 gap-1.5 text-[11px]">
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
-                    <span className="text-slate-300">Open / Toggle Search</span>
-                    <kbd className="px-1.5 py-0.5 bg-slate-700 text-indigo-300 rounded font-mono text-[10px] font-bold">
-                      Ctrl + K
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
-                    <span className="text-slate-300">Navigate Results List</span>
-                    <kbd className="px-1.5 py-0.5 bg-slate-700 text-indigo-300 rounded font-mono text-[10px] font-bold">
-                      ↑  ↓  Arrows
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
-                    <span className="text-slate-300">Open Highlighted Record</span>
-                    <kbd className="px-1.5 py-0.5 bg-slate-700 text-indigo-300 rounded font-mono text-[10px] font-bold">
-                      Enter ↵
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
-                    <span className="text-slate-300">Close Search Modal</span>
-                    <kbd className="px-1.5 py-0.5 bg-slate-700 text-indigo-300 rounded font-mono text-[10px] font-bold">
-                      Esc
-                    </kbd>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Footer info bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-xs font-semibold text-slate-500">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>Mabsol Pharma CRM Live Global Search</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-2 text-[11px]">
+            <span>Navigate:</span>
+            <kbd className="px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-mono shadow-2xs">↑</kbd>
+            <kbd className="px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-mono shadow-2xs">↓</kbd>
+            <span className="ml-1">Select:</span>
+            <kbd className="px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-mono shadow-2xs">↵ Enter</kbd>
+            <span className="ml-1">Close:</span>
+            <kbd className="px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-mono shadow-2xs">Esc</kbd>
           </div>
 
           <div className="flex items-center gap-3">
-            <span>Total Results: <strong>{totalResults}</strong></span>
+            <span>Total Results: <strong className="text-slate-700 dark:text-slate-200">{totalResults}</strong></span>
+            {query.trim() && (
+              <button
+                onClick={() => {
+                  onClose();
+                  router.push(`/dashboard/search?q=${encodeURIComponent(query)}&category=${activeCategory}`);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <span>Full Search Page</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
+    </div>
 
       {/* Deep Detail Slide-Over Modal */}
       {selectedItem && (
@@ -1359,18 +1021,18 @@ export default function GlobalSearchModal({
                 <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-3">
                   Summary & Metrics
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                   {Object.entries(selectedItem.details || {}).map(([key, val]) => {
                     if (key === "batches") return null;
                     return (
                       <div
                         key={key}
-                        className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col justify-center"
+                        className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-center"
                       >
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wide">
                           {key.replace(/([A-Z])/g, " $1")}
                         </span>
-                        <span className="text-sm font-extrabold text-slate-800 mt-0.5 truncate">
+                        <span className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 mt-0.5 truncate">
                           {String(val || "N/A")}
                         </span>
                       </div>

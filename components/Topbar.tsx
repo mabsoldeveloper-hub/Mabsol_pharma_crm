@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, List, PersonCircle, Trash, CalendarEvent, Search, Building, Command, ArrowsFullscreen, FullscreenExit } from "react-bootstrap-icons";
+import { Bell, List, PersonCircle, Trash, CalendarEvent, Search, Building, Command, ArrowsFullscreen, FullscreenExit, X, Mic } from "react-bootstrap-icons";
 
 import { useUser } from "@/context/UserContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -25,6 +25,8 @@ export default function Topbar({
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [companyName, setCompanyName] = useState<string>("");
   const [profileImgError, setProfileImgError] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -228,7 +230,13 @@ export default function Topbar({
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setSearchOpen((prev) => !prev);
+        setSearchOpen((prev) => {
+          const next = !prev;
+          if (next) {
+            setTimeout(() => searchInputRef.current?.focus(), 50);
+          }
+          return next;
+        });
       } else if (
         e.key === "/" &&
         document.activeElement?.tagName !== "INPUT" &&
@@ -236,6 +244,7 @@ export default function Topbar({
       ) {
         e.preventDefault();
         setSearchOpen(true);
+        setTimeout(() => searchInputRef.current?.focus(), 50);
       }
     };
 
@@ -352,7 +361,7 @@ export default function Topbar({
   return (
     <div
       className="flex items-center justify-between gap-1.5 sm:gap-3 px-2.5 sm:px-4 py-2 sm:py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200/80 dark:border-slate-800 shadow-xs sticky top-0 transition-all"
-      style={{ zIndex: 999 }}
+      style={{ zIndex: 1000 }}
     >
       {/* LEFT: Sidebar Toggle & Company/FY Selectors */}
       <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 sm:flex-initial">
@@ -468,37 +477,65 @@ export default function Topbar({
         )}
       </div>
 
-      {/* CENTER GLOBAL SEARCH TRIGGER (Desktop / Tablet) */}
-      <div className="hidden md:flex flex-1 max-w-md mx-4">
-        <button
-          onClick={() => setSearchOpen(true)}
-          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50/60 hover:border-indigo-200 text-slate-500 transition-all text-xs font-semibold shadow-xs group cursor-pointer"
+      {/* CENTER GLOBAL SEARCH INPUT (Desktop / Tablet) */}
+      <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
+        <div
+          className={`w-full flex items-center gap-2 px-3.5 py-1.5 rounded-full border transition-all duration-200 shadow-xs ${
+            searchOpen
+              ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-white dark:bg-slate-900"
+              : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-indigo-300"
+          }`}
         >
-          <div className="flex items-center gap-2 truncate">
-            <Search size={15} className="text-indigo-600 group-hover:scale-110 transition-transform shrink-0" />
-            <span className="truncate text-slate-500 dark:text-slate-300 group-hover:text-indigo-900 dark:group-hover:text-indigo-200 font-medium">Search links, products, stock, customers, invoices...</span>
-          </div>
+          <Search size={15} className="text-indigo-600 shrink-0" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (!searchOpen) setSearchOpen(true);
+            }}
+            onFocus={() => setSearchOpen(true)}
+            placeholder="Search products, stock, parties, invoices, vouchers, MRs, reports..."
+            className="w-full text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
+          />
+
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                searchInputRef.current?.focus();
+              }}
+              className="w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+              title="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
+
           <div className="flex items-center gap-1.5 shrink-0">
-            <span
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 setAutoVoiceStart(true);
                 setSearchOpen(true);
               }}
-              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold border rounded-md shadow-2xs transition-colors cursor-pointer ${wakewordEnabled
-                ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
-                : "text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/80 border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600"
-                }`}
-              title={wakewordEnabled ? `Click or say 'Hey ${assistantName}' to activate ${assistantName} AI` : `${assistantName} Wake-Word Disabled (Click to open Voice AI)`}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold border rounded-full shadow-2xs transition-colors cursor-pointer ${
+                wakewordEnabled
+                  ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
+                  : "text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-slate-100"
+              }`}
+              title={wakewordEnabled ? `Click or say 'Hey ${assistantName}' to activate ${assistantName} AI` : `${assistantName} Voice AI`}
             >
-              🎙️ {assistantName} AI {wakewordEnabled ? `("Hey ${assistantName}")` : "(Off)"}
-            </span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-300 dark:group-hover:text-indigo-300 transition-colors select-none">
-              <Command size={10} className="shrink-0 text-slate-500 dark:text-slate-400 group-hover:text-indigo-600" />
+              <Mic size={11} className="text-indigo-600 dark:text-indigo-400" />
+              <span>Voice AI</span>
+            </button>
+            <span className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md shadow-2xs">
+              <Command size={10} />
               <span>Ctrl K</span>
             </span>
           </div>
-        </button>
+        </div>
       </div>
 
       {/* RIGHT: Search Icon, Notifications, Fullscreen & Profile */}
@@ -766,6 +803,8 @@ export default function Topbar({
         autoVoiceStart={autoVoiceStart}
         onVoiceStartHandled={() => setAutoVoiceStart(false)}
         initialQuery={initialVoiceQuery}
+        query={searchQuery}
+        setQuery={setSearchQuery}
       />
     </div>
   );
