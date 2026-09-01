@@ -88,7 +88,7 @@ export default function DashboardLayout({
   mobile={mobile}
 />
 
-        <div className="container-fluid p-4">
+        <div className="container-fluid p-2">
           {children}
         </div>
       </div>

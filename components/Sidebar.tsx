@@ -487,38 +487,54 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     }
   }, [pathname]);
 
-  // ---- Preserve sidebar nav scroll position across accordion toggles ----
-  // Problem: Group/NavLink/SubLink are defined inside Sidebar, so React treats
-  // them as new component types on every render → unmount/remount → scroll resets.
-  // Fix: save scrollTop on scroll event, restore it after openGroups changes via useLayoutEffect.
-  // Reset saved position only when navigating to a new route (pathname change).
+  // ---- Preserve sidebar nav scroll position across navigation & accordion toggles ----
   const sidebarNavRef = useRef<HTMLDivElement>(null);
   const savedSidebarScroll = useRef<number>(0);
 
-  // Reset saved scroll when pathname changes (real navigation),
-  // then smoothly scroll the active item into view
-  useEffect(() => {
-    savedSidebarScroll.current = 0;
-    // After route change, scroll active item into view smoothly
-    const timer = setTimeout(() => {
+  // Helper to save current scroll position
+  const saveSidebarScrollPosition = useCallback(() => {
+    if (sidebarNavRef.current) {
+      const top = sidebarNavRef.current.scrollTop;
+      savedSidebarScroll.current = top;
+      try {
+        sessionStorage.setItem("mabsol_sidebar_scroll_pos", String(top));
+      } catch {}
+    }
+  }, []);
+
+  // Restore scroll position reliably on route change, mount, and accordion toggle
+  useLayoutEffect(() => {
+    const restoreScroll = () => {
       if (sidebarNavRef.current) {
-        const activeEl = sidebarNavRef.current.querySelector(".glass-nav-item-active");
-        if (activeEl) {
-          activeEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        let target = savedSidebarScroll.current;
+        if (!target) {
+          try {
+            const stored = sessionStorage.getItem("mabsol_sidebar_scroll_pos");
+            if (stored) target = Number(stored);
+          } catch {}
+        }
+        if (target && !isNaN(target) && target > 0) {
+          sidebarNavRef.current.scrollTop = target;
+        } else {
+          // If no stored position, ensure active item is visible in view
+          const activeEl = sidebarNavRef.current.querySelector(".glass-nav-item-active, .icon-chip-active");
+          if (activeEl) {
+            activeEl.scrollIntoView({ block: "nearest" });
+          }
         }
       }
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [pathname]);
+    };
 
-  // Restore scroll position after openGroups changes (accordion expand/collapse)
-  // Only runs when openGroups state changes, not on every render
-  useLayoutEffect(() => {
-    if (sidebarNavRef.current) {
-      sidebarNavRef.current.scrollTop = savedSidebarScroll.current;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openGroups]);
+    restoreScroll();
+    const t1 = setTimeout(restoreScroll, 25);
+    const t2 = setTimeout(restoreScroll, 100);
+    const t3 = setTimeout(restoreScroll, 250);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [pathname, openGroups]);
 
   useEffect(() => {
     fetch("/api/company-settings")
@@ -627,6 +643,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
     const c = colorMap[color] || colorMap.indigo;
 
     const handleNavClick = () => {
+      saveSidebarScrollPosition();
       if (mobile && setCollapsed) {
         setCollapsed(true);
       }
@@ -668,7 +685,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
       <Link
         href={href}
         onClick={handleNavClick}
-        className={`glass-nav-item relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] transition-all duration-300 ease-out group no-underline select-none ${active
+        className={`glass-nav-item relative flex items-center gap-2.5 rounded-2xl pl-1.5 pr-2.5 py-2 text-[13.5px] transition-all duration-300 ease-out group no-underline select-none ${active
             ? `glass-nav-item-active font-semibold ${c.activeText}`
             : `text-gray-700 dark:text-gray-200 hover:text-gray-900 ${c.hoverText}`
           }`}
@@ -679,7 +696,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           />
         )}
         <span
-          className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
+          className={`relative flex items-center justify-center w-9 h-9 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
               ? "icon-chip-active text-white scale-105"
               : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
             }`}
@@ -722,6 +739,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
   }) => {
     const c = colorMap[color] || colorMap.indigo;
     const handleSubClick = () => {
+      saveSidebarScrollPosition();
       if (mobile && setCollapsed) {
         setCollapsed(true);
       }
@@ -893,14 +911,14 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
               e.preventDefault();
               onClick(e);
             }}
-            className={`glass-nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-[13.5px] transition-all duration-300 ease-out group select-none ${active
+            className={`glass-nav-item w-full flex items-center justify-between pl-1.5 pr-2.5 py-2 rounded-2xl text-[13.5px] transition-all duration-300 ease-out group select-none ${active
                 ? `glass-nav-item-active font-semibold ${c.activeText}`
                 : `text-gray-700 dark:text-gray-200 hover:text-gray-900 ${c.hoverText}`
               }`}
           >
-            <span className="flex items-center gap-3 min-w-0 flex-1 text-left">
+            <span className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
               <span
-                className={`relative flex items-center justify-center w-10 h-10 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
+                className={`relative flex items-center justify-center w-9 h-9 shrink-0 rounded-xl text-[15px] overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${active
                     ? "icon-chip-active text-white scale-105"
                     : `glass-icon-chip ${c.iconText} group-hover:scale-110 group-hover:-rotate-3`
                   }`}
@@ -934,7 +952,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
         {!iconOnly && (
           <div className={`sidebar-submenu ${open ? "open" : ""}`}>
             <div className="sidebar-submenu-inner">
-              <ul className="flex flex-col gap-0.5 ml-4 pl-1.5 border-l-2 border-slate-200/60 dark:border-white/10 my-1">
+              <ul className="flex flex-col gap-0.5 ml-2.5 pl-1 border-l-2 border-slate-200/60 dark:border-white/10 my-1">
                 {renderedSubs}
               </ul>
             </div>
@@ -1076,9 +1094,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobile }: SidebarProp
           {/* Nav List */}
           <div
             ref={sidebarNavRef}
-            onScroll={(e) => { savedSidebarScroll.current = e.currentTarget.scrollTop; }}
+            onScroll={saveSidebarScrollPosition}
             className={`flex-1 min-h-0 py-3 sidebar-scroll ${
-              iconOnly ? "px-1.5" : "px-2.5"
+              iconOnly ? "px-1" : "pl-1.5 pr-2"
             } overflow-y-auto overflow-x-hidden`}
           >
             <ul className={`flex flex-col ${iconOnly ? "items-center gap-2" : "gap-1.5"}`}>

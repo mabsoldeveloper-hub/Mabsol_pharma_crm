@@ -817,20 +817,20 @@ export default function DashboardContent() {
             : PRESET_THEMES.find((t) => t.id === bannerTheme)?.color || "#3b82f6";
 
     return (
-        <div className="flex flex-col gap-5 min-h-screen">
+        <div className="flex flex-col gap-2.5 sm:gap-5 min-h-screen">
             {/* ==================== DYNAMIC CELESTIAL EXECUTIVE BANNER WITH COLOR CUSTOMIZATION ==================== */}
             <div
                 style={celestial.customStyles?.container}
-                className={`group relative isolate rounded-2xl sm:rounded-3xl ${
+                className={`group relative isolate rounded-xl sm:rounded-3xl ${
                     celestial.gradient ? `bg-gradient-to-br ${celestial.gradient}` : ""
-                } p-4 sm:p-5 md:p-6 ${celestial.textColor} ${
+                } p-2 sm:p-4 md:p-6 ${celestial.textColor} ${
                     celestial.borderColor ? `border-[1.5px] ${celestial.borderColor}` : ""
                 } ${
                     celestial.hoverShadow ? `shadow-[0_12px_36px_-12px_rgba(249,115,22,0.08),0_4px_12px_rgba(0,0,0,0.02)] ${celestial.hoverShadow}` : ""
                 } backdrop-blur-3xl transition-all duration-500 z-30`}
             >
                 {/* Inner Overflow-Hidden Layer for Glow Orbs & Specular Highlight */}
-                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl sm:rounded-3xl">
+                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl sm:rounded-3xl">
                     <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white to-transparent" />
                     <div
                         style={celestial.customStyles?.orb1}
@@ -842,38 +842,38 @@ export default function DashboardContent() {
                     />
                 </div>
 
-                <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4 z-10">
+                <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-4 z-10">
                     <div>
-                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 flex-wrap">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
                             <span
                                 style={celestial.customStyles?.tag}
-                                className={`text-[10px] sm:text-[10.5px] font-extrabold uppercase tracking-widest px-2.5 sm:px-3 py-0.5 rounded-full border shadow-xs backdrop-blur-md transition-all duration-200 hover:scale-105 cursor-default ${celestial.tagColor}`}
+                                className={`text-[9px] sm:text-[10.5px] font-extrabold uppercase tracking-widest px-2 sm:px-3 py-0.5 rounded-full border shadow-xs backdrop-blur-md transition-all duration-200 hover:scale-105 cursor-default ${celestial.tagColor}`}
                             >
                                 {celestial.tag}
                             </span>
                             {selectedCompany?.companyName && (
-                                <span className={`text-[10px] sm:text-[10.5px] font-bold flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-0.5 rounded-full border shadow-xs transition-all duration-200 hover:scale-105 cursor-default ${celestial.isDark ? 'bg-indigo-900/60 text-sky-300 border-indigo-400/30' : 'bg-sky-500/10 text-sky-700 border-sky-400/30'}`}>
-                                    <FaBuilding size={9} className={celestial.isDark ? 'text-sky-400' : 'text-sky-600'} /> {selectedCompany.companyName}
+                                <span className={`text-[9px] sm:text-[10.5px] font-bold flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 rounded-full border shadow-xs transition-all duration-200 hover:scale-105 cursor-default ${celestial.isDark ? 'bg-indigo-900/60 text-sky-300 border-indigo-400/30' : 'bg-sky-500/10 text-sky-700 border-sky-400/30'}`}>
+                                    <FaBuilding size={8} className={celestial.isDark ? 'text-sky-400' : 'text-sky-600'} /> {selectedCompany.companyName}
                                 </span>
                             )}
                         </div>
-                        <h2 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight font-sans flex items-center gap-2.5 sm:gap-3">
+                        <h2 className="text-base sm:text-xl md:text-2xl font-black tracking-tight font-sans flex items-center gap-2 sm:gap-3">
                             {celestial.icon}
                             <span>{celestial.greeting}</span>
                         </h2>
-                        <p className={`text-[11px] sm:text-xs font-medium mt-1 leading-snug sm:leading-normal ${celestial.subtextColor}`}>
+                        <p className={`text-[10px] sm:text-xs font-medium mt-0.5 leading-snug sm:leading-normal ${celestial.subtextColor}`}>
                             {celestial.subtitle}
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5">
                         {/* Banner Color & Theme Customizer Dropdown Popover */}
                         <div className="relative" ref={colorPickerRef}>
                             <button
                                 type="button"
                                 onClick={() => setShowColorPicker((prev) => !prev)}
                                 title="Customize banner color and theme"
-                                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer ${
+                                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-2xl backdrop-blur-xl border text-[10px] sm:text-xs shadow-xs transition-all duration-150 cursor-pointer ${
                                     showColorPicker
                                         ? "bg-slate-900 text-white border-slate-700 shadow-md ring-2 ring-indigo-500/40"
                                         : celestial.isDark
@@ -1213,7 +1213,7 @@ export default function DashboardContent() {
                             type="button"
                             onClick={toggleVoice}
                             title={voiceEnabled ? "Automatic Voice is ON (Click to turn OFF)" : "Automatic Voice is OFF (Click to turn ON)"}
-                            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer ${
+                            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-2xl backdrop-blur-xl border text-[10px] sm:text-xs shadow-xs transition-all duration-150 cursor-pointer ${
                                 voiceEnabled
                                     ? celestial.isDark
                                         ? "bg-white/15 hover:bg-white/20 border-white/25 text-white"
@@ -1223,15 +1223,15 @@ export default function DashboardContent() {
                         >
                             {voiceEnabled ? (
                                 <>
-                                    <FaVolumeUp size={11} className={`${isSpeaking ? "animate-bounce text-orange-500" : "text-emerald-600"}`} />
-                                    <span className="font-bold text-[10.5px] sm:text-[11px] flex items-center gap-1">
+                                    <FaVolumeUp size={10} className={`${isSpeaking ? "animate-bounce text-orange-500" : "text-emerald-600"}`} />
+                                    <span className="font-bold text-[10px] sm:text-[11px] flex items-center gap-1">
                                         Voice: <span className="text-emerald-600 font-extrabold">ON</span>
                                     </span>
                                 </>
                             ) : (
                                 <>
-                                    <FaVolumeMute size={11} className="text-slate-400" />
-                                    <span className="font-bold text-[10.5px] sm:text-[11px] text-slate-400 flex items-center gap-1">
+                                    <FaVolumeMute size={10} className="text-slate-400" />
+                                    <span className="font-bold text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1">
                                         Voice: <span className="font-semibold">OFF</span>
                                     </span>
                                 </>
@@ -1239,32 +1239,32 @@ export default function DashboardContent() {
                         </button>
 
                         {currentTime && (
-                            <div className={`flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default ${celestial.isDark ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white' : 'bg-white/90 hover:bg-white border-slate-200/80 text-slate-800'}`}>
+                            <div className={`flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-2xl backdrop-blur-xl border text-[10px] sm:text-xs shadow-xs transition-all duration-150 cursor-default max-w-full overflow-hidden ${celestial.isDark ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white' : 'bg-white/90 hover:bg-white border-slate-200/80 text-slate-800'}`}>
                                 <div className={`flex items-center gap-1 sm:gap-1.5 ${celestial.isDark ? 'text-indigo-200' : 'text-slate-700'}`}>
-                                    <FaCalendarAlt size={10.5} className={celestial.isDark ? 'text-indigo-300 flex-shrink-0' : 'text-orange-500 flex-shrink-0'} />
-                                    <span className="font-bold text-[10.5px] sm:text-[11px] whitespace-nowrap">{formattedDate}</span>
+                                    <FaCalendarAlt size={9.5} className={celestial.isDark ? 'text-indigo-300 flex-shrink-0' : 'text-orange-500 flex-shrink-0'} />
+                                    <span className="font-bold text-[9.5px] sm:text-[11px] whitespace-nowrap">{formattedDate}</span>
                                 </div>
                                 <div className={`w-[1px] h-3 sm:h-3.5 ${celestial.isDark ? 'bg-white/20' : 'bg-slate-200'}`} />
                                 <div className="flex items-center gap-1 sm:gap-1.5 text-emerald-600 dark:text-emerald-400 font-mono font-extrabold tracking-wider">
-                                    <FaClock size={10.5} className="text-emerald-500 animate-pulse flex-shrink-0" />
-                                    <span className="text-[10.5px] sm:text-[11px] whitespace-nowrap">{formattedTime}</span>
+                                    <FaClock size={9.5} className="text-emerald-500 animate-pulse flex-shrink-0" />
+                                    <span className="text-[9.5px] sm:text-[11px] whitespace-nowrap">{formattedTime}</span>
                                 </div>
                             </div>
                         )}
                         {selectedFY && (
-                            <div className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default ${celestial.isDark ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white' : 'bg-white/90 hover:bg-white border-slate-200/80 text-slate-800'}`}>
-                                <FaCalendarAlt size={10.5} className={celestial.isDark ? 'text-indigo-300' : 'text-orange-500'} />
-                                <span className="font-bold text-[10.5px] sm:text-[11px] whitespace-nowrap">FY: {selectedFY.fyName || "All"}</span>
+                            <div className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-2xl backdrop-blur-xl border text-[10px] sm:text-xs shadow-xs transition-all duration-150 cursor-default max-w-full ${celestial.isDark ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white' : 'bg-white/90 hover:bg-white border-slate-200/80 text-slate-800'}`}>
+                                <FaCalendarAlt size={9.5} className={celestial.isDark ? 'text-indigo-300 flex-shrink-0' : 'text-orange-500 flex-shrink-0'} />
+                                <span className="font-bold text-[9.5px] sm:text-[11px] truncate max-w-[170px] sm:max-w-none">FY: {selectedFY.fyName || "All"}</span>
                             </div>
                         )}
                         <button
                             onClick={handleManualRefresh}
                             disabled={refreshing}
-                            className="group relative overflow-hidden flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 transition-all duration-200 text-[11px] sm:text-xs font-bold text-white shadow-[0_4px_12px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.15)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.18)] hover:-translate-y-0.5 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="group relative overflow-hidden flex items-center justify-center gap-1 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 transition-all duration-150 text-[10.5px] sm:text-xs font-bold text-white shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {/* Animated light-sweep reflection */}
                             <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 pointer-events-none" />
-                            <FaSyncAlt size={10.5} className={`text-orange-400 ${refreshing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
+                            <FaSyncAlt size={9.5} className={`text-orange-400 ${refreshing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
                             <span className="whitespace-nowrap">{refreshing ? "Syncing..." : "Refresh"}</span>
                         </button>
                     </div>
@@ -1330,31 +1330,58 @@ export default function DashboardContent() {
                 </div>
             )}
 
-            {/* ==================== FLOATING CALM LUXURY GLASS TAB BAR (MOBILE SWIPEABLE RIBBON) ==================== */}
-            <div className="w-full overflow-x-auto no-scrollbar scroll-smooth -mx-1 px-1 sm:mx-0 sm:px-0">
-                <div className="inline-flex sm:flex sm:flex-wrap items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 backdrop-blur-2xl backdrop-saturate-180 shadow-xs min-w-max sm:min-w-0">
+            {/* ==================== RESPONSIVE TAB NAVIGATION BAR ==================== */}
+            <div className="w-full">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 py-1">
                     {tabs.map((tab) => {
                         const IconComponent = tab.icon;
                         const isActive = activeTab === tab.id;
                         return (
                             <button
                                 key={tab.id}
+                                type="button"
                                 onClick={() => setActiveTab(tab.id as TabType)}
+                                style={{
+                                    borderRadius: "9999px",
+                                    border: "none",
+                                    outline: "none",
+                                    backgroundColor: isActive ? "#0f172a" : "transparent",
+                                    color: isActive ? "#ffffff" : "#475569",
+                                    WebkitTapHighlightColor: "transparent",
+                                }}
                                 className={`
-                                    relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-semibold
-                                    transition-all duration-300 cursor-pointer border flex-shrink-0 whitespace-nowrap
+                                    relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 text-[11.5px] sm:text-xs md:text-[12.5px] font-semibold
+                                    transition-all duration-150 cursor-pointer whitespace-nowrap select-none min-h-[32px] sm:min-h-[36px]
                                     ${isActive
-                                        ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent shadow-md scale-[1.02]"
-                                        : "text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
+                                        ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm sm:shadow-md scale-[1.01]"
+                                        : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 active:bg-slate-200/60 dark:active:bg-slate-700/60"
                                     }
                                 `}
                             >
-                                <IconComponent size={13} className={isActive ? "text-orange-400 dark:text-orange-500" : "opacity-70"} />
-                                <span>{tab.label}</span>
-                                <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${isActive
-                                    ? "bg-orange-500 text-white"
-                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                                    }`}>
+                                <IconComponent
+                                    size={12}
+                                    className={`sm:w-3.5 sm:h-3.5 flex-shrink-0 ${isActive ? "text-amber-400 dark:text-amber-500" : "text-slate-400 dark:text-slate-500"}`}
+                                    style={{ color: isActive ? "#fbbf24" : undefined }}
+                                />
+                                <span
+                                    className={`font-semibold tracking-tight ${isActive ? "text-white dark:text-slate-900" : "text-slate-700 dark:text-slate-300"}`}
+                                    style={{ color: isActive ? (typeof window !== "undefined" && document.documentElement.classList.contains("dark") ? "#0f172a" : "#ffffff") : undefined }}
+                                >
+                                    {tab.label}
+                                </span>
+                                <span
+                                    style={{
+                                        borderRadius: "9999px",
+                                        border: "none",
+                                        backgroundColor: isActive ? "#f97316" : "#e2e8f0",
+                                        color: isActive ? "#ffffff" : "#475569",
+                                    }}
+                                    className={`px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-bold transition-colors ${
+                                        isActive
+                                            ? "bg-orange-500 text-white shadow-xs"
+                                            : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                                    }`}
+                                >
                                     {tab.badge}
                                 </span>
                             </button>
@@ -1400,49 +1427,39 @@ export default function DashboardContent() {
             ) : (
                 <>
                     {/* TAB 1: EXECUTIVE OVERVIEW */}
-                    {activeTab === "overview" && (
-                        <>
-                            <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
-                            <KPICards kpis={data?.kpis} />
-                            <DashboardCharts charts={data?.charts} />
-                            <AnalyticsCards analytics={data?.analytics} />
-                        </>
-                    )}
+                    <div className={`flex flex-col gap-5 ${activeTab === "overview" ? "" : "hidden"}`}>
+                        <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                        <KPICards kpis={data?.kpis} />
+                        <DashboardCharts charts={data?.charts} />
+                        <AnalyticsCards analytics={data?.analytics} />
+                    </div>
 
                     {/* TAB 2: SALES & REVENUE */}
-                    {activeTab === "sales" && (
-                        <>
-                            <KPICards kpis={data?.kpis} />
-                            <DashboardCharts charts={data?.charts} />
-                        </>
-                    )}
+                    <div className={`flex flex-col gap-5 ${activeTab === "sales" ? "" : "hidden"}`}>
+                        <KPICards kpis={data?.kpis} />
+                        <DashboardCharts charts={data?.charts} />
+                    </div>
 
                     {/* TAB 3: INVENTORY & EXPIRY */}
-                    {activeTab === "inventory" && (
-                        <>
-                            <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
-                            <KPICards kpis={data?.kpis} />
-                            <DashboardCharts charts={data?.charts} />
-                        </>
-                    )}
+                    <div className={`flex flex-col gap-5 ${activeTab === "inventory" ? "" : "hidden"}`}>
+                        <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                        <KPICards kpis={data?.kpis} />
+                        <DashboardCharts charts={data?.charts} />
+                    </div>
 
                     {/* TAB 4: CREDIT & RECEIVABLES */}
-                    {activeTab === "credit" && (
-                        <>
-                            <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
-                            <KPICards kpis={data?.kpis} />
-                            <CreditDashboardCharts charts={data?.charts} />
-                        </>
-                    )}
+                    <div className={`flex flex-col gap-5 ${activeTab === "credit" ? "" : "hidden"}`}>
+                        <LiquidMeters kpis={data?.kpis} analytics={data?.analytics} />
+                        <KPICards kpis={data?.kpis} />
+                        <CreditDashboardCharts charts={data?.charts} />
+                    </div>
 
                     {/* TAB 5: PURCHASE & VENDORS */}
-                    {activeTab === "purchase" && (
-                        <>
-                            <KPICards kpis={data?.kpis} />
-                            <PurchaseDashboardCharts charts={data?.charts} />
-                            <AnalyticsCards analytics={data?.analytics} />
-                        </>
-                    )}
+                    <div className={`flex flex-col gap-5 ${activeTab === "purchase" ? "" : "hidden"}`}>
+                        <KPICards kpis={data?.kpis} />
+                        <PurchaseDashboardCharts charts={data?.charts} />
+                        <AnalyticsCards analytics={data?.analytics} />
+                    </div>
                 </>
             )}
         </div>

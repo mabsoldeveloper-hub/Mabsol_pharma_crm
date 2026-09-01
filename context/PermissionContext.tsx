@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { useUser } from "./UserContext";
 
@@ -15,15 +16,25 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
   const { user } = useUser();
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const userId = user?._id;
+  const initialLoadedRef = useRef(false);
 
-  const loadPermissions = useCallback(async () => {
+  const loadPermissions = useCallback(async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground || !initialLoadedRef.current) {
+        setLoading(true);
+      }
       const res = await fetch("/api/auth/permissions");
       const data = await res.json();
 
       if (data.success && Array.isArray(data.permissions)) {
-        setPermissions(data.permissions);
+        setPermissions((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(data.permissions)) {
+            return prev;
+          }
+          return data.permissions;
+        });
+        initialLoadedRef.current = true;
       }
     } catch (error) {
       console.error("Failed to load permissions:", error);
@@ -33,15 +44,17 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
-    loadPermissions();
-  }, [user, loadPermissions]);
+    if (userId) {
+      loadPermissions(initialLoadedRef.current);
+    }
+  }, [userId, loadPermissions]);
 
   const can = (key: string) => {
     // If the logged-in user is an Admin, grant instant full access
     if (user?.roleType === "Admin" || user?.role === "Admin" || (user?.roleId as any)?.roleName === "Admin") {
       return true;
     }
-    if (loading) return false;
+    if (loading && !initialLoadedRef.current) return false;
     return permissions.includes("*") || permissions.includes(key);
   };
 
@@ -50,7 +63,7 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
       value={{
         permissions,
         loading,
-        reload: loadPermissions,
+        reload: () => loadPermissions(false),
         can,
       }}
     >

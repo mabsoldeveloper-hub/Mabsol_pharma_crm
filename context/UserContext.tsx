@@ -16,6 +16,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const loadStarted = useRef(false);
+  const userRef = useRef<any>(null);
+  userRef.current = user;
 
   const logoutAndRedirect = useCallback(async () => {
     try {
@@ -29,8 +31,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const loadUser = useCallback(async () => {
+  const loadUser = useCallback(async (isBackground = false) => {
     try {
+      if (!isBackground) {
+        setLoading(true);
+      }
       // Add timestamp and no-cache headers to prevent browser response caching
       const res = await fetch(`/api/auth/me?_t=${Date.now()}`, {
         cache: "no-store",
@@ -38,51 +43,68 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           "Cache-Control": "no-cache",
         },
       });
+
+      if (res.status === 401) {
+        setUser(null);
+        if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
+          await logoutAndRedirect();
+        }
+        return;
+      }
+
+      if (!res.ok) {
+        // Transient network or server error: do not force logout during background check
+        return;
+      }
+
       const data = await res.json();
 
-      if (res.ok && data.success && data.user) {
-        setUser(data.user);
+      if (data.success && data.user) {
+        setUser((prevUser: any) => {
+          if (prevUser && JSON.stringify(prevUser) === JSON.stringify(data.user)) {
+            return prevUser;
+          }
+          return data.user;
+        });
       } else {
+        if (!isBackground) {
+          setUser(null);
+          if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
+            await logoutAndRedirect();
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load user:", err);
+      if (!isBackground && !userRef.current) {
         setUser(null);
         if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
           await logoutAndRedirect();
         }
       }
-    } catch {
-      setUser(null);
-      if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
-        await logoutAndRedirect();
-      }
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   }, [logoutAndRedirect]);
 
   useEffect(() => {
     if (loadStarted.current) return;
     loadStarted.current = true;
-    loadUser();
+    loadUser(false);
   }, [loadUser]);
 
-  // Periodically check session (based on SESSION_CHECK_INTERVAL_MS) and when window gets focus
+  // Periodically verify session in background without triggering UI loading flicker
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
-        loadUser();
+        loadUser(true);
       }
     }, SESSION_CHECK_INTERVAL_MS);
 
-    const onFocus = () => {
-      if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
-        loadUser();
-      }
-    };
-
-    window.addEventListener("focus", onFocus);
-
     return () => {
       clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
     };
   }, [loadUser]);
 
@@ -91,7 +113,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         loading,
-        reload: loadUser,
+        reload: () => loadUser(false),
         logout: logoutAndRedirect,
       }}
     >
