@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { useUser } from "./UserContext";
 
@@ -15,15 +16,20 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
   const { user } = useUser();
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
 
-  const loadPermissions = useCallback(async () => {
+  const loadPermissions = useCallback(async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent && !hasLoadedRef.current) {
+        setLoading(true);
+      }
       const res = await fetch("/api/auth/permissions");
       const data = await res.json();
 
       if (data.success && Array.isArray(data.permissions)) {
         setPermissions(data.permissions);
+        hasLoadedRef.current = true;
       }
     } catch (error) {
       console.error("Failed to load permissions:", error);
@@ -33,7 +39,11 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
-    loadPermissions();
+    const currentUserId = user?._id ? String(user._id) : null;
+    if (!hasLoadedRef.current || lastUserIdRef.current !== currentUserId) {
+      lastUserIdRef.current = currentUserId;
+      loadPermissions();
+    }
   }, [user, loadPermissions]);
 
   const can = (key: string) => {

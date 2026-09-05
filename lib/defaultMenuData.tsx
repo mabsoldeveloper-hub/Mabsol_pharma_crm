@@ -296,6 +296,17 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
     order: 1,
   },
   {
+    id: "ai-notifications",
+    label: "AI Smart Alerts",
+    icon: "FaBell",
+    color: "amber",
+    href: "/dashboard/ai-notifications",
+    isGroup: false,
+    permission: "dashboard.view",
+    isVisible: true,
+    order: 2,
+  },
+  {
     id: "targets",
     label: "Targets & Achievements",
     icon: "FaBullseye",
@@ -304,7 +315,7 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
     isGroup: false,
     permission: "dashboard.view",
     isVisible: true,
-    order: 2,
+    order: 3,
   },
   {
     id: "purchase-sales-analytics",
