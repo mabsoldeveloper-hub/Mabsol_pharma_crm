@@ -124,7 +124,7 @@ export default function AiNotificationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [lastScannedTime, setLastScannedTime] = useState<string | null>(null);
-  const [lastModelUsed, setLastModelUsed] = useState<string>("Gemini 2.5 Flash");
+  const [lastModelUsed, setLastModelUsed] = useState<string>("AI Smart Engine");
   const [apiMeta, setApiMeta] = useState<AiApiMeta | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
@@ -309,13 +309,13 @@ export default function AiNotificationsPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold uppercase tracking-wider backdrop-blur-md">
               <FaBrain className="animate-pulse text-indigo-300" />
-              <span>Gemini AI Intelligent Operations Hub</span>
+              <span>AI Intelligent Operations Hub</span>
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white flex items-center gap-3">
               AI Smart Alerts & Notifications
             </h1>
             <p className="text-slate-300 text-sm max-w-2xl">
-              Autonomous cross-system monitoring across Inventory Stock, Targets, Doctor Visits, Form Submissions, and Collections powered by Google Gemini API.
+              Autonomous cross-system monitoring across Inventory Stock, Targets, Doctor Visits, Form Submissions, and Collections powered by AI Diagnostic Engine.
             </p>
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1">
               {isQuotaExhausted ? (
@@ -341,7 +341,7 @@ export default function AiNotificationsPage() {
               className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white font-bold text-sm shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
             >
               <FaSyncAlt className={`${scanning ? "animate-spin" : ""}`} />
-              <span>{scanning ? "Gemini Scanning CRM..." : "⚡ Run AI System Scan"}</span>
+              <span>{scanning ? "AI Scanning CRM..." : "⚡ Run AI System Scan"}</span>
             </button>
 
             <button
@@ -610,7 +610,7 @@ export default function AiNotificationsPage() {
               <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto">
                 {unreadOnly
                   ? "You have no unread notifications matching this filter."
-                  : "No operational alerts detected. Click 'Run AI System Scan' to conduct a real-time Gemini audit of your inventory, targets, and field submissions."}
+                  : "No operational alerts detected. Click 'Run AI System Scan' to conduct a real-time AI audit of your inventory, targets, and field submissions."}
               </p>
             </div>
             <button
@@ -619,7 +619,7 @@ export default function AiNotificationsPage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 cursor-pointer"
             >
               <FaSyncAlt className={scanning ? "animate-spin" : ""} />
-              <span>Run Instant Gemini Scan</span>
+              <span>Run Instant AI Scan</span>
             </button>
           </div>
         ) : (
@@ -687,7 +687,7 @@ export default function AiNotificationsPage() {
                       {notif.aiGenerated && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 font-semibold text-[10px]">
                           <FaBrain className="text-[9px]" />
-                          Gemini AI
+                          AI Engine
                         </span>
                       )}
 
