@@ -590,6 +590,15 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
         isVisible: true,
         order: 2,
       },
+      {
+        id: "users-assignment",
+        label: "Scope & Hierarchy Assignment",
+        href: "/dashboard/users/assignment",
+        icon: "FaSitemap",
+        permission: "users.view",
+        isVisible: true,
+        order: 3,
+      },
     ],
   },
   {
@@ -840,6 +849,16 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
         id: "customer-list",
         label: "List Customers",
         href: "/dashboard/customers",
+        icon: "FaListUl",
+        permission: "customer.view",
+        isVisible: true,
+        order: 0,
+      },
+
+      {
+        id: "modify-customer",
+        label: "Modify Customers",
+        href: "/dashboard/customers/modify",
         icon: "FaListUl",
         permission: "customer.view",
         isVisible: true,

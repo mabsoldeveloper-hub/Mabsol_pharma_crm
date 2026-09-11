@@ -139,12 +139,12 @@ export default function CustomerOverview({ customer }: Props) {
       {/* ==================== 1. BASIC & ACCOUNT GROUP INFO ==================== */}
       <Section title="Basic & Account Group Info" tone="indigo" icon={<FaInfoCircle size={14} />}>
         <Field label="Party Name" value={show(customer.PARNAM)} />
-        <Field label="Party Code" value={show(customer.CODEP || customer.ORDNO)} copyable />
+        {/* <Field label="Party Code" value={show(customer.CODEP || customer.ORDNO)} copyable />
         <Field label="Group Name" value={show(customer.GROUPNAME)} />
         <Field label="Group Code" value={show(customer.SCODE || customer.GROUPCODE)} />
         <Field label="Main Group" value={show(customer.MAINGROUP)} />
         <Field label="Parent Group" value={show(customer.PARENTGROUP)} />
-        <Field label="Order Number" value={show(customer.ORDNO)} />
+        <Field label="Order Number" value={show(customer.ORDNO)} /> */}
         <Field
           label="Applicable Rate / Price List"
           value={
@@ -153,18 +153,18 @@ export default function CustomerOverview({ customer }: Props) {
                 {String(customer.PRICE).trim().toUpperCase() === "RATEA"
                   ? "Rate A"
                   : String(customer.PRICE).trim().toUpperCase() === "RATEB"
-                  ? "Rate B"
-                  : String(customer.PRICE).trim().toUpperCase() === "RATEC"
-                  ? "Rate C"
-                  : String(customer.PRICE).trim().toUpperCase() === "RATED"
-                  ? "Rate D"
-                  : String(customer.PRICE).trim().toUpperCase() === "RATEE"
-                  ? "Rate E"
-                  : String(customer.PRICE).trim().toUpperCase() === "RATEF"
-                  ? "Rate F (Sale Rate)"
-                  : String(customer.PRICE).trim().toUpperCase() === "RATEG"
-                  ? "Rate G"
-                  : String(customer.PRICE)}
+                    ? "Rate B"
+                    : String(customer.PRICE).trim().toUpperCase() === "RATEC"
+                      ? "Rate C"
+                      : String(customer.PRICE).trim().toUpperCase() === "RATED"
+                        ? "Rate D"
+                        : String(customer.PRICE).trim().toUpperCase() === "RATEE"
+                          ? "Rate E"
+                          : String(customer.PRICE).trim().toUpperCase() === "RATEF"
+                            ? "Rate F (Sale Rate)"
+                            : String(customer.PRICE).trim().toUpperCase() === "RATEG"
+                              ? "Rate G"
+                              : String(customer.PRICE)}
               </span>
             ) : (
               "-"
