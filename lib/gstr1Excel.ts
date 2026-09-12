@@ -54,7 +54,7 @@ const POS_MASTER_MAP: Record<string, string> = {
 const MONTH_ABB = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // Format date to DD-MMM-YYYY (official GST format, e.g. 01-Aug-2026)
-function formatGstDate(rawDate?: string | null): string {
+export function formatGstDate(rawDate?: string | null): string {
     if (!rawDate) return "";
     const clean = String(rawDate).trim();
     // Already DD-MMM-YYYY?
@@ -73,7 +73,7 @@ function formatGstDate(rawDate?: string | null): string {
 }
 
 // Format Place of Supply to official code string (e.g. "09" → "09-Uttar Pradesh")
-function formatPos(pos?: string | null): string {
+export function formatPos(pos?: string | null): string {
     if (!pos) return "";
     const clean = String(pos).trim();
     if (POS_MASTER_MAP[clean]) return POS_MASTER_MAP[clean];
@@ -83,7 +83,7 @@ function formatPos(pos?: string | null): string {
 }
 
 // Map UQC to official GSTR-1 master codes
-function formatUqc(uqc?: string | null): string {
+export function formatUqc(uqc?: string | null): string {
     if (!uqc) return "OTH-OTHERS";
     const u = String(uqc).trim().toUpperCase();
     if (u.includes("-")) return u; // already formatted
