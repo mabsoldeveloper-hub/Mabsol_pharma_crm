@@ -4,7 +4,7 @@ const UserSchema = new mongoose.Schema(
   {
     tenantId: {
       type: String,
-      default: "TENANT001",
+      trim: true,
     },
 
     name: {
@@ -16,6 +16,8 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      trim: true,
+      lowercase: true,
     },
 
     password: {
@@ -33,30 +35,34 @@ const UserSchema = new mongoose.Schema(
       ref: "Role",
     },
 
+    roleName: {
+      type: String,
+      default: "",
+    },
+
     roleType: {
       type: String,
-      enum: ["MR", "RSM", "ZSM", "Admin"],
       default: "MR",
     },
+
+    dashboardType: {
+      type: String,
+      enum: ["salesman", "manager", "admin", "customer", "custom"],
+      default: "salesman",
+    },
+
+    assignedAreaIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AreaMaster",
+    }],
+
+    assignedAreaNames: [{
+      type: String,
+    }],
 
     reportsTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-    },
-
-    zoneCode: {
-      type: String,
-      default: "",
-    },
-
-    regionCode: {
-      type: String,
-      default: "",
-    },
-
-    headquarter: {
-      type: String,
-      default: "",
     },
 
     status: {
@@ -68,6 +74,13 @@ const UserSchema = new mongoose.Schema(
     mobile: {
       type: String,
       default: "",
+      trim: true,
+    },
+
+    gstNo: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     profilePhoto: {
@@ -76,16 +89,6 @@ const UserSchema = new mongoose.Schema(
     },
 
     designation: {
-      type: String,
-      default: "",
-    },
-
-    department: {
-      type: String,
-      default: "",
-    },
-
-    gender: {
       type: String,
       default: "",
     },
@@ -127,10 +130,20 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    termsAccepted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+// Delete cached model in Next.js hot-reload environment so updated schema is always used
+if (mongoose.models.User) {
+  delete (mongoose.models as any).User;
+}
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);

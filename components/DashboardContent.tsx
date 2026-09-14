@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import KPICards from "@/components/KPICards";
 import DashboardCharts, { PurchaseDashboardCharts, CreditDashboardCharts } from "@/components/DashboardCharts";
 import AnalyticsCards from "@/components/AnalyticsCards";
@@ -27,6 +27,8 @@ import {
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
 import { SIDEBAR_PRESET_THEMES, SidebarThemeId } from "@/components/Sidebar";
+import SalesmanDashboard from "@/components/dashboard/SalesmanDashboard";
+import ManagerDashboard from "@/components/dashboard/ManagerDashboard";
 
 type MrTerritoryInfo = {
     isMrRestricted: boolean;
@@ -515,11 +517,35 @@ export default function DashboardContent() {
         };
     }, [speakGreeting]);
 
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [dashboardViewMode, setDashboardViewMode] = useState<"auto" | "executive" | "salesman" | "manager">("auto");
+
+    const effectiveView = useMemo(() => {
+        if (dashboardViewMode !== "auto") return dashboardViewMode;
+        const roleType = (currentUser?.roleType || "").toUpperCase();
+        const roleName = (currentUser?.roleName || "").toLowerCase();
+        if (roleType === "MR" || roleName.includes("sales") || roleName.includes("mr") || mrTerritoryInfo?.isMrRestricted) {
+            return "salesman";
+        }
+        if (roleType === "RSM" || roleType === "ZSM" || roleName.includes("manager") || roleName.includes("rsm") || roleName.includes("zsm")) {
+            return "manager";
+        }
+        return "executive";
+    }, [dashboardViewMode, currentUser, mrTerritoryInfo?.isMrRestricted]);
+
     useEffect(() => {
         setCurrentTime(new Date());
         const timer = setInterval(() => {
             setCurrentTime(new Date());
         }, 1000);
+
+        fetch("/api/auth/me")
+            .then((res) => res.json())
+            .then((d) => {
+                if (d?.user) setCurrentUser(d.user);
+            })
+            .catch(() => {});
+
         return () => clearInterval(timer);
     }, []);
 
@@ -1262,70 +1288,48 @@ export default function DashboardContent() {
                             disabled={refreshing}
                             className="group relative overflow-hidden flex items-center justify-center gap-1 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 transition-all duration-150 text-[10.5px] sm:text-xs font-bold text-white shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                            {/* Animated light-sweep reflection */}
                             <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 pointer-events-none" />
                             <FaSyncAlt size={9.5} className={`text-orange-400 ${refreshing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
                             <span className="whitespace-nowrap">{refreshing ? "Syncing..." : "Refresh"}</span>
                         </button>
+
+                        {/* Role View Mode Selector */}
+                        <div className="relative">
+                            <select
+                                value={dashboardViewMode}
+                                onChange={(e) => setDashboardViewMode(e.target.value as any)}
+                                title="Switch Dashboard View by Role"
+                                aria-label="Switch Dashboard View by Role"
+                                className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-2xl backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 text-[10px] sm:text-[11px] font-bold bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-100 shadow-xs outline-none cursor-pointer hover:border-indigo-400"
+                            >
+                                <option value="auto">Role: {currentUser?.roleName || currentUser?.roleType || "Auto"}</option>
+                                <option value="executive">👑 Executive View</option>
+                                <option value="salesman">💼 Salesman / MR View</option>
+                                <option value="manager">📊 Manager View</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* ==================== MR TERRITORY BANNER ==================== */}
+            {/* ==================== ROLE-BASED DASHBOARD SWITCHER ==================== */}
+            {effectiveView === "salesman" ? (
+                <SalesmanDashboard user={currentUser} selectedCompany={selectedCompany} />
+            ) : effectiveView === "manager" ? (
+                <ManagerDashboard user={currentUser} selectedCompany={selectedCompany} />
+            ) : (
+                <>
+            {/* Territory Restriction Banner for MRs */}
             {mrTerritoryInfo?.isMrRestricted && (
-                <div className="flex items-start gap-2.5 sm:gap-3 rounded-2xl border border-amber-300/60 bg-amber-500/10 backdrop-blur-xl px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-xs">
-                    <div className="flex-shrink-0 mt-0.5">
+                <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+                    <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
                         <FaMapMarkerAlt size={15} className="text-amber-500" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-0.5">Territory Restricted View</p>
                         <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
                             Aap sirf apni assigned territory ka dashboard data dekh sakte hain.
-                            {mrTerritoryInfo.territories.length > 0 && (
-                                <>
-                                    {" "}Assigned:
-                                    {" "}
-                                    {Array.from(
-                                        new Set(
-                                            mrTerritoryInfo.territories.map(
-                                                (t) => t.companyName || t.companyCode
-                                            )
-                                        )
-                                    ).join(", ")}
-                                </>
-                            )}
                         </p>
-                        {mrTerritoryInfo.territories.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                {mrTerritoryInfo.territories.map((t, i) => (
-                                    <span
-                                        key={i}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[10px] font-medium border border-amber-200 dark:border-amber-800"
-                                    >
-                                        <FaBuilding size={8} />
-                                        {t.companyName || t.companyCode}
-                                        {t.divisionName ? (
-                                            <>
-                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
-                                                {t.divisionName}
-                                            </>
-                                        ) : null}
-                                        {t.subDivisionName ? (
-                                            <>
-                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
-                                                {t.subDivisionName}
-                                            </>
-                                        ) : null}
-                                        {t.categoryName ? (
-                                            <>
-                                                {" "}<FaArrowRight size={7} className="opacity-50" />{" "}
-                                                {t.categoryName}
-                                            </>
-                                        ) : null}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
@@ -1460,6 +1464,8 @@ export default function DashboardContent() {
                         <PurchaseDashboardCharts charts={data?.charts} />
                         <AnalyticsCards analytics={data?.analytics} />
                     </div>
+                </>
+            )}
                 </>
             )}
         </div>

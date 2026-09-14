@@ -160,8 +160,8 @@ function ChartCard({
                     <p className="text-xs leading-relaxed text-slate-500">{emptyMessage}</p>
                 </div>
             ) : (
-                <div className="relative h-[220px] sm:h-[260px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="relative h-[220px] sm:h-[260px] w-full min-w-0">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                         {children as any}
                     </ResponsiveContainer>
                 </div>

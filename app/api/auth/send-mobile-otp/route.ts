@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     if (exists) {
       return NextResponse.json({
         success: false,
-        message: "An account with this mobile number already exists. Please sign in.",
+        message: "This mobile number is already registered in the system. Please use a different number or sign in.",
       });
     }
 
