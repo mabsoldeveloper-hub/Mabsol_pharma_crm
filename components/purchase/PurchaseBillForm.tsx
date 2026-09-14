@@ -392,7 +392,7 @@ export default function PurchaseBillForm() {
       setColumns(preset.config);
       try {
         localStorage.setItem("mabsol_purchase_cols_pref", JSON.stringify(preset.config));
-      } catch {}
+      } catch { }
     }
   };
 
@@ -402,7 +402,7 @@ export default function PurchaseBillForm() {
       const next = { ...prev, [key]: !prev[key] };
       try {
         localStorage.setItem("mabsol_purchase_cols_pref", JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
   };
@@ -1024,7 +1024,7 @@ export default function PurchaseBillForm() {
                   setColumns(empty);
                   try {
                     localStorage.setItem("mabsol_purchase_cols_pref", JSON.stringify(empty));
-                  } catch {}
+                  } catch { }
                 }}
                 className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition cursor-pointer"
               >
@@ -1082,11 +1082,10 @@ export default function PurchaseBillForm() {
                         <label
                           key={col.key}
                           title={col.desc}
-                          className={`flex items-start gap-2 text-xs font-medium cursor-pointer select-none p-1.5 rounded-xl border transition ${
-                            active
+                          className={`flex items-start gap-2 text-xs font-medium cursor-pointer select-none p-1.5 rounded-xl border transition ${active
                               ? "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/50 text-amber-950 dark:text-amber-200"
                               : "bg-slate-50/50 dark:bg-slate-900/40 border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-slate-600 dark:text-slate-400"
-                          }`}
+                            }`}
                         >
                           <input
                             type="checkbox"

@@ -971,13 +971,12 @@ export default function PurchaseInvoiceModal({
                   #{billNo}
                 </span>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold ${
-                    paymentStatus === "Paid"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : paymentStatus === "Partial"
+                  className={`px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold ${paymentStatus === "Paid"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : paymentStatus === "Partial"
                       ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                       : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                  }`}
+                    }`}
                 >
                   {paymentStatus}
                 </span>
@@ -1187,13 +1186,12 @@ export default function PurchaseInvoiceModal({
                 <div className="sm:px-1.5 pt-1 sm:pt-0 text-left sm:text-right">
                   <span className="text-slate-400 block font-bold uppercase text-[9px]">Payment Status</span>
                   <span
-                    className={`inline-block px-2 py-0.5 rounded font-black text-[9.5px] uppercase ${
-                      paymentStatus === "Paid"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : paymentStatus === "Partial"
+                    className={`inline-block px-2 py-0.5 rounded font-black text-[9.5px] uppercase ${paymentStatus === "Paid"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : paymentStatus === "Partial"
                         ? "bg-blue-100 text-blue-800"
                         : "bg-rose-100 text-rose-800"
-                    }`}
+                      }`}
                   >
                     {paymentStatus}
                   </span>
