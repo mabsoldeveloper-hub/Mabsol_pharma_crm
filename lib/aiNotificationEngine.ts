@@ -21,7 +21,7 @@ export interface GeneratedAiAlert {
 }
 
 export interface AiApiMeta {
-  tier: "Google Gemini Free Tier" | "Offline Pharma Engine";
+  tier: "AI Cloud Engine" | "Offline Pharma Engine";
   status: "active" | "quota_exhausted" | "key_invalid" | "key_missing";
   model: string;
   isFreeTier: boolean;
@@ -157,9 +157,9 @@ function parseGeminiError(status: number, rawText: string, modelName: string) {
 
   if (status === 429 || lower.includes("resource_exhausted") || lower.includes("quota")) {
     return {
-      title: "Gemini Free Tier Quota Limit Reached (HTTP 429)",
-      message: `Google AI Studio free quota for model "${modelName}" has been temporarily exhausted.`,
-      hint: "Rate limits are ~15 requests/minute. The offline Pharma Rule Engine is currently active.",
+      title: "AI Engine Quota Limit Reached (HTTP 429)",
+      message: `AI Cloud Service quota for model "${modelName}" has been temporarily reached.`,
+      hint: "Requests are paced. The offline Pharma Rule Engine is currently active.",
       status: 429,
       isQuota: true,
     };
@@ -167,17 +167,17 @@ function parseGeminiError(status: number, rawText: string, modelName: string) {
 
   if (status === 403 || status === 401 || lower.includes("api_key_invalid") || lower.includes("api key not valid")) {
     return {
-      title: "Gemini API Key Authentication Failed (HTTP 403/401)",
-      message: "The GEMINI_API_KEY in your .env file is either invalid, unauthorized, or expired.",
-      hint: "Please generate a new free key at aistudio.google.com and update GEMINI_API_KEY in .env.",
+      title: "AI API Key Authentication Failed (HTTP 403/401)",
+      message: "The AI API key in your .env file is either invalid, unauthorized, or expired.",
+      hint: "Please update your AI API key in .env.",
       status: status || 403,
       isQuota: false,
     };
   }
 
   return {
-    title: `Gemini API Error (HTTP ${status})`,
-    message: parsedMessage || "Failed to communicate with Google Gemini API.",
+    title: `AI Service Error (HTTP ${status})`,
+    message: parsedMessage || "Failed to communicate with AI Cloud Service.",
     hint: "Switched to built-in Pharma Rule Engine.",
     status,
     isQuota: false,
@@ -199,56 +199,56 @@ export function getGeminiApiStatus(lastErrorMeta?: any, activeModel?: string): A
       isQuotaExhausted: false,
       alertBanner: {
         type: "warning",
-        title: "🔑 GEMINI_API_KEY Missing in Server Config (.env)",
+        title: "🔑 AI API Key Missing in Server Config (.env)",
         message: "Your CRM is operating on the built-in Pharma Heuristic Engine. All basic operational alerts remain fully functional.",
-        hint: "To unlock live Gemini 2.5 Flash operational intelligence, get a free key at aistudio.google.com and add GEMINI_API_KEY in .env.",
+        hint: "To unlock live operational intelligence, configure your AI API key in .env.",
       },
     };
   }
 
   if (lastErrorMeta?.isQuota || lastErrorMeta?.status === 429) {
     return {
-      tier: "Google Gemini Free Tier",
+      tier: "AI Cloud Engine",
       status: "quota_exhausted",
       model: "Rule-Based Pharma Engine (Active Fallback)",
       isFreeTier: true,
       isQuotaExhausted: true,
       alertBanner: {
         type: "warning",
-        title: "⚠️ Gemini Free Tier Quota Exhausted / Rate-Limited (HTTP 429)",
-        message: "Google AI Studio free tier limit reached (approx. 15 req/min). Don't worry, your CRM has automatically switched to the Built-in Pharma Rule Engine.",
-        hint: "Free quota automatically resets every minute or daily. Notifications will resume using Gemini 2.5 Flash once quota clears.",
+        title: "⚠️ AI Engine Quota Rate-Limited (HTTP 429)",
+        message: "AI service limit reached. Don't worry, your CRM has automatically switched to the Built-in Pharma Rule Engine.",
+        hint: "Quota automatically resets. Notifications will resume once cleared.",
       },
     };
   }
 
   if (lastErrorMeta?.status === 403 || lastErrorMeta?.status === 401) {
     return {
-      tier: "Google Gemini Free Tier",
+      tier: "AI Cloud Engine",
       status: "key_invalid",
       model: "Rule-Based Pharma Engine (Active Fallback)",
       isFreeTier: true,
       isQuotaExhausted: false,
       alertBanner: {
         type: "error",
-        title: "🔒 Gemini API Key Unauthorized / Expired",
-        message: "Google AI Studio rejected the configured GEMINI_API_KEY. Built-in Pharma Rule Engine is currently handling alerts.",
-        hint: "Generate a new free key at aistudio.google.com and update GEMINI_API_KEY in your .env file.",
+        title: "🔒 AI API Key Unauthorized / Expired",
+        message: "AI Service rejected the configured API key. Built-in Pharma Rule Engine is currently handling alerts.",
+        hint: "Please update your AI API key in your .env file.",
       },
     };
   }
 
   return {
-    tier: "Google Gemini Free Tier",
+    tier: "AI Cloud Engine",
     status: "active",
-    model: activeModel || "gemini-2.5-flash",
+    model: activeModel || "AI Smart Engine",
     isFreeTier: true,
     isQuotaExhausted: false,
     alertBanner: {
       type: "info",
-      title: `⚡ Google Gemini Free Tier Active (${activeModel || "gemini-2.5-flash"})`,
-      message: "Live AI operational anomaly detection & risk assessment is active on the Google Gemini Free Tier.",
-      hint: "Automatic Fallback Guard: If Google free quota exhausts, the built-in offline Pharma Rule Engine takes over automatically without interrupting operations.",
+      title: `⚡ Live AI Engine Active`,
+      message: "Live AI operational anomaly detection & risk assessment is active.",
+      hint: "Automatic Fallback Guard: If AI service is busy, the built-in offline Pharma Rule Engine takes over automatically without interrupting operations.",
     },
   };
 }

@@ -26,6 +26,7 @@ export async function GET() {
     const users = await User.find(query)
       .populate("companyId", "companyName")
       .populate("roleId", "roleName")
+      .populate("reportsTo", "name email employeeCode roleType")
       .sort({ createdAt: -1 })
       .lean();
 

@@ -243,11 +243,11 @@ export default function AiFormStudioModal({
                     Form Studio AI Assistant
                   </h3>
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/20">
-                    Google Gemini AI
+                    Enterprise AI
                   </span>
                 </div>
                 <p className="text-xs text-purple-100 mt-0.5 line-clamp-1 sm:line-clamp-none">
-                  Architect complete enterprise forms in seconds using Google Gemini
+                  Architect complete enterprise forms in seconds using AI
                 </p>
               </div>
             </div>
@@ -304,7 +304,7 @@ export default function AiFormStudioModal({
                   disabled={generating}
                   className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100/50 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
                 >
-                  <FaRedo className="text-xs" /> Retry with Gemini (Wait a bit)
+                  <FaRedo className="text-xs" /> Retry with AI (Wait a bit)
                 </button>
               </div>
             </div>
@@ -343,11 +343,11 @@ export default function AiFormStudioModal({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <FaMicrochip className="text-violet-600 dark:text-violet-400" />
-                Gemini Model Selector
+                AI Model Architecture Selector
               </label>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Google AI Studio (Free Tier Active)</span>
+                <span>AI Neural Engine Active</span>
               </div>
             </div>
 
