@@ -6,15 +6,44 @@ import VfpConfig from "@/models/VfpConfig";
 import fs from "fs";
 import path from "path";
 
+import jwt from "jsonwebtoken";
+import User from "@/models/User";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
-    const user = await getCurrentUser();
+    let user = await getCurrentUser();
+
+    // Support Desktop Agent authentication via Bearer token or License Key headers
     if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      const authHeader = request.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.substring(7);
+          const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
+          if (payload && payload.id) {
+            user = await User.findById(payload.id);
+          }
+        } catch {}
+      }
+    }
+
+    if (!user) {
+      const licenseKey = request.headers.get("x-license-key");
+      const agentEmail = request.headers.get("x-agent-email");
+      if (licenseKey && agentEmail) {
+        const config = await VfpConfig.findOne({ email: agentEmail, license: licenseKey });
+        if (config) {
+          user = await User.findOne({ email: agentEmail });
+        }
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized. Please login or provide a valid agent token." }, { status: 401 });
     }
 
     const formData = await request.formData();
@@ -76,12 +105,23 @@ export async function POST(request: NextRequest) {
       { upsert: true }
     );
 
+    const isFinalBatch = formData.get("isFinalBatch") !== "false";
+
+    if (!isFinalBatch) {
+      return NextResponse.json({
+        success: true,
+        batchComplete: true,
+        uploadedCount: uploadedFileNames.length,
+        message: `Staged ${uploadedFileNames.length} table(s) on server.`,
+      });
+    }
+
     // Run direct DBF sync on server using newly uploaded files
     const syncResult = await performDirectServerSync(user.email);
 
     return NextResponse.json({
       success: true,
-      message: `Uploaded ${uploadedFileNames.length} file(s) to server & synced successfully! Synced ${syncResult.importedTables} table(s), ${syncResult.importedRows} row(s).`,
+      message: `Uploaded ${allUploadDbfFiles.length} table(s) to server & synced successfully! Synced ${syncResult.importedTables} table(s), ${syncResult.importedRows} row(s).`,
       result: syncResult,
       uploadedFileNames,
     });

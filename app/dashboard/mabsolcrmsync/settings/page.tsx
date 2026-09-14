@@ -19,6 +19,9 @@ import {
   Zap,
   FolderCheck,
   Power,
+  Download,
+  ShieldCheck,
+  Laptop,
 } from "lucide-react";
 
 interface VfpSettingLogEntry {
@@ -854,66 +857,58 @@ export default function VfpSettingsPage() {
 
             <hr className="border-slate-100" />
 
-            {/* Server Path Targets */}
-            <div className="space-y-1.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Pre-Configured Server Target Paths (Read-Only)
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                <div className="space-y-0.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-bold text-slate-500 text-[11px]">Sync Executable</label>
-                    <span className="font-mono text-teal-700 text-[10px]">Binary</span>
+            {/* Desktop Sync Agent (EXE) Section */}
+            <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/60 via-slate-50/50 to-white p-4 sm:p-5 shadow-2xs space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-white shadow-xs shrink-0">
+                    <Laptop size={20} />
                   </div>
-                  <input
-                    type="text"
-                    disabled
-                    style={{ borderRadius: "9999px" }}
-                    value={form.vfpExePath || "/home/vfpuser/MabsolEXE/MabsolCRM.exe"}
-                    className="w-full bg-slate-100/80 border border-slate-200 px-3 py-1.5 text-xs font-mono text-slate-600 cursor-not-allowed"
-                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm sm:text-base font-bold text-slate-800">
+                        Desktop Sync Agent (EXE)
+                      </h3>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-teal-100/80 px-2 py-0.5 text-[10px] font-bold text-teal-800">
+                        Inbuilt FoxPro Engine
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Standalone Windows application with automated decryption, OTP 2-factor login, and auto-sync on internet reconnect.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-0.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-bold text-slate-500 text-[11px]">PRG Decrypt Script</label>
-                    <span className="font-mono text-teal-700 text-[10px]">Script</span>
+                <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800 shrink-0">
+                  <span className="h-2 w-2 rounded-full bg-teal-500 animate-pulse"></span>
+                  <span>Standalone Agent (dist-electron)</span>
+                </div>
+              </div>
+
+              {/* Security & Feature Badges */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <div className="flex items-start gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-3xs">
+                  <ShieldCheck size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                  <div className="text-[11px]">
+                    <strong className="text-slate-800 block">Real-time Auto-Purge</strong>
+                    <span className="text-slate-500"><code>efWin11.fll</code> is securely deleted immediately after each extraction.</span>
                   </div>
-                  <input
-                    type="text"
-                    disabled
-                    style={{ borderRadius: "9999px" }}
-                    value={form.prgPath || "/home/vfpuser/MabsolPRG/7.PRG"}
-                    className="w-full bg-slate-100/80 border border-slate-200 px-3 py-1.5 text-xs font-mono text-slate-600 cursor-not-allowed"
-                  />
                 </div>
 
-                <div className="space-y-0.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-bold text-slate-500 text-[11px]">Source Folder (Raw Marg Data)</label>
-                    <span className="font-mono text-teal-700 text-[10px]">Input</span>
+                <div className="flex items-start gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-3xs">
+                  <RefreshCw size={16} className="text-teal-600 mt-0.5 shrink-0" />
+                  <div className="text-[11px]">
+                    <strong className="text-slate-800 block">Offline Resilient</strong>
+                    <span className="text-slate-500">Decrypts without internet; auto-uploads to cloud as soon as connection is restored.</span>
                   </div>
-                  <input
-                    type="text"
-                    disabled
-                    style={{ borderRadius: "9999px" }}
-                    value={form.sourceDir || "/home/vfpuser/MabsolData"}
-                    className="w-full bg-slate-100/80 border border-slate-200 px-3 py-1.5 text-xs font-mono text-slate-600 cursor-not-allowed"
-                  />
                 </div>
 
-                <div className="space-y-0.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-bold text-slate-500 text-[11px]">Destination Folder (Decrypted DBF)</label>
-                    <span className="font-mono text-teal-700 text-[10px]">Output</span>
+                <div className="flex items-start gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-3xs">
+                  <Key size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                  <div className="text-[11px]">
+                    <strong className="text-slate-800 block">2-Factor Authentication</strong>
+                    <span className="text-slate-500">Sign in securely to the desktop app with your CRM Email, Password & 6-digit OTP.</span>
                   </div>
-                  <input
-                    type="text"
-                    disabled
-                    style={{ borderRadius: "9999px" }}
-                    value={form.dataDir || "/home/vfpuser/MabsolSyncData"}
-                    className="w-full bg-slate-100/80 border border-slate-200 px-3 py-1.5 text-xs font-mono text-slate-600 cursor-not-allowed"
-                  />
                 </div>
               </div>
             </div>

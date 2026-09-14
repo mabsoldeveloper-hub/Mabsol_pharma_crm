@@ -3,21 +3,43 @@ import connectDB from "@/lib/mongodb";
 import { getCurrentUser } from "@/lib/auth";
 import Otp from "@/models/Otp";
 
+import jwt from "jsonwebtoken";
+import User from "@/models/User";
+
 export async function POST(req: Request) {
   try {
     await connectDB();
 
-    const currentUser = await getCurrentUser();
-    if (!currentUser || !currentUser.email) {
+    const body = await req.json().catch(() => ({}));
+    const { otp } = body;
+
+    let currentUser = await getCurrentUser();
+    let email = currentUser?.email || "";
+
+    if (!email) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.substring(7);
+          const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
+          if (payload && payload.id) {
+            currentUser = await User.findById(payload.id);
+            email = currentUser?.email || "";
+          }
+        } catch {}
+      }
+    }
+
+    if (!email && body.email) {
+      email = body.email.toLowerCase().trim();
+    }
+
+    if (!email) {
       return NextResponse.json(
         { success: false, message: "Unauthorized. Please log in first." },
         { status: 401 }
       );
     }
-
-    const email = currentUser.email;
-    const body = await req.json().catch(() => ({}));
-    const { otp } = body;
 
     if (!otp) {
       return NextResponse.json(
