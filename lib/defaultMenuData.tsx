@@ -430,6 +430,15 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
         order: 1,
       },
       {
+        id: "accounting-group",
+        label: "MR MASTER",
+        href: "/dashboard/master/mr-creation",
+        icon: "FaLayerGroup",
+        permission: "master.view",
+        isVisible: true,
+        order: 1,
+      },
+      {
         id: "master-customer",
         label: "Ledger Master",
         href: "/dashboard/master/customer-master",
