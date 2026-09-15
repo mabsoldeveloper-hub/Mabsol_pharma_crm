@@ -469,7 +469,7 @@ export async function POST(req: Request) {
     if (apiKey && base64Data) {
       let lastErrorMessage = "";
       try {
-        const promptText = `You are a world-class AI pharmaceutical invoice & Goods Receipt Note parser for Indian pharma ERP systems (Marg ERP, Tally, Busy, Vyapar).
+        const promptText = `You are a world-class AI pharmaceutical invoice & Goods Receipt Note parser for Indian pharma ERP systems (MabsolCRM ERP, Tally, Busy, Vyapar).
 
 Your task is to parse ANY pharmaceutical purchase bill document (PDF or Image), including Wholesale GST Invoices, Tax Invoices, Delivery Challans, and GRNs.
 

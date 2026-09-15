@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   resendOtp: (payload) => ipcRenderer.invoke("auth:resend-otp", payload),
   checkSession: () => ipcRenderer.invoke("auth:check-session"),
   logout: () => ipcRenderer.invoke("auth:logout"),
-  sendEditOtp: () => ipcRenderer.invoke("auth:send-edit-otp"),
+  sendEditOtp: (payload) => ipcRenderer.invoke("auth:send-edit-otp", payload),
   verifyEditOtp: (payload) => ipcRenderer.invoke("auth:verify-edit-otp", payload),
 
   // Config

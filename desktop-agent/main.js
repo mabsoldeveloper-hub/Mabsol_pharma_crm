@@ -17,7 +17,7 @@ const CONFIG_PATH = path.join(USER_DATA_DIR, "mabsol_sync_config.json");
 const SESSION_PATH = path.join(USER_DATA_DIR, "mabsol_auth_session.json");
 const QUEUE_PATH = path.join(USER_DATA_DIR, "mabsol_sync_queue.json");
 
-// Engine directory (contains MabsolCRM.EXE, efWin11.fll, vfp9*.dll)
+// Engine directory (contains MabsolCRM.EXE, security core, and dependencies)
 const ENGINE_DIR = app.isPackaged
   ? path.join(process.resourcesPath, "engine")
   : path.join(__dirname, "engine");
@@ -29,9 +29,9 @@ function loadConfig() {
   const defaults = {
     cloudUrl: "https://phcrm.mabsolinfotech.cloud",
     companyName: "",
-    companyCode: "A01",
+    companyCode: "E10",
     sourceDir: "",
-    destDir: path.join(app.getPath("documents"), "MabsolSync", "DecryptedDBF"),
+    destDir: path.join(USER_DATA_DIR, "staging"),
     autoSync: false,
     intervalMins: 10,
     licenseKey: ""
@@ -208,34 +208,58 @@ ipcMain.handle("auth:login", async (_event, { cloudUrl, email, password }) => {
   }
 });
 
+function isTokenExpired(token) {
+  if (!token || typeof token !== "string") return true;
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
+    const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf8"));
+    if (!payload.exp) return false;
+    return (payload.exp * 1000) < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 ipcMain.handle("auth:verify-otp", async (_event, { cloudUrl, email, otp }) => {
   try {
     emitLog("info", "Verifying 6-digit OTP code...");
     const cleanUrl = cloudUrl.replace(/\/+$/, "");
-    const res = await axios.post(`${cleanUrl}/api/auth/verify-otp`, { email, otp }, { timeout: 15000 });
+    const res = await axios.post(`${cleanUrl}/api/auth/verify-otp`, { email, otp, isDesktopAgent: true }, { timeout: 15000 });
 
     if (res.data && res.data.success) {
-      // Extract auth cookie if provided in response headers
-      let token = "";
-      const setCookies = res.headers["set-cookie"];
-      if (Array.isArray(setCookies)) {
-        for (const c of setCookies) {
-          if (c.startsWith("token=")) {
-            token = c.split(";")[0].replace("token=", "");
-            break;
+      // Extract auth token from JSON body or from set-cookie headers
+      let token = res.data.token || "";
+      if (!token) {
+        const setCookies = res.headers["set-cookie"];
+        if (Array.isArray(setCookies)) {
+          for (const c of setCookies) {
+            const match = c.match(/token=([^;]+)/);
+            if (match) {
+              token = match[1];
+              break;
+            }
           }
         }
       }
 
+      const verifiedEmail = email || res.data.user?.email || "";
       const session = {
         user: res.data.user,
-        email,
+        email: verifiedEmail,
         token,
         cloudUrl: cleanUrl,
         loggedInAt: new Date().toISOString()
       };
       saveSession(session);
-      emitLog("success", `Login verified! Welcome, ${res.data.user?.name || email}`);
+
+      // Also persist userEmail into config so it is always preserved across runs
+      const cfg = loadConfig();
+      cfg.userEmail = verifiedEmail;
+      cfg.cloudUrl = cleanUrl;
+      saveConfig(cfg);
+
+      emitLog("success", `Login verified! Welcome, ${res.data.user?.name || verifiedEmail}`);
       return { success: true, user: res.data.user, session };
     } else {
       const msg = res.data?.message || "Invalid or expired OTP.";
@@ -252,6 +276,14 @@ ipcMain.handle("auth:verify-otp", async (_event, { cloudUrl, email, otp }) => {
 ipcMain.handle("auth:check-session", async () => {
   const session = loadSession();
   if (!session || !session.user) return { authenticated: false };
+  if (isTokenExpired(session.token)) {
+    emitLog("warn", "Cloud session token has expired. Re-authentication available.");
+    return {
+      authenticated: false,
+      sessionExpired: true,
+      email: session.email || session.user?.email || ""
+    };
+  }
   return { authenticated: true, session };
 });
 
@@ -261,24 +293,37 @@ ipcMain.handle("auth:logout", async () => {
   return { success: true };
 });
 
-ipcMain.handle("auth:send-edit-otp", async () => {
+ipcMain.handle("auth:send-edit-otp", async (_event, data) => {
   const session = loadSession();
   const config = loadConfig();
-  const cloudUrl = (session?.cloudUrl || config.cloudUrl || "https://phcrm.mabsolinfotech.cloud").replace(/\/+$/, "");
-  const email = session?.email || config.userEmail || "";
+  const cloudUrl = (data?.cloudUrl || session?.cloudUrl || config.cloudUrl || "https://phcrm.mabsolinfotech.cloud").replace(/\/+$/, "");
+  const email = (data?.email || session?.email || session?.user?.email || config.userEmail || "").trim();
   const token = session?.token || "";
 
+  if (!email) {
+    const msg = "No logged-in account email found. Please login to verify settings edit.";
+    emitLog("error", msg);
+    return { success: false, unauthorized: true, message: msg };
+  }
+
+  // If token is known to be expired, indicate unauthorized so UI can offer password verification
+  if (token && isTokenExpired(token)) {
+    const msg = "Your cloud session has expired. Please verify with your password to unlock settings.";
+    emitLog("warn", msg);
+    return { success: false, unauthorized: true, message: msg, email };
+  }
+
   try {
-    emitLog("info", "Sending settings unlock security code to email...");
+    emitLog("info", `Sending settings edit verification code to ${email}...`);
+    const headers = {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "x-agent-email": email
+    };
+
     const res = await axios.post(
       `${cloudUrl}/api/mabsolcrmsync/send-otp`,
       { email },
-      {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        timeout: 12000
-      }
+      { headers, timeout: 15000 }
     );
     if (res.data && res.data.success) {
       emitLog("info", `Security verification code sent to ${email}`);
@@ -287,29 +332,35 @@ ipcMain.handle("auth:send-edit-otp", async () => {
     return { success: false, message: res.data?.message || "Failed to send verification code." };
   } catch (err) {
     const msg = err.response?.data?.message || err.message;
-    emitLog("error", `Security verification request error: ${msg}`);
-    return { success: false, message: msg };
+    const isUnauthorized = err.response?.status === 401 || (typeof msg === "string" && msg.toLowerCase().includes("unauthorized"));
+    emitLog("error", `Security verification request notice: ${msg}`);
+    return { success: false, unauthorized: isUnauthorized, message: msg, email };
   }
 });
 
-ipcMain.handle("auth:verify-edit-otp", async (_event, { otp }) => {
+ipcMain.handle("auth:verify-edit-otp", async (_event, data) => {
   const session = loadSession();
   const config = loadConfig();
-  const cloudUrl = (session?.cloudUrl || config.cloudUrl || "https://phcrm.mabsolinfotech.cloud").replace(/\/+$/, "");
-  const email = session?.email || config.userEmail || "";
+  const otp = String(data?.otp || "").trim();
+  const cloudUrl = (data?.cloudUrl || session?.cloudUrl || config.cloudUrl || "https://phcrm.mabsolinfotech.cloud").replace(/\/+$/, "");
+  const email = (data?.email || session?.email || session?.user?.email || config.userEmail || "").trim();
   const token = session?.token || "";
+
+  if (!otp) {
+    return { success: false, message: "Please enter the 6-digit verification code." };
+  }
 
   try {
     emitLog("info", "Verifying security unlock code...");
+    const headers = {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "x-agent-email": email
+    };
+
     const res = await axios.post(
       `${cloudUrl}/api/mabsolcrmsync/verify-otp`,
       { email, otp },
-      {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        timeout: 12000
-      }
+      { headers, timeout: 15000 }
     );
     if (res.data && res.data.success) {
       emitLog("success", "Settings unlocked! You may now edit the configuration.");
@@ -318,8 +369,9 @@ ipcMain.handle("auth:verify-edit-otp", async (_event, { otp }) => {
     return { success: false, message: res.data?.message || "Invalid or expired security code." };
   } catch (err) {
     const msg = err.response?.data?.message || err.message;
+    const isUnauthorized = err.response?.status === 401 || (typeof msg === "string" && msg.toLowerCase().includes("unauthorized"));
     emitLog("error", `Settings unlock error: ${msg}`);
-    return { success: false, message: msg };
+    return { success: false, unauthorized: isUnauthorized, message: msg };
   }
 });
 
@@ -376,11 +428,15 @@ async function executeDecryptionAndSync(triggerReason = "manual") {
 
   const config = loadConfig();
   const session = loadSession();
-  const companyCode = (config.companyCode || "A01").trim().toUpperCase();
-  const sourceDir = config.sourceDir;
-  const destDir = config.destDir;
+  const rawCodes = (config.companyCode || "E10").trim();
+  const companyCodes = rawCodes.split(/[,\s;]+/).map(c => c.trim().toUpperCase()).filter(Boolean);
+  if (companyCodes.length === 0) companyCodes.push("E10");
 
-  emitLog("info", `=== Starting Secure Data Extraction & Sync (Code: ${companyCode}, Trigger: ${triggerReason}) ===`);
+  const sourceDir = config.sourceDir;
+  // Destination staging folder is internal and automated! No need to configure manually.
+  const baseStagingDir = config.destDir || path.join(USER_DATA_DIR, "staging");
+
+  emitLog("info", `=== Starting Secure Extraction & Cloud Sync (Companies: [${companyCodes.join(", ")}], Trigger: ${triggerReason}) ===`);
 
   if (!sourceDir || !fs.existsSync(sourceDir)) {
     const msg = `Source folder does not exist: ${sourceDir || "(not set)"}`;
@@ -390,18 +446,10 @@ async function executeDecryptionAndSync(triggerReason = "manual") {
     return { success: false, message: msg };
   }
 
-  if (!destDir) {
-    const msg = "Destination folder is not set.";
-    emitLog("error", msg);
-    isSyncing = false;
-    emitStatus({ isSyncing: false, error: msg });
-    return { success: false, message: msg };
-  }
-
   try {
-    fs.mkdirSync(destDir, { recursive: true });
+    fs.mkdirSync(baseStagingDir, { recursive: true });
   } catch (e) {
-    const msg = `Failed to create destination folder: ${e.message}`;
+    const msg = `Failed to create internal staging folder: ${e.message}`;
     emitLog("error", msg);
     isSyncing = false;
     emitStatus({ isSyncing: false, error: msg });
@@ -428,178 +476,6 @@ async function executeDecryptionAndSync(triggerReason = "manual") {
     return { success: false, message: msg };
   }
 
-  // 1. Scan source directory for files matching .<compcode>
-  const sourceFiles = fs.readdirSync(sourceDir);
-  const codeExt = `.${companyCode.toLowerCase()}`;
-  const matchingFiles = sourceFiles.filter((f) => f.toLowerCase().endsWith(codeExt));
-
-  emitLog("info", `Found ${matchingFiles.length} encrypted record file(s) for code [${companyCode}]`);
-
-  if (matchingFiles.length === 0) {
-    emitLog("warn", `No encrypted records found for company code [${companyCode}].`);
-  }
-
-  // Standard table stems
-  const knownTables = [
-    "PRO", "GLEDGER", "DIS", "SUBDIS", "MDIS", "PROBAT", "GLMONTH",
-    "PEND", "PENDINGS", "RATE", "MAORDER", "SUPPORT", "ORDER", "SALETYPE", "MDOC"
-  ];
-  
-  // Combine detected tables with known tables
-  const tablesSet = new Set(knownTables.map(t => t.toUpperCase()));
-  matchingFiles.forEach((file) => {
-    const stem = file.substring(0, file.lastIndexOf(".")).toUpperCase();
-    tablesSet.add(stem);
-  });
-  const allTables = Array.from(tablesSet);
-
-  // 2. Prepare destination: Copy core library into destDir temporarily for extraction
-  const destFllPath = path.join(destDir, "efWin11.fll");
-  try {
-    fs.copyFileSync(engineFllPath, destFllPath);
-    emitLog("info", "Initialized secure extraction core in working directory...");
-  } catch (copyErr) {
-    const msg = `Could not initialize extraction library: ${copyErr.message}`;
-    emitLog("error", msg);
-    isSyncing = false;
-    emitStatus({ isSyncing: false, error: msg });
-    return { success: false, message: msg };
-  }
-
-  // 3. Copy matching encrypted files into destDir
-  for (const file of matchingFiles) {
-    try {
-      const srcPath = path.join(sourceDir, file);
-      const dstPath = path.join(destDir, file);
-      fs.copyFileSync(srcPath, dstPath);
-    } catch (fErr) {
-      emitLog("warn", `Skipped copy for ${file}: ${fErr.message}`);
-    }
-  }
-
-  // 4. Generate dynamic, headless extraction script (guaranteed zero window rendering)
-  const prgPath = path.join(destDir, "mabsol_core.prg");
-  const fpwPath = path.join(destDir, "mabsol_core.fpw");
-
-  let decryptScript = 
-    `_SCREEN.Visible = .F.\r\n` +
-    `_SCREEN.WindowState = 1\r\n` +
-    `_SCREEN.Caption = ""\r\n` +
-    `CLOSE ALL\r\n` +
-    `CLEAR\r\n` +
-    `SET SAFETY OFF\r\n` +
-    `SET CENTURY ON\r\n` +
-    `SET DATE BRITISH\r\n` +
-    `SET EXCLUSIVE OFF\r\n` +
-    `SET TALK OFF\r\n` +
-    `SET DELETED ON\r\n\r\n` +
-    `LOCAL destpath, libpath, compcode, tbl, srcfile, outdbf\r\n` +
-    `compcode = "${companyCode}"\r\n` +
-    `destpath = "${destDir.replace(/\\/g, "\\\\")}"\r\n` +
-    `SET DEFAULT TO (destpath)\r\n\r\n` +
-    `libpath = destpath + "\\\\efWin11.fll"\r\n` +
-    `IF FILE(libpath)\r\n` +
-    `    SET LIBRARY TO (libpath) ADDITIVE\r\n` +
-    `ENDIF\r\n\r\n`;
-
-  for (const tbl of allTables) {
-    decryptScript += 
-      `tbl = "${tbl}"\r\n` +
-      `srcfile = tbl + "." + compcode\r\n` +
-      `outdbf = tbl + "_" + compcode + ".DBF"\r\n` +
-      `IF FILE(srcfile)\r\n` +
-      `    TRY\r\n` +
-      `        = efwdecrypt(srcfile, "THYFGXWREZBDCVAS")\r\n` +
-      `        SELECT * FROM (srcfile) INTO CURSOR curdata READWRITE\r\n` +
-      `        IF RECCOUNT("curdata") > 0\r\n` +
-      `            SELECT curdata\r\n` +
-      `            COPY TO (outdbf) TYPE FOX2X\r\n` +
-      `        ENDIF\r\n` +
-      `        USE IN curdata\r\n` +
-      `    CATCH\r\n` +
-      `    ENDTRY\r\n` +
-      `    IF FILE(srcfile)\r\n` +
-      `        TRY\r\n` +
-      `            DELETE FILE (srcfile)\r\n` +
-      `        CATCH\r\n` +
-      `        ENDTRY\r\n` +
-      `    ENDIF\r\n` +
-      `ENDIF\r\n\r\n`;
-  }
-
-  decryptScript +=
-    `SET LIBRARY TO\r\n` +
-    `CLOSE ALL\r\n` +
-    `QUIT\r\n`;
-
-  // SCREEN = OFF MUST be the very first line of config.fpw to suppress window creation
-  const fpwContent =
-    `SCREEN = OFF\r\n` +
-    `TITLE = \r\n` +
-    `RESOURCE = OFF\r\n` +
-    `STATUS = OFF\r\n` +
-    `TALK = OFF\r\n` +
-    `COMMAND = DO "${prgPath}"\r\n`;
-
-  fs.writeFileSync(prgPath, decryptScript, "utf8");
-  fs.writeFileSync(fpwPath, fpwContent, "utf8");
-
-  emitLog("info", "Executing secure extraction engine in background...");
-
-  // 5. Run MabsolCRM.EXE with -t (suppress splash window) and hidden window
-  let decryptSuccess = false;
-  try {
-    await new Promise((resolve, reject) => {
-      const engineProcess = spawn(engineBinaryPath, ["-t", `-c${fpwPath}`], {
-        cwd: destDir,
-        stdio: "ignore",
-        windowsHide: true,
-        detached: false
-      });
-
-      const timer = setTimeout(() => {
-        try { engineProcess.kill(); } catch {}
-        resolve(); // Continue on timeout
-      }, 45000);
-
-      engineProcess.on("close", () => {
-        clearTimeout(timer);
-        decryptSuccess = true;
-        resolve();
-      });
-
-      engineProcess.on("error", (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
-  } catch (runErr) {
-    emitLog("error", `Extraction execution error: ${runErr.message}`);
-  } finally {
-    // 6. CRITICAL REQUIREMENT: Real-time deletion of extraction library
-    try {
-      if (fs.existsSync(destFllPath)) {
-        fs.unlinkSync(destFllPath);
-        emitLog("security", "CONFIRMED: Security core library purged in real-time.");
-      }
-    } catch (cleanErr) {
-      emitLog("warn", `Security core cleanup notice: ${cleanErr.message}`);
-    }
-
-    // Clean up temporary script files
-    const fxpPath = prgPath.replace(/\.prg$/i, ".fxp");
-    try { if (fs.existsSync(prgPath)) fs.unlinkSync(prgPath); } catch {}
-    try { if (fs.existsSync(fpwPath)) fs.unlinkSync(fpwPath); } catch {}
-    try { if (fs.existsSync(fxpPath)) fs.unlinkSync(fxpPath); } catch {}
-    try { if (fs.existsSync(bakPath)) fs.unlinkSync(bakPath); } catch {}
-  }
-
-  // 7. Check generated DBF files
-  const destFiles = fs.readdirSync(destDir);
-  const dbfFiles = destFiles.filter(f => f.toLowerCase().endsWith(".dbf"));
-  emitLog("success", `Data extraction completed. Found ${dbfFiles.length} database table(s) ready for synchronization.`);
-
-  // 8. Offline vs Online Database Sync
   const cloudUrl = (session?.cloudUrl || config.cloudUrl || "https://phcrm.mabsolinfotech.cloud").replace(/\/+$/, "");
   const authToken = session?.token || "";
   const userEmail = session?.email || config.userEmail || "";
@@ -608,55 +484,237 @@ async function executeDecryptionAndSync(triggerReason = "manual") {
   const isCloudReachable = await checkConnectivity(cloudUrl);
   emitNetwork(isCloudReachable);
 
+  let totalUploadedTables = 0;
+  const summaryMessages = [];
+
+  for (const compCode of companyCodes) {
+    emitLog("info", `--------------------------------------------------`);
+    emitLog("info", `Processing company data for code [${compCode}]...`);
+    const compDestDir = path.join(baseStagingDir, compCode);
+    try {
+      fs.mkdirSync(compDestDir, { recursive: true });
+    } catch (e) {
+      emitLog("error", `Could not create staging folder for [${compCode}]: ${e.message}`);
+      continue;
+    }
+
+    // 1. Scan source directory for files matching .<compCode>
+    const sourceFiles = fs.readdirSync(sourceDir);
+    const codeExt = `.${compCode.toLowerCase()}`;
+    const matchingFiles = sourceFiles.filter((f) => f.toLowerCase().endsWith(codeExt));
+
+    emitLog("info", `Found ${matchingFiles.length} encrypted record file(s) for company [${compCode}]`);
+
+    if (matchingFiles.length === 0) {
+      emitLog("warn", `No encrypted records found matching .${compCode} in source folder.`);
+      continue;
+    }
+
+    // Standard table stems
+    const knownTables = [
+      "PRO", "GLEDGER", "DIS", "SUBDIS", "MDIS", "PROBAT", "GLMONTH",
+      "PEND", "PENDINGS", "RATE", "MAORDER", "SUPPORT", "ORDER", "SALETYPE", "MDOC"
+    ];
+
+    const tablesSet = new Set(knownTables.map(t => t.toUpperCase()));
+    matchingFiles.forEach((file) => {
+      const stem = file.substring(0, file.lastIndexOf(".")).toUpperCase();
+      tablesSet.add(stem);
+    });
+    const allTables = Array.from(tablesSet);
+
+    // 2. Prepare destination: Copy core library into compDestDir
+    const destFllPath = path.join(compDestDir, "efWin11.fll");
+    try {
+      fs.copyFileSync(engineFllPath, destFllPath);
+    } catch (copyErr) {
+      emitLog("error", `Could not initialize extraction library for [${compCode}]: ${copyErr.message}`);
+      continue;
+    }
+
+    // 3. Copy matching encrypted files into compDestDir
+    for (const file of matchingFiles) {
+      try {
+        fs.copyFileSync(path.join(sourceDir, file), path.join(compDestDir, file));
+      } catch (fErr) {
+        emitLog("warn", `Skipped copy for ${file}: ${fErr.message}`);
+      }
+    }
+
+    // 4. Generate dynamic, headless extraction script
+    const prgPath = path.join(compDestDir, "mabsol_core.prg");
+    const fpwPath = path.join(compDestDir, "mabsol_core.fpw");
+
+    let decryptScript = 
+      `_SCREEN.Visible = .F.\r\n` +
+      `_SCREEN.WindowState = 1\r\n` +
+      `_SCREEN.Caption = ""\r\n` +
+      `CLOSE ALL\r\n` +
+      `CLEAR\r\n` +
+      `SET SAFETY OFF\r\n` +
+      `SET CENTURY ON\r\n` +
+      `SET DATE BRITISH\r\n` +
+      `SET EXCLUSIVE OFF\r\n` +
+      `SET TALK OFF\r\n` +
+      `SET DELETED ON\r\n\r\n` +
+      `LOCAL destpath, libpath, compcode, tbl, srcfile, outdbf\r\n` +
+      `compcode = "${compCode}"\r\n` +
+      `destpath = "${compDestDir.replace(/\\/g, "\\\\")}"\r\n` +
+      `SET DEFAULT TO (destpath)\r\n\r\n` +
+      `libpath = destpath + "\\\\efWin11.fll"\r\n` +
+      `IF FILE(libpath)\r\n` +
+      `    SET LIBRARY TO (libpath) ADDITIVE\r\n` +
+      `ENDIF\r\n\r\n`;
+
+    for (const tbl of allTables) {
+      decryptScript += 
+        `tbl = "${tbl}"\r\n` +
+        `srcfile = tbl + "." + compcode\r\n` +
+        `outdbf = tbl + "_" + compcode + ".DBF"\r\n` +
+        `IF FILE(srcfile)\r\n` +
+        `    TRY\r\n` +
+        `        = efwdecrypt(srcfile, "THYFGXWREZBDCVAS")\r\n` +
+        `        SELECT * FROM (srcfile) INTO CURSOR curdata READWRITE\r\n` +
+        `        IF RECCOUNT("curdata") > 0\r\n` +
+        `            SELECT curdata\r\n` +
+        `            COPY TO (outdbf) TYPE FOX2X\r\n` +
+        `        ENDIF\r\n` +
+        `        USE IN curdata\r\n` +
+        `    CATCH\r\n` +
+        `    ENDTRY\r\n` +
+        `    IF FILE(srcfile)\r\n` +
+        `        TRY\r\n` +
+        `            DELETE FILE (srcfile)\r\n` +
+        `        CATCH\r\n` +
+        `        ENDTRY\r\n` +
+        `    ENDIF\r\n` +
+        `ENDIF\r\n\r\n`;
+    }
+
+    decryptScript +=
+      `SET LIBRARY TO\r\n` +
+      `CLOSE ALL\r\n` +
+      `QUIT\r\n`;
+
+    const fpwContent = 
+      `SCREEN = OFF\r\n` +
+      `TITLE = \r\n` +
+      `RESOURCE = OFF\r\n` +
+      `STATUS = OFF\r\n` +
+      `TALK = OFF\r\n` +
+      `COMMAND = DO "${prgPath}"\r\n`;
+
+    fs.writeFileSync(prgPath, decryptScript, "utf8");
+    fs.writeFileSync(fpwPath, fpwContent, "utf8");
+
+    // 5. Run MabsolCRM.EXE
+    try {
+      await new Promise((resolve, reject) => {
+        const engineProcess = spawn(engineBinaryPath, ["-t", `-c${fpwPath}`], {
+          cwd: compDestDir,
+          stdio: "ignore",
+          windowsHide: true,
+          detached: false
+        });
+
+        const timer = setTimeout(() => {
+          try { engineProcess.kill(); } catch {}
+          resolve();
+        }, 45000);
+
+        engineProcess.on("close", () => {
+          clearTimeout(timer);
+          resolve();
+        });
+
+        engineProcess.on("error", (err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+      });
+    } catch (runErr) {
+      emitLog("error", `Extraction execution error on [${compCode}]: ${runErr.message}`);
+    } finally {
+      // Clean up extraction library and temporary scripts
+      try { if (fs.existsSync(destFllPath)) fs.unlinkSync(destFllPath); } catch {}
+      const fxpPath = prgPath.replace(/\.prg$/i, ".fxp");
+      const bakPath = prgPath.replace(/\.prg$/i, ".bak");
+      try { if (fs.existsSync(prgPath)) fs.unlinkSync(prgPath); } catch {}
+      try { if (fs.existsSync(fpwPath)) fs.unlinkSync(fpwPath); } catch {}
+      try { if (fs.existsSync(fxpPath)) fs.unlinkSync(fxpPath); } catch {}
+      try { if (fs.existsSync(bakPath)) fs.unlinkSync(bakPath); } catch {}
+
+      // Purge non-DBF files from compDestDir
+      try {
+        if (fs.existsSync(compDestDir)) {
+          for (const entry of fs.readdirSync(compDestDir)) {
+            if (!entry.toLowerCase().endsWith(".dbf")) {
+              const entryPath = path.join(compDestDir, entry);
+              if (fs.statSync(entryPath).isFile()) fs.unlinkSync(entryPath);
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const destFiles = fs.readdirSync(compDestDir);
+    const dbfFiles = destFiles.filter(f => f.toLowerCase().endsWith(".dbf"));
+    emitLog("success", `[${compCode}] Extraction finished. ${dbfFiles.length} database table(s) ready.`);
+
+    if (!isCloudReachable) {
+      enqueueOfflineBatch(compDestDir, dbfFiles, compCode);
+      summaryMessages.push(`[${compCode}]: Queued ${dbfFiles.length} tables offline`);
+      continue;
+    }
+
+    // Upload DBF files to EC2 server targeting this specific company folder
+    emitLog("info", `Uploading [${compCode}] tables to EC2 Cloud Server...`);
+    const uploadResult = await uploadDbfBatch(cloudUrl, compDestDir, dbfFiles, authToken, userEmail, licenseKey, compCode, config.companyName);
+
+    if (uploadResult.success) {
+      totalUploadedTables += dbfFiles.length;
+      summaryMessages.push(`[${compCode}]: Synced ${dbfFiles.length} tables`);
+      emitLog("success", `[${compCode}] Upload completed successfully!`);
+
+      // Clean up internal staging files once uploaded to save client disk space
+      try {
+        for (const file of dbfFiles) {
+          const fp = path.join(compDestDir, file);
+          if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        }
+        fs.rmdirSync(compDestDir);
+      } catch {}
+    } else {
+      emitLog("error", `Upload failed for [${compCode}]: ${uploadResult.error}. Queued for retry.`);
+      enqueueOfflineBatch(compDestDir, dbfFiles, compCode);
+      summaryMessages.push(`[${compCode}]: Failed, queued offline`);
+    }
+  }
+
+  isSyncing = false;
+
   if (!isCloudReachable) {
-    // OFFLINE MODE: Save to queue
-    emitLog("warn", "No internet connection detected. Operating in OFFLINE MODE.");
-    enqueueOfflineBatch(destDir, dbfFiles, companyCode);
-    emitLog("info", `Offline Queue: ${dbfFiles.length} database table(s) safely stored locally. Will auto-sync once internet is restored.`);
-    isSyncing = false;
+    emitLog("warn", "Sync queued in Offline Mode for restoration.");
     emitStatus({
       isSyncing: false,
       isOnline: false,
       lastStatus: "offline_queued",
-      tablesCount: dbfFiles.length,
-      message: `Offline: ${dbfFiles.length} database tables queued for sync.`
+      message: summaryMessages.join(" | ")
     });
-    return {
-      success: true,
-      offline: true,
-      message: `Offline mode: ${dbfFiles.length} database tables queued for auto-sync.`
-    };
+    return { success: true, offline: true, message: summaryMessages.join(" | ") };
   }
 
-  // ONLINE MODE: Upload DBF files in safe chunked batches
-  emitLog("info", `Internet connected! Synchronizing ${dbfFiles.length} database tables in secure batches...`);
-  const uploadResult = await uploadDbfBatch(cloudUrl, destDir, dbfFiles, authToken, userEmail, licenseKey);
+  saveQueue([]);
+  emitStatus({
+    isSyncing: false,
+    isOnline: true,
+    lastStatus: "synced",
+    tablesCount: totalUploadedTables,
+    message: summaryMessages.join(" | ")
+  });
 
-  if (uploadResult.success) {
-    emitLog("success", `Cloud Sync Completed! Synchronized ${dbfFiles.length} database tables successfully.`);
-    // Clear any previous queued batches since we just synced fresh data
-    saveQueue([]);
-    isSyncing = false;
-    emitStatus({
-      isSyncing: false,
-      isOnline: true,
-      lastStatus: "synced",
-      tablesCount: dbfFiles.length,
-      message: uploadResult.message
-    });
-    return { success: true, message: uploadResult.message, result: uploadResult };
-  } else {
-    emitLog("error", `Cloud upload failed: ${uploadResult.error}. Queued for retry.`);
-    enqueueOfflineBatch(destDir, dbfFiles, companyCode);
-    isSyncing = false;
-    emitStatus({
-      isSyncing: false,
-      isOnline: false,
-      lastStatus: "upload_failed_queued",
-      error: uploadResult.error
-    });
-    return { success: false, message: uploadResult.error };
-  }
+  emitLog("success", `=== Sync Completed! Summary: ${summaryMessages.join(" | ")} ===`);
+  return { success: true, message: summaryMessages.join(" | ") };
 }
 
 // ---------------------------------------------------------------------------
@@ -673,7 +731,7 @@ async function checkConnectivity(cloudUrl) {
   }
 }
 
-async function uploadDbfBatch(cloudUrl, destDir, dbfFiles, token, email, licenseKey) {
+async function uploadDbfBatch(cloudUrl, destDir, dbfFiles, token, email, licenseKey, companyCode, companyName) {
   if (dbfFiles.length === 0) {
     return { success: true, message: "No database files to upload." };
   }
@@ -688,10 +746,12 @@ async function uploadDbfBatch(cloudUrl, destDir, dbfFiles, token, email, license
       const batchFiles = dbfFiles.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
       const isFinal = (b === totalBatches - 1);
 
-      emitLog("info", `Syncing data package ${b + 1} of ${totalBatches}...`);
+      emitLog("info", `Syncing [${companyCode || "DEFAULT"}] data package ${b + 1} of ${totalBatches}...`);
 
       const form = new FormData();
       form.append("isFinalBatch", isFinal ? "true" : "false");
+      if (companyCode) form.append("companyCode", companyCode);
+      if (companyName) form.append("companyName", companyName);
 
       for (const fileName of batchFiles) {
         const filePath = path.join(destDir, fileName);
@@ -700,11 +760,13 @@ async function uploadDbfBatch(cloudUrl, destDir, dbfFiles, token, email, license
         }
       }
 
+      const hasValidToken = token && !isTokenExpired(token);
       const headers = {
         ...form.getHeaders(),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(hasValidToken ? { Authorization: `Bearer ${token}` } : {}),
         ...(licenseKey ? { "x-license-key": licenseKey } : {}),
-        ...(email ? { "x-agent-email": email } : {})
+        ...(email ? { "x-agent-email": email } : {}),
+        ...(companyCode ? { "x-company-code": companyCode } : {})
       };
 
       const targetUrl = `${cloudUrl}/api/mabsolcrmsync/upload-dbf`;
@@ -781,7 +843,9 @@ function startNetworkWatcher() {
             latestBatch.dbfFiles,
             session?.token || "",
             session?.email || "",
-            config.licenseKey || ""
+            config.licenseKey || "",
+            latestBatch.companyCode || config.companyCode || "",
+            config.companyName || ""
           ).then((res) => {
             if (res.success) {
               emitLog("success", `Restored Sync Complete! ${res.message}`);

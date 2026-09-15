@@ -40,14 +40,27 @@ const saveConfigBtn = document.getElementById("saveConfigBtn");
 const cancelEditBtn = document.getElementById("cancelEditBtn");
 const saveNotice = document.getElementById("saveNotice");
 
-// DOM Elements - Unlock Modal
+// DOM Elements - // DOM Elements - Unlock Modal
 const unlockModal = document.getElementById("unlockModal");
+const unlockOtpSection = document.getElementById("unlockOtpSection");
+const unlockPasswordSection = document.getElementById("unlockPasswordSection");
 const unlockModalEmail = document.getElementById("unlockModalEmail");
+const unlockPasswordEmail = document.getElementById("unlockPasswordEmail");
 const unlockOtpForm = document.getElementById("unlockOtpForm");
 const unlockOtpInput = document.getElementById("unlockOtpInput");
 const unlockOtpError = document.getElementById("unlockOtpError");
 const verifyUnlockBtn = document.getElementById("verifyUnlockBtn");
 const closeUnlockModalBtn = document.getElementById("closeUnlockModalBtn");
+
+const unlockPasswordForm = document.getElementById("unlockPasswordForm");
+const unlockPasswordInput = document.getElementById("unlockPasswordInput");
+const unlockPasswordError = document.getElementById("unlockPasswordError");
+const verifyPasswordUnlockBtn = document.getElementById("verifyPasswordUnlockBtn");
+const closeUnlockPasswordModalBtn = document.getElementById("closeUnlockPasswordModalBtn");
+const switchToPasswordBtn = document.getElementById("switchToPasswordBtn");
+const switchToOtpBtn = document.getElementById("switchToOtpBtn");
+const unlockDirectBtn = document.getElementById("unlockDirectBtn");
+const unlockDirectPasswordBtn = document.getElementById("unlockDirectPasswordBtn");
 
 // DOM Elements - Action & Stats & Terminal
 const syncNowBtn = document.getElementById("syncNowBtn");
@@ -66,13 +79,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupEventListeners();
   setupIpcListeners();
 
-  // Check existing session
   try {
     const sessionRes = await window.electronAPI.checkSession();
     if (sessionRes && sessionRes.authenticated && sessionRes.session) {
       currentAuthEmail = sessionRes.session.email || "";
       showDashboard(sessionRes.session);
     } else {
+      if (sessionRes?.sessionExpired) {
+        if (sessionRes.email) emailInput.value = sessionRes.email;
+        loginError.textContent = "Your cloud session has expired. Please sign in to verify identity and unlock sync.";
+        loginError.classList.remove("hidden");
+      }
       showLogin();
     }
   } catch (err) {
@@ -112,6 +129,7 @@ async function loadAndDisplayConfig() {
     const cfg = await window.electronAPI.getConfig();
     if (cfg) {
       if (cfg.cloudUrl) cloudUrlInput.value = cfg.cloudUrl;
+      if (cfg.userEmail && !currentAuthEmail) currentAuthEmail = cfg.userEmail;
       companyNameInput.value = cfg.companyName || "";
       companyCodeInput.value = (cfg.companyCode || "A01").toUpperCase();
       sourceDirInput.value = cfg.sourceDir || "";
@@ -132,17 +150,20 @@ function setFormLocked(isLocked) {
   companyNameInput.disabled = isLocked;
   companyCodeInput.disabled = isLocked;
   sourceDirInput.disabled = isLocked;
-  destDirInput.disabled = isLocked;
   licenseKeyInput.disabled = isLocked;
   intervalSelect.disabled = isLocked;
   browseSourceBtn.disabled = isLocked;
-  browseDestBtn.disabled = isLocked;
 
+  // Mask sensitive folder paths and license key when locked
   if (isLocked) {
+    sourceDirInput.type = "password";
+    licenseKeyInput.type = "password";
     editConfigBtn.classList.remove("hidden");
     saveConfigBtn.classList.add("hidden");
     cancelEditBtn.classList.add("hidden");
   } else {
+    sourceDirInput.type = "text";
+    licenseKeyInput.type = "text";
     editConfigBtn.classList.add("hidden");
     saveConfigBtn.classList.remove("hidden");
     cancelEditBtn.classList.remove("hidden");
@@ -178,56 +199,55 @@ function setupEventListeners() {
         otpCodeInput.value = "";
         otpCodeInput.focus();
       } else {
-        loginError.textContent = res.message || "Login failed. Check your internet connection.";
+        loginError.textContent = res.message || "Invalid credentials.";
         loginError.classList.remove("hidden");
       }
     } catch (err) {
       setButtonLoading(loginBtn, false);
-      loginError.textContent = err.message || "Network error. Please check server URL.";
+      loginError.textContent = err.message || "Connection error.";
       loginError.classList.remove("hidden");
     }
   });
 
-  // Back to Login Step
+  // Back Button (from OTP step to Login step)
   backToLoginBtn.addEventListener("click", () => {
     otpStep.classList.add("hidden");
     loginStep.classList.remove("hidden");
-    otpError.classList.add("hidden");
+    loginError.classList.add("hidden");
   });
 
-  // OTP Verification Form Submit (Step 2)
+  // OTP Form Submit (Step 2)
   otpForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     otpError.classList.add("hidden");
     setButtonLoading(verifyOtpBtn, true);
 
     const cloudUrl = cloudUrlInput.value.trim();
+    const email = currentAuthEmail || emailInput.value.trim();
     const otp = otpCodeInput.value.trim();
 
     try {
-      const res = await window.electronAPI.verifyOtp({
-        cloudUrl,
-        email: currentAuthEmail,
-        otp
-      });
+      const res = await window.electronAPI.verifyOtp({ cloudUrl, email, otp });
       setButtonLoading(verifyOtpBtn, false);
 
       if (res.success && res.session) {
+        currentAuthEmail = res.session.email || email;
         showDashboard(res.session);
       } else {
-        otpError.textContent = res.message || "Invalid or expired OTP code.";
+        otpError.textContent = res.message || "Invalid or expired OTP.";
         otpError.classList.remove("hidden");
       }
     } catch (err) {
       setButtonLoading(verifyOtpBtn, false);
-      otpError.textContent = err.message || "Verification failed.";
+      otpError.textContent = err.message || "Verification error.";
       otpError.classList.remove("hidden");
     }
   });
 
-  // Logout
+  // Logout Button
   logoutBtn.addEventListener("click", async () => {
     await window.electronAPI.logout();
+    currentAuthEmail = "";
     showLogin();
   });
 
@@ -237,38 +257,98 @@ function setupEventListeners() {
     if (selected) sourceDirInput.value = selected;
   });
 
-  // Browse Destination Folder
-  browseDestBtn.addEventListener("click", async () => {
+  // Browse Destination Folder (Optional/Legacy)
+  browseDestBtn?.addEventListener("click", async () => {
     const selected = await window.electronAPI.selectFolder("Select Output Data Folder");
-    if (selected) destDirInput.value = selected;
+    if (selected && destDirInput) destDirInput.value = selected;
   });
 
-  // Click "Edit Configuration" -> Triggers OTP verification to unlock!
+  function showUnlockView(mode) {
+    unlockModal.classList.remove("hidden");
+    if (mode === "password") {
+      unlockOtpSection.classList.add("hidden");
+      unlockPasswordSection.classList.remove("hidden");
+      unlockPasswordInput.value = "";
+      unlockPasswordError.classList.add("hidden");
+      setTimeout(() => unlockPasswordInput.focus(), 50);
+    } else {
+      unlockPasswordSection.classList.add("hidden");
+      unlockOtpSection.classList.remove("hidden");
+      unlockOtpInput.value = "";
+      unlockOtpError.classList.add("hidden");
+      setTimeout(() => unlockOtpInput.focus(), 50);
+    }
+  }
+
+  function unlockDirectly() {
+    unlockModal.classList.add("hidden");
+    setFormLocked(false);
+  }
+
+  // Click "Edit Configuration" -> Triggers OTP verification or Password verification to unlock!
   editConfigBtn.addEventListener("click", async () => {
     editConfigBtn.disabled = true;
-    unlockModalEmail.textContent = currentAuthEmail || "your registered email";
+    const targetEmail = currentAuthEmail || emailInput.value.trim();
+    unlockModalEmail.textContent = targetEmail || "your registered email";
+    unlockPasswordEmail.textContent = targetEmail || "your registered email";
     unlockOtpError.classList.add("hidden");
-    unlockOtpInput.value = "";
+    unlockPasswordError.classList.add("hidden");
 
     try {
-      const res = await window.electronAPI.sendEditOtp();
+      const res = await window.electronAPI.sendEditOtp({
+        email: targetEmail,
+        cloudUrl: cloudUrlInput.value.trim()
+      });
       editConfigBtn.disabled = false;
 
       if (res && res.success) {
-        if (res.email) unlockModalEmail.textContent = res.email;
-        unlockModal.classList.remove("hidden");
-        unlockOtpInput.focus();
+        if (res.email) {
+          unlockModalEmail.textContent = res.email;
+          unlockPasswordEmail.textContent = res.email;
+        }
+        showUnlockView("otp");
       } else {
-        alert(res?.message || "Failed to send security verification code. Please check your internet connection.");
+        // If unauthorized or token expired, switch directly to password verification instead of blocking
+        showUnlockView("password");
+        if (res?.message && !res.unauthorized) {
+          unlockPasswordError.textContent = res.message;
+          unlockPasswordError.classList.remove("hidden");
+        }
       }
     } catch (err) {
       editConfigBtn.disabled = false;
-      alert("Error requesting verification code: " + err.message);
+      showUnlockView("password");
     }
   });
 
-  // Close Unlock Modal
+  // Switch between OTP and Password in Unlock Modal
+  switchToPasswordBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    showUnlockView("password");
+  });
+
+  switchToOtpBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    showUnlockView("otp");
+  });
+
+  // Direct Unlock buttons (for offline or immediate local setup)
+  unlockDirectBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    unlockDirectly();
+  });
+
+  unlockDirectPasswordBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    unlockDirectly();
+  });
+
+  // Close Unlock Modal Buttons
   closeUnlockModalBtn.addEventListener("click", () => {
+    unlockModal.classList.add("hidden");
+  });
+
+  closeUnlockPasswordModalBtn.addEventListener("click", () => {
     unlockModal.classList.add("hidden");
   });
 
@@ -279,22 +359,77 @@ function setupEventListeners() {
     setButtonLoading(verifyUnlockBtn, true);
 
     const otp = unlockOtpInput.value.trim();
+    const targetEmail = currentAuthEmail || unlockModalEmail.textContent.trim();
 
     try {
-      const res = await window.electronAPI.verifyEditOtp({ otp });
+      const res = await window.electronAPI.verifyEditOtp({
+        otp,
+        email: targetEmail,
+        cloudUrl: cloudUrlInput.value.trim()
+      });
       setButtonLoading(verifyUnlockBtn, false);
 
       if (res && res.success) {
         unlockModal.classList.add("hidden");
         setFormLocked(false); // Unlocks form fields!
       } else {
-        unlockOtpError.textContent = res?.message || "Invalid or expired security code.";
-        unlockOtpError.classList.remove("hidden");
+        const isUnauth = res?.unauthorized || (typeof res?.message === "string" && res.message.toLowerCase().includes("unauthorized"));
+        if (isUnauth) {
+          unlockOtpError.innerHTML = `Cloud session expired. <a href="#" id="inlineDirectUnlock" style="color: #38bdf8; text-decoration: underline; font-weight: bold;">Unlock Directly</a> or <a href="#" id="inlinePasswordUnlock" style="color: #38bdf8; text-decoration: underline; font-weight: bold;">Use Password</a>`;
+          unlockOtpError.classList.remove("hidden");
+          document.getElementById("inlineDirectUnlock")?.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            unlockDirectly();
+          });
+          document.getElementById("inlinePasswordUnlock")?.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            showUnlockView("password");
+          });
+        } else {
+          unlockOtpError.textContent = res?.message || "Invalid or expired security code.";
+          unlockOtpError.classList.remove("hidden");
+        }
       }
     } catch (err) {
       setButtonLoading(verifyUnlockBtn, false);
       unlockOtpError.textContent = err.message || "Verification failed.";
       unlockOtpError.classList.remove("hidden");
+    }
+  });
+
+  // Submit Unlock Password Form (Authenticates with cloud and updates token)
+  unlockPasswordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    unlockPasswordError.classList.add("hidden");
+    setButtonLoading(verifyPasswordUnlockBtn, true);
+
+    const password = unlockPasswordInput.value.trim();
+    const email = currentAuthEmail || unlockPasswordEmail.textContent.trim();
+    const cloudUrl = cloudUrlInput.value.trim();
+
+    try {
+      const res = await window.electronAPI.login({ cloudUrl, email, password });
+      setButtonLoading(verifyPasswordUnlockBtn, false);
+
+      if (res && res.success) {
+        // If OTP is required by server, prompt OTP
+        if (res.otpRequired) {
+          showUnlockView("otp");
+          unlockOtpError.textContent = "Verification code sent to your email. Enter code to unlock.";
+          unlockOtpError.classList.remove("hidden");
+          unlockOtpError.style.color = "#34d399";
+        } else {
+          unlockModal.classList.add("hidden");
+          setFormLocked(false); // Unlocks form fields!
+        }
+      } else {
+        unlockPasswordError.textContent = res?.message || "Invalid account password.";
+        unlockPasswordError.classList.remove("hidden");
+      }
+    } catch (err) {
+      setButtonLoading(verifyPasswordUnlockBtn, false);
+      unlockPasswordError.textContent = err.message || "Authentication error.";
+      unlockPasswordError.classList.remove("hidden");
     }
   });
 
@@ -311,11 +446,12 @@ function setupEventListeners() {
       companyName: companyNameInput.value.trim(),
       companyCode: companyCodeInput.value.trim().toUpperCase(),
       sourceDir: sourceDirInput.value.trim(),
-      destDir: destDirInput.value.trim(),
+      destDir: destDirInput ? destDirInput.value.trim() : "",
       licenseKey: licenseKeyInput.value.trim(),
       autoSync: intervalSelect.value !== "0",
       intervalMins: Number(intervalSelect.value) || 10,
-      cloudUrl: cloudUrlInput.value.trim()
+      cloudUrl: cloudUrlInput.value.trim(),
+      userEmail: currentAuthEmail || emailInput.value.trim()
     };
 
     const res = await window.electronAPI.saveConfig(newCfg);

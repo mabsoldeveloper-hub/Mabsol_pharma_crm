@@ -12,26 +12,45 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const { otp } = body;
+    let email = "";
 
-    let currentUser = await getCurrentUser();
-    let email = currentUser?.email || "";
+    // 1. Check Bearer token from header
+    const authHeader = req.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.substring(7);
+        const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
+        if (payload && payload.id) {
+          const user = await User.findById(payload.id);
+          if (user?.email) email = user.email;
+        }
+      } catch {}
+    }
 
+    // 2. Check session cookie
     if (!email) {
-      const authHeader = req.headers.get("authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        try {
-          const token = authHeader.substring(7);
-          const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
-          if (payload && payload.id) {
-            currentUser = await User.findById(payload.id);
-            email = currentUser?.email || "";
-          }
-        } catch {}
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser?.email) email = currentUser.email;
+      } catch {}
+    }
+
+    // 3. Check x-agent-email header
+    if (!email) {
+      const headerEmail = req.headers.get("x-agent-email");
+      if (headerEmail && headerEmail.includes("@")) {
+        email = headerEmail.trim();
       }
     }
 
+    // 4. Fallback to email in body
     if (!email && body.email) {
-      email = body.email.toLowerCase().trim();
+      const trimmed = String(body.email).trim();
+      if (trimmed.includes("@")) {
+        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const foundUser = await User.findOne({ email: { $regex: new RegExp(`^${escaped}$`, "i") } });
+        email = foundUser?.email || trimmed;
+      }
     }
 
     if (!email) {
@@ -48,7 +67,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const record = await Otp.findOne({ email, type: "email" });
+    const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const record = await Otp.findOne({
+      email: { $regex: new RegExp(`^${escapedEmail}$`, "i") },
+      type: "email"
+    });
 
     if (!record) {
       return NextResponse.json(

@@ -144,10 +144,10 @@
                   <label for="companyNameInput">Company Name</label>
                   <input type="text" id="companyNameInput" placeholder="e.g. MABSOL INFOTECH PRIVATE LIMITED">
                 </div>
-                <div class="form-group w-36">
-                  <label for="companyCodeInput">Company Code <span class="req">*</span></label>
-                  <input type="text" id="companyCodeInput" maxlength="3" required placeholder="A01" style="text-transform: uppercase; font-family: monospace; font-weight: 700;">
-                  <span class="helper">A01 to Z10</span>
+                <div class="form-group flex-1">
+                  <label for="companyCodeInput">Company Code(s) <span class="req">*</span></label>
+                  <input type="text" id="companyCodeInput" required placeholder="e.g. E10 or E10, E11" style="text-transform: uppercase; font-family: monospace; font-weight: 700;">
+                  <span class="helper">Supports single (E10) or multiple (E10, E11, E12)</span>
                 </div>
               </div>
 
@@ -157,16 +157,7 @@
                   <input type="text" id="sourceDirInput" required placeholder="C:\DataFolder or D:\ERPData">
                   <button type="button" id="browseSourceBtn" class="btn-browse">Browse</button>
                 </div>
-                <span class="helper">Directory containing encrypted ERP data files (e.g. PRO.A01, GLEDGER.A01)</span>
-              </div>
-
-              <div class="form-group">
-                <label for="destDirInput">Data Output Folder (Destination) <span class="req">*</span></label>
-                <div class="input-with-btn">
-                  <input type="text" id="destDirInput" required placeholder="C:\MabsolSync\OutputData">
-                  <button type="button" id="browseDestBtn" class="btn-browse">Browse</button>
-                </div>
-                <span class="helper">Directory where processed database tables are staged for synchronization</span>
+                <span class="helper">Directory containing encrypted ERP data files (e.g. PRO.E10, GLEDGER.E10)</span>
               </div>
 
               <div class="form-row">
@@ -258,24 +249,60 @@
     <!-- ================================================================= -->
     <div id="unlockModal" class="modal-overlay hidden">
       <div class="modal-content">
-        <div class="modal-header">
-          <span class="modal-icon">🔐</span>
-          <h3>Security Verification Required</h3>
-          <p>A 6-digit security code was sent to <strong id="unlockModalEmail"></strong> to edit your synchronization settings.</p>
+        <!-- OTP Section -->
+        <div id="unlockOtpSection">
+          <div class="modal-header">
+            <span class="modal-icon">🔐</span>
+            <h3>Security Verification</h3>
+            <p>Enter the 6-digit verification code sent to <strong id="unlockModalEmail"></strong> to unlock settings.</p>
+          </div>
+          <form id="unlockOtpForm">
+            <div class="otp-input-group">
+              <input type="text" id="unlockOtpInput" maxlength="6" pattern="[0-9]{6}" placeholder="123456" autocomplete="off">
+            </div>
+            <div id="unlockOtpError" class="error-msg hidden"></div>
+            <div class="modal-actions">
+              <button type="submit" id="verifyUnlockBtn" class="btn-primary">
+                <span class="btn-text">Verify & Unlock</span>
+                <span class="spinner hidden"></span>
+              </button>
+              <button type="button" id="closeUnlockModalBtn" class="btn-secondary">Cancel</button>
+            </div>
+            <div style="margin-top: 14px; display: flex; justify-content: center; gap: 14px; font-size: 11.5px;">
+              <a href="#" id="switchToPasswordBtn" style="color: #38bdf8; text-decoration: none;">🔑 Use Account Password</a>
+              <span style="color: #475569;">|</span>
+              <a href="#" id="unlockDirectBtn" style="color: #94a3b8; text-decoration: none;">⚡ Direct Unlock</a>
+            </div>
+          </form>
         </div>
-        <form id="unlockOtpForm">
-          <div class="otp-input-group">
-            <input type="text" id="unlockOtpInput" maxlength="6" pattern="[0-9]{6}" placeholder="123456" required autocomplete="off">
+
+        <!-- Password Section (Shown if session expired or user prefers password) -->
+        <div id="unlockPasswordSection" class="hidden">
+          <div class="modal-header">
+            <span class="modal-icon">🔑</span>
+            <h3>Account Verification</h3>
+            <p>Enter your password for <strong id="unlockPasswordEmail"></strong> to authenticate and unlock settings.</p>
           </div>
-          <div id="unlockOtpError" class="error-msg hidden"></div>
-          <div class="modal-actions">
-            <button type="submit" id="verifyUnlockBtn" class="btn-primary">
-              <span class="btn-text">Verify & Unlock Settings</span>
-              <span class="spinner hidden"></span>
-            </button>
-            <button type="button" id="closeUnlockModalBtn" class="btn-secondary">Cancel</button>
-          </div>
-        </form>
+          <form id="unlockPasswordForm">
+            <div class="form-group" style="margin-bottom: 16px; text-align: left;">
+              <label for="unlockPasswordInput" style="font-size: 11.5px; color: #cbd5e1; margin-bottom: 6px; display: block;">Account Password</label>
+              <input type="password" id="unlockPasswordInput" placeholder="••••••••" required style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div id="unlockPasswordError" class="error-msg hidden"></div>
+            <div class="modal-actions">
+              <button type="submit" id="verifyPasswordUnlockBtn" class="btn-primary">
+                <span class="btn-text">Verify & Unlock</span>
+                <span class="spinner hidden"></span>
+              </button>
+              <button type="button" id="closeUnlockPasswordModalBtn" class="btn-secondary">Cancel</button>
+            </div>
+            <div style="margin-top: 14px; display: flex; justify-content: center; gap: 14px; font-size: 11.5px;">
+              <a href="#" id="switchToOtpBtn" style="color: #38bdf8; text-decoration: none;">📲 Use OTP Code</a>
+              <span style="color: #475569;">|</span>
+              <a href="#" id="unlockDirectPasswordBtn" style="color: #94a3b8; text-decoration: none;">⚡ Direct Unlock</a>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
