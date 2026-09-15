@@ -36,8 +36,13 @@ export const GST_STATE_CODES: Record<string, string> = {
 const B2CL_THRESHOLD = 250000;
 
 export interface Gstr1Filter {
-    month: number;
-    year: number;
+    // Month-wise mode
+    month?: number;
+    year?: number;
+    // Range / Quarterly / Custom-Month mode
+    dateFrom?: string;  // YYYY-MM-DD
+    dateTo?: string;    // YYYY-MM-DD
+    periodLabel?: string; // Human-readable label for header badge
     companyId?: string;
 }
 
@@ -125,11 +130,30 @@ export default class Gstr1Report {
     static async build(filter: Gstr1Filter) {
         await dbConnect();
 
-        const { month, year, companyId } = filter;
-        const mm = pad2(month);
-        const dateFrom = `${year}-${mm}-01`;
-        const lastDay = new Date(year, month, 0).getDate();
-        const dateTo = `${year}-${mm}-${pad2(lastDay)}`;
+        const { companyId } = filter;
+
+        // Resolve date range — support both month/year and explicit dateFrom/dateTo
+        let dateFrom: string;
+        let dateTo: string;
+        let mm: string;
+        let year: number;
+
+        if (filter.dateFrom && filter.dateTo) {
+            dateFrom = filter.dateFrom;
+            dateTo = filter.dateTo;
+            // Extract month/year from dateFrom for fp field (GST portal uses MMYYYY)
+            const fromDate = new Date(filter.dateFrom);
+            mm = pad2(fromDate.getMonth() + 1);
+            year = fromDate.getFullYear();
+        } else {
+            // Legacy month/year mode
+            const month = filter.month!;
+            year = filter.year!;
+            mm = pad2(month);
+            dateFrom = `${year}-${mm}-01`;
+            const lastDay = new Date(year, month, 0).getDate();
+            dateTo = `${year}-${mm}-${pad2(lastDay)}`;
+        }
 
         const company = companyId
             ? await Company.findById(companyId).lean()
@@ -432,11 +456,18 @@ export default class Gstr1Report {
             ecoaurp2c: [],
         };
 
+        // Build human-readable period label
+        const resolvedPeriodLabel = filter.periodLabel
+            || (filter.dateFrom && filter.dateTo
+                ? `${filter.dateFrom} to ${filter.dateTo}`
+                : `${mm}-${year}`);
+
         return {
             gstJson,
             invoiceDetail,
             meta: {
-                period: `${mm}-${year}`,
+                period: resolvedPeriodLabel,
+                periodShort: `${mm}-${year}`,
                 companyName: (company as any).companyName,
                 companyGstin: (company as any).gstNo,
                 companyStateCode,

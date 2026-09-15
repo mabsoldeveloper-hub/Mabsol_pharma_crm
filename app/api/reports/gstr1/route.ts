@@ -7,23 +7,38 @@ export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
 
-        const month = Number(searchParams.get("month"));
-        const year = Number(searchParams.get("year"));
         const format = (searchParams.get("format") || "summary").toLowerCase(); // summary | json | excel | pdf
         const companyId = searchParams.get("companyId") || undefined;
+        const periodLabel = searchParams.get("periodLabel") || undefined;
 
-        if (!month || month < 1 || month > 12 || !year) {
-            return NextResponse.json(
-                { success: false, message: "Valid month (1-12) and year are required" },
-                { status: 400 }
-            );
+        // Determine filter mode: dateFrom/dateTo takes priority over month/year
+        const dateFrom = searchParams.get("dateFrom") || undefined;
+        const dateTo = searchParams.get("dateTo") || undefined;
+
+        let filter: Parameters<typeof Gstr1Report.build>[0];
+
+        if (dateFrom && dateTo) {
+            // Range / Quarterly / Custom-Month mode
+            filter = { dateFrom, dateTo, periodLabel, companyId };
+        } else {
+            // Legacy month/year mode
+            const month = Number(searchParams.get("month"));
+            const year = Number(searchParams.get("year"));
+
+            if (!month || month < 1 || month > 12 || !year) {
+                return NextResponse.json(
+                    { success: false, message: "Valid month (1-12) and year are required, or provide dateFrom + dateTo" },
+                    { status: 400 }
+                );
+            }
+            filter = { month, year, companyId };
         }
 
-        const { gstJson, meta, invoiceDetail } = await Gstr1Report.build({ month, year, companyId });
+        const { gstJson, meta, invoiceDetail } = await Gstr1Report.build(filter);
 
         if (format === "json") {
             // Official govt-format GSTR-1 JSON, ready for GST portal offline tool upload
-            const filename = `GSTR1_${meta.companyGstin}_${meta.period}.json`;
+            const filename = `GSTR1_${meta.companyGstin}_${meta.periodShort || meta.period}.json`;
             return new NextResponse(JSON.stringify(gstJson, null, 2), {
                 headers: {
                     "Content-Type": "application/json",
@@ -34,7 +49,7 @@ export async function GET(req: NextRequest) {
 
         if (format === "excel") {
             const buffer = await buildGstr1Excel(gstJson, meta, invoiceDetail);
-            const filename = `GSTR1_${meta.companyGstin}_${meta.period}.xlsx`;
+            const filename = `GSTR1_${meta.companyGstin}_${meta.periodShort || meta.period}.xlsx`;
             return new NextResponse(new Uint8Array(buffer), {
                 headers: {
                     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -45,7 +60,7 @@ export async function GET(req: NextRequest) {
 
         if (format === "pdf") {
             const buffer = await buildGstr1Pdf(gstJson, meta);
-            const filename = `GSTR1_${meta.companyGstin}_${meta.period}.pdf`;
+            const filename = `GSTR1_${meta.companyGstin}_${meta.periodShort || meta.period}.pdf`;
             return new NextResponse(new Uint8Array(buffer), {
                 headers: {
                     "Content-Type": "application/pdf",
@@ -63,4 +78,4 @@ export async function GET(req: NextRequest) {
             { status: 500 }
         );
     }
-} 
+}

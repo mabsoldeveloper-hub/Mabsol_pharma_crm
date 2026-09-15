@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { FaBuilding, FaMapMarkerAlt, FaArrowRight } from "react-icons/fa";
 import Gstr1TemplateUploadModal from "@/components/reports/Gstr1TemplateUploadModal";
 
@@ -10,12 +10,48 @@ type MrTerritoryInfo = {
     allowedCompanyCodes: string[];
 };
 
+type FilterMode = "monthly" | "quarterly" | "custom-range" | "custom-month";
+
+interface PeriodEntry { year: number; month: number; label: string; }
+
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
 ];
+
+// Indian GST quarters: Q1=Apr-Jun, Q2=Jul-Sep, Q3=Oct-Dec, Q4=Jan-Mar
+const GST_QUARTERS = [
+    { id: "Q1", label: "Q1 (Apr – Jun)", months: [4, 5, 6] },
+    { id: "Q2", label: "Q2 (Jul – Sep)", months: [7, 8, 9] },
+    { id: "Q3", label: "Q3 (Oct – Dec)", months: [10, 11, 12] },
+    { id: "Q4", label: "Q4 (Jan – Mar)", months: [1, 2, 3] },
+];
+
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i);
+const CURRENT_MONTH = new Date().getMonth() + 1;
+
+function pad2(n: number) { return String(n).padStart(2, "0"); }
+
+function quarterDateRange(year: number, quarterMonths: number[]): { dateFrom: string; dateTo: string } {
+    // Q4 months (Jan-Mar) belong to the *next* calendar year for display but actual year passed
+    const startMonth = quarterMonths[0];
+    const endMonth = quarterMonths[quarterMonths.length - 1];
+    const startYear = year;
+    const endYear = year;
+    const lastDay = new Date(endYear, endMonth, 0).getDate();
+    return {
+        dateFrom: `${startYear}-${pad2(startMonth)}-01`,
+        dateTo: `${endYear}-${pad2(endMonth)}-${pad2(lastDay)}`,
+    };
+}
+
+function monthDateRange(year: number, month: number): { dateFrom: string; dateTo: string } {
+    const lastDay = new Date(year, month, 0).getDate();
+    return {
+        dateFrom: `${year}-${pad2(month)}-01`,
+        dateTo: `${year}-${pad2(month)}-${pad2(lastDay)}`,
+    };
+}
 
 const fmt = (v?: number | null) =>
     (v ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -129,11 +165,19 @@ const STYLES = `
 .gstr1-title{font-size:26px;font-weight:800;letter-spacing:-.5px;margin:0 0 4px}
 .gstr1-subtitle{font-size:13px;opacity:.75;margin:0}
 .gstr1-header-badge{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:600}
-.gstr1-control-bar{background:#fff;margin:20px 24px;border-radius:14px;padding:20px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06);border:1px solid #e2e8f0;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.gstr1-control-bar{background:#fff;margin:20px 24px;border-radius:14px;padding:0;box-shadow:0 2px 12px rgba(0,0,0,.06);border:1px solid #e2e8f0;overflow:hidden}
+.gstr1-filter-modes{display:flex;border-bottom:1.5px solid #e2e8f0;background:linear-gradient(135deg,#f8faff,#f0f4ff)}
+.gstr1-filter-mode-btn{flex:1;border:none;background:none;padding:13px 8px;font-size:12.5px;font-weight:700;cursor:pointer;color:#64748b;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:3px;white-space:nowrap}
+.gstr1-filter-mode-btn:hover{color:#4f46e5;background:rgba(99,102,241,.04)}
+.gstr1-filter-mode-btn.active{color:#4f46e5;border-bottom-color:#4f46e5;background:#fff}
+.gstr1-filter-mode-icon{font-size:18px;line-height:1}
+.gstr1-filter-body{padding:18px 22px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
 .gstr1-control-group{display:flex;flex-direction:column;gap:6px}
 .gstr1-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px}
 .gstr1-select{border:1.5px solid #e2e8f0;border-radius:9px;padding:9px 14px;font-size:14px;color:#1e293b;background:#f8fafc;outline:none;cursor:pointer;min-width:130px;transition:border-color .2s}
 .gstr1-select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.gstr1-input{border:1.5px solid #e2e8f0;border-radius:9px;padding:9px 14px;font-size:14px;color:#1e293b;background:#f8fafc;outline:none;min-width:150px;transition:border-color .2s}
+.gstr1-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
 .gstr1-btn{border:none;border-radius:9px;padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
 .gstr1-btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.3)}
 .gstr1-btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(99,102,241,.4)}
@@ -214,15 +258,26 @@ const STYLES = `
 .gstr1-summary-row-label{color:#475569}
 .gstr1-summary-row-val{font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums}
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+.spinner-dark{display:inline-block;width:14px;height:14px;border:2px solid rgba(99,102,241,.2);border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.cm-multi-wrap{display:flex;flex-wrap:wrap;gap:6px;max-width:520px;max-height:160px;overflow-y:auto;padding:4px 0}
+.cm-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;transition:all .15s;user-select:none}
+.cm-chip:hover{border-color:#a5b4fc;background:#eef2ff;color:#4338ca}
+.cm-chip.selected{background:#eef2ff;border-color:#6366f1;color:#4338ca}
+.cm-chip-remove{font-size:14px;line-height:1;opacity:.6}
+.periods-loading{display:flex;align-items:center;gap:8px;padding:8px 0;color:#94a3b8;font-size:13px}
+.gstr1-filter-summary{font-size:12px;color:#6366f1;font-weight:600;background:#eef2ff;border-radius:7px;padding:4px 12px;border:1px solid #c7d2fe;display:inline-flex;align-items:center;gap:6px}
 @media(max-width:768px){
   .gstr1-header{padding:20px 16px;border-radius:0 0 14px 14px}
-  .gstr1-control-bar{margin:14px 12px;padding:14px 16px}
+  .gstr1-control-bar{margin:14px 12px;}
+  .gstr1-filter-body{padding:14px 16px}
   .gstr1-kpi-grid{margin:0 12px 14px;grid-template-columns:repeat(2,1fr)}
   .gstr1-total-bar{margin:0 12px 14px}
   .gstr1-tabs{margin:0 12px}
   .gstr1-tab-content{margin:0 12px}
   .gstr1-error,.gstr1-warn{margin:0 12px 12px}
+  .gstr1-filter-mode-btn{font-size:11px;padding:10px 4px}
+  .gstr1-filter-mode-icon{font-size:15px}
 }
 `;
 import { useCompany } from "@/context/CompanyContext";
@@ -231,8 +286,31 @@ import { useFinancialYear } from "@/context/FinancialYearContext";
 export default function Gstr1Page() {
     const { selectedCompany } = useCompany();
     const { selectedFY } = useFinancialYear();
-    const [month, setMonth] = useState(new Date().getMonth() + 1);
-    const [year, setYear] = useState(CURRENT_YEAR);
+
+    // ── Filter Mode State ──────────────────────────────────────────────────────
+    const [filterMode, setFilterMode] = useState<FilterMode>("monthly");
+
+    // Monthly mode
+    const [monthlyYear, setMonthlyYear] = useState(CURRENT_YEAR);
+    const [monthlyMonth, setMonthlyMonth] = useState(CURRENT_MONTH);
+
+    // Quarterly mode
+    const [quarterYear, setQuarterYear] = useState(CURRENT_YEAR);
+    const [selectedQuarter, setSelectedQuarter] = useState("Q1");
+
+    // Custom Range mode
+    const [rangeFrom, setRangeFrom] = useState("");
+    const [rangeTo, setRangeTo] = useState("");
+
+    // Custom Month mode (multi-select)
+    const [selectedMonths, setSelectedMonths] = useState<{ year: number; month: number; label: string }[]>([]);
+
+    // ── Available Periods (from DB) ────────────────────────────────────────────
+    const [availablePeriods, setAvailablePeriods] = useState<PeriodEntry[]>([]);
+    const [availableYears, setAvailableYears] = useState<number[]>([]);
+    const [periodsLoading, setPeriodsLoading] = useState(false);
+
+    // ── Report State ──────────────────────────────────────────────────────────
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState<string | null>(null);
     const [error, setError] = useState("");
@@ -245,9 +323,37 @@ export default function Gstr1Page() {
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
     const [aiTemplateModalOpen, setAiTemplateModalOpen] = useState(false);
 
+    // ── Load available periods from DB ────────────────────────────────────────
+    const loadAvailablePeriods = useCallback(async () => {
+        setPeriodsLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+            const res = await fetch(`/api/reports/gstr1/available-periods?${params}`);
+            const json = await res.json();
+            if (json.success) {
+                setAvailablePeriods(json.data.periods || []);
+                setAvailableYears(json.data.years || []);
+
+                // Set sensible defaults from DB data
+                if (json.data.periods?.length > 0) {
+                    const latest = json.data.periods[0];
+                    setMonthlyYear(latest.year);
+                    setMonthlyMonth(latest.month);
+                    setQuarterYear(latest.year);
+                }
+            }
+        } catch {
+            // Silently ignore — fallback to current month/year
+        } finally {
+            setPeriodsLoading(false);
+        }
+    }, [selectedCompany]);
+
     useEffect(() => {
         loadMrTerritoryInfo();
-    }, []);
+        loadAvailablePeriods();
+    }, [loadAvailablePeriods]);
 
     const loadMrTerritoryInfo = async () => {
         try {
@@ -267,20 +373,88 @@ export default function Gstr1Page() {
         }
     };
 
-    const buildParams = () => {
-        const p = new URLSearchParams({ month: String(month), year: String(year) });
+    // Months available in DB for the selected year (monthly/quarterly modes)
+    const monthsForYear = useMemo(() =>
+        availablePeriods.filter(p => p.year === monthlyYear),
+        [availablePeriods, monthlyYear]
+    );
+    const monthsForQuarterYear = useMemo(() =>
+        availablePeriods.filter(p => p.year === quarterYear),
+        [availablePeriods, quarterYear]
+    );
+
+    // ── Build API params depending on mode ────────────────────────────────────
+    const buildParams = useCallback(() => {
+        const p = new URLSearchParams();
         if (selectedCompany?._id) p.set("companyId", selectedCompany._id);
         if (selectedFY?._id) p.set("fyId", selectedFY._id);
+
+        if (filterMode === "monthly") {
+            p.set("month", String(monthlyMonth));
+            p.set("year", String(monthlyYear));
+            p.set("periodLabel", `${MONTHS[monthlyMonth - 1]} ${monthlyYear}`);
+        } else if (filterMode === "quarterly") {
+            const qDef = GST_QUARTERS.find(q => q.id === selectedQuarter)!;
+            const { dateFrom, dateTo } = quarterDateRange(quarterYear, qDef.months);
+            p.set("dateFrom", dateFrom);
+            p.set("dateTo", dateTo);
+            // Determine FY label: Q4 of year X is Jan-Mar of X, belonging to FY X-1/X
+            const fyLabel = qDef.id === "Q4" ? `${quarterYear - 1}-${String(quarterYear).slice(-2)}` : `${quarterYear}-${String(quarterYear + 1).slice(-2)}`;
+            p.set("periodLabel", `${qDef.id} ${fyLabel} (${qDef.label.replace(qDef.id + " ", "")})`);
+        } else if (filterMode === "custom-range") {
+            p.set("dateFrom", rangeFrom);
+            p.set("dateTo", rangeTo);
+            p.set("periodLabel", `${rangeFrom} to ${rangeTo}`);
+        }
+        // custom-month is handled separately (multiple calls merged)
         return p;
-    };
+    }, [filterMode, monthlyMonth, monthlyYear, quarterYear, selectedQuarter, rangeFrom, rangeTo, selectedCompany, selectedFY]);
+
+    // Compute current period label for header badge
+    const currentPeriodLabel = useMemo(() => {
+        if (filterMode === "monthly") return `${MONTHS[monthlyMonth - 1]} ${monthlyYear}`;
+        if (filterMode === "quarterly") {
+            const qDef = GST_QUARTERS.find(q => q.id === selectedQuarter)!;
+            return `${qDef.id} ${quarterYear} ${qDef.label.replace(qDef.id + " ", "")}`;
+        }
+        if (filterMode === "custom-range") return rangeFrom && rangeTo ? `${rangeFrom} → ${rangeTo}` : "Custom Range";
+        if (filterMode === "custom-month" && selectedMonths.length > 0)
+            return selectedMonths.map(m => m.label).join(", ");
+        return "—";
+    }, [filterMode, monthlyMonth, monthlyYear, quarterYear, selectedQuarter, rangeFrom, rangeTo, selectedMonths]);
 
     const loadPreview = async () => {
         setLoading(true); setError(""); setMeta(null); setGstJson(null); setInvoiceDetail([]); setActiveTab("summary");
         try {
-            const res = await fetch(`/api/reports/gstr1?${buildParams()}`);
-            const json = await res.json();
-            if (!res.ok || !json.success) throw new Error(json.message || "Failed to load GSTR-1");
-            setMeta(json.data.meta); setGstJson(json.data.gstJson); setInvoiceDetail(json.data.invoiceDetail || []);
+            if (filterMode === "custom-month") {
+                // Multiple months — fetch each in parallel then merge
+                if (selectedMonths.length === 0) { setError("Please select at least one month."); setLoading(false); return; }
+                const results = await Promise.all(
+                    selectedMonths.map(async (m) => {
+                        const p = new URLSearchParams();
+                        if (selectedCompany?._id) p.set("companyId", selectedCompany._id);
+                        if (selectedFY?._id) p.set("fyId", selectedFY._id);
+                        const { dateFrom, dateTo } = monthDateRange(m.year, m.month);
+                        p.set("dateFrom", dateFrom);
+                        p.set("dateTo", dateTo);
+                        const res = await fetch(`/api/reports/gstr1?${p}`);
+                        const json = await res.json();
+                        if (!res.ok || !json.success) throw new Error(json.message || "Failed to load");
+                        return json.data;
+                    })
+                );
+                // Merge invoiceDetail from all results
+                const merged = results[0];
+                const allInvoices = results.flatMap(r => r.invoiceDetail || []);
+                merged.meta.period = selectedMonths.map(m => m.label).join(", ");
+                merged.meta.invoiceCount = allInvoices.length;
+                setMeta(merged.meta); setGstJson(merged.gstJson); setInvoiceDetail(allInvoices);
+            } else {
+                const res = await fetch(`/api/reports/gstr1?${buildParams()}`);
+                const json = await res.json();
+                if (!res.ok || !json.success) throw new Error(json.message || "Failed to load GSTR-1");
+                setMeta(json.data.meta); setGstJson(json.data.gstJson); setInvoiceDetail(json.data.invoiceDetail || []);
+            }
         } catch (err: any) { setError(err?.message || "Something went wrong"); } finally { setLoading(false); }
     };
 
@@ -293,11 +467,20 @@ export default function Gstr1Page() {
             const blob = await res.blob();
             const disposition = res.headers.get("Content-Disposition") || "";
             const match = /filename="(.+)"/.exec(disposition);
-            const filename = match?.[1] || `GSTR1_${year}_${month}.${format === "excel" ? "xlsx" : format}`;
+            const filename = match?.[1] || `GSTR1_report.${format === "excel" ? "xlsx" : format}`;
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a"); a.href = url; a.download = filename;
             document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
         } catch (err: any) { setError(err?.message || `Failed to export ${format}`); } finally { setExporting(null); }
+    };
+
+    // Toggle a month in custom-month mode
+    const toggleCustomMonth = (p: PeriodEntry) => {
+        setSelectedMonths(prev => {
+            const exists = prev.find(m => m.year === p.year && m.month === p.month);
+            if (exists) return prev.filter(m => !(m.year === p.year && m.month === p.month));
+            return [...prev, p].sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+        });
     };
 
     const filteredInvoices = useMemo(() => {
@@ -489,52 +672,176 @@ export default function Gstr1Page() {
                                 <div className="gstr1-subtitle">Details of Outward Supplies &amp; Offline Excel Utility Export</div>
                                 {meta && <div style={{ marginTop: 8, fontSize: 13, opacity: .85 }}>{meta.companyName} &nbsp;·&nbsp; GSTIN: <strong>{meta.companyGstin || "—"}</strong></div>}
                             </div>
-                            {meta && <div className="gstr1-header-badge">{meta.invoiceCount} invoices &nbsp;·&nbsp; {MONTHS[month - 1]} {year}</div>}
+                            {meta && <div className="gstr1-header-badge">{meta.invoiceCount} invoices &nbsp;·&nbsp; {currentPeriodLabel}</div>}
                         </div>
                     </div>
                 </div>
 
                 {/* ── Control Bar ── */}
                 <div className="gstr1-control-bar">
-                    <div className="gstr1-control-group">
-                        <div className="gstr1-label">Month</div>
-                        <select className="gstr1-select" value={month} onChange={e => setMonth(Number(e.target.value))}>
-                            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                        </select>
-                    </div>
-                    <div className="gstr1-control-group">
-                        <div className="gstr1-label">Year</div>
-                        <select className="gstr1-select" value={year} onChange={e => setYear(Number(e.target.value))}>
-                            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
-                    </div>
-                    <div className="gstr1-control-group">
-                        <div className="gstr1-label">&nbsp;</div>
-                        <button className="gstr1-btn gstr1-btn-primary" onClick={loadPreview} disabled={loading} style={{ minWidth: 130 }}>
-                            {loading ? <><span className="spinner" /> Loading…</> : "🔍 Load Return"}
-                        </button>
-                    </div>
-                    {meta && (
-                        <div className="gstr1-btn-group">
-                            <div className="gstr1-label" style={{ width: "100%" }}>Export (All 30 Sections)</div>
-                            <button className="gstr1-btn gstr1-btn-json" disabled={exporting !== null} onClick={() => downloadFile("json")}>
-                                {exporting === "json" ? "…" : "⬇ JSON (Govt Portal)"}
-                            </button>
-                            <button className="gstr1-btn gstr1-btn-excel" disabled={exporting !== null} onClick={() => downloadFile("excel")}>
-                                {exporting === "excel" ? "…" : "⬇ Excel (30 Worksheets)"}
-                            </button>
-                            <button className="gstr1-btn gstr1-btn-pdf" disabled={exporting !== null} onClick={() => downloadFile("pdf")}>
-                                {exporting === "pdf" ? "…" : "⬇ PDF Summary"}
-                            </button>
+
+                    {/* ── Filter Mode Tabs ── */}
+                    <div className="gstr1-filter-modes">
+                        {([
+                            { id: "monthly",      icon: "🗓",  label: "Month Wise" },
+                            { id: "quarterly",    icon: "📊",  label: "Quarterly" },
+                            { id: "custom-range", icon: "📅",  label: "Custom Range" },
+                            { id: "custom-month", icon: "🔢",  label: "Multi-Month" },
+                        ] as { id: FilterMode; icon: string; label: string }[]).map(m => (
                             <button
-                                className="gstr1-btn gstr1-btn-ai-template"
-                                onClick={() => setAiTemplateModalOpen(true)}
-                                title="Upload any official GST Portal Excel template (e.g. V2.2, V2.3) — Smart AI validates and populates your data" style={{ display: 'none' }}
+                                key={m.id}
+                                className={`gstr1-filter-mode-btn${filterMode === m.id ? " active" : ""}`}
+                                onClick={() => { setFilterMode(m.id); setMeta(null); setGstJson(null); setInvoiceDetail([]); setError(""); }}
                             >
-                                ✨ Upload GST Template (AI)
+                                <span className="gstr1-filter-mode-icon">{m.icon}</span>
+                                {m.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* ── Mode-specific selectors ── */}
+                    <div className="gstr1-filter-body">
+
+                        {/* MONTHLY MODE */}
+                        {filterMode === "monthly" && (
+                            <>
+                                <div className="gstr1-control-group">
+                                    <div className="gstr1-label">Year {periodsLoading && <span className="spinner-dark" style={{ display: "inline-block", marginLeft: 4 }} />}</div>
+                                    <select className="gstr1-select" value={monthlyYear} onChange={e => {
+                                        setMonthlyYear(Number(e.target.value));
+                                        // Reset month to first available for that year
+                                        const first = availablePeriods.find(p => p.year === Number(e.target.value));
+                                        if (first) setMonthlyMonth(first.month);
+                                    }}>
+                                        {(availableYears.length > 0 ? availableYears : [CURRENT_YEAR]).map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="gstr1-control-group">
+                                    <div className="gstr1-label">Month</div>
+                                    <select className="gstr1-select" value={monthlyMonth} onChange={e => setMonthlyMonth(Number(e.target.value))}>
+                                        {(monthsForYear.length > 0 ? monthsForYear : MONTHS.map((m, i) => ({ month: i + 1, year: monthlyYear, label: m }))).map(p => (
+                                            <option key={p.month} value={p.month}>{MONTHS[p.month - 1]}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        {/* QUARTERLY MODE */}
+                        {filterMode === "quarterly" && (
+                            <>
+                                <div className="gstr1-control-group">
+                                    <div className="gstr1-label">Year {periodsLoading && <span className="spinner-dark" style={{ display: "inline-block", marginLeft: 4 }} />}</div>
+                                    <select className="gstr1-select" value={quarterYear} onChange={e => setQuarterYear(Number(e.target.value))}>
+                                        {(availableYears.length > 0 ? availableYears : [CURRENT_YEAR]).map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="gstr1-control-group">
+                                    <div className="gstr1-label">GST Quarter</div>
+                                    <select className="gstr1-select" value={selectedQuarter} onChange={e => setSelectedQuarter(e.target.value)} style={{ minWidth: 200 }}>
+                                        {GST_QUARTERS.map(q => {
+                                            // Show which months have data
+                                            const hasData = q.months.some(m => monthsForQuarterYear.find(p => p.month === m));
+                                            return (
+                                                <option key={q.id} value={q.id}>
+                                                    {q.label}{hasData ? " ✓" : ""}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        {/* CUSTOM RANGE MODE */}
+                        {filterMode === "custom-range" && (
+                            <>
+                                <div className="gstr1-control-group">
+                                    <div className="gstr1-label">From Date</div>
+                                    <input type="date" className="gstr1-input" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)} />
+                                </div>
+                                <div className="gstr1-control-group">
+                                    <div className="gstr1-label">To Date</div>
+                                    <input type="date" className="gstr1-input" value={rangeTo} onChange={e => setRangeTo(e.target.value)} />
+                                </div>
+                            </>
+                        )}
+
+                        {/* CUSTOM MONTH (MULTI-SELECT) MODE */}
+                        {filterMode === "custom-month" && (
+                            <div className="gstr1-control-group" style={{ flex: 1, minWidth: 300 }}>
+                                <div className="gstr1-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    Select Months
+                                    {periodsLoading && <span className="spinner-dark" />}
+                                    {selectedMonths.length > 0 && (
+                                        <span className="gstr1-filter-summary">{selectedMonths.length} selected</span>
+                                    )}
+                                    {selectedMonths.length > 0 && (
+                                        <button onClick={() => setSelectedMonths([])} style={{ border: "none", background: "none", cursor: "pointer", color: "#dc2626", fontSize: 11, fontWeight: 700 }}>✕ Clear</button>
+                                    )}
+                                </div>
+                                {availablePeriods.length === 0 && !periodsLoading ? (
+                                    <div style={{ color: "#94a3b8", fontSize: 13 }}>No data periods found in database.</div>
+                                ) : (
+                                    <div className="cm-multi-wrap">
+                                        {availablePeriods.map(p => {
+                                            const isSelected = !!selectedMonths.find(m => m.year === p.year && m.month === p.month);
+                                            return (
+                                                <button
+                                                    key={`${p.year}-${p.month}`}
+                                                    className={`cm-chip${isSelected ? " selected" : ""}`}
+                                                    onClick={() => toggleCustomMonth(p)}
+                                                >
+                                                    {isSelected && <span className="cm-chip-remove">✓</span>}
+                                                    {p.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Load Button */}
+                        <div className="gstr1-control-group">
+                            <div className="gstr1-label">&nbsp;</div>
+                            <button
+                                className="gstr1-btn gstr1-btn-primary"
+                                onClick={loadPreview}
+                                disabled={loading || (filterMode === "custom-range" && (!rangeFrom || !rangeTo)) || (filterMode === "custom-month" && selectedMonths.length === 0)}
+                                style={{ minWidth: 130 }}
+                            >
+                                {loading ? <><span className="spinner" /> Loading…</> : "🔍 Load Return"}
                             </button>
                         </div>
-                    )}
+
+                        {/* Export buttons — show after data is loaded */}
+                        {meta && (
+                            <div className="gstr1-btn-group">
+                                <div className="gstr1-label" style={{ width: "100%" }}>Export (All 30 Sections)</div>
+                                <button className="gstr1-btn gstr1-btn-json" disabled={exporting !== null || filterMode === "custom-month"} onClick={() => downloadFile("json")} title={filterMode === "custom-month" ? "JSON export not available for multi-month" : ""}>
+                                    {exporting === "json" ? "…" : "⬇ JSON (Govt Portal)"}
+                                </button>
+                                <button className="gstr1-btn gstr1-btn-excel" disabled={exporting !== null} onClick={() => downloadFile("excel")}>
+                                    {exporting === "excel" ? "…" : "⬇ Excel (30 Sheets)"}
+                                </button>
+                                <button className="gstr1-btn gstr1-btn-pdf" disabled={exporting !== null} onClick={() => downloadFile("pdf")}>
+                                    {exporting === "pdf" ? "…" : "⬇ PDF Summary"}
+                                </button>
+                                <button
+                                    className="gstr1-btn gstr1-btn-ai-template"
+                                    onClick={() => setAiTemplateModalOpen(true)}
+                                    style={{ display: 'none' }}
+                                >
+                                    ✨ Upload GST Template (AI)
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* ── Error ── */}
@@ -553,8 +860,8 @@ export default function Gstr1Page() {
                 {!meta && !loading && !error && (
                     <div className="gstr1-empty">
                         <div className="gstr1-empty-icon">🧾</div>
-                        <div className="gstr1-empty-text">Select Month &amp; Year to load GSTR-1 (30 Tabs)</div>
-                        <div className="gstr1-empty-hint">Data is fetched live from your sales database and organized into standard GST Offline Tool CSV sheets.</div>
+                        <div className="gstr1-empty-text">Select a Filter Mode &amp; Load GSTR-1</div>
+                        <div className="gstr1-empty-hint">Choose Month Wise, Quarterly, Custom Range, or Multi-Month — then click Load Return. Data is fetched live from your database.</div>
                     </div>
                 )}
 
@@ -562,7 +869,7 @@ export default function Gstr1Page() {
                     {/* ── KPI Cards ── */}
                     <div className="gstr1-kpi-grid">
                         {[
-                            { label: "Total Invoices", value: fmtInt(meta.invoiceCount), sub: `${MONTHS[month - 1]} ${year}`, cls: "indigo" },
+                            { label: "Total Invoices", value: fmtInt(meta.invoiceCount), sub: currentPeriodLabel, cls: "indigo" },
                             { label: "B2B Invoices", value: fmtInt(meta.b2bCount), sub: "b2b.csv", cls: "green" },
                             { label: "B2CL Invoices", value: fmtInt(meta.b2clCount), sub: "b2cl.csv", cls: "amber" },
                             { label: "B2CS Groups", value: fmtInt(meta.b2csGroupCount), sub: "b2cs.csv", cls: "violet" },
@@ -967,11 +1274,12 @@ export default function Gstr1Page() {
                 <Gstr1TemplateUploadModal
                     isOpen={aiTemplateModalOpen}
                     onClose={() => setAiTemplateModalOpen(false)}
-                    month={month}
-                    year={year}
+                    month={monthlyMonth}
+                    year={monthlyYear}
                     companyId={selectedCompany?._id}
-                    periodLabel={`${MONTHS[month - 1]} ${year}`}
+                    periodLabel={currentPeriodLabel}
                 />
+
             </div>
         </>
     );
