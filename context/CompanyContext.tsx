@@ -42,12 +42,28 @@ const CompanyContext = createContext<CompanyContextType>({
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const [companies, setCompanies] = useState<CompanyType[]>([]);
-  const [selectedCompany, setSelectedCompanyState] = useState<CompanyType | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedCompany, setSelectedCompanyState] = useState<CompanyType | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("mabsol_selected_company");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return !localStorage.getItem("mabsol_selected_company");
+      } catch {}
+    }
+    return true;
+  });
+
+  const userCompId = user?.companyId?._id || (typeof user?.companyId === "string" ? user?.companyId : null);
 
   const fetchCompanies = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await fetch("/api/company-master");
       if (!res.ok) return;
       const data: CompanyType[] = await res.json();
@@ -65,43 +81,47 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         savedStr = localStorage.getItem("mabsol_selected_company");
       }
 
+      let chosen: CompanyType | null = null;
+
       if (savedStr) {
         try {
           const parsed = JSON.parse(savedStr);
           const match = data.find((c) => c._id === parsed._id || c.companyCode === parsed.companyCode);
           if (match) {
-            setSelectedCompanyState(match);
-            setLoading(false);
-            return;
+            chosen = match;
           }
-        } catch {
-          // Fall through
-        }
+        } catch {}
       }
 
       // Fallback 1: User's assigned company from UserContext
-      const userCompId = user?.companyId?._id || (typeof user?.companyId === "string" ? user?.companyId : null);
-      if (userCompId) {
+      if (!chosen && userCompId) {
         const userMatch = data.find((c) => c._id === userCompId);
-        if (userMatch) {
-          setSelectedCompanyState(userMatch);
-          setLoading(false);
-          return;
-        }
+        if (userMatch) chosen = userMatch;
       }
 
-      // Fallback 2: Default company or active pharma enterprise (Skylark)
-      const defaultComp =
-        data.find((c) => c.isDefault) ||
-        data.find((c) => c.companyName?.toLowerCase().includes("skylark")) ||
-        data[0];
-      setSelectedCompanyState(defaultComp);
+      // Fallback 2: Default company
+      if (!chosen) {
+        chosen =
+          data.find((c) => c.isDefault) ||
+          data.find((c) => c.companyName?.toLowerCase().includes("skylark")) ||
+          data[0];
+      }
+
+      if (chosen) {
+        setSelectedCompanyState((prev: any) => {
+          if (prev && prev._id === chosen?._id) return prev;
+          if (typeof window !== "undefined") {
+            try { localStorage.setItem("mabsol_selected_company", JSON.stringify(chosen)); } catch {}
+          }
+          return chosen;
+        });
+      }
     } catch (err) {
       console.error("Failed to load companies", err);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userCompId]);
 
   useEffect(() => {
     fetchCompanies();

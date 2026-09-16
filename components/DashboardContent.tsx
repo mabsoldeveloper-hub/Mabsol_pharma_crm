@@ -5,12 +5,12 @@ import KPICards from "@/components/KPICards";
 import DashboardCharts, { PurchaseDashboardCharts, CreditDashboardCharts } from "@/components/DashboardCharts";
 import AnalyticsCards from "@/components/AnalyticsCards";
 import LiquidMeters from "@/components/LiquidMeters";
+import DashboardLiveClock from "@/components/DashboardLiveClock";
 import {
     FaBuilding,
     FaMapMarkerAlt,
     FaArrowRight,
     FaSyncAlt,
-    FaCalendarAlt,
     FaChartPie,
     FaChartLine,
     FaBoxes,
@@ -18,8 +18,6 @@ import {
     FaTruck,
     FaCheckCircle,
     FaClock,
-    FaVolumeUp,
-    FaVolumeMute,
     FaPalette,
     FaCheck,
     FaUndoAlt,
@@ -306,7 +304,6 @@ export default function DashboardContent() {
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>("overview");
     const [mrTerritoryInfo, setMrTerritoryInfo] = useState<MrTerritoryInfo | null>(null);
-    const [currentTime, setCurrentTime] = useState<Date | null>(null);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
     const hasSpokenRef = useRef(false);
@@ -482,45 +479,14 @@ export default function DashboardContent() {
     }, []);
 
     useEffect(() => {
-        // Auto-greet with Indian voice reliably on page load and first interaction
-        let spoken = false;
-        const triggerGreeting = () => {
-            if (spoken) return;
-            spoken = true;
-            speakGreeting();
-        };
-
-        const timer = setTimeout(triggerGreeting, 600);
-
-        // Fallback: If browser blocked audio before user clicked, play on first click/tap
-        const handleInteraction = () => {
-            if (!spoken) {
-                triggerGreeting();
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+            window.speechSynthesis.cancel();
+        }
+        return () => {
+            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
             }
         };
-
-        window.addEventListener("pointerdown", handleInteraction, { once: true });
-        window.addEventListener("keydown", handleInteraction, { once: true });
-
-        if (typeof window !== "undefined" && "speechSynthesis" in window) {
-            window.speechSynthesis.onvoiceschanged = () => {
-                if (!spoken) triggerGreeting();
-            };
-        }
-
-        return () => {
-            clearTimeout(timer);
-            window.removeEventListener("pointerdown", handleInteraction);
-            window.removeEventListener("keydown", handleInteraction);
-        };
-    }, [speakGreeting]);
-
-    useEffect(() => {
-        setCurrentTime(new Date());
-        const timer = setInterval(() => {
-            setCurrentTime(new Date());
-        }, 1000);
-        return () => clearInterval(timer);
     }, []);
 
     const loadMrTerritoryInfo = async () => {
@@ -542,7 +508,9 @@ export default function DashboardContent() {
     };
 
     const loadDashboard = useCallback(async () => {
-        setLoading(true);
+        if (!data) {
+            setLoading(true);
+        }
         try {
             const params = new URLSearchParams();
             if (selectedCompany?._id) {
@@ -578,7 +546,7 @@ export default function DashboardContent() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [selectedCompany, selectedFY]);
+    }, [selectedCompany?._id, selectedFY?._id, data]);
 
     const handleManualRefresh = () => {
         setRefreshing(true);
@@ -591,26 +559,11 @@ export default function DashboardContent() {
 
     useEffect(() => {
         loadDashboard();
-    }, [loadDashboard]);
-
-    useEffect(() => {
-        const onFyChange = () => {
-            loadDashboard();
-        };
-        const onCompanyChange = () => {
-            loadDashboard();
-        };
-        window.addEventListener("financial-year-changed", onFyChange);
-        window.addEventListener("company-changed", onCompanyChange);
-        return () => {
-            window.removeEventListener("financial-year-changed", onFyChange);
-            window.removeEventListener("company-changed", onCompanyChange);
-        };
-    }, [loadDashboard]);
+    }, [selectedCompany?._id, selectedFY?._id]);
 
     // Dynamic Celestial Time Info according to local hour
     const getCelestialTimeInfo = () => {
-        const hour = currentTime ? currentTime.getHours() : new Date().getHours();
+        const hour = new Date().getHours();
         let activePhase: "morning" | "afternoon" | "evening" | "night";
 
         if (hour >= 5 && hour < 12) activePhase = "morning";
@@ -782,24 +735,6 @@ export default function DashboardContent() {
     };
 
     const celestial = getCelestialTimeInfo();
-
-    const formattedDate = currentTime
-        ? currentTime.toLocaleDateString("en-IN", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        })
-        : "";
-
-    const formattedTime = currentTime
-        ? currentTime.toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: true,
-        })
-        : "";
 
     const tabs = [
         { id: "overview", label: "Executive Overview", icon: FaChartPie, badge: "Live" },
@@ -1208,55 +1143,7 @@ export default function DashboardContent() {
                             )}
                         </div>
 
-                        {/* Auto-Voice Greeting ON / OFF Toggle Button */}
-                        <button
-                            type="button"
-                            onClick={toggleVoice}
-                            title={voiceEnabled ? "Automatic Voice is ON (Click to turn OFF)" : "Automatic Voice is OFF (Click to turn ON)"}
-                            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer ${
-                                voiceEnabled
-                                    ? celestial.isDark
-                                        ? "bg-white/15 hover:bg-white/20 border-white/25 text-white"
-                                        : "bg-white/90 hover:bg-white border-slate-200/80 text-slate-800"
-                                    : "bg-slate-100/90 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-400 opacity-75"
-                            }`}
-                        >
-                            {voiceEnabled ? (
-                                <>
-                                    <FaVolumeUp size={11} className={`${isSpeaking ? "animate-bounce text-orange-500" : "text-emerald-600"}`} />
-                                    <span className="font-bold text-[10.5px] sm:text-[11px] flex items-center gap-1">
-                                        Voice: <span className="text-emerald-600 font-extrabold">ON</span>
-                                    </span>
-                                </>
-                            ) : (
-                                <>
-                                    <FaVolumeMute size={11} className="text-slate-400" />
-                                    <span className="font-bold text-[10.5px] sm:text-[11px] text-slate-400 flex items-center gap-1">
-                                        Voice: <span className="font-semibold">OFF</span>
-                                    </span>
-                                </>
-                            )}
-                        </button>
-
-                        {currentTime && (
-                            <div className={`flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default ${celestial.isDark ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white' : 'bg-white/90 hover:bg-white border-slate-200/80 text-slate-800'}`}>
-                                <div className={`flex items-center gap-1 sm:gap-1.5 ${celestial.isDark ? 'text-indigo-200' : 'text-slate-700'}`}>
-                                    <FaCalendarAlt size={10.5} className={celestial.isDark ? 'text-indigo-300 flex-shrink-0' : 'text-orange-500 flex-shrink-0'} />
-                                    <span className="font-bold text-[10.5px] sm:text-[11px] whitespace-nowrap">{formattedDate}</span>
-                                </div>
-                                <div className={`w-[1px] h-3 sm:h-3.5 ${celestial.isDark ? 'bg-white/20' : 'bg-slate-200'}`} />
-                                <div className="flex items-center gap-1 sm:gap-1.5 text-emerald-600 dark:text-emerald-400 font-mono font-extrabold tracking-wider">
-                                    <FaClock size={10.5} className="text-emerald-500 animate-pulse flex-shrink-0" />
-                                    <span className="text-[10.5px] sm:text-[11px] whitespace-nowrap">{formattedTime}</span>
-                                </div>
-                            </div>
-                        )}
-                        {selectedFY && (
-                            <div className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl sm:rounded-2xl backdrop-blur-xl border text-[11px] sm:text-xs shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default ${celestial.isDark ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white' : 'bg-white/90 hover:bg-white border-slate-200/80 text-slate-800'}`}>
-                                <FaCalendarAlt size={10.5} className={celestial.isDark ? 'text-indigo-300' : 'text-orange-500'} />
-                                <span className="font-bold text-[10.5px] sm:text-[11px] whitespace-nowrap">FY: {selectedFY.fyName || "All"}</span>
-                            </div>
-                        )}
+                        <DashboardLiveClock isDark={celestial.isDark} />
                         <button
                             onClick={handleManualRefresh}
                             disabled={refreshing}

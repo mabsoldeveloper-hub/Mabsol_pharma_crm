@@ -982,8 +982,8 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
         order: 3,
       },
       {
-        id: "migration-marg",
-        label: "Sync Marg ERP",
+        id: "migration-mabsolcrm",
+        label: "Sync MabsolCRM",
         href: "/dashboard/mabsolcrmsync",
         icon: "FaSyncAlt",
         permission: "vfp.view",

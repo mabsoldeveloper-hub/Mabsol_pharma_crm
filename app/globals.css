@@ -236,3 +236,14 @@ a {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Ensure Topbar Buttons and Controls are strictly rounded-full */
+.topbar-pill-btn,
+.topbar-circle-btn,
+.topbar-search-bar {
+  border-radius: 9999px !important;
+}
+
+.topbar-circle-btn {
+  border-radius: 9999px !important;
+}

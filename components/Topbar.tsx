@@ -351,26 +351,28 @@ export default function Topbar({
 
   return (
     <div
-      className="flex items-center justify-between gap-1.5 sm:gap-3 px-2.5 sm:px-4 py-2 sm:py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200/80 dark:border-slate-800 shadow-xs sticky top-0 transition-all"
-      style={{ zIndex: 999 }}
+      className="flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200/80 dark:border-slate-800 shadow-xs sticky top-0 transition-all z-[1020]"
     >
       {/* LEFT: Sidebar Toggle & Company/FY Selectors */}
       <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 sm:flex-initial">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          aria-label="Toggle sidebar"
-          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shrink-0 cursor-pointer shadow-xs"
-        >
-          <List size={16} className="sm:hidden" />
-          <List size={18} className="hidden sm:block" />
-        </button>
+        {/* Mobile-only toggle button (Desktop toggle is integrated on sidebar seam) */}
+        {mobile && (
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label="Toggle sidebar"
+            className="topbar-circle-btn flex items-center justify-center w-8.5 h-8.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shrink-0 cursor-pointer shadow-xs"
+            style={{ borderRadius: "9999px" }}
+          >
+            <List size={16} />
+          </button>
+        )}
 
         {/* DESKTOP COMPANY & FY SELECTORS */}
         {!mobile ? (
           <div className="flex items-center gap-2 min-w-0">
             {/* COMPANY SELECTOR DROPDOWN */}
             <div className="relative inline-flex items-center">
-              <div className="absolute left-2.5 text-blue-600 pointer-events-none">
+              <div className="absolute left-3 text-blue-600 pointer-events-none">
                 <Building size={13} />
               </div>
               <select
@@ -379,7 +381,8 @@ export default function Topbar({
                   const comp = companies.find((c) => c._id === e.target.value);
                   if (comp) setSelectedCompany(comp);
                 }}
-                className="pl-8 pr-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-200 text-[13px] font-bold border border-blue-200 dark:border-blue-800/60 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs transition-all max-w-[210px] lg:max-w-[240px] truncate"
+                className="topbar-pill-btn pl-8 pr-4 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-200 text-[12.5px] font-bold border border-blue-200 dark:border-blue-800/60 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs transition-all max-w-[210px] lg:max-w-[240px] truncate"
+                style={{ borderRadius: "9999px" }}
                 title="Select Active Company"
               >
                 {companies.map((c) => (
@@ -392,7 +395,7 @@ export default function Topbar({
 
             {/* FINANCIAL YEAR SELECTOR DROPDOWN */}
             <div className="relative inline-flex items-center">
-              <div className="absolute left-2.5 text-emerald-600 pointer-events-none">
+              <div className="absolute left-3 text-emerald-600 pointer-events-none">
                 <CalendarEvent size={13} />
               </div>
               <select
@@ -401,7 +404,8 @@ export default function Topbar({
                   const fy = fyList.find((x) => x._id === e.target.value);
                   if (fy) setSelectedFY(fy);
                 }}
-                className="pl-8 pr-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 text-[13px] font-bold border border-emerald-200 dark:border-emerald-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-xs transition-all max-w-[210px] lg:max-w-[240px] truncate"
+                className="topbar-pill-btn pl-8 pr-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 text-[12.5px] font-bold border border-emerald-200 dark:border-emerald-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-xs transition-all max-w-[210px] lg:max-w-[240px] truncate"
+                style={{ borderRadius: "9999px" }}
                 title="Select Financial Year"
               >
                 {fyList.map((fy) => (
@@ -421,7 +425,7 @@ export default function Topbar({
           <div className="flex items-center gap-1 min-w-0 flex-1">
             {/* Mobile Company Select */}
             <div className="relative inline-flex items-center flex-1 min-w-0 max-w-[130px] xs:max-w-[150px]">
-              <div className="absolute left-1.5 text-blue-600 pointer-events-none">
+              <div className="absolute left-2 text-blue-600 pointer-events-none">
                 <Building size={11} />
               </div>
               <select
@@ -430,7 +434,8 @@ export default function Topbar({
                   const comp = companies.find((c) => c._id === e.target.value);
                   if (comp) setSelectedCompany(comp);
                 }}
-                className="w-full pl-5 pr-1.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/80 text-blue-900 dark:text-blue-200 text-[10px] font-bold border border-blue-200 dark:border-blue-800/60 focus:outline-none cursor-pointer truncate"
+                className="topbar-pill-btn w-full pl-6 pr-2 py-1 rounded-full bg-blue-50 dark:bg-blue-950/80 text-blue-900 dark:text-blue-200 text-[10px] font-bold border border-blue-200 dark:border-blue-800/60 focus:outline-none cursor-pointer truncate"
+                style={{ borderRadius: "9999px" }}
               >
                 {companies.map((c) => (
                   <option key={c._id} value={c._id} className="text-slate-900">
@@ -442,7 +447,7 @@ export default function Topbar({
 
             {/* Mobile FY Select */}
             <div className="relative inline-flex items-center flex-1 min-w-0 max-w-[110px] xs:max-w-[130px]">
-              <div className="absolute left-1.5 text-emerald-600 pointer-events-none">
+              <div className="absolute left-2 text-emerald-600 pointer-events-none">
                 <CalendarEvent size={11} />
               </div>
               <select
@@ -451,7 +456,8 @@ export default function Topbar({
                   const fy = fyList.find((x) => x._id === e.target.value);
                   if (fy) setSelectedFY(fy);
                 }}
-                className="w-full pl-5 pr-1.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800/60 focus:outline-none cursor-pointer truncate"
+                className="topbar-pill-btn w-full pl-6 pr-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800/60 focus:outline-none cursor-pointer truncate"
+                style={{ borderRadius: "9999px" }}
               >
                 {fyList.map((fy) => (
                   <option key={fy._id} value={fy._id} className="text-slate-900">
@@ -468,49 +474,55 @@ export default function Topbar({
         )}
       </div>
 
-      {/* CENTER GLOBAL SEARCH TRIGGER (Desktop / Tablet) */}
-      <div className="hidden md:flex flex-1 max-w-md mx-4">
+      {/* CENTER GLOBAL SEARCH TRIGGER (Desktop / Tablet) - Matching Requested Pill UI */}
+      <div className="hidden md:flex flex-1 max-w-sm lg:max-w-md mx-3 lg:mx-6">
         <button
+          type="button"
           onClick={() => setSearchOpen(true)}
-          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50/60 hover:border-indigo-200 text-slate-500 transition-all text-xs font-semibold shadow-xs group cursor-pointer"
+          className="topbar-search-bar w-full flex items-center justify-between px-4 py-2 rounded-full border border-slate-200/90 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all text-slate-500 shadow-2xs group cursor-pointer"
+          style={{ borderRadius: "9999px" }}
         >
-          <div className="flex items-center gap-2 truncate">
-            <Search size={15} className="text-indigo-600 group-hover:scale-110 transition-transform shrink-0" />
-            <span className="truncate text-slate-500 dark:text-slate-300 group-hover:text-indigo-900 dark:group-hover:text-indigo-200 font-medium">Search links, products, stock, customers, invoices...</span>
+          <div className="flex items-center gap-2.5 truncate min-w-0">
+            <Search size={14} className="text-slate-400 dark:text-slate-400 shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" />
+            <span className="truncate text-slate-400 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 text-[13px] font-normal select-none">
+              Search pages...
+            </span>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            <span className="text-[11.5px] font-sans font-medium text-slate-400 dark:text-slate-400 select-none">
+              ⌘K
+            </span>
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 setAutoVoiceStart(true);
                 setSearchOpen(true);
               }}
-              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold border rounded-md shadow-2xs transition-colors cursor-pointer ${wakewordEnabled
-                ? "text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
-                : "text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/80 border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600"
-                }`}
-              title={wakewordEnabled ? `Click or say 'Hey ${assistantName}' to activate ${assistantName} AI` : `${assistantName} Wake-Word Disabled (Click to open Voice AI)`}
+              className="p-1 rounded-full text-slate-400 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer flex items-center justify-center"
+              style={{ borderRadius: "9999px" }}
+              title={wakewordEnabled ? `Voice Search / ${assistantName} active` : `Voice Search / ${assistantName}`}
             >
-              🎙️ {assistantName} AI {wakewordEnabled ? `("Hey ${assistantName}")` : "(Off)"}
-            </span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md shadow-2xs group-hover:text-indigo-600 group-hover:border-indigo-300 dark:group-hover:text-indigo-300 transition-colors select-none">
-              <Command size={10} className="shrink-0 text-slate-500 dark:text-slate-400 group-hover:text-indigo-600" />
-              <span>Ctrl K</span>
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
             </span>
           </div>
         </button>
       </div>
 
       {/* RIGHT: Search Icon, Notifications, Fullscreen & Profile */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* MOBILE GLOBAL SEARCH ICON BUTTON */}
         <button
           onClick={() => setSearchOpen(true)}
           aria-label="Global Search"
-          className="flex md:hidden items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors duration-200 shrink-0 cursor-pointer shadow-xs"
+          className="topbar-circle-btn flex md:hidden items-center justify-center w-8.5 h-8.5 rounded-full border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors duration-200 shrink-0 cursor-pointer shadow-xs"
+          style={{ borderRadius: "9999px" }}
           title="Search Anything (Products, Customers, Invoices, MRs...)"
         >
-          <Search size={15} />
+          <Search size={14} />
         </button>
 
         {/* FULLSCREEN TOGGLE (Hidden on Mobile) */}
@@ -518,15 +530,16 @@ export default function Topbar({
           onClick={toggleFullscreen}
           aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
           title={isFullscreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen (F11)"}
-          className={`hidden sm:flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border transition-all duration-200 shrink-0 cursor-pointer shadow-xs ${isFullscreen
+          className={`topbar-circle-btn hidden sm:flex items-center justify-center w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full border transition-all duration-200 shrink-0 cursor-pointer shadow-xs ${isFullscreen
               ? "border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900"
               : "border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:bg-indigo-50/60 dark:hover:bg-slate-700"
             }`}
+          style={{ borderRadius: "9999px" }}
         >
           {isFullscreen ? (
-            <FullscreenExit size={16} className="transition-transform hover:scale-110" />
+            <FullscreenExit size={15} className="transition-transform hover:scale-110" />
           ) : (
-            <ArrowsFullscreen size={15} className="transition-transform hover:scale-110" />
+            <ArrowsFullscreen size={14} className="transition-transform hover:scale-110" />
           )}
         </button>
 
@@ -538,13 +551,17 @@ export default function Topbar({
               setProfileOpen(false);
             }}
             aria-label="Notifications"
-            className="relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/50 transition-colors duration-200"
+            className="topbar-circle-btn relative flex items-center justify-center w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/50 transition-colors duration-200 shadow-xs cursor-pointer"
+            style={{ borderRadius: "9999px" }}
           >
             <Bell size={15} className="sm:hidden" />
-            <Bell size={18} className="hidden sm:block" />
+            <Bell size={17} className="hidden sm:block" />
 
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] sm:min-w-[18px] sm:h-[18px] rounded-full bg-red-500 text-white text-[9px] sm:text-[10px] font-bold px-1 animate-pulse">
+              <span
+                className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] sm:min-w-[17px] sm:h-[17px] rounded-full bg-red-500 text-white text-[9px] sm:text-[9.5px] font-bold px-1 animate-pulse"
+                style={{ borderRadius: "9999px" }}
+              >
                 {unreadCount}
               </span>
             )}
@@ -673,7 +690,7 @@ export default function Topbar({
               setProfileOpen((v) => !v);
               setNotifOpen(false);
             }}
-            className="flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 sm:pl-2 sm:pr-3 h-8 sm:h-10 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 sm:pl-1.5 sm:pr-3.5 h-8.5 sm:h-9.5 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200 shadow-xs cursor-pointer"
           >
             <span className="flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden border border-gray-200/80 dark:border-slate-700 shadow-xs shrink-0 bg-indigo-50 dark:bg-slate-800">
               {user?.profilePhoto && !profileImgError ? (
