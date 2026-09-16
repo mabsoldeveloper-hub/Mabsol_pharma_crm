@@ -53,6 +53,7 @@ import AccountGroup from "@/models/AccountGroup";
 import Order from "@/models/Order";
 import SaleType from "@/models/SaleType";
 import mongoose from "mongoose";
+import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -98,9 +99,27 @@ export async function GET(
       );
     }
 
+    /* ------------------------------------------------------ */
+    /* Hierarchy access control                                */
+    /* ------------------------------------------------------ */
+    const restriction = await getMrTerritoryRestriction();
+
+    /*
+     * Do the authorization check before returning ANY customer data.
+     * For restricted users, an inaccessible customer is intentionally
+     * returned as 404 instead of 403 so the API does not reveal that the
+     * customer exists outside the user's hierarchy.
+     */
     const customerDoc: any = await Customer.findById(id).lean();
 
     if (!customerDoc) {
+      return NextResponse.json(
+        { success: false, message: "Customer not found" },
+        { status: 404 }
+      );
+    }
+
+    if (restriction.isMrRestricted && !restriction.isPartyAllowed(customerDoc)) {
       return NextResponse.json(
         { success: false, message: "Customer not found" },
         { status: 404 }
@@ -344,6 +363,26 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, message: "Invalid customer id" },
         { status: 400 }
+      );
+    }
+
+    /* ------------------------------------------------------ */
+    /* Hierarchy access control                                */
+    /* ------------------------------------------------------ */
+    const restriction = await getMrTerritoryRestriction();
+    const existingCustomer: any = await Customer.findById(id).lean();
+
+    if (!existingCustomer) {
+      return NextResponse.json(
+        { success: false, message: "Customer not found" },
+        { status: 404 }
+      );
+    }
+
+    if (restriction.isMrRestricted && !restriction.isPartyAllowed(existingCustomer)) {
+      return NextResponse.json(
+        { success: false, message: "Customer not found" },
+        { status: 404 }
       );
     }
 

@@ -5,6 +5,7 @@ import SalesHierarchy from "@/models/SalesHierarchy";
 import MrTerritory from "@/models/MrTerritory";
 import MrCustomerAssignment from "@/models/MrCustomerAssignment";
 import { getCurrentUser } from "@/lib/auth";
+import { getHierarchyAccess } from "@/lib/hierarchyAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
+    const currentUser = await getCurrentUser();
+    const access = await getHierarchyAccess(currentUser);
+
+    if (!currentUser || !access.isAuthenticated) {
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId") || "";
@@ -37,6 +44,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    if (!access.isAdmin && !access.accessibleUserIds.includes(String(user._id))) {
+      return NextResponse.json(
+        { success: false, message: "You are not allowed to view this user's assignments." },
+        { status: 403 }
+      );
+    }
+
     // Fetch Hierarchy
     const hierarchy = await SalesHierarchy.findOne({ userId });
 
@@ -46,10 +60,16 @@ export async function GET(req: NextRequest) {
     // Fetch Customer / Party Assignments
     const partyAssignments = await MrCustomerAssignment.find({ userId, status: "Active" });
 
-    // Fetch Direct Downline Subordinates (users reporting to this user)
-    const directReports = await User.find({ reportsTo: userId })
-      .select("name email employeeCode designation mobile roleType status")
-      .populate("roleId", "roleName");
+    // Fetch the complete recursive downline.
+    // The frontend can still use directReports; teamUsers is the full subtree.
+    const teamUsers = access.isAdmin
+      ? await User.find({ reportsTo: userId, status: "Active" })
+          .select("name email employeeCode designation mobile roleType status reportsTo")
+          .populate("roleId", "roleName")
+          .lean()
+      : access.accessibleUsers.filter((u: any) => String(u._id) !== String(user._id));
+
+    const directReports = teamUsers.filter((u: any) => String(u.reportsTo || "") === String(user._id));
 
     return NextResponse.json({
       success: true,
@@ -59,6 +79,7 @@ export async function GET(req: NextRequest) {
         territories: territories || [],
         partyAssignments: partyAssignments || [],
         directReports: directReports || [],
+        teamUsers: teamUsers || [],
       },
     });
   } catch (error: any) {
@@ -76,6 +97,11 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
     const currentUser = await getCurrentUser();
+    const access = await getHierarchyAccess(currentUser);
+
+    if (!currentUser || !access.isAuthenticated) {
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+    }
 
     const body = await req.json();
     const {
@@ -106,19 +132,84 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (currentUser.tenantId && targetUser.tenantId !== currentUser.tenantId) {
+      return NextResponse.json(
+        { success: false, message: "Cross-tenant assignment is not allowed." },
+        { status: 403 }
+      );
+    }
+
+    if (!access.isAdmin && !access.accessibleUserIds.includes(String(targetUser._id))) {
+      return NextResponse.json(
+        { success: false, message: "You are not allowed to assign this user." },
+        { status: 403 }
+      );
+    }
+
     const roleName = String((targetUser.roleId as any)?.roleName || roleLevel || targetUser.roleType || "").toLowerCase();
     const isAdmin = roleName.includes("admin");
 
     // 1. Update User Record (reportsTo and roleType)
     let reportsToName = "";
     if (reportsTo && !isAdmin) {
-      const parentUser = await User.findById(reportsTo);
-      if (parentUser) {
-        reportsToName = parentUser.name;
-        targetUser.reportsTo = parentUser._id;
+      const parentUser = await User.findById(reportsTo).select("_id name tenantId status");
+
+      if (!parentUser) {
+        return NextResponse.json(
+          { success: false, message: "Reporting user not found." },
+          { status: 400 }
+        );
       }
+
+      if (parentUser.status !== "Active") {
+        return NextResponse.json(
+          { success: false, message: "Reporting user is inactive." },
+          { status: 400 }
+        );
+      }
+
+      if (currentUser.tenantId && parentUser.tenantId !== currentUser.tenantId) {
+        return NextResponse.json(
+          { success: false, message: "Cross-tenant reporting is not allowed." },
+          { status: 403 }
+        );
+      }
+
+      if (!access.isAdmin && !access.accessibleUserIds.includes(String(parentUser._id))) {
+        return NextResponse.json(
+          { success: false, message: "You can only assign users within your own hierarchy." },
+          { status: 403 }
+        );
+      }
+
+      if (String(parentUser._id) === String(targetUser._id)) {
+        return NextResponse.json(
+          { success: false, message: "A user cannot report to themselves." },
+          { status: 400 }
+        );
+      }
+
+      // Prevent cycles such as A -> B -> A.
+      let cursor: any = parentUser._id;
+      const seen = new Set<string>();
+      while (cursor) {
+        const cursorId = String(cursor);
+        if (seen.has(cursorId)) break;
+        seen.add(cursorId);
+        if (cursorId === String(targetUser._id)) {
+          return NextResponse.json(
+            { success: false, message: "Invalid hierarchy: reporting assignment would create a cycle." },
+            { status: 400 }
+          );
+        }
+        const parent = await User.findById(cursor).select("reportsTo").lean();
+        cursor = parent?.reportsTo || null;
+      }
+
+      reportsToName = parentUser.name;
+      targetUser.reportsTo = parentUser._id;
     } else {
-      // Admin or Top Level Executive does not report to anyone
+      // Admin / top-level executive does not report to anyone.
       targetUser.reportsTo = null;
     }
 

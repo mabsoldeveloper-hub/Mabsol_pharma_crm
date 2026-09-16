@@ -229,11 +229,11 @@ export default function CustomerOverview({ customer }: Props) {
         <Field label="Area Sales Manager (ASM)" value={show(customer.ASM)} />
         <Field label="Regional Sales Manager (RSM)" value={show(customer.RSM)} />
         <Field label="Company / Division" value={show(customer.COMPANY)} />
-        <Field label="Territory Code" value={show(customer.GCODE)} />
+        {/* <Field label="Territory Code" value={show(customer.GCODE)} /> */}
       </Section>
 
       {/* ==================== 6. RAW / ADDITIONAL DATA INSPECTOR ==================== */}
-      <div className="mt-4 mb-6">
+      {/* <div className="mt-4 mb-6">
         <button
           onClick={() => setShowRawInspector(!showRawInspector)}
           className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-white/60 backdrop-blur-xl border border-white/50 shadow-[0_4px_20px_rgba(52,56,114,0.06)] hover:bg-white/80 transition-all text-xs font-bold text-slate-700 cursor-pointer"
@@ -262,7 +262,7 @@ export default function CustomerOverview({ customer }: Props) {
             </div>
           </div>
         )}
-      </div>
+      </div> */}
     </>
   );
 }
