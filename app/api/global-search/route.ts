@@ -184,9 +184,9 @@ const APP_PAGES = [
   { title: "List Financial Years", category: "Navigation", path: "/dashboard/financial-year/list", fileName: "app/dashboard/financial-year/list/page.tsx", keywords: ["list fy", "financial year list", "fy list", "financial-year"], icon: "calendar" },
 
   // Migration & Sync
-  { title: "Sync Console (VFP / Marg Sync)", category: "Navigation", path: "/dashboard/mabsolcrmsync", fileName: "app/dashboard/mabsolcrmsync/page.tsx", keywords: ["mabsolcrmsync", "sync console", "vfp sync", "marg sync", "dbf import", "migration"], icon: "sync" },
-  { title: "Sync Settings & DB Configuration", category: "Navigation", path: "/dashboard/mabsolcrmsync/settings", fileName: "app/dashboard/mabsolcrmsync/settings/page.tsx", keywords: ["sync settings", "mabsolcrmsync settings", "vfp config", "db path"], icon: "sliders" },
-  { title: "VFP Config Wizard", category: "Navigation", path: "/dashboard/vfp-config", fileName: "app/dashboard/vfp-config/page.tsx", keywords: ["vfp config", "vfp-config", "vfp wizard", "sync setup"], icon: "refresh-cw" },
+  { title: "Sync Console (MabsolCRM Sync)", category: "Navigation", path: "/dashboard/mabsolcrmsync", fileName: "app/dashboard/mabsolcrmsync/page.tsx", keywords: ["mabsolcrmsync", "sync console", "mabsolcrm sync", "dbf import", "migration"], icon: "sync" },
+  { title: "Sync Settings & DB Configuration", category: "Navigation", path: "/dashboard/mabsolcrmsync/settings", fileName: "app/dashboard/mabsolcrmsync/settings/page.tsx", keywords: ["sync settings", "mabsolcrmsync settings", "mabsolcrm config", "db path"], icon: "sliders" },
+  { title: "MabsolCRM Config Wizard", category: "Navigation", path: "/dashboard/vfp-config", fileName: "app/dashboard/vfp-config/page.tsx", keywords: ["mabsolcrm config", "mabsolcrm wizard", "sync setup"], icon: "refresh-cw" },
 
   // Reports
   { title: "Dashboard Reports Overview", category: "Navigation", path: "/dashboard/reports", fileName: "app/dashboard/reports/page.tsx", keywords: ["reports", "dash reports", "all reports", "analytics reports"], icon: "chart-bar" },

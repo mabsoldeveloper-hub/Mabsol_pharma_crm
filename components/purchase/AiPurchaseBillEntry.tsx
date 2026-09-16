@@ -887,7 +887,7 @@ export default function AiPurchaseBillEntry() {
                 Smart AI Purchase Bill Scan & Auto-Fill
               </h1>
               <p className="text-xs sm:text-sm text-white/80 dark:text-slate-300 mt-1 max-w-2xl">
-                Scan Marg ERP, Tally, Busy, Goods Receipt Notes or PDF bills. Extracts line items, matches suppliers, and posts purchase records automatically.
+                Scan MabsolCRM ERP, Tally, Busy, Goods Receipt Notes or PDF bills. Extracts line items, matches suppliers, and posts purchase records automatically.
               </p>
             </div>
           </div>
@@ -1105,7 +1105,7 @@ export default function AiPurchaseBillEntry() {
                     Drag & Drop Purchase Bill / PDF
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Supports Marg ERP, Busy, Tally, PDF Invoices & Camera Photos
+                    Supports MabsolCRM ERP, Busy, Tally, PDF Invoices & Camera Photos
                   </p>
                 </div>
               )}

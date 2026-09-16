@@ -152,7 +152,7 @@ export default function FetchCompanyMasterPage() {
                 Company Master
               </h1>
               <p className="text-sm text-slate-500 mt-0.5">
-                Manage all companies 
+                Manage all companies synced from MabsolCRM SaleType master
               </p>
             </div>
           </div>

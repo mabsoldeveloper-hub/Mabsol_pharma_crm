@@ -10,7 +10,7 @@ import VfpSyncLog from "@/models/VfpSyncLog";
 
 const VFP_ENCODING = process.env.VFP_ENCODING || "latin1";
 
-export async function performDirectServerSync(userEmail: string) {
+export async function performDirectServerSync(userEmail: string, customDataDir?: string) {
   await dbConnect();
 
   const email = userEmail || "global";
@@ -21,7 +21,7 @@ export async function performDirectServerSync(userEmail: string) {
     (await VfpConfig.findOne({ key: "vfp_sync_config", email }).lean()) ||
     null;
 
-  let dataDir: string = config?.consoleSyncDir || config?.sourceDir || config?.dataDir || process.env.VFP_DATA_DIR || "";
+  let dataDir: string = customDataDir || config?.consoleSyncDir || config?.sourceDir || config?.dataDir || process.env.VFP_DATA_DIR || "";
   const enabledFiles: string[] = config?.enabledFiles || [];
 
   // User-specific upload directory (browser-uploaded DBF files)
