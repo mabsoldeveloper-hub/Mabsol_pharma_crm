@@ -138,7 +138,7 @@ export default function UserAssignmentWorkbenchPage() {
   const [activeRole, setActiveRole] = useState<string>(""); // Selected Role Type ("" = All Roles)
   const [bulkSearch, setBulkSearch] = useState<string>(""); // Search users within role
   const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
-  const [layoutView, setLayoutView] = useState<"grid" | "table">("grid"); // Grid vs Table
+  const [layoutView, setLayoutView] = useState<"table" | "grid">("table"); // Grid vs Table
   const [selectedBulkUserIds, setSelectedBulkUserIds] = useState<Set<string>>(new Set());
 
   // Higher Designation Assignment Form
@@ -764,7 +764,8 @@ export default function UserAssignmentWorkbenchPage() {
   // RENDER
   // -------------------------------------------------------------
   return (
-    <div className="space-y-6 p-4 max-w-7xl mx-auto">
+    <div className="coontainer-fluid">
+    {/* <div className="space-y-6 p-4 max-w-7xl mx-auto"> */}
       {/* Top Banner Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-900 to-purple-900 p-6 text-white shadow-xl border border-indigo-500/20">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -777,7 +778,7 @@ export default function UserAssignmentWorkbenchPage() {
                 Multi-User Selection
               </span>
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight">
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">
               Executive Hierarchy & Role Assignment
             </h1>
             <p className="text-xs text-white/80 mt-1">
@@ -952,6 +953,16 @@ export default function UserAssignmentWorkbenchPage() {
                 {/* View Switcher: Grid vs Table */}
                 <div className="flex items-center gap-2">
                   <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200">
+                  <button
+                      type="button"
+                      onClick={() => setLayoutView("table")}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all ${
+                        layoutView === "table" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      title="Detailed Table View"
+                    >
+                      <FaList size={11} /> Table
+                    </button>
                     <button
                       type="button"
                       onClick={() => setLayoutView("grid")}
@@ -962,16 +973,7 @@ export default function UserAssignmentWorkbenchPage() {
                     >
                       <FaThLarge size={11} /> Grid
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setLayoutView("table")}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all ${
-                        layoutView === "table" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
-                      }`}
-                      title="Detailed Table View"
-                    >
-                      <FaList size={11} /> Table
-                    </button>
+                    
                   </div>
                 </div>
               </div>
@@ -2152,5 +2154,6 @@ export default function UserAssignmentWorkbenchPage() {
         </div>
       )}
     </div>
+    // </div>
   );
 }

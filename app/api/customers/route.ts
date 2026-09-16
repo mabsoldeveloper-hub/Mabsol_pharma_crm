@@ -110,12 +110,78 @@ export async function GET(req: Request) {
     /* Customers                                                */
     /* ------------------------------------------------------ */
 
+    /*
+     * IMPORTANT:
+     * Customer is backed by vfp_new_folder_order. The hierarchy must be
+     * applied in MongoDB, not after loading the complete customer master.
+     *
+     * This keeps the API fast and, more importantly, prevents a restricted
+     * user from receiving another user's parties in the API response.
+     */
+    let hierarchyCustomerFilter: Record<string, any> = {};
+
+    if (restriction.isMrRestricted) {
+      const allowedOrdnos = (restriction.allowedOrdnos || [])
+        .map((v: any) => clean(v))
+        .filter(Boolean);
+
+      const allowedCompanyCodes = (restriction.allowedCompanyCodes || [])
+        .map((v: any) => clean(v))
+       
+        .filter(Boolean);
+
+      const escapeRegex = (value: string) =>
+        value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+      const exactRegexes = (values: string[]) =>
+        values.map((value) =>
+          new RegExp(`^${escapeRegex(value)}\\s*$`, "i")
+        );
+
+      const ordnoRegexes = exactRegexes(allowedOrdnos);
+      const companyRegexes = exactRegexes(allowedCompanyCodes);
+
+      const accessOr: any[] = [];
+
+      if (ordnoRegexes.length) {
+        accessOr.push(
+          { ORDNO: { $in: ordnoRegexes } },
+          { CODEP: { $in: ordnoRegexes } },
+          { CODE: { $in: ordnoRegexes } }
+        );
+      }
+
+      if (companyRegexes.length) {
+        accessOr.push(
+          { COMPANY: { $in: companyRegexes } },
+          { GCODE: { $in: companyRegexes } },
+          { SCODE: { $in: companyRegexes } }
+        );
+      }
+
+      /*
+       * Legacy Marg/VFP customer rows can carry the responsible hierarchy
+       * member directly. Keep these fields as a compatibility path.
+       */
+      /*
+       * allowedOrdnos already contains the legacy Customer.ORDNO values
+       * resolved by getMrTerritoryRestriction(). We therefore do not add a
+       * broad manager-name OR here; doing so can accidentally grant unrelated
+       * parties when old VFP data contains reused names.
+       */
+
+      hierarchyCustomerFilter =
+        accessOr.length > 0
+          ? { $or: accessOr }
+          : { _id: null };
+    }
+
     const allCustomers: any[] = await Customer.find(
-      combineFilters(companyVfpMatch),
+      combineFilters(companyVfpMatch, hierarchyCustomerFilter),
       {
         PARNAM: 1,
         ORDNO: 1,
-        SCODE: 1,
+        SCODE:1,
         CODEP: 1,
 
         CITY: 1,
@@ -156,27 +222,39 @@ export async function GET(req: Request) {
       .lean();
 
     /* ------------------------------------------------------ */
-    /* MR restriction                                           */
+    /* Account-group filter                                     */
     /* ------------------------------------------------------ */
 
-    // const customers = restriction.isMrRestricted
-    //   ? allCustomers.filter((c: any) =>
-    //       restriction.isPartyAllowed(c)
-    //     )
-    //   : allCustomers;
-    const customers = (
-      restriction.isMrRestricted
-        ? allCustomers.filter((c: any) =>
-            restriction.isPartyAllowed(c)
-          )
-        : allCustomers
-    ).filter((c: any) => {
-      const scode = clean(c.SCODE);
-      const grp = groupMap.get(scode);
-    
-      const groupName = clean(grp?.PARNAM).toUpperCase();
-    
-      return groupName.includes("SUNDRY");
+    /*
+     * Access control was already applied in the MongoDB query above.
+     * Only keep the existing Marg-compatible SUNDRY group rule here.
+     */
+    const customers = allCustomers.filter((c: any) => {
+      const scode = clean(c.SCODE).toUpperCase();
+      /*
+       * Customer Master should show these Account Group codes:
+       * C6, C6², D3, D31, D31², D32, D33, D34
+       *
+       * In ACGROUP, GROUP and ORDNO are different fields.
+       * Example:
+       * GROUP = C6
+       * ORDNO = C6²
+       *
+       * Customer.SCODE points to the account-group/order code used
+       * by the existing Customer Master data.
+       */
+      const allowedGroupCodes = new Set([
+        "C",
+        "C6",
+        "C6z", 
+        "D3",
+        "D31",
+        "D31z",
+        "D33",
+        "D34",
+      ]);
+
+      return allowedGroupCodes.has(scode);
     });
 
 
@@ -268,7 +346,7 @@ export async function GET(req: Request) {
           "STATION",
           "ROUT",
           "ROUTE",
-            "DSM",
+          "DSM",
           "RSM",
           "ASM",
           "HQT",
@@ -367,15 +445,7 @@ export async function GET(req: Request) {
       }
     });
 
-    /*
-     * GST -> STATE1 mapping.
-     *
-     * Example:
-     * GSTNO = 03XXXXXXXXXXXXX
-     * SALETYPE.TGCODE = 03...
-     * SALETYPE.SGCODE = STATE1
-     * => STATE1 = SALETYPE.SNAME
-     */
+  
     const gstStateMap = new Map<string, string>();
 
     saleTypes.forEach((saleType: any) => {
