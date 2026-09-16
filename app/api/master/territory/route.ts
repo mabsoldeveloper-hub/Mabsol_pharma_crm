@@ -16,7 +16,12 @@ export const dynamic = "force-dynamic";
  * We intentionally do NOT create a new collection.
  */
 
-const MASTER_CONFIG: Record<string, { sgcodes: string[]; prefix: string; label: string }> = {
+type TerritoryType = "zone" | "area" | "station" | "route";
+
+const MASTER_CONFIG: Record<
+  TerritoryType,
+  { sgcodes: string[]; prefix: string; label: string }
+> = {
   zone: {
     sgcodes: ["ZONE"],
     prefix: "ZN",
@@ -47,9 +52,9 @@ function clean(value: unknown): string {
     .trim();
 }
 
-function normalizeType(value: unknown): keyof typeof MASTER_CONFIG | null {
+function normalizeType(value: unknown): TerritoryType | null {
   const type = clean(value).toLowerCase();
-  return type in MASTER_CONFIG ? (type as keyof typeof MASTER_CONFIG) : null;
+  return (type in MASTER_CONFIG) ? (type as TerritoryType) : null;
 }
 
 function isValidObjectId(value: string) {
@@ -61,7 +66,7 @@ function generateCode(prefix: string): string {
   return `${prefix}${Date.now().toString(36).toUpperCase().slice(-7)}`;
 }
 
-function masterFilter(type: keyof typeof MASTER_CONFIG) {
+function masterFilter(type: TerritoryType) {
   const config = MASTER_CONFIG[type];
   return { SGCODE: { $in: config.sgcodes } };
 }
@@ -94,17 +99,17 @@ export async function GET() {
       .sort({ SGCODE: 1, SNAME: 1 })
       .lean();
 
-    const result = {
-      zone: [] as any[],
-      area: [] as any[],
-      station: [] as any[],
-      route: [] as any[],
+    const result: Record<TerritoryType, any[]> = {
+      zone: [],
+      area: [],
+      station: [],
+      route: [],
     };
 
     rows.forEach((row) => {
       const sgcode = clean(row.SGCODE).toUpperCase();
 
-      let type: keyof typeof MASTER_CONFIG | null = null;
+      let type: TerritoryType | null = null;
 
       if (sgcode === "ZONE") type = "zone";
       else if (sgcode === "AREA") type = "area";
