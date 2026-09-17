@@ -5,6 +5,7 @@ import Customer from "@/models/Customer";
 import { getMrTerritoryRestriction } from "@/lib/mrTerritoryHelper";
 
 import { getCompanyVfpFilter, combineFilters } from "@/lib/companyVfpHelper";
+import { getFYDateRange, buildFYDateQuery } from "@/lib/financialYearHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +15,15 @@ export async function GET(req: NextRequest) {
 
         const { searchParams } = new URL(req.url);
         const companyVfpMatch = await getCompanyVfpFilter(searchParams);
+        const fyRange = await getFYDateRange(searchParams);
         const type = (searchParams.get("type") || "all").toLowerCase(); // credit, debit, all
         const search = (searchParams.get("q") || searchParams.get("search") || "").trim();
         const party = (searchParams.get("party") || searchParams.get("company") || "").trim();
         const book = (searchParams.get("book") || "").trim();
         const startDate = searchParams.get("startDate");
         const endDate = searchParams.get("endDate");
+        const effectiveStart = startDate || fyRange.startDate;
+        const effectiveEnd = endDate || fyRange.endDate;
         const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
         const limit = Math.max(1, Math.min(500, parseInt(searchParams.get("limit") || "50", 10)));
         const sortBy = searchParams.get("sortBy") || "DATE";
@@ -75,10 +79,9 @@ export async function GET(req: NextRequest) {
             ledgerFilter.BOOK = book;
         }
 
-        if (startDate || endDate) {
-            ledgerFilter.DATE = {};
-            if (startDate) ledgerFilter.DATE.$gte = startDate;
-            if (endDate) ledgerFilter.DATE.$lte = endDate;
+        if (effectiveStart || effectiveEnd) {
+            const dateMatch = buildFYDateQuery("DATE", effectiveStart, effectiveEnd);
+            ledgerFilter = combineFilters(ledgerFilter, dateMatch);
         }
 
         if (search) {
@@ -102,7 +105,7 @@ export async function GET(req: NextRequest) {
                 searchConds.push({ DEBIT: Number(search) });
             }
 
-            ledgerFilter.$or = searchConds;
+            ledgerFilter = combineFilters(ledgerFilter, { $or: searchConds });
         }
 
         const sortOption: any = {};

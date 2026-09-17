@@ -12,7 +12,7 @@ import {
     FaArrowUp, FaArrowDown, FaBuilding, FaDownload, FaFilter,
     FaSearch, FaTimes, FaTrophy, FaBoxes, FaUserCheck, FaChartLine, FaShoppingBag,
     FaWallet, FaUndo, FaExclamationTriangle, FaEye, FaLayerGroup,
-    FaHeartbeat, FaGlobeAsia, FaExchangeAlt
+    FaHeartbeat, FaGlobeAsia, FaExchangeAlt, FaUserTie, FaRoute, FaChevronRight
 } from "react-icons/fa";
 import { useFinancialYear } from "@/context/FinancialYearContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -22,6 +22,7 @@ import {
     RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
+import FYAreaRadarDetailModal, { type CustomerDetailItem } from "@/components/FYAreaRadarDetailModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & CONSTANTS
@@ -53,10 +54,47 @@ type StateRow = {
     healthScore: number;
     byFy: Record<string, StateFyData>;
     topProducts: { name: string; qty: number; amount: number }[];
-    topCustomers: { name: string; sales: number }[];
+    topCustomers: {
+        code?: string;
+        name: string;
+        city?: string;
+        area?: string;
+        sales: number;
+        netSales?: number;
+        gstno?: string;
+        phone?: string;
+        invoicesCount?: number;
+        byFy?: Record<string, any>;
+    }[];
+    customers?: CustomerDetailItem[];
 };
 
 type ZonalRow = { zoneName: string; byFy: Record<string, number>; totalSales: number };
+
+type OptionItem = {
+    name: string;
+    count: number;
+};
+
+type FilterOptions = {
+    states: OptionItem[];
+    areas: OptionItem[];
+    routes: OptionItem[];
+    dsms: OptionItem[];
+    asms: OptionItem[];
+    rsms: OptionItem[];
+};
+
+function ActiveFilterBadge({ label, value, onRemove }: { label: string; value: string; onRemove: () => void }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-700 border border-indigo-300/40">
+            <span className="text-indigo-400">{label}:</span> {value}
+            <button onClick={onRemove} className="ml-0.5 hover:text-red-500 transition-colors">
+                <FaTimes size={8} />
+            </button>
+        </span>
+    );
+}
 
 type MetricMode = "sales" | "netSales" | "purchase" | "collections" | "returnsRatio" | "growth" | "health";
 
@@ -257,21 +295,137 @@ export default function FYAreaWiseComparisonPage() {
     const [drawerTab, setDrawerTab] = useState<"overview" | "monthly" | "customers" | "products">("overview");
     const [hasLoaded, setHasLoaded] = useState(false);
 
+    // ── Area Radar Modal state ──
+    const [isRadarModalOpen, setIsRadarModalOpen] = useState(false);
+    const [selectedRadarMetric, setSelectedRadarMetric] = useState<string | null>(null);
+
+    const handleOpenRadarModal = (metricKey?: string) => {
+        setSelectedRadarMetric(metricKey || null);
+        setIsRadarModalOpen(true);
+    };
+
+    // ── Territory filter states ──
+    const [filterOptions, setFilterOptions] = useState<FilterOptions>({ states: [], areas: [], routes: [], dsms: [], asms: [], rsms: [] });
+    const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
+
+    // Applied (live) filters
+    const [stateFilter, setStateFilter] = useState("");
+    const [areaFilter, setAreaFilter]   = useState("");
+    const [routeFilter, setRouteFilter] = useState("");
+    const [dsmFilter, setDsmFilter]     = useState("");
+    const [asmFilter, setAsmFilter]     = useState("");
+    const [rsmFilter, setRsmFilter]     = useState("");
+
+    // Staged (panel) filters — committed only on Apply
+    const [stageState, setStageState] = useState("");
+    const [stageArea, setStageArea]   = useState("");
+    const [stageRoute, setStageRoute] = useState("");
+    const [stageDsm, setStageDsm]     = useState("");
+    const [stageAsm, setStageAsm]     = useState("");
+    const [stageRsm, setStageRsm]     = useState("");
+
     const availableFYs = useMemo(() =>
         globalFyList.filter((f) => !f.isAll && f._id !== "ALL"), [globalFyList]);
+
+    // Auto-select latest 2-3 FYs on initial load if none selected
+    useEffect(() => {
+        if (selectedFyIds.length === 0 && availableFYs.length > 0) {
+            const defaults = availableFYs.slice(-3).map((f) => f._id);
+            setSelectedFyIds(defaults);
+        }
+    }, [availableFYs, selectedFyIds.length]);
+
+    useEffect(() => {
+        loadFilterOptions();
+    }, []);
+
+    const loadFilterOptions = async () => {
+        setFilterOptionsLoading(true);
+        try {
+            const params = new URLSearchParams({ mode: "filter-options" });
+            if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+            const res = await fetch(`/api/dashboard/compare/fy-area-wise?${params}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success) {
+                    const cleanList = (list: any[]): OptionItem[] => {
+                        if (!Array.isArray(list)) return [];
+                        return list
+                            .map((item: any) => {
+                                if (item && typeof item === "object" && item.name !== undefined) {
+                                    return {
+                                        name: String(item.name).trim(),
+                                        count: Number(item.count || 1),
+                                    };
+                                }
+                                return {
+                                    name: String(item || "").trim(),
+                                    count: 1,
+                                };
+                            })
+                            .filter(
+                                (x) =>
+                                    x.name &&
+                                    !["null", "undefined", "n/a", "none", "-"].includes(
+                                        x.name.toLowerCase()
+                                    )
+                            );
+                    };
+
+                    setFilterOptions({
+                        states: cleanList(json.states),
+                        areas:  cleanList(json.areas),
+                        routes: cleanList(json.routes),
+                        dsms:   cleanList(json.dsms),
+                        asms:   cleanList(json.asms),
+                        rsms:   cleanList(json.rsms),
+                    });
+                }
+            }
+        } catch {
+            // Silently ignore
+        } finally {
+            setFilterOptionsLoading(false);
+        }
+    };
 
     const toggleFY = useCallback((id: string) => {
         setSelectedFyIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     }, []);
 
-    const loadData = useCallback(async () => {
-        if (selectedFyIds.length === 0) return;
+    const loadData = useCallback(async (overrides?: {
+        state?: string;
+        area?: string;
+        route?: string;
+        dsm?: string;
+        asm?: string;
+        rsm?: string;
+        fyIds?: string[];
+    }) => {
+        const activeFys = overrides?.fyIds ?? selectedFyIds;
+        if (activeFys.length === 0) return;
         setLoading(true); setError(null);
         try {
             const params = new URLSearchParams();
-            const uniqueIds = Array.from(new Set(selectedFyIds));
+            const uniqueIds = Array.from(new Set(activeFys));
             params.set("fyIds", uniqueIds.join(","));
             if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+
+            const effState = overrides?.state !== undefined ? overrides.state : stateFilter;
+            const effArea  = overrides?.area  !== undefined ? overrides.area  : areaFilter;
+            const effRoute = overrides?.route !== undefined ? overrides.route : routeFilter;
+            const effDsm   = overrides?.dsm   !== undefined ? overrides.dsm   : dsmFilter;
+            const effAsm   = overrides?.asm   !== undefined ? overrides.asm   : asmFilter;
+            const effRsm   = overrides?.rsm   !== undefined ? overrides.rsm   : rsmFilter;
+
+            // Territory filters
+            if (effState) params.set("state", effState);
+            if (effArea)  params.set("area",  effArea);
+            if (effRoute) params.set("route", effRoute);
+            if (effDsm)   params.set("dsm",   effDsm);
+            if (effAsm)   params.set("asm",   effAsm);
+            if (effRsm)   params.set("rsm",   effRsm);
 
             const res = await fetch(`/api/dashboard/compare/fy-area-wise?${params}`);
             const json = await res.json();
@@ -282,10 +436,67 @@ export default function FYAreaWiseComparisonPage() {
             setZonalBreakdown(json.zonalBreakdown || []);
             setLeaderboards(json.leaderboards || null);
             setNationalSummary(json.nationalSummary || null);
+            if (json.stateData && json.stateData.length > 0) {
+                setCompareStateIds(prev => prev.length >= 2 ? prev : json.stateData.slice(0, 3).map((s: StateRow) => s.stateId));
+            }
             setHasLoaded(true);
         } catch (e: any) { setError(e.message); }
         finally { setLoading(false); }
-    }, [selectedFyIds, selectedCompany]);
+    }, [selectedFyIds, selectedCompany, stateFilter, areaFilter, routeFilter, dsmFilter, asmFilter, rsmFilter]);
+
+    // Initial load once FYs are available
+    useEffect(() => {
+        if (!hasLoaded && selectedFyIds.length > 0) {
+            loadData();
+        }
+    }, [selectedFyIds, hasLoaded, loadData]);
+
+    // Re-fetch when company changes
+    useEffect(() => {
+        const h = () => {
+            if (hasLoaded) loadData();
+            loadFilterOptions();
+        };
+        window.addEventListener("company-changed", h);
+        return () => window.removeEventListener("company-changed", h);
+    }, [loadData, hasLoaded]);
+
+    const applyTerritoryFilters = () => {
+        setStateFilter(stageState);
+        setAreaFilter(stageArea);
+        setRouteFilter(stageRoute);
+        setDsmFilter(stageDsm);
+        setAsmFilter(stageAsm);
+        setRsmFilter(stageRsm);
+        setShowFilterPanel(false);
+        loadData({
+            state: stageState,
+            area: stageArea,
+            route: stageRoute,
+            dsm: stageDsm,
+            asm: stageAsm,
+            rsm: stageRsm,
+        });
+    };
+
+    const resetTerritoryFilters = () => {
+        setStageState(""); setStageArea(""); setStageRoute(""); setStageDsm(""); setStageAsm(""); setStageRsm("");
+        setStateFilter(""); setAreaFilter(""); setRouteFilter(""); setDsmFilter(""); setAsmFilter(""); setRsmFilter("");
+        loadData({ state: "", area: "", route: "", dsm: "", asm: "", rsm: "" });
+    };
+
+    const openFilterPanel = () => {
+        setStageState(stateFilter);
+        setStageArea(areaFilter);
+        setStageRoute(routeFilter);
+        setStageDsm(dsmFilter);
+        setStageAsm(asmFilter);
+        setStageRsm(rsmFilter);
+        setShowFilterPanel(true);
+    };
+
+    const activeFilterCount = [stateFilter, areaFilter, routeFilter, dsmFilter, asmFilter, rsmFilter].filter(Boolean).length;
+    const selectClass = "w-full px-3 py-2 rounded-xl bg-white/70 border border-white/80 text-xs text-slate-800 font-semibold shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-400/50 backdrop-blur-md";
 
     const stateMapLookup = useMemo(() => {
         const map = new Map<string, StateRow>();
@@ -323,17 +534,17 @@ export default function FYAreaWiseComparisonPage() {
         const statesToCompare = stateData.filter(s => compareStateIds.includes(s.stateId));
 
         const metrics = [
-            { label: "Sales", getter: (s: StateRow) => s.byFy[lastFyId]?.sales ?? 0 },
-            { label: "Net Sales", getter: (s: StateRow) => s.byFy[lastFyId]?.netSales ?? 0 },
-            { label: "Collections", getter: (s: StateRow) => s.byFy[lastFyId]?.collections ?? 0 },
-            { label: "Purchases", getter: (s: StateRow) => s.byFy[lastFyId]?.purchase ?? 0 },
-            { label: "Customers", getter: (s: StateRow) => s.byFy[lastFyId]?.customersCount ?? 0 },
-            { label: "Health Score", getter: (s: StateRow) => s.healthScore },
+            { label: "Sales", key: "sales", getter: (s: StateRow) => s.byFy[lastFyId]?.sales ?? 0 },
+            { label: "Net Sales", key: "netSales", getter: (s: StateRow) => s.byFy[lastFyId]?.netSales ?? 0 },
+            { label: "Collections", key: "collections", getter: (s: StateRow) => s.byFy[lastFyId]?.collections ?? 0 },
+            { label: "Purchases", key: "purchase", getter: (s: StateRow) => s.byFy[lastFyId]?.purchase ?? 0 },
+            { label: "Customers", key: "customers", getter: (s: StateRow) => s.byFy[lastFyId]?.customersCount ?? 0 },
+            { label: "Health Score", key: "health", getter: (s: StateRow) => s.healthScore },
         ];
 
-        return metrics.map(({ label, getter }) => {
+        return metrics.map(({ label, key, getter }) => {
             const maxVal = Math.max(...statesToCompare.map(getter)) || 1;
-            const row: any = { metric: label };
+            const row: any = { metric: label, metricKey: key };
             statesToCompare.forEach(s => {
                 row[s.stateName] = Math.round((getter(s) / maxVal) * 100);
             });
@@ -401,7 +612,7 @@ export default function FYAreaWiseComparisonPage() {
                 </div>
             </GlassCard>
 
-            {/* ── FY Selector & Heatmap Metric Filters ──────────────────── */}
+            {/* ── FY Selector, Territory Filters & Heatmap Metric Filters ── */}
             <GlassCard>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                     <div>
@@ -411,20 +622,195 @@ export default function FYAreaWiseComparisonPage() {
                         </h3>
                         <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 m-0">Tick FYs to compare state-wise spatial metrics across India</p>
                     </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+                    <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                        {/* Area Filters toggle button */}
+                        <button
+                            onClick={() => (showFilterPanel ? setShowFilterPanel(false) : openFilterPanel())}
+                            className={`flex items-center gap-1.5 text-xs font-black px-3.5 py-2 rounded-xl transition-all border ${
+                                activeFilterCount > 0 || showFilterPanel
+                                    ? "bg-indigo-600 text-white border-indigo-700 shadow-md shadow-indigo-200"
+                                    : "bg-white/80 text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                        >
+                            <FaMapMarkerAlt size={11} className={activeFilterCount > 0 ? "text-amber-300" : "text-indigo-500"} />
+                            <span>Area Filters</span>
+                            {activeFilterCount > 0 && (
+                                <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black flex items-center justify-center ml-0.5">
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                        </button>
+
                         {selectedFyIds.length > 0 && (
-                            <span className="text-[10px] sm:text-[11px] text-indigo-600 font-bold bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200">
-                                {selectedFyIds.length} FY Selected
+                            <span className="text-[10px] sm:text-[11px] text-indigo-600 font-bold bg-indigo-50 px-2.5 py-1.5 rounded-xl border border-indigo-200">
+                                {selectedFyIds.length} FYs
                             </span>
                         )}
-                        <button onClick={loadData} disabled={loading || selectedFyIds.length === 0}
-                            className="flex items-center justify-center gap-2 text-white text-xs font-black px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg w-full sm:w-auto"
+                        <button onClick={() => loadData()} disabled={loading || selectedFyIds.length === 0}
+                            className="flex items-center justify-center gap-2 text-white text-xs font-black px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg flex-1 sm:flex-initial"
                             style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)", boxShadow: "0 4px 16px rgba(99,102,241,0.35)" }}>
                             <FaSync size={11} className={loading ? "animate-spin" : ""} />
                             {loading ? "Loading Area…" : "Load Area Analytics"}
                         </button>
                     </div>
                 </div>
+
+                {/* Active Filter Badges */}
+                {activeFilterCount > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 mb-3 pt-2 pb-1 border-t border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Filters:</span>
+                        {stateFilter && <ActiveFilterBadge label="State" value={stateFilter} onRemove={() => { setStateFilter(""); setStageState(""); loadData({ state: "" }); }} />}
+                        {areaFilter  && <ActiveFilterBadge label="Area"  value={areaFilter}  onRemove={() => { setAreaFilter("");  setStageArea("");  loadData({ area: "" }); }} />}
+                        {routeFilter && <ActiveFilterBadge label="Route" value={routeFilter} onRemove={() => { setRouteFilter(""); setStageRoute(""); loadData({ route: "" }); }} />}
+                        {dsmFilter   && <ActiveFilterBadge label="DSM"   value={dsmFilter}   onRemove={() => { setDsmFilter("");   setStageDsm("");   loadData({ dsm: "" }); }} />}
+                        {asmFilter   && <ActiveFilterBadge label="ASM"   value={asmFilter}   onRemove={() => { setAsmFilter("");   setStageAsm("");   loadData({ asm: "" }); }} />}
+                        {rsmFilter   && <ActiveFilterBadge label="RSM"   value={rsmFilter}   onRemove={() => { setRsmFilter("");   setStageRsm("");   loadData({ rsm: "" }); }} />}
+                        <button
+                            onClick={resetTerritoryFilters}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-700 underline underline-offset-2 ml-1"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                )}
+
+                {/* Slide-down Filter Panel */}
+                {showFilterPanel && (
+                    <div className="mb-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                                <FaFilter size={11} className="text-indigo-600" /> Area-Wise Territory Filters
+                            </span>
+                            <button onClick={() => setShowFilterPanel(false)} className="text-slate-400 hover:text-slate-700 transition-colors">
+                                <FaTimes size={13} />
+                            </button>
+                        </div>
+
+                        {filterOptionsLoading ? (
+                            <div className="py-5 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                                <FaSync size={12} className="animate-spin text-indigo-500" />
+                                Loading filter options from database...
+                            </div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                                    {/* State */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaGlobeAsia size={9} className="text-blue-500" /> State
+                                        </label>
+                                        <select value={stageState} onChange={(e) => setStageState(e.target.value)} className={selectClass}>
+                                            <option value="">All States ({filterOptions.states?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.states?.map((st) => (
+                                                <option key={st.name} value={st.name}>
+                                                    {st.name} ({st.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Area / City */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaMapMarkerAlt size={9} className="text-indigo-500" /> Area / City
+                                        </label>
+                                        <select value={stageArea} onChange={(e) => setStageArea(e.target.value)} className={selectClass}>
+                                            <option value="">All Areas ({filterOptions.areas?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.areas?.map((a) => (
+                                                <option key={a.name} value={a.name}>
+                                                    {a.name} ({a.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Route */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaRoute size={9} className="text-indigo-500" /> Route
+                                        </label>
+                                        <select value={stageRoute} onChange={(e) => setStageRoute(e.target.value)} className={selectClass}>
+                                            <option value="">All Routes ({filterOptions.routes?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.routes?.map((r) => (
+                                                <option key={r.name} value={r.name}>
+                                                    {r.name} ({r.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* DSM */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaUserTie size={9} className="text-indigo-500" /> DSM (Salesman)
+                                        </label>
+                                        <select value={stageDsm} onChange={(e) => setStageDsm(e.target.value)} className={selectClass}>
+                                            <option value="">All DSM ({filterOptions.dsms?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.dsms?.map((d) => (
+                                                <option key={d.name} value={d.name}>
+                                                    {d.name} ({d.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* ASM */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaUserTie size={9} className="text-amber-500" /> ASM (Area Mgr)
+                                        </label>
+                                        <select value={stageAsm} onChange={(e) => setStageAsm(e.target.value)} className={selectClass}>
+                                            <option value="">All ASM ({filterOptions.asms?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.asms?.map((a) => (
+                                                <option key={a.name} value={a.name}>
+                                                    {a.name} ({a.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* RSM */}
+                                    <div className="space-y-1">
+                                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                            <FaUserTie size={9} className="text-teal-500" /> RSM (Regional Mgr)
+                                        </label>
+                                        <select value={stageRsm} onChange={(e) => setStageRsm(e.target.value)} className={selectClass}>
+                                            <option value="">All RSM ({filterOptions.rsms?.reduce((acc, x) => acc + x.count, 0) || 0})</option>
+                                            {filterOptions.rsms?.map((r) => (
+                                                <option key={r.name} value={r.name}>
+                                                    {r.name} ({r.count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-indigo-100/60">
+                                    <button
+                                        onClick={() => { setStageState(""); setStageArea(""); setStageRoute(""); setStageDsm(""); setStageAsm(""); setStageRsm(""); }}
+                                        className="text-[11px] font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                                    >
+                                        Reset Form
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setShowFilterPanel(false)}
+                                            className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={applyTerritoryFilters}
+                                            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-md shadow-indigo-200 transition-all"
+                                        >
+                                            Apply Filters
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {/* FY Selection Pills */}
                 <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 mb-3">
@@ -713,31 +1099,94 @@ export default function FYAreaWiseComparisonPage() {
 
                         {/* Multi-State Radar View */}
                         <div className="lg:col-span-7">
-                            <GlassCard title="Multi-State Side-by-Side Radar Comparison" subtitle={compareStateIds.length >= 2 ? `Comparing ${compareStateIds.length} states across 6 business dimensions` : "Tick 'VS' checkboxes in the table above to compare 2 or 3 states directly"}>
+                            <GlassCard
+                                title="Multi-State Side-by-Side Radar Comparison"
+                                subtitle={
+                                    compareStateIds.length >= 2
+                                        ? `Comparing ${compareStateIds.length} states across 6 business dimensions (click radar to open deep-dive popup)`
+                                        : "Tick 'VS' checkboxes in the table above to compare states directly"
+                                }
+                            >
+                                <div className="flex items-center justify-between gap-2 -mt-1 mb-2">
+                                    <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-indigo-600 bg-indigo-50/90 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                                        <FaEye size={10} className="text-indigo-500" />
+                                        Click radar points / axes for state drilldown
+                                    </span>
+
+                                    {compareRadarData.length > 0 && (
+                                        <button
+                                            onClick={() => handleOpenRadarModal()}
+                                            className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold px-3 py-1 rounded-xl text-white shadow-md shadow-indigo-200 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                                            style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}
+                                        >
+                                            <FaBalanceScale size={10} /> Full Radar Deep-Dive
+                                        </button>
+                                    )}
+                                </div>
+
                                 {compareRadarData.length === 0 ? (
                                     <div className="flex flex-col items-center gap-3 py-10 sm:py-12 text-center">
                                         <FaExchangeAlt size={28} className="text-indigo-400 opacity-40 sm:text-3xl" />
                                         <p className="text-slate-400 font-semibold text-xs sm:text-sm">Select at least 2 states using the 'VS' checkboxes to enable Radar Comparison</p>
                                     </div>
                                 ) : (
-                                    <div className="mt-2" style={{ height: chartHeightZonal }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <RadarChart data={compareRadarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
-                                                <PolarGrid stroke="rgba(100,116,139,0.2)" />
-                                                <PolarAngleAxis dataKey="metric" tick={{ fill: "#64748b", fontSize: isMobile ? 9 : 11, fontWeight: 600 }} />
-                                                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: isMobile ? 8 : 9 }} />
-                                                {compareStateIds.map((sId, idx) => {
-                                                    const sName = stateData.find(s => s.stateId === sId)?.stateName;
-                                                    const col = FY_PALETTE[idx % FY_PALETTE.length];
-                                                    return (
-                                                        <Radar key={sId} name={sName} dataKey={sName}
-                                                            stroke={col} fill={col} fillOpacity={0.15} strokeWidth={2.5} dot={{ r: 3, fill: col }} />
-                                                    );
-                                                })}
-                                                <Legend wrapperStyle={{ fontSize: isMobile ? 10 : 11, color: "#64748b" }} />
-                                                <Tooltip contentStyle={glassTooltipStyle} formatter={(v: any) => `${v}/100`} />
-                                            </RadarChart>
-                                        </ResponsiveContainer>
+                                    <div
+                                        className="mt-1 cursor-pointer group relative rounded-2xl p-1 transition-all hover:bg-indigo-50/20"
+                                        onClick={() => handleOpenRadarModal()}
+                                        title="Click to open state radar deep dive popup"
+                                    >
+                                        <div className="absolute top-2 right-2 z-10 hidden sm:flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-indigo-700 border border-indigo-200 backdrop-blur-sm shadow-xs group-hover:bg-indigo-600 group-hover:text-white transition-all pointer-events-none">
+                                            <FaEye size={9} /> Click Radar for Popup
+                                        </div>
+
+                                        <div style={{ height: chartHeightZonal }}>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <RadarChart
+                                                    data={compareRadarData}
+                                                    margin={{ top: 10, right: 20, bottom: 10, left: 20 }}
+                                                    onClick={(state: any) => {
+                                                        if (state && state.activePayload && state.activePayload.length > 0) {
+                                                            const payload = state.activePayload[0]?.payload;
+                                                            handleOpenRadarModal(payload?.metricKey || payload?.metric);
+                                                        } else {
+                                                            handleOpenRadarModal();
+                                                        }
+                                                    }}
+                                                >
+                                                    <PolarGrid stroke="rgba(100,116,139,0.2)" />
+                                                    <PolarAngleAxis
+                                                        dataKey="metric"
+                                                        tick={{ fill: "#64748b", fontSize: isMobile ? 9 : 11, fontWeight: 600, cursor: "pointer" }}
+                                                        onClick={(props: any) => {
+                                                            if (props && props.value) {
+                                                                const matched = compareRadarData.find(r => r.metric === props.value);
+                                                                handleOpenRadarModal(matched?.metricKey || props.value);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: isMobile ? 8 : 9 }} />
+                                                    {compareStateIds.map((sId, idx) => {
+                                                        const sName = stateData.find(s => s.stateId === sId)?.stateName;
+                                                        const col = FY_PALETTE[idx % FY_PALETTE.length];
+                                                        return (
+                                                            <Radar
+                                                                key={sId}
+                                                                name={sName}
+                                                                dataKey={sName}
+                                                                stroke={col}
+                                                                fill={col}
+                                                                fillOpacity={0.15}
+                                                                strokeWidth={2.5}
+                                                                dot={{ r: 4, fill: col, cursor: "pointer" }}
+                                                                activeDot={{ r: 6, stroke: col, strokeWidth: 2, fill: "#fff", cursor: "pointer" }}
+                                                            />
+                                                        );
+                                                    })}
+                                                    <Legend wrapperStyle={{ fontSize: isMobile ? 10 : 11, color: "#64748b" }} />
+                                                    <Tooltip contentStyle={glassTooltipStyle} formatter={(v: any) => `${v}/100 — (Click to view details)`} />
+                                                </RadarChart>
+                                            </ResponsiveContainer>
+                                        </div>
                                     </div>
                                 )}
                             </GlassCard>
@@ -848,20 +1297,67 @@ export default function FYAreaWiseComparisonPage() {
 
                         {/* Tab 3: Key Accounts */}
                         {drawerTab === "customers" && (
-                            <GlassCard title="Top Key Accounts &amp; Customers in State" subtitle="Ranked by sales volume in state">
-                                {selectedState.topCustomers.length === 0 ? (
-                                    <p className="text-xs text-slate-400 m-0 py-4">No individual party breakdown available</p>
+                            <GlassCard
+                                title={`Key Accounts & Customers in ${selectedState.stateName}`}
+                                subtitle={`${selectedState.customers?.length || selectedState.topCustomers.length} active customer accounts`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[11px] text-slate-500 font-medium">Ranked by turnover</span>
+                                    <button
+                                        onClick={() => {
+                                            if (!compareStateIds.includes(selectedState.stateId)) {
+                                                setCompareStateIds(prev => [...prev.slice(-3), selectedState.stateId]);
+                                            }
+                                            handleOpenRadarModal("customers");
+                                        }}
+                                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                                    >
+                                        Open Full Customer Radar <FaChevronRight size={8} />
+                                    </button>
+                                </div>
+
+                                {selectedState.topCustomers.length === 0 && (!selectedState.customers || selectedState.customers.length === 0) ? (
+                                    <p className="text-xs text-slate-400 m-0 py-4 text-center">No individual party breakdown available</p>
                                 ) : (
-                                    <div className="space-y-2 mt-2">
-                                        {selectedState.topCustomers.map((cust, ci) => (
-                                            <div key={ci} className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-white/70 border border-slate-200/50 text-[11px] sm:text-xs">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[9px] sm:text-[10px] shrink-0">
-                                                        #{ci + 1}
+                                    <div className="space-y-2 mt-2 max-h-[380px] overflow-y-auto pr-1">
+                                        {(selectedState.customers || selectedState.topCustomers).map((cust: any, ci: number) => (
+                                            <div
+                                                key={ci}
+                                                onClick={() => {
+                                                    if (!compareStateIds.includes(selectedState.stateId)) {
+                                                        setCompareStateIds(prev => [...prev.slice(-3), selectedState.stateId]);
+                                                    }
+                                                    handleOpenRadarModal("customers");
+                                                }}
+                                                className="p-2.5 sm:p-3 rounded-xl bg-white/80 border border-slate-200/60 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition-all cursor-pointer text-[11px] sm:text-xs"
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex items-start gap-2 min-w-0">
+                                                        <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[9px] sm:text-[10px] shrink-0 mt-0.5">
+                                                            #{ci + 1}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <span className="font-bold text-slate-900 truncate block">
+                                                                {cust.name}
+                                                            </span>
+                                                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
+                                                                {cust.code && <span className="font-mono bg-slate-100 px-1 rounded">{cust.code}</span>}
+                                                                {(cust.city || cust.area) && <span>{[cust.city, cust.area].filter(Boolean).join(" · ")}</span>}
+                                                                {cust.gstno && <span className="font-mono">GST: {cust.gstno}</span>}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <span className="font-bold text-slate-800 truncate">{cust.name}</span>
+                                                    <div className="text-right shrink-0">
+                                                        <span className="font-black text-indigo-600 block">
+                                                            {formatCr(cust.totalSales || cust.sales)}
+                                                        </span>
+                                                        {cust.invoicesCount && (
+                                                            <span className="text-[9px] text-slate-400">
+                                                                {cust.invoicesCount} Invoices
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <span className="font-black text-indigo-600 shrink-0">{formatCr(cust.sales)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -912,6 +1408,16 @@ export default function FYAreaWiseComparisonPage() {
                     </div>
                 </GlassCard>
             )}
+
+            {/* ── State Radar Deep-Dive Details Popup Modal ── */}
+            <FYAreaRadarDetailModal
+                isOpen={isRadarModalOpen}
+                onClose={() => setIsRadarModalOpen(false)}
+                stateData={stateData}
+                fyList={fyList}
+                selectedStateIds={compareStateIds}
+                initialMetric={selectedRadarMetric}
+            />
         </div>
     );
 }

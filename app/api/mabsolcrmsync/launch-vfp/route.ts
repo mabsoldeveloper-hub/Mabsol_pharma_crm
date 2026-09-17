@@ -19,21 +19,47 @@ export async function POST() {
 
     // Fetch active VFP configuration
     const config = await VfpConfig.findOne({ email: user.email }) || await VfpConfig.findOne({ key: "vfp_sync_config" });
-    const vfpExePath = config && (config as any).vfpExePath ? (config as any).vfpExePath : (process.env.VFP_EXE_PATH || "");
+    let vfpExePath = config && (config as any).vfpExePath ? (config as any).vfpExePath : (process.env.VFP_EXE_PATH || "MabsolCRM.EXE");
     const startupCommand = config && (config as any).startupCommand ? (config as any).startupCommand : "";
-    const configPrgPath = config && (config as any).prgPath ? (config as any).prgPath : "";
+    let configPrgPath = config && (config as any).prgPath ? (config as any).prgPath : "7.PRG";
+
+    // Helper to resolve candidate files across Linux server and Windows paths
+    const resolveCandidate = (fileNameOrPath: string, defaultName: string) => {
+      if (!fileNameOrPath) fileNameOrPath = defaultName;
+      const baseName = path.basename(fileNameOrPath);
+      const candidates = [
+        fileNameOrPath,
+        path.join("/home/vfpuser/MabsolEXE", baseName),
+        path.join("/home/vfpuser/MabsolPRG", baseName),
+        path.join(process.cwd(), "VfpNew", baseName),
+        path.join(process.cwd(), baseName),
+        path.join("/home/vfpuser/Mabsol_pharma_crm/VfpNew", baseName),
+        path.join("/home/vfpuser/VfpNew", baseName),
+        path.join("/home/vfpuser", baseName),
+        `C:\\Users\\Administrator\\Downloads\\VfpNew\\VfpNew\\${baseName}`,
+      ];
+      for (const cand of candidates) {
+        try {
+          if (cand && fs.existsSync(cand)) return cand;
+        } catch {}
+      }
+      return fileNameOrPath;
+    };
+
+    vfpExePath = resolveCandidate(vfpExePath, "MabsolCRM.EXE");
+    configPrgPath = resolveCandidate(configPrgPath, "7.PRG");
 
     // Validate executable and startup command or prgPath exist
     if (!vfpExePath || (!startupCommand.trim() && !configPrgPath.trim())) {
       return NextResponse.json(
-        { success: false, error: "Visual FoxPro executable path and either Startup Console Command or PRG File Path are required to open the VFP Console." },
+        { success: false, error: "MabsolCRM executable path and either Startup Console Command or PRG File Path are required to open the MabsolCRM Engine." },
         { status: 400 }
       );
     }
 
     if (!fs.existsSync(vfpExePath)) {
       return NextResponse.json(
-        { success: false, error: `Visual FoxPro executable not found at: ${vfpExePath}` },
+        { success: false, error: `MabsolCRM executable not found at: ${vfpExePath}. Please ensure MabsolCRM.EXE is uploaded to the server.` },
         { status: 400 }
       );
     }
@@ -45,9 +71,10 @@ export async function POST() {
     // Write VFP startup file and configuration mapping
     let prgContent = "";
     if (configPrgPath.trim()) {
-      const companyCode = config && (config as any).companyName ? (config as any).companyName : "";
-      const sourceDir = config && (config as any).sourceDir ? (config as any).sourceDir : "";
-      const dataDir = config && (config as any).dataDir ? (config as any).dataDir : "";
+      const isLinuxServer = process.platform !== "win32";
+      const companyCode = config && (config as any).companyName ? (config as any).companyName : "E10";
+      const sourceDir = config && (config as any).sourceDir ? (config as any).sourceDir : (isLinuxServer ? "/home/vfpuser/MabsolData" : "Backup");
+      const dataDir = config && (config as any).dataDir ? (config as any).dataDir : (isLinuxServer ? "/home/vfpuser/MabsolSyncData" : path.join(process.cwd(), "data", "vfp_uploads"));
       
       // Read target script and replace built-in interactive commands with our custom UDF prefixes
       if (fs.existsSync(configPrgPath)) {
@@ -92,17 +119,21 @@ export async function POST() {
 
       const safePrgPath = tempAutomatedPrgPath.replace(/\\/g, "\\\\");
       
-      prgContent = `SET SAFETY OFF\r\n` +
+      prgContent = `_SCREEN.Visible = .F.\r\n` +
+        `SET SAFETY OFF\r\n` +
         `SET TALK OFF\r\n` +
+        `SET ECHO OFF\r\n` +
         `SET EXCLUSIVE OFF\r\n` +
         `SET PROCEDURE TO (SYS(16)) ADDITIVE\r\n\r\n` +
         `PUBLIC _pcCompanyCode, _pcSourceDir, _pcDestDir\r\n` +
         `_pcCompanyCode = "${companyCode}"\r\n` +
         `_pcSourceDir = "${sourceDir}"\r\n` +
         `_pcDestDir = "${dataDir}"\r\n\r\n` +
-        `DO "${safePrgPath}"\r\n\r\n` +
-        `ACTIVATE SCREEN\r\n` +
-        `? "SUCCESS: VFP Data sync copy completed successfully!"\r\n\r\n` +
+        `TRY\r\n` +
+        `    DO "${safePrgPath}"\r\n` +
+        `CATCH TO oErr\r\n` +
+        `ENDTRY\r\n\r\n` +
+        `QUIT\r\n\r\n` +
         `FUNCTION MY_INPUTBOX(cInputPrompt, cDialogTitle, cDefaultValue, nTimeout, cTimeoutValue, nFlags)\r\n` +
         `    RETURN _pcCompanyCode\r\n` +
         `ENDFUNC\r\n\r\n` +
@@ -131,13 +162,6 @@ export async function POST() {
         `    ENDIF\r\n` +
         `ENDFUNC\r\n\r\n` +
         `FUNCTION MY_MESSAGEBOX(cMessageText, nDialogType, cTitleBarText, nTimeout)\r\n` +
-        `    ACTIVATE SCREEN\r\n` +
-        `    CLEAR\r\n` +
-        `    ? "========================================================"\r\n` +
-        `    ? "   VFP Synchronization"\r\n` +
-        `    ? "========================================================"\r\n` +
-        `    ? cMessageText\r\n` +
-        `    ? "========================================================"\r\n` +
         `    RETURN 1\r\n` +
         `ENDFUNC\r\n`;
     } else {
@@ -145,11 +169,11 @@ export async function POST() {
         ? `KEYBOARD [DO "${startupCommand}"] + CHR(13)`
         : `KEYBOARD '* Drag & drop your PRG file here or type script path (e.g. DO "D:\\\\New Folder\\\\1.PRG")' + CHR(13)`;
       
-      prgContent = `SET SAFETY OFF\r\nSET TALK OFF\r\n${keyboardInstruction}\r\n`;
+      prgContent = `_SCREEN.Visible = .F.\r\nSET SAFETY OFF\r\nSET TALK OFF\r\n${keyboardInstruction}\r\nQUIT\r\n`;
     }
 
     fs.writeFileSync(prgPath, prgContent);
-    fs.writeFileSync(fpwPath, `COMMAND = DO "${prgPath}"\r\n`);
+    fs.writeFileSync(fpwPath, `SCREEN = OFF\r\nRESOURCE = OFF\r\nCOMMAND = DO "${prgPath}"\r\n`);
 
     const vfpDir = path.dirname(vfpExePath);
 
@@ -164,11 +188,12 @@ export async function POST() {
 
     const displayEnv = process.env.DISPLAY || ":10.0" || ":0";
 
-    // Spawn VFP in detached mode pointing to configuration
+    // Spawn VFP in detached hidden mode pointing to configuration
     const child = spawn(execCmd, execArgs, {
       cwd: vfpDir,
       detached: true,
       stdio: "ignore",
+      windowsHide: true,
       env: {
         ...process.env,
         DISPLAY: displayEnv,
@@ -197,17 +222,22 @@ export async function POST() {
       } catch (e) {}
     }, 5000);
 
-    // Log VFP launch event in VfpSettingLog
+    // Log VFP launch event in VfpSettingLog and update lastVfpExtractedAt
     try {
+      await VfpConfig.updateOne(
+        { email: user.email },
+        { $set: { lastVfpExtractedAt: new Date() } },
+        { upsert: true }
+      );
       await VfpSettingLog.create({
         email: user.email,
         userName: (config as any)?.userName || user.name || "Operator",
         companyName: (config as any)?.companyName || "Unknown",
         license: (config as any)?.license || "N/A",
         vfpExePath,
-        action: "vfp_launched",
+        action: "mabsolcrm_launched",
         status: "success",
-        message: `Visual FoxPro (${path.basename(vfpExePath)}) console opened to extract DBF data.`,
+        message: `MabsolCRM (${path.basename(vfpExePath)}) engine executed data extraction.`,
       });
     } catch {
       // Ignore logging error
@@ -215,7 +245,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: `Visual FoxPro (${path.basename(vfpExePath)}) opened successfully on the machine with pre-loaded command!`,
+      message: `MabsolCRM (${path.basename(vfpExePath)}) executed successfully with pre-loaded command!`,
     });
   } catch (error: any) {
     return NextResponse.json(

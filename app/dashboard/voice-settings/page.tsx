@@ -4,11 +4,12 @@ import React, { useState, useEffect } from "react";
 import { Mic, Volume2, Save, Sparkles, Check, Radio, RotateCcw, VolumeX, ShieldCheck } from "lucide-react";
 
 export default function VoiceSettingsPage() {
-  const [assistantName, setAssistantName] = useState("Salim");
-  const [wakewordEnabled, setWakewordEnabled] = useState(true);
+  const [assistantName, setAssistantName] = useState("AI Assistant");
+  const [wakewordEnabled, setWakewordEnabled] = useState(false);
   const [greetingText, setGreetingText] = useState("Haan ji! Main aapki kya help kar sakta hu?");
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [testingVoice, setTestingVoice] = useState(false);
+  const [micStatusMsg, setMicStatusMsg] = useState<string | null>(null);
 
   // Load initial voice AI settings from localStorage
   useEffect(() => {
@@ -18,19 +19,53 @@ export default function VoiceSettingsPage() {
         const parsed = JSON.parse(saved);
         if (parsed.assistantName) setAssistantName(parsed.assistantName);
         if (typeof parsed.wakewordEnabled === "boolean") setWakewordEnabled(parsed.wakewordEnabled);
+        else setWakewordEnabled(false);
         if (parsed.greetingText) setGreetingText(parsed.greetingText);
+      } else {
+        setWakewordEnabled(false);
       }
     } catch (e) {
       console.error("Failed to load voice AI settings:", e);
+      setWakewordEnabled(false);
     }
   }, []);
 
+  // Helper to request Mic permission when enabled
+  const requestMicPermission = async () => {
+    if (typeof window === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+    try {
+      setMicStatusMsg("Requesting microphone permission...");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setMicStatusMsg("Microphone permission granted! Voice Assistant is ready.");
+      setTimeout(() => setMicStatusMsg(null), 4000);
+      return true;
+    } catch (err: any) {
+      console.warn("Mic permission denied:", err);
+      setMicStatusMsg("Microphone permission was denied by browser.");
+      setTimeout(() => setMicStatusMsg(null), 5000);
+      return false;
+    }
+  };
+
+  const handleToggleWakeword = async () => {
+    const nextVal = !wakewordEnabled;
+    setWakewordEnabled(nextVal);
+    if (nextVal) {
+      await requestMicPermission();
+    }
+  };
+
   // Save voice settings to localStorage & notify Topbar/GlobalSearchModal
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    const nameToSave = assistantName.trim() || "Salim";
+    const nameToSave = assistantName.trim() || "AI Assistant";
     const greetingToSave = greetingText.trim() || "Haan ji! Main aapki kya help kar sakta hu?";
+
+    if (wakewordEnabled) {
+      await requestMicPermission();
+    }
 
     const settingsData = {
       assistantName: nameToSave,
@@ -52,8 +87,8 @@ export default function VoiceSettingsPage() {
 
   // Reset to default settings
   const handleReset = () => {
-    setAssistantName("Salim");
-    setWakewordEnabled(true);
+    setAssistantName("AI Assistant");
+    setWakewordEnabled(false);
     setGreetingText("Haan ji! Main aapki kya help kar sakta hu?");
   };
 
@@ -65,7 +100,7 @@ export default function VoiceSettingsPage() {
       window.speechSynthesis.cancel();
       setTestingVoice(true);
 
-      const message = `${greetingText || "Haan ji! Main aapki kya help kar sakta hu?"} Main ${assistantName || "Salim"} Voice AI Assistant hu.`;
+      const message = `${greetingText || "Haan ji! Main aapki kya help kar sakta hu?"} Main ${assistantName || "AI Assistant"} Voice AI Assistant hu.`;
       const utterance = new SpeechSynthesisUtterance(message);
       utterance.rate = 0.95;
       utterance.pitch = 1.0;
@@ -116,7 +151,7 @@ export default function VoiceSettingsPage() {
               Voice Assistant Configuration
             </h1>
             <p className="text-xs sm:text-sm text-indigo-200 font-medium max-w-xl leading-relaxed">
-              Customize your dynamic AI Assistant name (e.g. Salim, Alexa, Siri, Jarvis) and control background &quot;Hey {assistantName}&quot; wake-word voice activation across the CRM.
+              Customize your dynamic AI Assistant name (e.g. AI Assistant, CRM AI, Jarvis, Alexa, Siri) and control background &quot;Hey {assistantName}&quot; wake-word voice activation across the CRM.
             </p>
           </div>
 
@@ -129,7 +164,7 @@ export default function VoiceSettingsPage() {
             }`}
           >
             {testingVoice ? <Volume2 className="w-4 h-4 animate-bounce" /> : <Mic className="w-4 h-4" />}
-            <span>{testingVoice ? "Assistant Speaking..." : `Test ${assistantName || "Salim"} Voice 🔊`}</span>
+            <span>{testingVoice ? "Assistant Speaking..." : `Test ${assistantName || "AI Assistant"} Voice 🔊`}</span>
           </button>
         </div>
       </div>
@@ -166,7 +201,7 @@ export default function VoiceSettingsPage() {
               </p>
             </div>
             <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-              Current: &quot;{assistantName || "Salim"}&quot;
+              Current: &quot;{assistantName || "AI Assistant"}&quot;
             </span>
           </div>
 
@@ -175,7 +210,7 @@ export default function VoiceSettingsPage() {
               type="text"
               value={assistantName}
               onChange={(e) => setAssistantName(e.target.value)}
-              placeholder="e.g. Salim, Alexa, Siri, Jarvis, Oliver"
+              placeholder="e.g. AI Assistant, CRM AI, Jarvis, Alexa, Siri"
               required
               className="w-full pl-4 pr-10 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-2xl outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all"
             />
@@ -187,7 +222,7 @@ export default function VoiceSettingsPage() {
           {/* Quick preset chips */}
           <div className="flex items-center gap-2 flex-wrap pt-1">
             <span className="text-xs font-bold text-slate-400">Quick Presets:</span>
-            {["Salim", "Alexa", "Siri", "Jarvis", "Oliver"].map((preset) => (
+            {["AI Assistant", "CRM AI", "Jarvis", "Alexa", "Siri"].map((preset) => (
               <button
                 key={preset}
                 type="button"
@@ -210,17 +245,17 @@ export default function VoiceSettingsPage() {
             <div className="space-y-1">
               <label className="text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                 <Radio className="w-4 h-4 text-rose-500" />
-                &quot;Hey {assistantName || "Salim"}&quot; Wake-Word Background Listener
+                &quot;Hey {assistantName || "AI Assistant"}&quot; Wake-Word Background Listener
               </label>
               <p className="text-xs text-slate-500 font-medium max-w-lg leading-relaxed">
-                When enabled, your browser will listen in the background on every dashboard page for <strong>&quot;Hey {assistantName || "Salim"}&quot;</strong> and automatically open voice search. Disable to turn off background mic.
+                When enabled, your browser will listen in the background on every dashboard page for <strong>&quot;Hey {assistantName || "AI Assistant"}&quot;</strong> and automatically open voice search. Disable to turn off background mic.
               </p>
             </div>
 
             {/* Toggle Switch */}
             <button
               type="button"
-              onClick={() => setWakewordEnabled((prev) => !prev)}
+              onClick={handleToggleWakeword}
               className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
                 wakewordEnabled ? "bg-emerald-500" : "bg-slate-300"
               }`}
@@ -233,6 +268,13 @@ export default function VoiceSettingsPage() {
             </button>
           </div>
 
+          {micStatusMsg && (
+            <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-900 flex items-center gap-2 animate-fadeIn">
+              <Mic className="w-4 h-4 text-indigo-600 animate-pulse" />
+              <span>{micStatusMsg}</span>
+            </div>
+          )}
+
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center justify-between">
             <span className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-indigo-600" />
@@ -241,7 +283,7 @@ export default function VoiceSettingsPage() {
             <span className={`font-black px-2.5 py-0.5 rounded-md ${
               wakewordEnabled ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
             }`}>
-              {wakewordEnabled ? "ENABLED (Listening for 'Hey " + (assistantName || "Salim") + "')" : "DISABLED (Background Mic Off)"}
+              {wakewordEnabled ? "ENABLED (Listening for 'Hey " + (assistantName || "AI Assistant") + "')" : "DISABLED (Background Mic Off)"}
             </span>
           </div>
         </div>
@@ -271,7 +313,7 @@ export default function VoiceSettingsPage() {
             <span>Examples:</span>
             {[
               "Haan ji! Main aapki kya help kar sakta hu?",
-              `Hello! Main ${assistantName || "Salim"} hu, aapki kya help kar sakta hu?`,
+              `Hello! Main ${assistantName || "AI Assistant"} hu, aapki kya help kar sakta hu?`,
               "May I help you with sales, stock or vouchers?",
             ].map((msg, idx) => (
               <button

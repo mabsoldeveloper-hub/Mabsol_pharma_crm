@@ -54,6 +54,9 @@ import {
     Crosshair,
     Milestone,
     BarChart2,
+    Truck,
+    ShieldAlert,
+    Clock,
 } from "lucide-react";
 
 const COLORS = ["#343872", "#fb8c00", "#2ecc71", "#e74c3c", "#3498db", "#9b59b6", "#1abc9c", "#f1c40f"];
@@ -731,6 +734,486 @@ export default function DashboardCharts({ charts }: { charts: any }) {
                         </div>
 
                         {/* Footer */}
+                        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end bg-slate-50/50 dark:bg-slate-900/50">
+                            <button
+                                onClick={() => setChartModal((prev) => ({ ...prev, isOpen: false }))}
+                                className="px-5 py-2 bg-indigo-600 text-white rounded-2xl text-xs font-bold shadow-md hover:bg-indigo-700 transition cursor-pointer"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export function PurchaseDashboardCharts({ charts }: { charts: any }) {
+    const [chartModal, setChartModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        subtitle: string;
+        data: any[];
+    }>({
+        isOpen: false,
+        title: "",
+        subtitle: "",
+        data: [],
+    });
+
+    const [modalSearch, setModalSearch] = useState("");
+
+    if (!charts) return null;
+
+    const openModal = (title: string, subtitle: string, data: any[]) => {
+        setChartModal({
+            isOpen: true,
+            title,
+            subtitle,
+            data: data || [],
+        });
+        setModalSearch("");
+    };
+
+    const filteredModalData = (chartModal.data || []).filter((row: any) => {
+        if (!modalSearch) return true;
+        const search = modalSearch.toLowerCase();
+        const label = String(row.name || row.month || row.bucket || row.status || row.subject || "").toLowerCase();
+        return label.includes(search);
+    });
+
+    const totalModalValue = filteredModalData.reduce((acc: number, row: any) => {
+        const val = Number(row.total ?? row.amount ?? row.count ?? row.sales ?? row.score ?? row.value ?? row.purchases ?? 0);
+        return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+
+    const purchaseColors = ["#10b981", "#f59e0b", "#ef4444", "#6366f1", "#8b5cf6", "#06b6d4"];
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-indigo-500 animate-pulse" />
+                    <h3 className="text-xs sm:text-sm font-semibold tracking-wide text-slate-800 dark:text-slate-200 uppercase">
+                        Purchase & Vendor Intelligence Visualizer
+                    </h3>
+                </div>
+                <span className="text-[11px] text-slate-500 font-medium">Interactive purchase analytics & creditor insights</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                {/* 1. Monthly Purchase Inward Trend */}
+                <ChartCard
+                    index={0}
+                    title="Monthly Purchase Inward Trend"
+                    subtitle="Inward purchase volume vs return debit notes"
+                    icon={Truck}
+                    iconColor="#6366f1"
+                    onClick={() => openModal("Monthly Purchase Trend", "Inward Purchase Volume vs Debit Notes", charts.purchaseTrend || [])}
+                >
+                    <ComposedChart data={charts.purchaseTrend || []}>
+                        <defs>
+                            <linearGradient id="purGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                        <XAxis dataKey="month" tick={AXIS_STYLE} axisLine={{ stroke: GRID_STROKE }} tickLine={false} />
+                        <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} />
+                        <Tooltip content={<ChartTooltip />} />
+                        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" />
+                        <Area type="monotone" dataKey="purchases" name="Purchases" fill="url(#purGrad)" stroke="#6366f1" strokeWidth={3} />
+                        <Line type="monotone" dataKey="returns" name="Purchase Returns" stroke="#ef4444" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 3 }} />
+                    </ComposedChart>
+                </ChartCard>
+
+                {/* 2. Top 10 Vendors / Suppliers by Volume */}
+                <ChartCard
+                    index={1}
+                    title="Top 10 Vendors & Suppliers"
+                    subtitle="Highest contributing supplier accounts"
+                    icon={Users}
+                    iconColor="#8b5cf6"
+                    onClick={() => openModal("Top 10 Vendors", "Highest Purchase Supplier Accounts", charts.topSuppliers || [])}
+                >
+                    <BarChart data={charts.topSuppliers || []} layout="vertical" margin={{ left: 10, right: 16 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
+                        <XAxis type="number" tick={AXIS_STYLE} axisLine={false} tickLine={false} />
+                        <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={130}
+                            tick={{ ...AXIS_STYLE, fontSize: 11 }}
+                            tickFormatter={truncateLabel}
+                            interval={0}
+                            axisLine={false}
+                            tickLine={false}
+                        />
+                        <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(148,163,184,0.15)" }} />
+                        <Bar dataKey="amount" name="Purchase Amount" fill="#8b5cf6" radius={[0, 8, 8, 0]} maxBarSize={18} />
+                    </BarChart>
+                </ChartCard>
+
+                {/* 3. Vendor Payment & Bill Status Distribution */}
+                <ChartCard
+                    index={2}
+                    title="Purchase Bill & Payment Status"
+                    subtitle="Paid vs Pending Creditor Dues vs Returns"
+                    icon={PieIcon}
+                    iconColor="#10b981"
+                    onClick={() => openModal("Purchase Bill Status", "Paid Payments vs Pending Dues Breakdown", charts.purchaseStatusDist || [])}
+                >
+                    <PieChart>
+                        <Pie
+                            data={charts.purchaseStatusDist || []}
+                            dataKey="amount"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={90}
+                            paddingAngle={3}
+                            stroke="#fff"
+                            strokeWidth={2}
+                        >
+                            {(charts.purchaseStatusDist || []).map((_: any, i: number) => (
+                                <Cell key={i} fill={purchaseColors[i % purchaseColors.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip content={<ChartTooltip />} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                    </PieChart>
+                </ChartCard>
+
+                {/* 4. Supplier Creditor Aging Breakdown */}
+                <ChartCard
+                    index={3}
+                    title="Creditor Dues Aging Breakdown"
+                    subtitle="Bucket-wise unpaid supplier dues"
+                    icon={Wallet}
+                    iconColor="#f97316"
+                    onClick={() => openModal("Creditor Aging", "Supplier Overdue Dues Bucket Analysis", charts.creditorAging || [])}
+                >
+                    <BarChart data={charts.creditorAging || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                        <XAxis dataKey="bucket" tick={AXIS_STYLE} axisLine={{ stroke: GRID_STROKE }} tickLine={false} />
+                        <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} />
+                        <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(148,163,184,0.15)" }} />
+                        <Bar dataKey="total" name="Creditor Dues" fill="#f97316" radius={[8, 8, 0, 0]} maxBarSize={48} />
+                    </BarChart>
+                </ChartCard>
+            </div>
+
+            {/* Drilldown Modal */}
+            {chartModal.isOpen && (
+                <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-[fadeSlideIn_0.3s_ease-out]">
+                    <div className="bg-white/95 dark:bg-slate-900/95 w-full max-w-4xl rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border border-white/60 dark:border-slate-700/60 overflow-hidden backdrop-blur-2xl flex flex-col max-h-[88vh]">
+                        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                            <div>
+                                <h3 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2 font-sans">
+                                    <TableIcon className="text-indigo-600" /> {chartModal.title} Drilldown
+                                </h3>
+                                <p className="text-xs text-slate-500 font-medium">{chartModal.subtitle}</p>
+                            </div>
+                            <button
+                                onClick={() => setChartModal((prev) => ({ ...prev, isOpen: false }))}
+                                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                            <div className="relative w-full sm:w-64">
+                                <input
+                                    type="text"
+                                    placeholder="Search in modal..."
+                                    value={modalSearch}
+                                    onChange={(e) => setModalSearch(e.target.value)}
+                                    className="w-full pl-8 pr-3 py-1.5 bg-slate-100/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none"
+                                />
+                                <Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
+                            </div>
+                            <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300 font-semibold">
+                                <span>Rows: {filteredModalData.length}</span>
+                                <span>Total Sum: <strong className="text-indigo-600 dark:text-indigo-400">₹{totalModalValue.toLocaleString("en-IN")}</strong></span>
+                            </div>
+                        </div>
+                        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-slate-200 dark:border-slate-800 font-bold uppercase tracking-wider text-slate-400">
+                                            <th className="py-2.5 px-3">Item / Supplier / Dimension</th>
+                                            <th className="py-2.5 px-3 text-right">Value / Amount</th>
+                                            <th className="py-2.5 px-3 text-right">% Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {filteredModalData.map((row: any, idx: number) => {
+                                            const label = row.name || row.month || row.bucket || row.status || row.subject || `Item ${idx + 1}`;
+                                            const val = Number(row.total ?? row.amount ?? row.count ?? row.sales ?? row.score ?? row.value ?? row.purchases ?? 0);
+                                            const pct = totalModalValue > 0 ? ((val / totalModalValue) * 100).toFixed(1) : "0.0";
+                                            return (
+                                                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                                    <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                                        <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                                                        {label}
+                                                    </td>
+                                                    <td className="py-3 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                                                        {typeof val === "number" ? val.toLocaleString("en-IN") : val}
+                                                    </td>
+                                                    <td className="py-3 px-3 text-right font-medium text-slate-500">
+                                                        {pct}%
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end bg-slate-50/50 dark:bg-slate-900/50">
+                            <button
+                                onClick={() => setChartModal((prev) => ({ ...prev, isOpen: false }))}
+                                className="px-5 py-2 bg-indigo-600 text-white rounded-2xl text-xs font-bold shadow-md hover:bg-indigo-700 transition cursor-pointer"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export function CreditDashboardCharts({ charts }: { charts: any }) {
+    const [chartModal, setChartModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        subtitle: string;
+        data: any[];
+    }>({
+        isOpen: false,
+        title: "",
+        subtitle: "",
+        data: [],
+    });
+
+    const [modalSearch, setModalSearch] = useState("");
+
+    if (!charts) return null;
+
+    const openModal = (title: string, subtitle: string, data: any[]) => {
+        setChartModal({
+            isOpen: true,
+            title,
+            subtitle,
+            data: data || [],
+        });
+        setModalSearch("");
+    };
+
+    const filteredModalData = (chartModal.data || []).filter((row: any) => {
+        if (!modalSearch) return true;
+        const search = modalSearch.toLowerCase();
+        const label = String(row.name || row.month || row.bucket || row.status || row.subject || "").toLowerCase();
+        return label.includes(search);
+    });
+
+    const totalModalValue = filteredModalData.reduce((acc: number, row: any) => {
+        const val = Number(row.total ?? row.amount ?? row.count ?? row.sales ?? row.score ?? row.value ?? row.dso ?? row.billed ?? 0);
+        return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+
+    const riskColors = ["#10b981", "#f59e0b", "#f97316", "#ef4444"];
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-cyan-500 animate-pulse" />
+                    <h3 className="text-xs sm:text-sm font-semibold tracking-wide text-slate-800 dark:text-slate-200 uppercase">
+                        Credit & Receivables Risk Intelligence Visualizer
+                    </h3>
+                </div>
+                <span className="text-[11px] text-slate-500 font-medium">Interactive DSO, credit risk & debtor analytics</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                {/* 1. Days Sales Outstanding (DSO) & Payment Velocity */}
+                <ChartCard
+                    index={0}
+                    title="Days Sales Outstanding (DSO) Speed"
+                    subtitle="Average collection turnaround days per month"
+                    icon={Clock}
+                    iconColor="#06b6d4"
+                    onClick={() => openModal("Days Sales Outstanding (DSO)", "Monthly Collection Velocity & DSO Days", charts.dsoTrend || [])}
+                >
+                    <AreaChart data={charts.dsoTrend || []}>
+                        <defs>
+                            <linearGradient id="dsoGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                                <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                        <XAxis dataKey="month" tick={AXIS_STYLE} axisLine={{ stroke: GRID_STROKE }} tickLine={false} />
+                        <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} unit=" Days" />
+                        <Tooltip content={<ChartTooltip />} />
+                        <Area type="monotone" dataKey="dso" name="DSO (Days)" fill="url(#dsoGrad)" stroke="#06b6d4" strokeWidth={3} />
+                    </AreaChart>
+                </ChartCard>
+
+                {/* 2. Customer Credit Risk Breakdown */}
+                <ChartCard
+                    index={1}
+                    title="Debtor Credit Risk Severity"
+                    subtitle="Low (0-30d), Moderate (31-60d), High (61-90d) & Critical (>90d)"
+                    icon={ShieldAlert}
+                    iconColor="#ef4444"
+                    onClick={() => openModal("Credit Risk Distribution", "Debtor Overdue Risk Severity Breakdown", charts.creditRiskDist || [])}
+                >
+                    <PieChart>
+                        <Pie
+                            data={charts.creditRiskDist || []}
+                            dataKey="amount"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={90}
+                            paddingAngle={3}
+                            stroke="#fff"
+                            strokeWidth={2}
+                        >
+                            {(charts.creditRiskDist || []).map((_: any, i: number) => (
+                                <Cell key={i} fill={riskColors[i % riskColors.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip content={<ChartTooltip />} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                    </PieChart>
+                </ChartCard>
+
+                {/* 3. Billed vs Collected vs Outstanding Stacked Bar */}
+                <ChartCard
+                    index={2}
+                    title="Monthly Billing vs Cash Realization"
+                    subtitle="Collected cash vs remaining uncollected dues"
+                    icon={BarChart2}
+                    iconColor="#10b981"
+                    onClick={() => openModal("Monthly Cash Realization", "Billed Sales vs Realized Cash vs Uncollected Dues", charts.realizationStacked || [])}
+                >
+                    <BarChart data={charts.realizationStacked || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                        <XAxis dataKey="month" tick={AXIS_STYLE} axisLine={{ stroke: GRID_STROKE }} tickLine={false} />
+                        <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} />
+                        <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(148,163,184,0.15)" }} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                        <Bar dataKey="collected" name="Collected Cash" stackId="a" fill="#10b981" maxBarSize={36} />
+                        <Bar dataKey="dues" name="Uncollected Dues" stackId="a" fill="#f59e0b" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                    </BarChart>
+                </ChartCard>
+
+                {/* 4. Top 10 High-Risk Outstanding Accounts */}
+                <ChartCard
+                    index={3}
+                    title="Top 10 High-Risk Debtors"
+                    subtitle="Parties with highest overdue balances"
+                    icon={Wallet}
+                    iconColor="#e74c3c"
+                    onClick={() => openModal("Top High-Risk Debtors", "Parties with Highest Overdue Balances", charts.topOverdueDebtors || [])}
+                >
+                    <BarChart data={charts.topOverdueDebtors || []} layout="vertical" margin={{ left: 10, right: 16 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
+                        <XAxis type="number" tick={AXIS_STYLE} axisLine={false} tickLine={false} />
+                        <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={130}
+                            tick={{ ...AXIS_STYLE, fontSize: 11 }}
+                            tickFormatter={truncateLabel}
+                            interval={0}
+                            axisLine={false}
+                            tickLine={false}
+                        />
+                        <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(148,163,184,0.15)" }} />
+                        <Bar dataKey="amount" name="Overdue Balance" fill="#e74c3c" radius={[0, 8, 8, 0]} maxBarSize={18} />
+                    </BarChart>
+                </ChartCard>
+            </div>
+
+            {/* Drilldown Modal */}
+            {chartModal.isOpen && (
+                <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-[fadeSlideIn_0.3s_ease-out]">
+                    <div className="bg-white/95 dark:bg-slate-900/95 w-full max-w-4xl rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border border-white/60 dark:border-slate-700/60 overflow-hidden backdrop-blur-2xl flex flex-col max-h-[88vh]">
+                        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                            <div>
+                                <h3 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2 font-sans">
+                                    <TableIcon className="text-indigo-600" /> {chartModal.title} Drilldown
+                                </h3>
+                                <p className="text-xs text-slate-500 font-medium">{chartModal.subtitle}</p>
+                            </div>
+                            <button
+                                onClick={() => setChartModal((prev) => ({ ...prev, isOpen: false }))}
+                                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                            <div className="relative w-full sm:w-64">
+                                <input
+                                    type="text"
+                                    placeholder="Search in modal..."
+                                    value={modalSearch}
+                                    onChange={(e) => setModalSearch(e.target.value)}
+                                    className="w-full pl-8 pr-3 py-1.5 bg-slate-100/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none"
+                                />
+                                <Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
+                            </div>
+                            <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300 font-semibold">
+                                <span>Rows: {filteredModalData.length}</span>
+                                <span>Total Sum: <strong className="text-indigo-600 dark:text-indigo-400">₹{totalModalValue.toLocaleString("en-IN")}</strong></span>
+                            </div>
+                        </div>
+                        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-slate-200 dark:border-slate-800 font-bold uppercase tracking-wider text-slate-400">
+                                            <th className="py-2.5 px-3">Item / Debtor / Dimension</th>
+                                            <th className="py-2.5 px-3 text-right">Value / Amount</th>
+                                            <th className="py-2.5 px-3 text-right">% Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {filteredModalData.map((row: any, idx: number) => {
+                                            const label = row.name || row.month || row.bucket || row.status || row.subject || `Item ${idx + 1}`;
+                                            const val = Number(row.total ?? row.amount ?? row.count ?? row.sales ?? row.score ?? row.value ?? row.dso ?? row.billed ?? 0);
+                                            const pct = totalModalValue > 0 ? ((val / totalModalValue) * 100).toFixed(1) : "0.0";
+                                            return (
+                                                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                                    <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                                        <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                                                        {label}
+                                                    </td>
+                                                    <td className="py-3 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                                                        {typeof val === "number" ? val.toLocaleString("en-IN") : val}
+                                                    </td>
+                                                    <td className="py-3 px-3 text-right font-medium text-slate-500">
+                                                        {pct}%
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                         <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end bg-slate-50/50 dark:bg-slate-900/50">
                             <button
                                 onClick={() => setChartModal((prev) => ({ ...prev, isOpen: false }))}

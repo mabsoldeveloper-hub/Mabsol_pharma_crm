@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-
 import connectDB from "@/lib/mongodb";
-
 import User from "@/models/User";
 import Otp from "@/models/Otp";
-
 import { sendEmailOTP } from "@/lib/mail";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
@@ -16,87 +15,55 @@ export async function POST(req: Request) {
     if (!email) {
       return NextResponse.json({
         success: false,
-        message: "Email is required",
+        message: "Work email address is required",
       });
     }
 
-    const existing = await User.findOne({
-      email,
-    });
+    const cleanEmail = email.toLowerCase().trim();
 
+    const existing = await User.findOne({ email: cleanEmail });
     if (existing) {
       return NextResponse.json({
         success: false,
-        message: "Email already exists",
+        message: "An account with this email address already exists. Please sign in.",
       });
     }
 
-    const otp = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await Otp.findOneAndUpdate(
+      { email: cleanEmail, type: "email" },
       {
-        email,
-        type: "email",
+        $set: {
+          email: cleanEmail,
+          type: "email",
+          otp,
+          verified: false,
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+        },
       },
-      {
-        email,
-        type: "email",
-        otp,
-        verified: false,
-        attempts: 0,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-      },
-      {
-        upsert: true,
-        new: true,
-      }
+      { upsert: true, new: true }
     );
 
+    console.log(`\n======================================================`);
+    console.log(`[EMAIL VERIFICATION OTP] Sent to: ${cleanEmail} | OTP: ${otp}`);
+    console.log(`======================================================\n`);
 
-
-    const saved = await Otp.findOne({
-      email,
-      type: "email",
-    });
-    
-    console.log(saved);
-    // Otp.findOne(
-    //   {
-    //     email,
-    //     type: "email",
-    //   },
-    //   {
-    //     otp,
-    //     verified: false,
-    //     expiresAt: new Date(
-    //       Date.now() + 5 * 60 * 1000
-    //     ),
-    //   },
-    //   {
-    //     upsert: false,
-    //   }
-    // );
-
-    sendEmailOTP(email, otp).catch((err) => {
-      console.error("Email OTP failed in background:", err);
+    // Send email asynchronously in background so response returns instantly
+    sendEmailOTP(cleanEmail, otp).catch((err) => {
+      console.error("Background Email delivery warning:", err?.message || err);
     });
 
     return NextResponse.json({
       success: true,
-      message: "OTP Sent Successfully",
+      message: `Verification code sent to ${cleanEmail}`,
     });
   } catch (err: any) {
-
-    console.error("EMAIL OTP ERROR");
-  
-    console.error(err);
-  
+    console.error("EMAIL OTP ERROR:", err);
     return NextResponse.json({
       success: false,
-      message: err.message,
+      message: err.message || "Failed to send email verification code",
     });
-  
   }
 }

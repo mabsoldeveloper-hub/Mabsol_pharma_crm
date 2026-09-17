@@ -126,7 +126,7 @@ export default function CurrentStockModal({ isOpen, onClose }: CurrentStockModal
         } finally {
             setLoading(false);
         }
-    }, [isOpen, viewMode, pagination.page, pagination.limit, statusFilter, debouncedSearch, selectedCompany, rateType]);
+    }, [isOpen, viewMode, pagination.page, pagination.limit, statusFilter, debouncedSearch, selectedCompany, rateType, activeCompany, selectedFY]);
 
     useEffect(() => {
         fetchStockData();

@@ -94,6 +94,8 @@ export async function GET(req: NextRequest) {
     const search = (searchParams.get("search") || "").trim();
     const vendorId = (searchParams.get("vendorId") || "").trim();
     const companyId = (searchParams.get("companyId") || "").trim();
+    const fyId = (searchParams.get("fyId") || "").trim();
+    const fyCode = (searchParams.get("fyCode") || "").trim();
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const skip = (page - 1) * limit;
@@ -117,6 +119,12 @@ export async function GET(req: NextRequest) {
 
     if (companyId && companyId !== "ALL") {
       query.companyId = companyId;
+    }
+
+    if (fyId && fyId !== "ALL") {
+      query.fyId = fyId;
+    } else if (fyCode && fyCode !== "ALL") {
+      query.fyCode = new RegExp(`^${fyCode.trim()}$`, "i");
     }
 
     const [payments, total] = await Promise.all([

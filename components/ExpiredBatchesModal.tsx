@@ -116,7 +116,7 @@ export default function ExpiredBatchesModal({ isOpen, onClose }: ExpiredBatchesM
         } finally {
             setLoading(false);
         }
-    }, [isOpen, pagination.page, pagination.limit, debouncedSearch, selectedCompany]);
+    }, [isOpen, pagination.page, pagination.limit, debouncedSearch, selectedCompany, activeCompany, selectedFY]);
 
     useEffect(() => {
         fetchExpiredData();

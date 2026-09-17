@@ -7,6 +7,7 @@ import PurchasePayment from "@/models/PurchasePayment";
 import SalesMdis from "@/models/SalesMdis";
 import Pendings from "@/models/Pendings";
 import Customer from "@/models/Customer";
+import { getFYDateRange } from "@/lib/financialYearHelper";
 
 export const dynamic = "force-dynamic";
 
@@ -16,19 +17,22 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get("companyId") || "";
+    const fyRange = await getFYDateRange(searchParams);
     const startDate = searchParams.get("startDate") || "";
     const endDate = searchParams.get("endDate") || "";
+    const sDate = startDate || fyRange.startDate || "";
+    const eDate = endDate || fyRange.endDate || "";
     const vendorName = searchParams.get("vendorName") || "";
     const status = searchParams.get("status") || "ALL";
 
     // 1. Build Base Date Filter
     let dateFilter: any = {};
-    if (startDate && endDate) {
-      dateFilter = { $gte: startDate, $lte: endDate };
-    } else if (startDate) {
-      dateFilter = { $gte: startDate };
-    } else if (endDate) {
-      dateFilter = { $lte: endDate };
+    if (sDate && eDate) {
+      dateFilter = { $gte: sDate, $lte: eDate };
+    } else if (sDate) {
+      dateFilter = { $gte: sDate };
+    } else if (eDate) {
+      dateFilter = { $lte: eDate };
     }
 
     // 2. Build Vendor Regex

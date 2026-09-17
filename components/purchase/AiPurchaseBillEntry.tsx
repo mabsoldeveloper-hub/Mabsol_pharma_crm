@@ -48,6 +48,15 @@ interface BillItem {
   matchScore?: number;
 }
 
+interface CandidateParty {
+  role?: string;
+  name: string;
+  gst?: string;
+  phone?: string;
+  address?: string;
+  dlNo?: string;
+}
+
 interface SupplierMaster {
   id: string;
   code: string;
@@ -137,6 +146,22 @@ export default function AiPurchaseBillEntry() {
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [showRawInspector, setShowRawInspector] = useState(false);
   const [rawExtractedData, setRawExtractedData] = useState<any>(null);
+  const [noApiKey, setNoApiKey] = useState(false);
+
+  // AI Scan Review Modal & Candidate Parties (Pop-up to choose correct vendor)
+  const [showAiReviewModal, setShowAiReviewModal] = useState(false);
+  const [candidateParties, setCandidateParties] = useState<CandidateParty[]>([]);
+  const [reviewSelectedPartyIdx, setReviewSelectedPartyIdx] = useState<number>(0);
+  const [reviewTempVendorName, setReviewTempVendorName] = useState("");
+  const [reviewTempVendorGst, setReviewTempVendorGst] = useState("");
+  const [reviewTempVendorPhone, setReviewTempVendorPhone] = useState("");
+  const [reviewTempVendorAddress, setReviewTempVendorAddress] = useState("");
+  const [reviewTempVendorDlNo, setReviewTempVendorDlNo] = useState("");
+  const [reviewTempInvoiceNo, setReviewTempInvoiceNo] = useState("");
+  const [reviewTempBillDate, setReviewTempBillDate] = useState("");
+  const [reviewTempDueDate, setReviewTempDueDate] = useState("");
+  const [reviewTempTaxType, setReviewTempTaxType] = useState<"Interstate" | "Intrastate">("Interstate");
+  const [reviewTempSupplierId, setReviewTempSupplierId] = useState("");
 
   // Master Data
   const [suppliersList, setSuppliersList] = useState<SupplierMaster[]>([]);
@@ -229,7 +254,7 @@ export default function AiPurchaseBillEntry() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
-      if (file.type.startsWith("image/")) {
+      if (file.type.startsWith("image/") || file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
         setPreviewUrl(URL.createObjectURL(file));
       } else {
         setPreviewUrl(null);
@@ -243,7 +268,7 @@ export default function AiPurchaseBillEntry() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       setSelectedFile(file);
-      if (file.type.startsWith("image/")) {
+      if (file.type.startsWith("image/") || file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
         setPreviewUrl(URL.createObjectURL(file));
       } else {
         setPreviewUrl(null);
@@ -304,7 +329,7 @@ export default function AiPurchaseBillEntry() {
     const cleanGst = (parsedGst || "").trim().toUpperCase();
     const cleanName = (parsedVendorName || "").trim().toUpperCase();
 
-    setExtractedVendorName(cleanName || "WHITE EAGLE LABORATORIES");
+    setExtractedVendorName(cleanName);
 
     let matched = currentSuppliers.find(
       (s) => cleanGst && s.gst && s.gst.toUpperCase() === cleanGst
@@ -335,17 +360,17 @@ export default function AiPurchaseBillEntry() {
       setMatchedDbVendorName(matched.name);
       setVendorName(cleanName || matched.name);
       setVendorGst(cleanGst || matched.gst || "");
-      setVendorPhone(matched.phone || "9814013352");
-      setVendorAddress(matched.address || "PLOT NO.D-280, INDUSTRIAL FOCAL POINT PATIALA-147001 (PUNJAB)");
+      setVendorPhone(matched.phone || "");
+      setVendorAddress(matched.address || "");
       setIsNewSupplier(false);
       setSupplierMatchScore(score);
     } else {
       setSelectedSupplierId("");
       setMatchedDbVendorName("");
-      setVendorName(cleanName || "WHITE EAGLE LABORATORIES");
-      setVendorGst(cleanGst || "03AABFW1731B1ZX");
-      setVendorPhone("9814013352");
-      setVendorAddress("PLOT NO.D-280, INDUSTRIAL FOCAL POINT PATIALA-147001 (PUNJAB)");
+      setVendorName(cleanName);
+      setVendorGst(cleanGst);
+      setVendorPhone("");
+      setVendorAddress("");
       setIsNewSupplier(true);
       setSupplierMatchScore(0);
     }
@@ -408,6 +433,76 @@ export default function AiPurchaseBillEntry() {
     });
   };
 
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  // Switch candidate party inside review popup or form
+  const selectCandidateParty = (party: CandidateParty, idx: number) => {
+    setReviewSelectedPartyIdx(idx);
+    setReviewTempVendorName(party.name || "");
+    setReviewTempVendorGst(party.gst || "");
+    setReviewTempVendorPhone(party.phone || "");
+    setReviewTempVendorAddress(party.address || "");
+    setReviewTempVendorDlNo(party.dlNo || "");
+
+    const cleanGst = (party.gst || "").trim().toUpperCase();
+    const cleanName = (party.name || "").trim().toUpperCase();
+    let matched = suppliersList.find(
+      (s) => cleanGst && s.gst && s.gst.toUpperCase() === cleanGst
+    );
+    if (!matched) {
+      let bestScore = 0;
+      suppliersList.forEach((s) => {
+        const sim = computeSimilarity(cleanName, s.name);
+        if (sim > bestScore) {
+          bestScore = sim;
+          matched = s;
+        }
+      });
+      if (bestScore < 0.6) matched = undefined;
+    }
+    if (matched) {
+      setReviewTempSupplierId(matched.id);
+    } else {
+      setReviewTempSupplierId("");
+    }
+
+    const vendorStateCode = (party.gst || "").slice(0, 2);
+    const companyStateCode = (selectedCompany?.gstNo || "03").slice(0, 2);
+    if (vendorStateCode && companyStateCode && vendorStateCode === companyStateCode) {
+      setReviewTempTaxType("Intrastate");
+    } else if (vendorStateCode) {
+      setReviewTempTaxType("Interstate");
+    }
+  };
+
+  // Apply all data from AI Review modal into the form
+  const handleApplyReviewedData = () => {
+    setVendorName(reviewTempVendorName);
+    setVendorGst(reviewTempVendorGst);
+    setVendorPhone(reviewTempVendorPhone);
+    setVendorAddress(reviewTempVendorAddress);
+    setVendorDlNo(reviewTempVendorDlNo);
+
+    if (reviewTempInvoiceNo) setSupplierInvoiceNo(reviewTempInvoiceNo);
+    if (reviewTempBillDate) setBillDate(reviewTempBillDate);
+    if (reviewTempDueDate) setDueDate(reviewTempDueDate);
+    setTaxType(reviewTempTaxType);
+
+    if (reviewTempSupplierId) {
+      setSelectedSupplierId(reviewTempSupplierId);
+      const s = suppliersList.find((sup) => sup.id === reviewTempSupplierId);
+      if (s) {
+        setMatchedDbVendorName(s.name);
+        setIsNewSupplier(false);
+        setSupplierMatchScore(1.0);
+      }
+    } else {
+      matchSupplier(reviewTempVendorName, reviewTempVendorGst, suppliersList);
+    }
+
+    setShowAiReviewModal(false);
+  };
+
   // Trigger Document Extraction
   const handleParseDocument = async () => {
     if (!selectedFile) {
@@ -416,6 +511,7 @@ export default function AiPurchaseBillEntry() {
     }
 
     setParsing(true);
+    setParseError(null);
     setParseProgress("Uploading document & running AI Multimodal extraction...");
 
     try {
@@ -429,37 +525,114 @@ export default function AiPurchaseBillEntry() {
 
       setParseProgress("Parsing header, items & auto-matching database records...");
 
-      if (res.ok) {
-        const json = await res.json();
+      const json = await res.json().catch(() => null);
+
+      if (res.ok && json) {
+        if (json.noApiKey) {
+          setNoApiKey(true);
+          setParseError("AI Vision Scanner license key is not configured in server environment.");
+          alert("AI Vision Scanner license key is not configured. Please configure your key in .env file.");
+          return;
+        }
+
         if (json.success && json.data) {
           const data = json.data;
           setRawExtractedData(data);
+          setNoApiKey(false);
+
+          // Build candidate parties list from scan results
+          let parties: CandidateParty[] = [];
+          if (data.candidateParties && Array.isArray(data.candidateParties) && data.candidateParties.length > 0) {
+            parties = data.candidateParties;
+          } else {
+            if (data.vendorName) {
+              parties.push({
+                role: "Seller / Header",
+                name: data.vendorName,
+                gst: data.vendorGst || "",
+                phone: data.vendorPhone || "",
+                address: data.vendorAddress || "",
+                dlNo: data.vendorDlNo || "",
+              });
+            }
+            if (data.buyerName && data.buyerName.toLowerCase() !== (data.vendorName || "").toLowerCase()) {
+              parties.push({
+                role: "Buyer / M/s Party",
+                name: data.buyerName,
+                gst: data.buyerGst || "",
+                phone: data.buyerPhone || "",
+                address: data.buyerAddress || "",
+                dlNo: data.buyerDlNo || "",
+              });
+            }
+          }
+          setCandidateParties(parties);
+
+          // Primary party (usually the Seller / Header at index 0)
+          const primaryParty = parties[0] || {
+            name: data.vendorName || "",
+            gst: data.vendorGst || "",
+            phone: data.vendorPhone || "",
+            address: data.vendorAddress || "",
+            dlNo: data.vendorDlNo || "",
+          };
+
+          setReviewSelectedPartyIdx(0);
+          setReviewTempVendorName(primaryParty.name || data.vendorName || "");
+          setReviewTempVendorGst(primaryParty.gst || data.vendorGst || "");
+          setReviewTempVendorPhone(primaryParty.phone || data.vendorPhone || "");
+          setReviewTempVendorAddress(primaryParty.address || data.vendorAddress || "");
+          setReviewTempVendorDlNo(primaryParty.dlNo || data.vendorDlNo || "");
+
+          setReviewTempInvoiceNo(data.supplierInvoiceNo || "");
+          setReviewTempBillDate(data.billDate || new Date().toISOString().slice(0, 10));
+          setReviewTempDueDate(data.dueDate || "");
 
           if (data.supplierInvoiceNo) setSupplierInvoiceNo(data.supplierInvoiceNo);
           if (data.billDate) setBillDate(data.billDate);
           if (data.dueDate) setDueDate(data.dueDate);
-          if (data.remarks) setRemarks(data.remarks);
-          if (data.vendorDlNo) setVendorDlNo(data.vendorDlNo);
+          if (primaryParty.dlNo || data.vendorDlNo) setVendorDlNo(primaryParty.dlNo || data.vendorDlNo || "");
 
-          // Supplier match
-          matchSupplier(data.vendorName, data.vendorGst, suppliersList);
+          // Match supplier in DB for default selected party
+          matchSupplier(primaryParty.name || data.vendorName, primaryParty.gst || data.vendorGst, suppliersList);
 
           // Items match
-          if (data.items && Array.isArray(data.items)) {
+          const hasItems = data.items && Array.isArray(data.items) && data.items.length > 0;
+          if (hasItems) {
             const mapped = matchProducts(data.items, productsList);
             setItems(mapped);
+          } else {
+            alert("⚠️ AI processed the bill, but no items could be detected. Please check if the document is clear.");
           }
 
-          setTaxType("Interstate");
+          // Auto-detect tax type based on vendor GSTIN state code
+          const vendorStateCode = (primaryParty.gst || data.vendorGst || "").slice(0, 2);
+          const companyStateCode = (selectedCompany?.gstNo || "03").slice(0, 2);
+          const autoTaxType = (vendorStateCode && companyStateCode && vendorStateCode === companyStateCode) ? "Intrastate" : "Interstate";
+          setTaxType(autoTaxType);
+          setReviewTempTaxType(autoTaxType);
+
+          if (json.source) {
+            setRemarks(`Parsed via ${json.source}`);
+          }
+
+          // Automatically open the AI Review & Supplier Selection Popup
+          setShowAiReviewModal(true);
         } else {
-          alert(json.message || "Failed to extract purchase bill data.");
+          const errMsg = json.message || "Failed to extract purchase bill data.";
+          setParseError(errMsg);
+          alert(`❌ Extraction Error: ${errMsg}`);
         }
       } else {
-        alert("Server error while extracting purchase bill document.");
+        const errMsg = json?.message || `Server Error ${res.status}: ${res.statusText}`;
+        setParseError(errMsg);
+        alert(`❌ Error from Server: ${errMsg}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Parse error:", err);
-      alert("Error occurred while extracting document.");
+      const errMsg = err?.message || "Error occurred while extracting document.";
+      setParseError(errMsg);
+      alert(`❌ Network/Processing Error: ${errMsg}`);
     } finally {
       setParsing(false);
       setParseProgress("");
@@ -714,12 +887,21 @@ export default function AiPurchaseBillEntry() {
                 Smart AI Purchase Bill Scan & Auto-Fill
               </h1>
               <p className="text-xs sm:text-sm text-white/80 dark:text-slate-300 mt-1 max-w-2xl">
-                Scan Marg ERP, Tally, Busy, Goods Receipt Notes or PDF bills. Extracts line items, matches suppliers, and posts purchase records automatically.
+                Scan MabsolCRM ERP, Tally, Busy, Goods Receipt Notes or PDF bills. Extracts line items, matches suppliers, and posts purchase records automatically.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 self-end md:self-auto">
+          <div className="flex items-center gap-3 self-end md:self-auto flex-wrap">
+            {(rawExtractedData || candidateParties.length > 0) && (
+              <button
+                type="button"
+                onClick={() => setShowAiReviewModal(true)}
+                className="px-4 py-2.5 text-xs font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 transition-all flex items-center gap-2 shadow-lg shadow-amber-950/20"
+              >
+                <FaMagic /> 🔍 Review Extracted Data
+              </button>
+            )}
             <button
               onClick={() => setShowColSettings(!showColSettings)}
               className="px-4 py-2.5 text-xs font-bold rounded-2xl bg-white/20 hover:bg-white/30 dark:bg-slate-800 dark:hover:bg-slate-700 backdrop-blur-md text-white border border-white/20 transition-all flex items-center gap-2 shadow-sm"
@@ -733,6 +915,8 @@ export default function AiPurchaseBillEntry() {
                 setItems([]);
                 setVendorName("");
                 setVendorGst("");
+                setCandidateParties([]);
+                setRawExtractedData(null);
               }}
               className="px-4 py-2.5 text-xs font-bold rounded-2xl bg-white/20 hover:bg-white/30 dark:bg-slate-800 dark:hover:bg-slate-700 backdrop-blur-md text-white border border-white/20 transition-all flex items-center gap-2 shadow-sm"
             >
@@ -790,6 +974,47 @@ export default function AiPurchaseBillEntry() {
         )}
       </div>
 
+      {/* NO API KEY BANNER */}
+      {noApiKey && (
+        <div className="mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 flex gap-4">
+          <div className="text-amber-500 text-2xl mt-1">⚠️</div>
+          <div className="flex-1">
+            <h3 className="font-bold text-amber-800 dark:text-amber-300 text-sm mb-1">
+              AI Vision Scanner Key Not Configured — Automatic Bill Extraction Unavailable
+            </h3>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">
+              To automatically extract invoice data from images and PDFs, please configure your AI Scanner API key in your server environment.
+            </p>
+            <div className="bg-white dark:bg-amber-950/60 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-300 space-y-1 border border-amber-100 dark:border-amber-800">
+              <p className="font-bold text-amber-800 dark:text-amber-300 mb-2">📋 Configuration Steps:</p>
+              <p>1️⃣ Obtain an AI Vision API license key.</p>
+              <p>2️⃣ Add it to your project root <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">.env</code> file:</p>
+              <pre className="bg-slate-100 dark:bg-slate-900 rounded-lg p-2 mt-1 text-green-700 dark:text-green-400 font-mono text-[11px]">AI_API_KEY=your_api_key_here</pre>
+              <p>3️⃣ Restart your development server: <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">npm run dev</code></p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PARSE ERROR BANNER */}
+      {parseError && !noApiKey && (
+        <div className="mb-6 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-start justify-between gap-3 text-red-700 dark:text-red-300">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">❌</span>
+            <div>
+              <h4 className="font-bold text-sm">AI Bill Extraction Error</h4>
+              <p className="text-xs font-mono mt-1 text-red-600 dark:text-red-400">{parseError}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setParseError(null)}
+            className="text-xs font-bold px-2 py-1 bg-red-100 dark:bg-red-900 rounded-lg hover:bg-red-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Main Grid: Responsive 12 Columns Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* LEFT COLUMN: Upload, Camera & Supplier Matching (4 Cols on XL) */}
@@ -820,14 +1045,46 @@ export default function AiPurchaseBillEntry() {
 
               {previewUrl ? (
                 <div className="relative group/prev">
-                  <img
-                    src={previewUrl}
-                    alt="Purchase Bill Preview"
-                    className="max-h-56 mx-auto rounded-2xl object-contain shadow-lg border border-slate-200 dark:border-slate-700"
-                  />
-                  <div className="mt-3 text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
-                    {selectedFile?.name}
-                  </div>
+                  {selectedFile?.type === "application/pdf" || selectedFile?.name.toLowerCase().endsWith(".pdf") ? (
+                    <div className="space-y-2">
+                      <div className="w-full h-64 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white shadow-inner flex flex-col">
+                        <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                          <span className="font-bold flex items-center gap-1.5 text-red-600 dark:text-red-400 truncate max-w-[200px]">
+                            <FaFilePdf className="text-sm shrink-0" /> {selectedFile.name}
+                          </span>
+                          <a
+                            href={previewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Open PDF ↗
+                          </a>
+                        </div>
+                        <iframe
+                          src={previewUrl}
+                          title="PDF Invoice Preview"
+                          className="w-full flex-1 border-0"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-xs px-1 text-slate-500">
+                        <span>{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                        <span className="text-emerald-600 font-bold">✓ PDF Ready for Smart AI Extraction</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <img
+                        src={previewUrl}
+                        alt="Purchase Bill Preview"
+                        className="max-h-56 mx-auto rounded-2xl object-contain shadow-lg border border-slate-200 dark:border-slate-700"
+                      />
+                      <div className="mt-3 text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
+                        {selectedFile?.name} ({(selectedFile ? (selectedFile.size / 1024).toFixed(1) : 0)} KB)
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : selectedFile ? (
                 <div className="py-8 flex flex-col items-center">
@@ -836,7 +1093,7 @@ export default function AiPurchaseBillEntry() {
                     {selectedFile.name}
                   </span>
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                    ✓ PDF Invoice Ready
+                    ✓ Document Ready ({(selectedFile.size / 1024).toFixed(1)} KB)
                   </span>
                 </div>
               ) : (
@@ -848,7 +1105,7 @@ export default function AiPurchaseBillEntry() {
                     Drag & Drop Purchase Bill / PDF
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Supports Marg ERP, Busy, Tally, PDF & Photos
+                    Supports MabsolCRM ERP, Busy, Tally, PDF Invoices & Camera Photos
                   </p>
                 </div>
               )}
@@ -894,12 +1151,23 @@ export default function AiPurchaseBillEntry() {
 
           {/* Card 2: Supplier Detection & Party Matching */}
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 space-y-4">
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[11px] font-extrabold">
-                2
-              </span>
-              Supplier Detection & Matching
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[11px] font-extrabold">
+                  2
+                </span>
+                Supplier Detection & Matching
+              </h2>
+              {candidateParties.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAiReviewModal(true)}
+                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-800 dark:text-amber-300 rounded-xl text-[11px] font-extrabold transition-colors flex items-center gap-1 shadow-sm"
+                >
+                  <FaMagic /> Select Party
+                </button>
+              )}
+            </div>
 
             {/* Match Status Badge */}
             {vendorName && (
@@ -935,6 +1203,61 @@ export default function AiPurchaseBillEntry() {
                     <FaUserPlus /> {registeringSupplier ? "Saving..." : "Register Party"}
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Candidate Parties Detected on Bill (1-Click Switch) */}
+            {candidateParties.length > 0 && (
+              <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl text-xs space-y-2 border border-amber-200/80 dark:border-amber-900/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <FaBuilding /> Detected Parties on Bill ({candidateParties.length})
+                  </span>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400">Click to switch:</span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {candidateParties.map((p, idx) => {
+                    const isSelected =
+                      vendorName && p.name && vendorName.trim().toUpperCase() === p.name.trim().toUpperCase();
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setVendorName(p.name);
+                          if (p.gst) setVendorGst(p.gst);
+                          if (p.phone) setVendorPhone(p.phone);
+                          if (p.address) setVendorAddress(p.address);
+                          if (p.dlNo) setVendorDlNo(p.dlNo);
+                          matchSupplier(p.name, p.gst || "", suppliersList);
+                          const vendorStateCode = (p.gst || "").slice(0, 2);
+                          const companyStateCode = (selectedCompany?.gstNo || "03").slice(0, 2);
+                          if (vendorStateCode && companyStateCode && vendorStateCode === companyStateCode) {
+                            setTaxType("Intrastate");
+                          } else if (vendorStateCode) {
+                            setTaxType("Interstate");
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl text-left text-xs font-bold border transition-all flex items-center justify-between gap-2 ${
+                          isSelected
+                            ? "bg-amber-500 text-white border-amber-600 shadow-md ring-2 ring-amber-400/40"
+                            : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-amber-400"
+                        }`}
+                      >
+                        <div className="space-y-0.5 truncate flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded font-extrabold ${isSelected ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"}`}>
+                              {p.role || `Party #${idx + 1}`}
+                            </span>
+                            <span className="font-extrabold truncate">{p.name}</span>
+                          </div>
+                          {p.gst && <div className={`text-[10px] font-mono ${isSelected ? "text-white/90" : "text-slate-500 dark:text-slate-400"}`}>GSTIN: {p.gst}</div>}
+                        </div>
+                        {isSelected && <span className="text-[10px] bg-white/30 px-2 py-0.5 rounded font-black shrink-0">Selected</span>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -1584,6 +1907,362 @@ export default function AiPurchaseBillEntry() {
                 className="w-full py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all"
               >
                 Scan Another Purchase Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* AI Scan Review & Supplier Selection Modal */}
+      {showAiReviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 sm:p-5 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full p-5 sm:p-7 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6 my-auto max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-800 pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center text-xl shadow-lg shadow-amber-500/20">
+                  <FaMagic />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    AI Scan Verification & Supplier Selector
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Verify extracted invoice details and choose the correct supplier / vendor.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAiReviewModal(false)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-colors"
+                title="Close"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="overflow-y-auto pr-1 space-y-6 flex-1 text-xs">
+              {/* SECTION 1: Detected Parties on Bill (1-Click Switch) */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-extrabold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <FaBuilding className="text-amber-500 text-sm" /> Step 1: Choose Supplier / Seller from Bill
+                  </h4>
+                  <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold">
+                    {candidateParties.length} Parties Detected
+                  </span>
+                </div>
+
+                {candidateParties.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {candidateParties.map((party, idx) => {
+                      const isSelected =
+                        reviewTempVendorName &&
+                        party.name &&
+                        reviewTempVendorName.trim().toUpperCase() === party.name.trim().toUpperCase();
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => selectCandidateParty(party, idx)}
+                          className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${
+                            isSelected
+                              ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-500 shadow-md ring-2 ring-amber-500/20"
+                              : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 hover:border-amber-300 dark:hover:border-slate-600"
+                          }`}
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span
+                                className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${
+                                  party.role?.includes("Header") || party.role?.includes("Seller")
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300"
+                                    : "bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300"
+                                }`}
+                              >
+                                {party.role || `Party #${idx + 1}`}
+                              </span>
+                              {isSelected && (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-extrabold text-[10px] flex items-center gap-1 shadow-sm">
+                                  <FaCheckCircle /> Selected
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
+                              {party.name || "Unknown Entity"}
+                            </div>
+
+                            <div className="space-y-1 text-slate-600 dark:text-slate-400 text-[11px]">
+                              {party.gst && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-slate-500">GSTIN:</span>
+                                  <span className="font-mono font-bold text-slate-900 dark:text-slate-200">{party.gst}</span>
+                                </div>
+                              )}
+                              {party.dlNo && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-slate-500">DL No:</span>
+                                  <span className="font-mono text-slate-800 dark:text-slate-300">{party.dlNo}</span>
+                                </div>
+                              )}
+                              {party.phone && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-slate-500">Phone:</span>
+                                  <span>{party.phone}</span>
+                                </div>
+                              )}
+                              {party.address && (
+                                <div className="text-slate-500 dark:text-slate-400 truncate">
+                                  {party.address}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              selectCandidateParty(party, idx);
+                            }}
+                            className={`w-full py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                              isSelected
+                                ? "bg-amber-500 text-white shadow-sm"
+                                : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-amber-500 hover:text-white"
+                            }`}
+                          >
+                            <FaCheckCircle className="text-xs" />
+                            {isSelected ? "Selected as Supplier" : "Select as Supplier"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-500 text-center">
+                    No multiple candidate parties found. You can edit the supplier details below.
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 2: Link with Existing DB Supplier or Edit Supplier Details */}
+              <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <h4 className="font-extrabold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <FaUserPlus className="text-amber-500" /> Step 2: Verify or Edit Chosen Supplier Details
+                  </h4>
+                  <span className="text-[11px] text-slate-500">
+                    {reviewTempSupplierId ? "✓ Linked with DB Supplier" : "New Supplier (Will auto-register)"}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                    Link with CRM Database Supplier (Optional):
+                  </label>
+                  <SearchableSelect
+                    options={supplierOptions}
+                    value={reviewTempSupplierId}
+                    onChange={(val) => {
+                      setReviewTempSupplierId(val);
+                      const matched = suppliersList.find((s) => s.id === val);
+                      if (matched) {
+                        setReviewTempVendorName(matched.name);
+                        setReviewTempVendorGst(matched.gst);
+                        setReviewTempVendorPhone(matched.phone);
+                        setReviewTempVendorAddress(matched.address);
+                      }
+                    }}
+                    placeholder="Search supplier in your database..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Supplier Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewTempVendorName}
+                      onChange={(e) => setReviewTempVendorName(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      GSTIN Number
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewTempVendorGst}
+                      onChange={(e) => setReviewTempVendorGst(e.target.value.toUpperCase())}
+                      className="w-full mt-1 px-3 py-2 text-xs font-bold uppercase font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Drug License No
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewTempVendorDlNo}
+                      onChange={(e) => setReviewTempVendorDlNo(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Phone Number
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewTempVendorPhone}
+                      onChange={(e) => setReviewTempVendorPhone(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: Bill Headers & Tax Mode */}
+              <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+                <h4 className="font-extrabold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <FaReceipt className="text-amber-500" /> Step 3: Bill Meta & Tax Mode
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Supplier Invoice No
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewTempInvoiceNo}
+                      onChange={(e) => setReviewTempInvoiceNo(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Bill Date
+                    </label>
+                    <input
+                      type="date"
+                      value={reviewTempBillDate}
+                      onChange={(e) => setReviewTempBillDate(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={reviewTempDueDate}
+                      onChange={(e) => setReviewTempDueDate(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Tax Mode
+                    </label>
+                    <div className="flex items-center gap-1 mt-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setReviewTempTaxType("Interstate")}
+                        className={`flex-1 py-1 text-[11px] font-extrabold rounded-lg transition-all ${
+                          reviewTempTaxType === "Interstate"
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-slate-300"
+                        }`}
+                      >
+                        IGST
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReviewTempTaxType("Intrastate")}
+                        className={`flex-1 py-1 text-[11px] font-extrabold rounded-lg transition-all ${
+                          reviewTempTaxType === "Intrastate"
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-slate-300"
+                        }`}
+                      >
+                        CGST+SGST
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: Line Items Summary Preview */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-extrabold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <FaBoxOpen className="text-amber-500 text-sm" /> Extracted Medicines / Line Items ({items.length})
+                  </h4>
+                  <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                    Net Total: ₹{netAmount.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+                  <table className="w-full text-[11px] text-left border-collapse">
+                    <thead className="bg-slate-100 dark:bg-slate-800/80 sticky top-0 font-bold text-slate-700 dark:text-slate-200">
+                      <tr>
+                        <th className="p-2">#</th>
+                        <th className="p-2">Product Name</th>
+                        <th className="p-2">Batch</th>
+                        <th className="p-2">Exp</th>
+                        <th className="p-2 text-right">Qty</th>
+                        <th className="p-2 text-right">Free</th>
+                        <th className="p-2 text-right">Rate (₹)</th>
+                        <th className="p-2 text-right">MRP (₹)</th>
+                        <th className="p-2 text-right">GST %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {items.map((it, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-900">
+                          <td className="p-2 text-slate-400">{idx + 1}</td>
+                          <td className="p-2 font-bold text-slate-800 dark:text-slate-100">{it.productName}</td>
+                          <td className="p-2 font-mono">{it.batchNo || "-"}</td>
+                          <td className="p-2 font-mono">{it.expDate || "-"}</td>
+                          <td className="p-2 text-right font-extrabold">{it.qty}</td>
+                          <td className="p-2 text-right text-emerald-600 font-bold">{it.freeQty || 0}</td>
+                          <td className="p-2 text-right font-mono">₹{it.rate}</td>
+                          <td className="p-2 text-right font-mono">₹{it.mrp}</td>
+                          <td className="p-2 text-right">{it.gstPercent}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAiReviewModal(false)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all"
+              >
+                Cancel / Edit Manually
+              </button>
+
+              <button
+                type="button"
+                onClick={handleApplyReviewedData}
+                className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black tracking-wide uppercase shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+              >
+                <FaCheckCircle className="text-base" /> Apply & Fill in Bill Form
               </button>
             </div>
           </div>

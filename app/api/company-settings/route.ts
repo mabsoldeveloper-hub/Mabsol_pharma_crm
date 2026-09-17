@@ -1,81 +1,50 @@
-// import { NextResponse } from "next/server";
-
-// import connectDB from "@/lib/mongodb";
-// import Company from "@/models/Company";
-
-// export async function GET() {
-//   try {
-//     await connectDB();
-
-//     const company = await Company.findOne({
-//       tenantId: "TENANT001",
-//     });
-
-//     return NextResponse.json(company);
-
-//   } catch (error) {
-
-//     return NextResponse.json(
-//       { error: "Failed to load company" },
-//       { status: 500 }
-//     );
-//   }
-// }
-
-// export async function POST(req: Request) {
-
-//   try {
-
-//     await connectDB();
-
-//     const data = await req.json();
-
-//     const company =
-//       await Company.findOneAndUpdate(
-//         {
-//           tenantId: "TENANT001",
-//         },
-//         data,
-//         {
-//           upsert: true,
-//           new: true,
-//         }
-//       );
-
-//     return NextResponse.json(company);
-
-//   } catch (error) {
-
-//     return NextResponse.json(
-//       { error: "Failed to save company" },
-//       { status: 500 }
-//     );
-//   }
-// }
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Company from "@/models/Company";
+import { getCurrentUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  await connectDB();
+  try {
+    await connectDB();
+    const user = await getCurrentUser();
 
-  const company = await Company.findOne({
-    tenantId: "TENANT001",
-  });
+    let query: any = {};
+    if (user?.tenantId) {
+      query.tenantId = user.tenantId;
+    } else if (user?.companyId) {
+      const userCompId = typeof user.companyId === "object" ? user.companyId._id : user.companyId;
+      query._id = userCompId;
+    } else {
+      query.tenantId = "TENANT001";
+    }
 
-  return NextResponse.json(company);
+    const company = await Company.findOne(query);
+    return NextResponse.json(company);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
-  await connectDB();
+  try {
+    await connectDB();
+    const user = await getCurrentUser();
+    const data = await req.json();
 
-  const data = await req.json();
+    let query: any = {};
+    if (user?.tenantId) {
+      query.tenantId = user.tenantId;
+    } else if (user?.companyId) {
+      const userCompId = typeof user.companyId === "object" ? user.companyId._id : user.companyId;
+      query._id = userCompId;
+    } else {
+      query.tenantId = "TENANT001";
+    }
 
-  const company =
-    await Company.findOneAndUpdate(
-      {
-        tenantId: "TENANT001",
-      },
+    const company = await Company.findOneAndUpdate(
+      query,
       data,
       {
         upsert: true,
@@ -83,5 +52,8 @@ export async function POST(req: Request) {
       }
     );
 
-  return NextResponse.json(company);
+    return NextResponse.json(company);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }

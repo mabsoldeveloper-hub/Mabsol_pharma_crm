@@ -37,15 +37,17 @@ export async function POST(req: Request) {
             expiresAt: new Date(Date.now() + OTP_TTL_MS),
         });
 
-        // Send OTP via email and WhatsApp in the background (non-blocking)
-        sendOtpEmail(user.email, otp).catch((err) => {
-            console.error("Email OTP failed in background:", err);
-        });
+        // Send OTP via email and WhatsApp in parallel
+        const [emailRes, waRes] = await Promise.allSettled([
+            sendOtpEmail(user.email, otp),
+            user.mobile ? sendWhatsAppOTP(user.mobile, otp) : Promise.resolve(null),
+        ]);
 
-        if (user.mobile) {
-            sendWhatsAppOTP(user.mobile, otp).catch((err) => {
-                console.error("WhatsApp OTP failed in background:", err);
-            });
+        if (emailRes.status === "rejected") {
+            console.error("Email OTP resend failed:", emailRes.reason);
+        }
+        if (waRes.status === "rejected") {
+            console.error("WhatsApp OTP resend failed:", waRes.reason);
         }
 
         return NextResponse.json({ success: true, message: "Verification code resent" });

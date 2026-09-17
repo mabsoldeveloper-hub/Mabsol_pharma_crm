@@ -57,7 +57,7 @@ const ProductSchema = new Schema(
         CESSINRS: Number,
         RACKNO: String,
     },
-    { strict: false, collection: "pro" }
+    { strict: false, collection: "vfp_new_folder_pro" }
 );
 
 /* ------------------------------------------------------------------ */
@@ -85,7 +85,7 @@ const ProductBatchSchema = new Schema(
         HOLD: Schema.Types.Mixed,
         SELECT: String,
     },
-    { strict: false, collection: "probat" }
+    { strict: false, collection: "vfp_new_folder_probat" }
 );
 
 /* ------------------------------------------------------------------ */
@@ -112,7 +112,7 @@ const SalesDisSchema = new Schema(
         EXP: String,
         FLAG: String,
     },
-    { strict: false, collection: "dis" }
+    { strict: false, collection: "vfp_new_folder_dis" }
 );
 
 /* ------------------------------------------------------------------ */
@@ -135,7 +135,7 @@ const SalesMdisSchema = new Schema(
         GODWON: String,
         DSM: String,
     },
-    { strict: false, collection: "mdis" }
+    { strict: false, collection: "vfp_new_folder_mdis" }
 );
 
 /* ------------------------------------------------------------------ */
@@ -153,7 +153,7 @@ const GLedgerSchema = new Schema(
         BOOK: String,
         REMARK1: String,
     },
-    { strict: false, collection: "gledger" }
+    { strict: false, collection: "vfp_new_folder_gledger" }
 );
 
 /* ------------------------------------------------------------------ */
@@ -175,7 +175,7 @@ const OrderSchema = new Schema(
         ORDNO: String,
         DATE: String,
     },
-    { strict: false, collection: "order" }
+    { strict: false, collection: "vfp_new_folder_order" }
 );
 
 /* ------------------------------------------------------------------ */
@@ -192,7 +192,7 @@ const PendSchema = new Schema(
         TYPE: String,
         VCN: String,
     },
-    { strict: false, collection: "pend" }
+    { strict: false, collection: "vfp_new_folder_pend" }
 );
 
 /* ------------------------------------------------------------------ */
@@ -212,7 +212,7 @@ const SubDisSchema = new Schema(
         TYPE: String,
         MR: String,
     },
-    { strict: false, collection: "subdis" }
+    { strict: false, collection: "vfp_new_folder_subdis" }
 );
 
 /* ------------------------------------------------------------------ */

@@ -28,7 +28,19 @@ export async function POST(request: NextRequest) {
       resolvedPath = targetPath + "\\";
     }
 
+    const isLinuxServer = process.platform !== "win32";
+    const isWindowsPath = /^[a-zA-Z]:/i.test(resolvedPath) || /^[a-zA-Z]:/i.test(targetPath);
+
     if (!fs.existsSync(resolvedPath)) {
+      if (isLinuxServer && isWindowsPath) {
+        return NextResponse.json({
+          success: true,
+          currentPath: targetPath,
+          parentPath: null,
+          folders: [],
+          isWindowsClientPath: true,
+        });
+      }
       return NextResponse.json({
         success: false,
         error: `Folder path does not exist: ${resolvedPath}`,

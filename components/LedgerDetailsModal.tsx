@@ -109,7 +109,19 @@ export default function LedgerDetailsModal({
             if (debouncedSearch) params.append("q", debouncedSearch);
             if (selectedParty) params.append("party", selectedParty);
             if (activeCompany?._id) params.append("companyId", activeCompany._id);
-            if (selectedFY?._id) params.append("fyId", selectedFY._id);
+            if (selectedFY) {
+                if (selectedFY.isAll) {
+                    params.append("fyId", "ALL");
+                } else if (selectedFY._id) {
+                    params.append("fyId", selectedFY._id);
+                    if (selectedFY.startDate && selectedFY.endDate) {
+                        const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+                        const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+                        params.append("startDate", s);
+                        params.append("endDate", e);
+                    }
+                }
+            }
 
             const res = await fetch(`/api/dashboard/ledger-details?${params.toString()}`);
             if (res.ok) {
@@ -132,7 +144,7 @@ export default function LedgerDetailsModal({
         } finally {
             setLoading(false);
         }
-    }, [isOpen, activeType, pagination.page, pagination.limit, debouncedSearch, selectedParty]);
+    }, [isOpen, activeType, pagination.page, pagination.limit, debouncedSearch, selectedParty, activeCompany, selectedFY]);
 
     useEffect(() => {
         fetchLedgerData();

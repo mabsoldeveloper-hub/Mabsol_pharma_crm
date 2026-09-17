@@ -281,6 +281,14 @@ export default function KPICards({ kpis }: { kpis: any }) {
             category: "MASTERS",
             type: "customers",
         },
+        {
+            title: "Total Stock Valuation",
+            value: formatCurrency(kpis?.totalStockValuation || kpis?.stockValue),
+            icon: <FaBoxes size={18} />,
+            color: "emerald",
+            category: "MASTERS",
+            isStockModal: true,
+        },
     ];
 
     // Color mapping for cards matching cute soft pastel aesthetic
@@ -418,7 +426,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
                                 animate-[fadeSlideIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]
                                 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)]
                                 hover:-translate-y-1.5 hover:scale-[1.015] active:scale-[0.98]
-                                cursor-pointer p-3.5 sm:p-4 flex flex-col justify-between min-h-[92px] sm:min-h-[98px]
+                                cursor-pointer p-3.5 sm:p-4 flex flex-col justify-between min-h-[102px] sm:min-h-[108px]
                             `}
                         >
                             {/* Apple Specular Highlight Top Edge Catch-Light */}
@@ -443,7 +451,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
                             {/* TOP ROW: Small Heading Title & Glass Icon Badge */}
                             <div className="relative flex items-start justify-between gap-1.5">
                                 <div className="flex items-center gap-1 min-w-0 pr-1">
-                                    <h6 className="text-[6px] sm:text-[5px] font-normal text-slate-500 dark:text-slate-400 leading-tight truncate group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
+                                    <h6 className="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300 leading-tight truncate group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
                                         {card.title}
                                     </h6>
                                     {c.dotColor && (
@@ -467,7 +475,7 @@ export default function KPICards({ kpis }: { kpis: any }) {
 
                             {/* BOTTOM ROW: Proper Size Value (Normal font) */}
                             <div className="relative mt-2 sm:mt-2.5">
-                                <p className="text-lg sm:text-xl font-normal text-slate-800 dark:text-slate-100 tracking-tight font-sans truncate">
+                                <p className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight font-sans truncate">
                                     {card.value}
                                 </p>
                             </div>

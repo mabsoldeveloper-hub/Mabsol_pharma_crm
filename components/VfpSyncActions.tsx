@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   FolderOpen, 
   Database, 
@@ -11,8 +11,27 @@ import {
   Plus,
   X,
   Check,
-  Edit2
+  Edit2,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  UploadCloud,
+  Laptop,
+  Server,
+  Terminal,
+  Download,
+  Copy,
+  HelpCircle,
+  Lock,
+  Unlock,
+  Key,
+  Mail,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Sparkles
 } from "lucide-react";
+import { useToast } from "@/context/ToastContext";
 
 interface VfpSyncActionsProps {
   currentPath?: string;
@@ -24,6 +43,7 @@ interface VfpSyncActionsProps {
   workerStatus?: string;
   lastSyncedAt?: Date | string;
   pendingCommandCount?: number;
+  userEmail?: string;
 }
 
 function formatIntervalSummary(mins: number): string {
@@ -40,6 +60,19 @@ function formatIntervalSummary(mins: number): string {
   return `Every ${mins} minutes`;
 }
 
+function maskFileName(fileName: string): string {
+  if (!fileName) return "••••••••.DBF";
+  const parts = fileName.split(".");
+  const ext = parts.length > 1 ? `.${parts.pop()}` : ".DBF";
+  return "••••••••" + ext.toUpperCase();
+}
+
+function formatCountdown(totalSec: number): string {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}m ${s < 10 ? "0" : ""}${s}s`;
+}
+
 export default function VfpSyncActions({ 
   currentPath = "", 
   destinationPath = "",
@@ -49,7 +82,8 @@ export default function VfpSyncActions({
   workerOnline = false,
   workerStatus = "offline",
   lastSyncedAt,
-  pendingCommandCount = 0
+  pendingCommandCount = 0,
+  userEmail = ""
 }: VfpSyncActionsProps) {
   const router = useRouter();
 
@@ -92,10 +126,296 @@ export default function VfpSyncActions({
   });
 
   const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  // User email & File Name Protection state
+  const { toast } = useToast();
+  const [isFilesUnlocked, setIsFilesUnlocked] = useState(false);
+  const [unlockedRemainingSec, setUnlockedRemainingSec] = useState(0);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpStep, setOtpStep] = useState<"send" | "verify">("send");
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const [otpValue, setOtpValue] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpModalMsg, setOtpModalMsg] = useState<{ type: "success" | "error" | "info" | ""; text: string }>({ type: "", text: "" });
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Check sessionStorage on mount for active 5-min unlock period
+  useEffect(() => {
+    const storageKey = `vfp_files_unlocked_until_${userEmail || "user"}`;
+    const storedUntil = sessionStorage.getItem(storageKey);
+    if (storedUntil) {
+      const remainingMs = Number(storedUntil) - Date.now();
+      if (remainingMs > 0) {
+        setIsFilesUnlocked(true);
+        setUnlockedRemainingSec(Math.ceil(remainingMs / 1000));
+      } else {
+        sessionStorage.removeItem(storageKey);
+      }
+    }
+  }, [userEmail]);
+
+  // Live 1s Countdown timer for 5-minute auto-hide
+  useEffect(() => {
+    if (!isFilesUnlocked || unlockedRemainingSec <= 0) return;
+
+    const timer = setInterval(() => {
+      setUnlockedRemainingSec((prev) => {
+        if (prev <= 1) {
+          setIsFilesUnlocked(false);
+          const storageKey = `vfp_files_unlocked_until_${userEmail || "user"}`;
+          sessionStorage.removeItem(storageKey);
+          toast.info("🔒 5-minute view period expired. Table file names have automatically hidden.");
+          setMessage({
+            type: "info",
+            text: "🔒 5-minute view period expired. Table file names have automatically hidden.",
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isFilesUnlocked, unlockedRemainingSec, userEmail, toast]);
+
+  // Resend OTP cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleOpenOtpModal = () => {
+    setShowOtpModal(true);
+    setOtpStep("send");
+    setOtpDigits(["", "", "", "", "", ""]);
+    setOtpValue("");
+    setOtpModalMsg({ type: "", text: "" });
+  };
+
+  const handleSendOtpCode = async () => {
+    if (sendingOtp) return;
+    setSendingOtp(true);
+    const infoMsg = `Sending 6-digit verification code to ${userEmail || "your email"}...`;
+    setOtpModalMsg({ type: "info", text: infoMsg });
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/send-otp", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setOtpStep("verify");
+        const succMsg = data.message || `Verification OTP sent to ${userEmail}`;
+        setOtpModalMsg({ type: "success", text: succMsg });
+        toast.success(succMsg);
+        setResendCooldown(30);
+        setTimeout(() => {
+          otpInputRefs.current[0]?.focus();
+        }, 100);
+      } else {
+        const errMsg = data.message || "Failed to send verification code.";
+        setOtpModalMsg({ type: "error", text: errMsg });
+        toast.error(errMsg);
+      }
+    } catch {
+      const errMsg = "Error sending verification email.";
+      setOtpModalMsg({ type: "error", text: errMsg });
+      toast.error(errMsg);
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || sendingOtp) return;
+    setSendingOtp(true);
+    setOtpModalMsg({ type: "info", text: "Resending verification code..." });
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/send-otp", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        const msg = data.message || "New OTP code sent!";
+        setOtpModalMsg({ type: "success", text: msg });
+        toast.success(msg);
+        setResendCooldown(30);
+      } else {
+        const msg = data.message || "Failed to resend OTP.";
+        setOtpModalMsg({ type: "error", text: msg });
+        toast.error(msg);
+      }
+    } catch {
+      const msg = "Error resending OTP.";
+      setOtpModalMsg({ type: "error", text: msg });
+      toast.error(msg);
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    const cleanVal = value.replace(/\D/g, "").slice(-1);
+    const newDigits = [...otpDigits];
+    newDigits[index] = cleanVal;
+    setOtpDigits(newDigits);
+    setOtpValue(newDigits.join(""));
+
+    if (cleanVal && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted) {
+      const newDigits = ["", "", "", "", "", ""];
+      pasted.split("").forEach((char, i) => {
+        if (i < 6) newDigits[i] = char;
+      });
+      setOtpDigits(newDigits);
+      setOtpValue(newDigits.join(""));
+      const focusIndex = Math.min(pasted.length, 5);
+      otpInputRefs.current[focusIndex]?.focus();
+    }
+  };
+
+  const handleVerifyOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!otpValue || otpValue.trim().length === 0) {
+      const msg = "Please enter the 6-digit verification code.";
+      setOtpModalMsg({ type: "error", text: msg });
+      toast.error(msg);
+      return;
+    }
+
+    setVerifyingOtp(true);
+    setOtpModalMsg({ type: "info", text: "Verifying code..." });
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: otpValue.trim() }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const unlockMs = 5 * 60 * 1000;
+        const expiresAt = Date.now() + unlockMs;
+        const storageKey = `vfp_files_unlocked_until_${userEmail || "user"}`;
+        sessionStorage.setItem(storageKey, String(expiresAt));
+
+        setIsFilesUnlocked(true);
+        setUnlockedRemainingSec(300);
+        setShowOtpModal(false);
+        const succMsg = "🔓 Email verified! DBF table file names unlocked for 5 minutes.";
+        setMessage({
+          type: "success",
+          text: succMsg,
+        });
+        toast.success(succMsg);
+      } else {
+        const errMsg = data.message || "Invalid verification code.";
+        setOtpModalMsg({ type: "error", text: errMsg });
+        toast.error(errMsg);
+      }
+    } catch {
+      const errMsg = "Verification request failed.";
+      setOtpModalMsg({ type: "error", text: errMsg });
+      toast.error(errMsg);
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleLockNow = () => {
+    setIsFilesUnlocked(false);
+    setUnlockedRemainingSec(0);
+    const storageKey = `vfp_files_unlocked_until_${userEmail || "user"}`;
+    sessionStorage.removeItem(storageKey);
+    toast.info("🔒 Table file names hidden.");
+    setMessage({ type: "info", text: "🔒 Table file names are now locked and hidden." });
+  };
+
+  // Live sync progress state
+  const [syncProgress, setSyncProgress] = useState<{
+    isRunning: boolean;
+    totalTables: number;
+    doneTables: number;
+    failedTables: number;
+    runningTables: string[];
+    completedTables: { tableName: string; importedCount: number }[];
+    failedTablesList: { tableName: string; error?: string }[];
+    startedAt?: string;
+  } | null>(null);
+  const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isSyncingRef = useRef(false);
   
   // Scanned folder DBF files
   const [folderDbfFiles, setFolderDbfFiles] = useState<string[]>([]);
   const [scanningFolder, setScanningFolder] = useState(false);
+
+  // Direct DBF Upload & Worker Setup Modal State
+  const [uploading, setUploading] = useState(false);
+  const [showWorkerModal, setShowWorkerModal] = useState(false);
+  const [copiedCmd, setCopiedCmd] = useState(false);
+  const directDbfInputRef = useRef<HTMLInputElement>(null);
+
+  // Direct Browser Upload Handler for AWS Linux Cloud
+  const handleDirectDbfUpload = async (files: FileList | File[] | null) => {
+    if (!files || files.length === 0) return;
+    const dbfFiles = Array.from(files).filter((f) => f.name.toLowerCase().endsWith(".dbf"));
+    if (dbfFiles.length === 0) {
+      setMessage({ type: "error", text: "Please select valid .DBF files to upload." });
+      return;
+    }
+
+    setUploading(true);
+    setMessage({
+      type: "info",
+      text: `Uploading ${dbfFiles.length} DBF file(s) to AWS Cloud server storage & syncing...`,
+    });
+
+    const formData = new FormData();
+    dbfFiles.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    try {
+      const res = await fetch("/api/mabsolcrmsync/upload-dbf", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setMessage({
+          type: "success",
+          text: data.message || `Uploaded ${dbfFiles.length} DBF file(s) and synced successfully!`,
+        });
+        if (data.uploadedFileNames && data.uploadedFileNames.length > 0) {
+          setSelectedFiles((prev) => Array.from(new Set([...prev, ...data.uploadedFileNames])));
+        }
+        router.refresh();
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to upload DBF files." });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Error occurred while uploading DBF files." });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Native file & directory input refs
   const nativeFolderInputRef = useRef<HTMLInputElement>(null);
@@ -395,6 +715,66 @@ export default function VfpSyncActions({
     saveConfiguration(dataDir, "selected", [], autoSync, autoSyncInterval, true);
   }
 
+  // Stop progress polling helper
+  const stopProgressPolling = useCallback(() => {
+    if (progressPollRef.current) {
+      clearInterval(progressPollRef.current);
+      progressPollRef.current = null;
+    }
+    isSyncingRef.current = false;
+  }, []);
+
+  // Start progress polling — polls every 2s until sync finishes
+  const startProgressPolling = useCallback(() => {
+    stopProgressPolling();
+    isSyncingRef.current = true;
+    const startTime = Date.now();
+    const GRACE_PERIOD_MS = 4000; // don't declare done for at least 4s after start
+
+    const poll = async () => {
+      if (!isSyncingRef.current) return;
+      try {
+        const res = await fetch("/api/mabsolcrmsync/progress");
+        const data = await res.json();
+        if (!data.success) return;
+
+        setSyncProgress({
+          isRunning: data.isRunning,
+          totalTables: data.totalTables || 0,
+          doneTables: data.doneTables || 0,
+          failedTables: data.failedTables || 0,
+          runningTables: data.runningTables || [],
+          completedTables: data.completedTables || [],
+          failedTablesList: data.failedTablesList || [],
+          startedAt: data.startedAt,
+        });
+
+        // Only declare done if grace period has passed (avoids race condition on first poll)
+        const graceElapsed = Date.now() - startTime > GRACE_PERIOD_MS;
+        if (!data.isRunning && isSyncingRef.current && graceElapsed) {
+          stopProgressPolling();
+          setBusyAction(null);
+          setMessage({
+            type: data.failedTables > 0 ? "info" : "success",
+            text: `Sync complete! ${data.doneTables || 0} table(s) done${data.failedTables > 0 ? `, ${data.failedTables} failed` : ""}.`,
+          });
+          router.refresh();
+        }
+      } catch {
+        // ignore poll errors
+      }
+    };
+
+    // Poll immediately then every 2s
+    poll();
+    progressPollRef.current = setInterval(poll, 2000);
+  }, [router, stopProgressPolling]);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => stopProgressPolling();
+  }, [stopProgressPolling]);
+
   // Client-side Auto Sync Scheduler Effect
   useEffect(() => {
     if (!autoSync || selectedFiles.length === 0) return;
@@ -415,9 +795,10 @@ export default function VfpSyncActions({
   async function triggerSyncNow(isAuto: boolean = false) {
     if (selectedFiles.length === 0) return;
     setBusyAction("sync");
+    setSyncProgress(null);
     setMessage({ 
       type: "info", 
-      text: isAuto ? "Running scheduled background auto-sync..." : "Queuing immediate data sync..." 
+      text: isAuto ? "Running scheduled background auto-sync..." : "Starting DBF sync in background..." 
     });
 
     try {
@@ -427,19 +808,29 @@ export default function VfpSyncActions({
       const data = await response.json();
 
       if (data.success) {
-        setMessage({ 
-          type: "success", 
-          text: isAuto 
-            ? `Auto-sync completed! Synced ${data.result?.importedTables || 0} table(s), ${data.result?.importedRows || 0} row(s).` 
-            : `Sync completed! Synced ${data.result?.importedTables || 0} table(s), ${data.result?.importedRows || 0} row(s).`
-        });
-        router.refresh();
+        if (data.result?.background) {
+          // Background sync started — begin polling for live progress
+          setMessage({ 
+            type: "info", 
+            text: `Sync running in background... Tracking progress live below.` 
+          });
+          startProgressPolling();
+          // Do NOT call router.refresh() here — wait until polling detects completion
+        } else {
+          // Queued mode (cloud/offline worker)
+          setMessage({ 
+            type: data.queued && !data.workerOnline ? "info" : "success", 
+            text: data.message || "Sync queued."
+          });
+          setBusyAction(null);
+          router.refresh();
+        }
       } else {
         setMessage({ type: "error", text: data.error || "Failed to trigger sync." });
+        setBusyAction(null);
       }
     } catch {
-      setMessage({ type: "error", text: "Error occurred while queueing sync." });
-    } finally {
+      setMessage({ type: "error", text: "Error occurred while executing sync." });
       setBusyAction(null);
     }
   }
@@ -447,6 +838,8 @@ export default function VfpSyncActions({
   // Trigger cancel sync
   async function triggerCancelSync() {
     setBusyAction("cancel");
+    stopProgressPolling();
+    setSyncProgress(null);
     setMessage({ type: "info", text: "Cancelling sync and disabling Auto-sync..." });
 
     if (autoSync) {
@@ -685,63 +1078,105 @@ export default function VfpSyncActions({
                       </div>
                     </div>
 
-                    {/* Auto-sync Locked Warning Banner */}
-                    {autoSync && (
-                      <div className="text-[11px] font-bold text-amber-800 bg-amber-50/90 border border-amber-200/80 px-3 py-1.5 rounded-xl flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                        <span>🔒 Table selection is locked while Auto-sync is enabled. Turn off Auto-sync below to select or deselect tables.</span>
-                      </div>
-                    )}
+                    {/* Privacy & File Unlock Section - Only show when tables are selected */}
+                    {selectedFiles.length > 0 && (
+                      !isFilesUnlocked ? (
+                        <div className="p-3.5 sm:p-4 bg-white border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style={{ borderLeft: "3px solid #14b8a6" }}>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-200/70 flex items-center justify-center text-teal-600 shrink-0">
+                              <Lock size={16} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm font-bold text-slate-800 leading-snug flex items-center gap-2 flex-wrap">
+                                <span>DBF Table Names Hidden</span>
+                                <span className="text-[10px] font-mono font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200/80">
+                                  {selectedFiles.length} active
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                Verify email OTP to reveal table names for 5 minutes.
+                              </div>
+                            </div>
+                          </div>
 
-                    {/* DBF Clips in place toggle active/deselect with tick mark */}
-                    {allClipsList.length > 0 ? (
-                      <div className="flex items-center gap-2 flex-wrap pt-1">
-                        {allClipsList.map((file) => {
-                          const isSelected = selectedFiles.includes(file);
-                          return (
+                          <button
+                            type="button"
+                            onClick={handleOpenOtpModal}
+                            className="inline-flex items-center justify-center gap-1.5 w-full sm:w-auto px-4.5 py-2 text-xs font-semibold text-teal-700 border border-teal-400 hover:bg-teal-50 hover:border-teal-500 transition-all active:scale-[0.98] cursor-pointer whitespace-nowrap shrink-0"
+                            style={{ borderRadius: "9999px" }}
+                          >
+                            <Key size={12} />
+                            <span>Verify Email to View</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-2.5 p-2.5 bg-emerald-50 border border-emerald-200/90 rounded-xl text-emerald-900 shadow-2xs">
+                            <div className="flex items-center gap-2 text-xs font-bold">
+                              <Unlock size={14} className="text-emerald-600 shrink-0" />
+                              <span>File names unlocked (Auto-hides in <strong className="font-mono text-emerald-700 font-extrabold">{formatCountdown(unlockedRemainingSec)}</strong>)</span>
+                            </div>
                             <button
-                              key={file}
                               type="button"
-                              disabled={autoSync}
-                              onClick={() => {
-                                if (autoSync) {
-                                  setMessage({ type: "info", text: "Please turn off Auto-sync below to select or deselect tables." });
-                                  return;
-                                }
-                                lastUserEditTimeRef.current = Date.now();
-                                let updated: string[];
-                                if (isSelected) {
-                                  updated = selectedFiles.filter((f) => f !== file);
-                                } else {
-                                  updated = [...selectedFiles, file];
-                                }
-                                setSelectedFiles(updated);
-                                saveConfiguration(dataDir, "selected", updated, autoSync, autoSyncInterval, true);
-                              }}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold rounded-full border transition-all shadow-2xs btn-pill ${
-                                autoSync ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                              } ${
-                                isSelected
-                                  ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                                  : "bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                              }`}
+                              onClick={handleLockNow}
+                              className="inline-flex items-center gap-1 px-3 py-1 text-[11px] font-bold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer whitespace-nowrap shrink-0"
                               style={{ borderRadius: "9999px" }}
-                              title={autoSync ? "Turn off Auto-sync to modify table selection" : `Click to toggle ${file}`}
                             >
-                              {isSelected ? (
-                                <Check size={13} className="text-emerald-400 shrink-0 stroke-[3]" />
-                              ) : (
-                                <span className="text-teal-600 font-bold text-xs shrink-0">+</span>
-                              )}
-                              <span>{file}</span>
+                              <Lock size={12} className="text-emerald-700" />
+                              <span>Hide now</span>
                             </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-500 font-mono italic">
-                        No DBF tables selected. Click "Add DBF table(s)" to select files.
-                      </div>
+                          </div>
+
+                          {/* DBF Chips - Only visible when unlocked */}
+                          {allClipsList.length > 0 ? (
+                            <div className="flex items-center gap-2 flex-wrap pt-1">
+                              {allClipsList.map((file) => {
+                                const isSelected = selectedFiles.includes(file);
+                                return (
+                                  <button
+                                    key={file}
+                                    type="button"
+                                    disabled={autoSync}
+                                    onClick={() => {
+                                      if (autoSync) {
+                                        setMessage({ type: "info", text: "Please turn off Auto-sync below to select or deselect tables." });
+                                        return;
+                                      }
+                                      lastUserEditTimeRef.current = Date.now();
+                                      let updated: string[];
+                                      if (isSelected) {
+                                        updated = selectedFiles.filter((f) => f !== file);
+                                      } else {
+                                        updated = [...selectedFiles, file];
+                                      }
+                                      setSelectedFiles(updated);
+                                      saveConfiguration(dataDir, "selected", updated, autoSync, autoSyncInterval, true);
+                                    }}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "bg-slate-900 text-white shadow-xs"
+                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200"
+                                    }`}
+                                    style={{ borderRadius: "9999px" }}
+                                    title={autoSync ? "Turn off Auto-sync to modify table selection" : `Click to toggle ${file}`}
+                                  >
+                                    {isSelected ? (
+                                      <Check size={13} className="text-emerald-400 shrink-0 stroke-[3]" />
+                                    ) : (
+                                      <span className="text-teal-600 font-bold text-xs shrink-0">+</span>
+                                    )}
+                                    <span>{file}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-slate-500 font-mono italic">
+                              No DBF tables selected. Click "Add DBF table(s)" to select files.
+                            </div>
+                          )}
+                        </div>
+                      )
                     )}
                   </div>
                 );
@@ -948,18 +1383,33 @@ export default function VfpSyncActions({
           </div>
 
           <div className="space-y-4 min-w-0">
+            {/* WORKER STATUS & SETUP CARD */}
             <div 
               className="border border-slate-200/80 p-4 sm:p-5 bg-white space-y-4 shadow-2xs"
               style={{ borderRadius: "20px" }}
             >
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">WORKER STATUS</span>
-                <div className="flex items-center gap-1 text-xs text-slate-500 font-mono">
-                  <Clock size={12} className="text-slate-400" />
-                  <span>Last sync:</span>
-                  <span className="font-bold text-slate-800">{formatDate(lastSyncedAt)}</span>
+                <div className="flex items-center gap-1.5">
+                  {workerOnline ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Worker ONLINE
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      Worker OFFLINE
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400 font-mono">
+                    <Clock size={11} />
+                    <span>{formatDate(lastSyncedAt)}</span>
+                  </div>
                 </div>
               </div>
+
+
 
               <div className="flex flex-col gap-1.5 pt-1 w-full">
                 <button 
@@ -1000,17 +1450,10 @@ export default function VfpSyncActions({
                       ? "border-red-500 bg-red-50 text-red-700 hover:bg-red-100 shadow-2xs cursor-pointer"
                       : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
                   }`} 
-                  style={{ borderRadius: "9999px", marginTop: "12px" }}
+                  style={{ borderRadius: "9999px", marginTop: "8px" }}
                   onClick={triggerCancelSync}
                   disabled={!autoSync && busyAction !== "sync"}
                   type="button"
-                  title={
-                    autoSync 
-                      ? "Click to cancel and disable Auto-sync" 
-                      : busyAction === "sync" 
-                      ? "Click to cancel active sync" 
-                      : "Cancel sync is available when Auto-sync or manual sync is active"
-                  }
                 >
                   <X size={14} className={busyAction === "cancel" ? "animate-spin text-red-600" : busyAction === "sync" || autoSync ? "text-red-600" : "text-slate-400"} />
                   <span>{busyAction === "cancel" ? "Cancelling..." : "Cancel sync"}</span>
@@ -1018,9 +1461,166 @@ export default function VfpSyncActions({
               </div>
 
               <p className="text-[11px] text-slate-400 leading-relaxed text-center max-w-xs mx-auto m-0 pt-0.5">
-                Pushes local DBF changes to the CRM table immediately and manages worker background tasks.
+                Pushes DBF changes to CRM tables immediately and manages worker background tasks.
               </p>
             </div>
+
+            {/* DIRECT CLOUD DBF UPLOAD CARD */}
+            <div
+              className="border border-teal-200/70 p-4 sm:p-5 bg-gradient-to-b from-teal-50/40 to-white space-y-3 shadow-2xs"
+              style={{ borderRadius: "20px" }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+                    <UploadCloud size={16} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block leading-snug">Upload DBF to Cloud</span>
+                    <span className="text-[10px] text-slate-500 block">Direct browser upload to AWS Linux server</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Drag and drop / select area */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleDirectDbfUpload(e.dataTransfer.files);
+                  }
+                }}
+                onClick={() => directDbfInputRef.current?.click()}
+                className="border-2 border-dashed border-teal-200 hover:border-teal-400 bg-white/80 p-4 rounded-xl text-center cursor-pointer transition-all hover:bg-teal-50/30 group"
+              >
+                <input
+                  type="file"
+                  ref={directDbfInputRef}
+                  accept=".dbf"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={(e) => handleDirectDbfUpload(e.target.files)}
+                />
+                {uploading ? (
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold text-teal-700 py-1">
+                    <Loader2 size={16} className="animate-spin text-teal-600" />
+                    <span>Uploading DBF files & syncing...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <UploadCloud size={22} className="mx-auto text-teal-600 group-hover:scale-110 transition-transform" />
+                    <div className="text-xs font-bold text-slate-800">
+                      Drop <span className="text-teal-600 font-mono">.DBF</span> files here, or <span className="underline">browse</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Supports multiple DBF tables (e.g. CUST.DBF, ITEM.DBF)
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Live Sync Progress Panel */}
+            {syncProgress && (
+              <div
+                className="border border-slate-200/80 bg-slate-50/60 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300"
+                style={{ borderRadius: "16px" }}
+              >
+                {/* Progress Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/60 bg-white">
+                  <div className="flex items-center gap-2">
+                    {syncProgress.isRunning ? (
+                      <Loader2 size={14} className="text-sky-500 animate-spin" />
+                    ) : syncProgress.failedTables > 0 ? (
+                      <AlertCircle size={14} className="text-amber-500" />
+                    ) : (
+                      <CheckCircle2 size={14} className="text-emerald-500" />
+                    )}
+                    <span className="text-xs font-bold text-slate-800">
+                      {syncProgress.isRunning ? "Sync in Progress..." : "Sync Complete"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold font-mono text-slate-400">
+                    {syncProgress.doneTables}/{syncProgress.totalTables > 0 ? syncProgress.totalTables : "?"} tables
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                {syncProgress.totalTables > 0 && (
+                  <div className="px-4 pt-3 pb-1">
+                    <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.round((syncProgress.doneTables / syncProgress.totalTables) * 100)}%`,
+                          background: syncProgress.isRunning
+                            ? "linear-gradient(90deg,#38bdf8,#6366f1)"
+                            : syncProgress.failedTables > 0
+                            ? "#f59e0b"
+                            : "#10b981",
+                        }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono mt-1 text-right">
+                      {syncProgress.totalTables > 0
+                        ? `${Math.round((syncProgress.doneTables / syncProgress.totalTables) * 100)}%`
+                        : ""}
+                    </div>
+                  </div>
+                )}
+
+                {/* Currently running tables */}
+                {syncProgress.isRunning && syncProgress.runningTables.length > 0 && (
+                  <div className="px-4 py-2">
+                    <div className="text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-1">Now syncing</div>
+                    {syncProgress.runningTables.map((t) => (
+                      <div key={t} className="flex items-center gap-1.5 text-xs text-slate-600 font-mono py-0.5">
+                        <Loader2 size={11} className="text-sky-500 animate-spin shrink-0" />
+                        <span className="truncate">{t}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Completed tables list */}
+                {syncProgress.completedTables.length > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1 mt-2">Completed</div>
+                    <div className="max-h-[160px] overflow-y-auto space-y-0.5 pr-1">
+                      {syncProgress.completedTables.map((t, i) => (
+                        <div
+                          key={t.tableName + i}
+                          className="flex items-center justify-between gap-2 text-[11px] font-mono py-0.5 border-b border-slate-100 last:border-0"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />
+                            <span className="text-slate-700 truncate">{t.tableName}</span>
+                          </div>
+                          <span className="text-slate-400 shrink-0 whitespace-nowrap">
+                            {t.importedCount.toLocaleString()} rows
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Failed tables list */}
+                {syncProgress.failedTablesList.length > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">Failed</div>
+                    {syncProgress.failedTablesList.map((t, i) => (
+                      <div key={t.tableName + i} className="flex items-start gap-1.5 text-[11px] font-mono py-0.5">
+                        <AlertCircle size={11} className="text-red-400 shrink-0 mt-0.5" />
+                        <span className="text-red-600 truncate">{t.tableName}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
         </div>
@@ -1039,6 +1639,209 @@ export default function VfpSyncActions({
         >
           <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-current" />
           <span>{message.text}</span>
+        </div>
+      )}
+
+
+      {/* EMAIL VERIFICATION OTP MODAL (2-STEP FLOW) */}
+      {showOtpModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          style={{ background: "linear-gradient(135deg, #0a2828 0%, #0d3535 50%, #0b2c2c 100%)" }}
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 relative shadow-2xl">
+            {/* Modal Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowOtpModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+
+            {/* Teal square icon */}
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: "#0d7b6e" }}>
+              {otpStep === "send"
+                ? <Mail size={18} className="text-white" />
+                : <Key size={18} className="text-white" />}
+            </div>
+
+            {/* Title */}
+            <h2 className="text-base font-bold text-slate-900 mb-1 leading-snug">
+              {otpStep === "send" ? "Verify email to view files" : "Enter verification code"}
+            </h2>
+
+            {/* Step progress bar */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-1">
+                <div className="w-5 h-1 rounded-full" style={{ backgroundColor: "#0d7b6e" }} />
+                <div className={`w-5 h-1 rounded-full transition-all ${otpStep === "verify" ? "" : "bg-slate-200"}`}
+                  style={otpStep === "verify" ? { backgroundColor: "#0d7b6e" } : {}} />
+              </div>
+              <span className="text-[11px] text-slate-500">
+                Step <strong className="text-slate-700">{otpStep === "send" ? "1" : "2"}</strong> of 2 · {otpStep === "send" ? "Confirm email address" : "Enter your code"}
+              </span>
+            </div>
+
+
+
+            {/* STEP 1: SEND OTP */}
+            {otpStep === "send" ? (
+              <>
+                {/* Email info box */}
+                <div className="rounded-xl border border-slate-100 p-3 mb-3" style={{ backgroundColor: "#f0faf9" }}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Mail size={12} style={{ color: "#0d7b6e" }} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#0d7b6e" }}>
+                      Logged-in account email
+                    </span>
+                  </div>
+
+                  {/* Email row with avatar */}
+                  <div className="flex items-center gap-2 bg-white border border-slate-100 rounded-lg px-2.5 py-2 mb-2">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                      style={{ color: "#0d7b6e", border: "1.5px solid #0d7b6e", backgroundColor: "#e6f7f5" }}
+                    >
+                      {(userEmail || "U").slice(0, 2).toUpperCase()}
+                    </div>
+                    <span className="text-xs font-medium text-slate-800 truncate flex-1">
+                      {userEmail
+                        ? userEmail.length > 24
+                          ? userEmail.slice(0, 24) + "..."
+                          : userEmail
+                        : "your@email.com"}
+                    </span>
+                    <span
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
+                      style={{ color: "#0d7b6e", backgroundColor: "#e6f7f5", borderColor: "#a7ddd8" }}
+                    >
+                      ✓ Logged in
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    We&apos;ll send a 6-digit security code to this address to confirm it&apos;s you.
+                  </p>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-stretch gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowOtpModal(false)}
+                    className="flex-1 min-h-[40px] text-xs font-semibold text-slate-600 border border-slate-300 hover:bg-slate-50 transition-all cursor-pointer"
+                    style={{ borderRadius: "9999px" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sendingOtp}
+                    onClick={handleSendOtpCode}
+                    className="flex-1 min-h-[40px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    style={{ color: "#0d7b6e", border: "1.5px solid #0d7b6e", borderRadius: "9999px", backgroundColor: "transparent" }}
+                    onMouseEnter={(e) => { if (!sendingOtp) e.currentTarget.style.backgroundColor = "#f0faf9"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  >
+                    {sendingOtp ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail size={13} />
+                        <span className="text-center leading-snug">Send Otp</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* STEP 2: OTP DIGIT ENTRY */
+              <form onSubmit={handleVerifyOtp}>
+                {/* Code info box */}
+                <div className="rounded-2xl border border-slate-100 p-4 mb-3" style={{ backgroundColor: "#f0faf9" }}>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Key size={13} style={{ color: "#0d7b6e" }} />
+                    <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#0d7b6e" }}>
+                      Verification code
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Enter the 6-digit code sent to <strong className="text-slate-700">{userEmail}</strong>. Unlocks file names for 5 minutes.
+                  </p>
+                </div>
+
+                {/* 6-digit grid */}
+                <div className="grid grid-cols-6 gap-2 sm:gap-2.5 mb-3">
+                  {otpDigits.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { otpInputRefs.current[idx] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      onPaste={handleOtpPaste}
+                      className="w-full h-10 text-center text-base font-bold font-mono border-2 rounded-xl outline-none transition-all"
+                      style={digit
+                        ? { borderColor: "#0d7b6e", backgroundColor: "#f0faf9", color: "#0b4a43" }
+                        : { borderColor: "#e2e8f0", backgroundColor: "#f8fafc", color: "#1e293b" }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "#0d7b6e"; e.currentTarget.style.backgroundColor = "#fff"; }}
+                      onBlur={(e) => { if (!digit) { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.backgroundColor = "#f8fafc"; } }}
+                    />
+                  ))}
+                </div>
+
+                {/* Footer: resend + buttons */}
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    disabled={resendCooldown > 0 || sendingOtp}
+                    onClick={handleResendOtp}
+                    className="text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer mr-auto whitespace-nowrap"
+                    style={{ color: "#0d7b6e" }}
+                  >
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setOtpStep("send")}
+                    className="h-9 px-3 text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap"
+                    style={{ borderRadius: "9999px" }}
+                  >
+                    Back
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={verifyingOtp || otpValue.length < 6}
+                    className="h-9 inline-flex items-center gap-1.5 px-4 text-xs font-semibold transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+                    style={{ color: "#0d7b6e", border: "1.5px solid #0d7b6e", borderRadius: "9999px", backgroundColor: "transparent" }}
+                    onMouseEnter={(e) => { if (!(verifyingOtp || otpValue.length < 6)) e.currentTarget.style.backgroundColor = "#f0faf9"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  >
+                    {verifyingOtp ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={12} className="stroke-[2.5]" />
+                        <span>Verify & Unlock</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
 

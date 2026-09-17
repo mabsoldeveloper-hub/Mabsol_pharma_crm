@@ -16,29 +16,109 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    let dataDir = process.env.VFP_DATA_DIR || "";
-    let sourceDir = "";
+    const isLinuxServer = process.platform !== "win32";
+    const sanitizedEmail = (user.email || "default_user").replace(/[^a-zA-Z0-9_-]/g, "_");
+
+    // Exact server paths configured on EC2 Linux server
+    const defaultVfpExeCandidates = isLinuxServer
+      ? [
+          "/home/vfpuser/MabsolEXE/MabsolCRM.exe",
+          "/home/vfpuser/MabsolEXE/MabsolCRM.EXE",
+          "/home/vfpuser/Mabsol_pharma_crm/VfpNew/MabsolCRM.EXE",
+          "/home/vfpuser/VfpNew/MabsolCRM.EXE",
+          "MabsolCRM.EXE"
+        ]
+      : [
+          "C:\\Users\\Administrator\\Downloads\\VfpNew\\VfpNew\\MabsolCRM.EXE",
+          path.join(process.cwd(), "VfpNew", "MabsolCRM.EXE"),
+          "MabsolCRM.EXE"
+        ];
+
+    const defaultPrgCandidates = isLinuxServer
+      ? [
+          "/home/vfpuser/MabsolPRG/7.PRG",
+          "/home/vfpuser/MabsolPRG/7.prg",
+          "/home/vfpuser/Mabsol_pharma_crm/VfpNew/7.PRG",
+          "/home/vfpuser/VfpNew/7.PRG",
+          "7.PRG"
+        ]
+      : [
+          "C:\\Users\\Administrator\\Downloads\\VfpNew\\VfpNew\\7.PRG",
+          path.join(process.cwd(), "VfpNew", "7.PRG"),
+          "7.PRG"
+        ];
+
+    const defaultSourceCandidates = isLinuxServer
+      ? [
+          "/home/vfpuser/MabsolData",
+          "/home/vfpuser/data",
+          path.join(process.cwd(), "data"),
+          "Backup"
+        ]
+      : [
+          "D:\\Mabsol_pharma_crm\\data",
+          "Backup"
+        ];
+
+    const defaultDestDir = isLinuxServer
+      ? "/home/vfpuser/MabsolSyncData"
+      : path.join(process.cwd(), "data", "vfp_uploads", sanitizedEmail);
+
+    let defaultVfpExe = defaultVfpExeCandidates.find((p) => fs.existsSync(p)) || defaultVfpExeCandidates[0];
+    let defaultPrg = defaultPrgCandidates.find((p) => fs.existsSync(p)) || defaultPrgCandidates[0];
+    let defaultSource = defaultSourceCandidates.find((p) => fs.existsSync(p)) || defaultSourceCandidates[0];
+
+    let dataDir = defaultDestDir;
+    let sourceDir = defaultSource;
     let consoleSyncDir = "";
     let enabledFiles: string[] = [];
     let useVfpEngine = false;
     let autoSync = false;
     let autoSyncInterval = 10;
-    let vfpExePath = process.env.VFP_EXE_PATH || "";
-    let prgPath = "";
-    let userName = user.name || "";
-    let companyName = (user.companyId as any)?.companyName || "";
-    let license = "";
+    let vfpExePath = process.env.VFP_EXE_PATH || defaultVfpExe;
+    let prgPath = defaultPrg;
+    let userName = user.name || "Operator";
+    let companyName = (user.companyId as any)?.companyName || "E10";
+    let license = "123456";
     let startupCommand = "";
     let isFromDb = false;
 
+    let autoVfpExtract = false;
+    let autoVfpExtractInterval = 10;
+    let lastVfpExtractedAt: any = null;
+    let uploadedSourceFilesCount = 0;
+    let lastSourceUploadedAt: any = null;
+    let lastUploadedByUserId: string = "";
+    let lastUploadedByUserName: string = "";
+    let lastUploadedByUserEmail: string = "";
+
     const config = await VfpConfig.findOne({ email: user.email }).lean();
     if (config) {
-      if ((config as any).dataDir !== undefined) {
-        dataDir = (config as any).dataDir;
+      if ((config as any).lastUploadedByUserId) {
+        lastUploadedByUserId = (config as any).lastUploadedByUserId;
+      }
+      if ((config as any).lastUploadedByUserName) {
+        lastUploadedByUserName = (config as any).lastUploadedByUserName;
+      }
+      if ((config as any).lastUploadedByUserEmail) {
+        lastUploadedByUserEmail = (config as any).lastUploadedByUserEmail;
+      }
+      if ((config as any).dataDir) {
+        const storedDataDir = (config as any).dataDir;
+        if (isLinuxServer && (/^[a-zA-Z]:/i.test(storedDataDir) || storedDataDir.includes("\\"))) {
+          dataDir = "/home/vfpuser/MabsolSyncData";
+        } else {
+          dataDir = storedDataDir;
+        }
         isFromDb = true;
       }
       if ((config as any).sourceDir) {
-        sourceDir = (config as any).sourceDir;
+        const storedSource = (config as any).sourceDir;
+        if (isLinuxServer && (/^[a-zA-Z]:/i.test(storedSource) || storedSource === "Backup" || storedSource.includes("\\"))) {
+          sourceDir = "/home/vfpuser/MabsolData";
+        } else {
+          sourceDir = storedSource;
+        }
       }
       if ((config as any).consoleSyncDir !== undefined) {
         consoleSyncDir = (config as any).consoleSyncDir;
@@ -52,14 +132,39 @@ export async function GET() {
       if ((config as any).autoSyncInterval !== undefined) {
         autoSyncInterval = (config as any).autoSyncInterval;
       }
+      if ((config as any).autoVfpExtract !== undefined) {
+        autoVfpExtract = (config as any).autoVfpExtract;
+      }
+      if ((config as any).autoVfpExtractInterval !== undefined) {
+        autoVfpExtractInterval = (config as any).autoVfpExtractInterval;
+      }
+      if ((config as any).lastVfpExtractedAt) {
+        lastVfpExtractedAt = (config as any).lastVfpExtractedAt;
+      }
+      if ((config as any).uploadedSourceFilesCount !== undefined) {
+        uploadedSourceFilesCount = (config as any).uploadedSourceFilesCount;
+      }
+      if ((config as any).lastSourceUploadedAt) {
+        lastSourceUploadedAt = (config as any).lastSourceUploadedAt;
+      }
       if ((config as any).useVfpEngine !== undefined) {
         useVfpEngine = (config as any).useVfpEngine;
       }
       if ((config as any).vfpExePath) {
-        vfpExePath = (config as any).vfpExePath;
+        const storedExe = (config as any).vfpExePath;
+        if (storedExe === "aab.EXE" || (isLinuxServer && (/^[a-zA-Z]:/i.test(storedExe) || storedExe.includes("\\")))) {
+          vfpExePath = "/home/vfpuser/MabsolEXE/MabsolCRM.exe";
+        } else {
+          vfpExePath = storedExe;
+        }
       }
       if ((config as any).prgPath) {
-        prgPath = (config as any).prgPath;
+        const storedPrg = (config as any).prgPath;
+        if (isLinuxServer && (/^[a-zA-Z]:/i.test(storedPrg) || storedPrg.includes("\\"))) {
+          prgPath = "/home/vfpuser/MabsolPRG/7.PRG";
+        } else {
+          prgPath = storedPrg;
+        }
       }
       if ((config as any).userName) {
         userName = (config as any).userName;
@@ -75,13 +180,21 @@ export async function GET() {
       }
     }
 
-    const isLinuxServer = process.platform !== "win32";
     const checkExists = (p: string) => {
       if (!p) return false;
       if (isLinuxServer && /^[a-zA-Z]:/i.test(p)) return true;
       return fs.existsSync(p);
     };
 
+    let liveSourceFilesCount = uploadedSourceFilesCount;
+    try {
+      if (fs.existsSync(sourceDir)) {
+        const files = fs.readdirSync(sourceDir).filter((f) => !f.startsWith(".") && fs.statSync(path.join(sourceDir, f)).isFile());
+        liveSourceFilesCount = files.length;
+      }
+    } catch {}
+
+    const hasSourceData = liveSourceFilesCount > 0;
     const exists = checkExists(dataDir);
     const sourceExists = checkExists(sourceDir);
     const vfpExeExists = checkExists(vfpExePath);
@@ -94,6 +207,15 @@ export async function GET() {
       enabledFiles,
       autoSync,
       autoSyncInterval,
+      autoVfpExtract,
+      autoVfpExtractInterval,
+      lastVfpExtractedAt,
+      uploadedSourceFilesCount: liveSourceFilesCount,
+      lastSourceUploadedAt,
+      lastUploadedByUserId,
+      lastUploadedByUserName,
+      lastUploadedByUserEmail,
+      hasSourceData,
       useVfpEngine,
       vfpExePath,
       prgPath,
@@ -124,12 +246,25 @@ export async function POST(request: NextRequest) {
 
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip") || "127.0.0.1";
     const body = await request.json();
-    const { dataDir, sourceDir, enabledFiles, autoSync, autoSyncInterval, useVfpEngine, vfpExePath, prgPath, userName, companyName, license, startupCommand } = body;
+    const { 
+      dataDir, 
+      sourceDir, 
+      enabledFiles, 
+      autoSync, 
+      autoSyncInterval, 
+      autoVfpExtract, 
+      autoVfpExtractInterval,
+      useVfpEngine, 
+      vfpExePath, 
+      prgPath, 
+      userName, 
+      companyName, 
+      license, 
+      startupCommand 
+    } = body;
 
     const updateFields: any = {};
     const existingConfig = await VfpConfig.findOne({ email: user.email });
-
-    const isLinuxServer = process.platform !== "win32";
 
     if (dataDir !== undefined) {
       updateFields.dataDir = dataDir ? dataDir.trim() : "";
@@ -160,6 +295,14 @@ export async function POST(request: NextRequest) {
 
     if (autoSyncInterval !== undefined) {
       updateFields.autoSyncInterval = Number(autoSyncInterval) || 10;
+    }
+
+    if (autoVfpExtract !== undefined) {
+      updateFields.autoVfpExtract = Boolean(autoVfpExtract);
+    }
+
+    if (autoVfpExtractInterval !== undefined) {
+      updateFields.autoVfpExtractInterval = Number(autoVfpExtractInterval) || 10;
     }
 
     if (useVfpEngine !== undefined) {

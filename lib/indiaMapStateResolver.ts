@@ -310,15 +310,18 @@ export function isRealParty(
 export interface OrdnoPartyInfo {
     name: string;
     city: string | null;
+    asm: string | null;
 }
 
 export async function buildOrdnoToPartyMap(): Promise<Map<string, OrdnoPartyInfo>> {
-    const rows = await OrderParty.find({}, { ORDNO: 1, PARNAM: 1, CITY: 1 }).lean();
+    const rows = await OrderParty.find({}, { ORDNO: 1, PARNAM: 1, CITY: 1, DSM: 1, SALESMAN: 1, SLM: 1, ASM: 1 }).lean();
     const map = new Map<string, OrdnoPartyInfo>();
     rows.forEach((r: any) => {
         if (!r.ORDNO) return;
         const city = r.CITY ? r.CITY.trim() : null;
-        map.set(r.ORDNO, { name: cleanPartyName(r.PARNAM, city), city });
+        // DSM is the primary MR/ASM field in VFP Order master; SALESMAN/SLM/ASM are fallbacks
+        const asm = (r.DSM || r.SALESMAN || r.SLM || r.ASM || "").toString().trim() || null;
+        map.set(r.ORDNO, { name: cleanPartyName(r.PARNAM, city), city, asm });
     });
     return map;
 }

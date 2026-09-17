@@ -50,19 +50,31 @@ export async function GET(req: NextRequest) {
 
             if (restriction.isMrRestricted) {
                 if (restriction.allowedCompanyCodes && restriction.allowedCompanyCodes.length > 0) {
-                    batchFilter.COMPANY = { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] };
+                    const compRegexes = restriction.allowedCompanyCodes.map((code: string) => new RegExp(`_${code}$|^${code}$`, "i"));
+                    batchFilter = combineFilters(batchFilter, {
+                        $or: [
+                            { _vfpTable: { $in: compRegexes } },
+                            { COMPANY: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } },
+                            { GCODE: { $in: [...restriction.allowedCompanyCodes, ...restriction.companyRegexes] } }
+                        ]
+                    });
                 } else if (restriction.allowedOrdnos && restriction.allowedOrdnos.length > 0) {
-                    batchFilter.CODEP = { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] };
+                    batchFilter = combineFilters(batchFilter, { CODEP: { $in: [...restriction.allowedOrdnos, ...restriction.ordnoRegexes] } });
                 } else {
-                    batchFilter.CODEP = "NONE_MATCH";
+                    batchFilter = combineFilters(batchFilter, { CODEP: "NONE_MATCH" });
                 }
             }
 
             if (company) {
-                batchFilter.$or = [
-                    { COMPANY: company },
-                    { GCODE: company },
-                ];
+                const compRegex = new RegExp(`_${company}$|^${company}$`, "i");
+                batchFilter = combineFilters(batchFilter, {
+                    $or: [
+                        { _vfpTable: compRegex },
+                        { COMPANY: new RegExp(`^${company}$`, "i") },
+                        { GCODE: new RegExp(`^${company}$`, "i") },
+                        { companyCode: new RegExp(`^${company}$`, "i") }
+                    ]
+                });
             }
 
             if (search) {
@@ -76,15 +88,7 @@ export async function GET(req: NextRequest) {
                 if (isNum) {
                     searchConds.push({ CODE: Number(search) });
                 }
-                if (batchFilter.$or) {
-                    batchFilter.$and = [
-                        { $or: batchFilter.$or },
-                        { $or: searchConds }
-                    ];
-                    delete batchFilter.$or;
-                } else {
-                    batchFilter.$or = searchConds;
-                }
+                batchFilter = combineFilters(batchFilter, { $or: searchConds });
             }
 
             if (filter === "in_stock") {
@@ -224,7 +228,7 @@ export async function GET(req: NextRequest) {
                 if (isNum) {
                     searchConds.push({ CODE: Number(search) });
                 }
-                productFilter.$or = searchConds;
+                productFilter = combineFilters(productFilter, { $or: searchConds });
             }
 
             if (filter === "in_stock") {

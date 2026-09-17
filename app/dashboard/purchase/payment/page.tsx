@@ -236,6 +236,8 @@ function PurchasePaymentContent() {
         search: historySearch,
       });
       if (selectedCompany?._id) params.set("companyId", selectedCompany._id);
+      if (selectedFY?._id) params.set("fyId", selectedFY._id);
+      if (selectedFY?.fyCode) params.set("fyCode", selectedFY.fyCode);
 
       const res = await fetch(`/api/purchase/payment?${params.toString()}`);
       if (res.ok) {
@@ -250,7 +252,7 @@ function PurchasePaymentContent() {
     } finally {
       setLoading(false);
     }
-  }, [historyPage, historySearch, selectedCompany?._id]);
+  }, [historyPage, historySearch, selectedCompany?._id, selectedFY?._id, selectedFY?.fyCode]);
 
   // Initial Data Load
   useEffect(() => {

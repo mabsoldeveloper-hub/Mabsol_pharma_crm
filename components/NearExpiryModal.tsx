@@ -122,7 +122,7 @@ export default function NearExpiryModal({ isOpen, onClose }: NearExpiryModalProp
         } finally {
             setLoading(false);
         }
-    }, [isOpen, windowDays, pagination.page, pagination.limit, debouncedSearch, selectedCompany]);
+    }, [isOpen, windowDays, pagination.page, pagination.limit, debouncedSearch, selectedCompany, activeCompany, selectedFY]);
 
     useEffect(() => {
         fetchNearExpiryData();

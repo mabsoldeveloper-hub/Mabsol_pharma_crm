@@ -18,6 +18,8 @@ import {
   FaBuilding,
   FaUserCheck,
 } from "react-icons/fa";
+import { useFinancialYear } from "@/context/FinancialYearContext";
+import { useCompany } from "@/context/CompanyContext";
 
 interface UniversalModalProps {
   isOpen: boolean;
@@ -38,6 +40,8 @@ export default function UniversalKPIDetailsModal({
   url,
   companyId,
 }: UniversalModalProps) {
+  const { selectedFY } = useFinancialYear();
+  const { selectedCompany } = useCompany();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<any[]>([]);
   const [search, setSearch] = useState("");
@@ -53,17 +57,39 @@ export default function UniversalKPIDetailsModal({
 
     async function fetchData() {
       try {
+        const effectiveCompanyId = companyId || selectedCompany?._id;
+        const params = new URLSearchParams();
+        if (effectiveCompanyId) params.append("companyId", effectiveCompanyId);
+
+        if (selectedFY) {
+          if (selectedFY.isAll) {
+            params.append("fyId", "ALL");
+          } else if (selectedFY._id) {
+            params.append("fyId", selectedFY._id);
+            if (selectedFY.startDate && selectedFY.endDate) {
+              const s = new Date(selectedFY.startDate).toISOString().slice(0, 10);
+              const e = new Date(selectedFY.endDate).toISOString().slice(0, 10);
+              params.append("startDate", s);
+              params.append("endDate", e);
+            }
+          }
+        }
+        const qs = params.toString() ? `?${params.toString()}` : "";
+
         let endpoint = "";
         if (
           type === "purchases" ||
           type === "purchase_orders" ||
           type === "purchase_returns" ||
-          type === "payments" ||
-          type === "today_sales" ||
-          type === "monthly_sales" ||
-          type === "sales_returns"
+          type === "payments"
         ) {
-          endpoint = `/api/purchase/reports${companyId ? `?companyId=${companyId}` : ""}`;
+          endpoint = `/api/purchase/reports${qs}`;
+        } else if (type === "sales_returns") {
+          endpoint = `/api/reports/sales-return${qs}`;
+        } else if (type === "today_sales") {
+          endpoint = `/api/sales/invoice?type=today${effectiveCompanyId ? `&companyId=${effectiveCompanyId}` : ""}`;
+        } else if (type === "monthly_sales") {
+          endpoint = `/api/sales/invoice?type=monthly${effectiveCompanyId ? `&companyId=${effectiveCompanyId}` : ""}`;
         } else if (type === "customers" || type === "active_customers") {
           endpoint = "/api/customers";
         } else if (type === "products") {
@@ -86,6 +112,10 @@ export default function UniversalKPIDetailsModal({
               setItems(json.returns || []);
             } else if (type === "payments") {
               setItems(json.payments || []);
+            } else if (type === "sales_returns") {
+              setItems(json.returns || json.invoices || []);
+            } else if (type === "today_sales" || type === "monthly_sales") {
+              setItems(json.invoices || []);
             } else if (type === "customers") {
               setItems(Array.isArray(json) ? json : json.customers || []);
             } else if (type === "active_customers") {
@@ -97,8 +127,6 @@ export default function UniversalKPIDetailsModal({
               setItems(json.users || (Array.isArray(json) ? json : []));
             } else if (type === "companies") {
               setItems(Array.isArray(json) ? json : json.companies || []);
-            } else if (type === "today_sales" || type === "monthly_sales" || type === "sales_returns") {
-              setItems(json.invoices || []);
             } else {
               setItems(Array.isArray(json) ? json : []);
             }
@@ -114,7 +142,7 @@ export default function UniversalKPIDetailsModal({
     }
 
     fetchData();
-  }, [isOpen, type, companyId]);
+  }, [isOpen, type, companyId, selectedFY, selectedCompany]);
 
   const filteredItems = useMemo(() => {
     const s = search.trim().toLowerCase();
