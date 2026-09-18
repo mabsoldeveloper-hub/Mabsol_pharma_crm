@@ -1077,6 +1077,15 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
         isVisible: true,
         order: 2,
       },
+      {
+        id: "Backup-Settings",
+        label: "Backup Settings",
+        href: "/admin/backup",
+        icon: "FaSlidersH",
+        permission: "settings.edit",
+        isVisible: true,
+        order: 2,
+      },
     ],
   },
 ];
